@@ -1,0 +1,6 @@
+<a href="{{ baseUrl }}/moderation.php?action=purgespammer&amp;uid={{ userID }}"
+   title="{{ lang.myShowcaseCommentButtonPurseSpammerDescription }}"
+   class="post-control post-control--purge-spammer">
+    {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}
+    <span class="post-control__text">{{ lang.myShowcaseCommentButtonPurseSpammer }}</span>
+</a>

@@ -17,40 +17,32 @@ namespace MyShowcase\System;
 
 use MyBB;
 
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\fieldGetObject;
-use function MyShowcase\Core\formatField;
-use function MyShowcase\Core\getTemplate;
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\templateGetCachedName;
+use MyBB\Stopwatch\Stopwatch;
+use MyShowcase\Plugin\RouterUrls;
+use Twig\Environment;
+
+use function MyBB\app;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\fieldGetObject;
+use function MyShowcase\Plugin\Functions\formatField;
+use function MyShowcase\Plugin\Functions\getTemplate;
+use function MyShowcase\Plugin\Functions\getTemplateTwig;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\templateGetCachedName;
 use function MyShowcase\SimpleRouter\url;
 
-use const MyShowcase\Core\DEBUG;
-use const MyShowcase\Core\ALL_UNLIMITED_VALUE;
-use const MyShowcase\Core\ATTACHMENT_THUMBNAIL_SMALL;
-use const MyShowcase\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\COMMENT_STATUS_VISIBLE;
-use const MyShowcase\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\ENTRY_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\ENTRY_STATUS_VISIBLE;
-use const MyShowcase\Core\URL_TYPE_ATTACHMENT_VIEW;
-use const MyShowcase\Core\URL_TYPE_COMMENT_DELETE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_RESTORE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_SOFT_DELETE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_UNAPPROVE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_UPDATE;
-use const MyShowcase\Core\URL_TYPE_COMMENT;
-use const MyShowcase\Core\URL_TYPE_ENTRY_APPROVE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_CREATE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_DELETE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_RESTORE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_SOFT_DELETE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_UNAPPROVE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_UPDATE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW;
-use const MyShowcase\Core\URL_TYPE_THUMBNAIL_VIEW;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\Plugin\Core\DEBUG;
+use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
+use const MyShowcase\Plugin\Core\ATTACHMENT_THUMBNAIL_SMALL;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 
 class Render
 {
@@ -157,6 +149,22 @@ class Render
         );
     }
 
+    public function templateGetTwig(string $templateName = '', array $context = []): string
+    {
+        $stopwatchPeriod = app(Stopwatch::class)->start($templateName, 'core.view.template');
+
+        /** @var Environment $twig */
+        $twig = app(Environment::class);
+
+        $result = $twig->createTemplate(
+            getTemplateTwig($templateName)
+        )->render($context);
+
+        $stopwatchPeriod->stop();
+
+        return $result;
+    }
+
     public function templateGetCacheStatus(string $templateName): string
     {
         return templateGetCachedName(
@@ -194,7 +202,17 @@ class Render
             $commentSlug = $commentData['comment_slug'];
         }
 
-        $userData = get_user($userID);
+        $templatesContext = [
+            'entrySubject' => $this->buildEntrySubject(),
+        ];
+
+
+        $templatesContext['userData'] = $userData = get_user($userID);
+
+        // user may be deleted/etc
+        if (empty($userData)) {
+            $templatesContext['userData'] = $userData = [];
+        }
 
         $hookArguments = [
             'renderObject' => &$this,
@@ -215,7 +233,7 @@ class Render
 
         $extractVariables = [];
 
-        $entryID = $this->showcaseObject->entryID;
+        $templatesContext['entryID'] = $entryID = $this->showcaseObject->entryID;
 
         if ($postType === self::POST_TYPE_COMMENT) {
             $templatePrefix = 'pageViewCommentsComment';
@@ -223,45 +241,60 @@ class Render
             $templatePrefix = 'pageViewEntry';
         }
 
-        $entrySlug = $this->showcaseObject->entryData['entry_slug'];
+        $templatesContext['entrySlug'] = $this->showcaseObject->entryData['entry_slug'];
+
+        $templatesContext['entryUrl'] = url(
+            RouterUrls::EntryView,
+            [
+                'entry_slug' => $templatesContext['entrySlug'],
+                'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
+            ]
+        )->getRelativeUrl();
 
         if ($postType === self::POST_TYPE_COMMENT) {
-            $commentMessage = $this->showcaseObject->parseMessage($commentData['comment'], $this->parserOptions);
+            $templatesContext['commentSlug'] = $commentData['comment_slug'];
 
-            $commentID = (int)$commentData['comment_id'];
+            $templatesContext['commentMessage'] = $this->showcaseObject->parseMessage(
+                $commentData['comment'],
+                $this->parserOptions
+            );
+
+            $templatesContext['commentID'] = $commentID = (int)$commentData['comment_id'];
 
             $commentUrl = '';
 
             if (!$isPreview) {
-                $commentNumber = my_number_format($commentsCounter);
+                $templatesContext['commentNumber'] = my_number_format($commentsCounter);
 
-                $commentUrl = url(URL_TYPE_COMMENT, ['comment_slug' => $commentSlug])->getRelativeUrl();
+                $templatesContext['commentUrl'] = url(
+                    RouterUrls::Comment,
+                    ['comment_slug' => $commentSlug]
+                )->getRelativeUrl();
 
-                $commentUrl = eval($this->templateGet($templatePrefix . 'Url'));
+                $commentUrl = url(RouterUrls::Comment, ['comment_slug' => $commentSlug]
+                )->getRelativeUrl();
+
+                $templatesContext['commentUrl'] = $this->templateGetTwig($templatePrefix . 'Url', $templatesContext);
             }
         } else {
             $entryFields = $this->buildEntryFields();
 
-            $commentsNumber = my_number_format($this->showcaseObject->entryData['comments']);
+            $templatesContext['commentsNumber'] = my_number_format($this->showcaseObject->entryData['comments']);
 
-            $entryUrl = url(
-                URL_TYPE_ENTRY_VIEW,
-                [
-                    'entry_slug' => $entrySlug,
-                    'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
-                ]
-            )->getRelativeUrl();
+            $templatesContext['entryUrl'] = $this->templateGetTwig($templatePrefix . 'Url', $templatesContext);
 
-            $entryUrl = eval($this->templateGet($templatePrefix . 'Url'));
-
-            $entryAttachments = '';
+            $templatesContext['entryAttachments'] = '';
 
             if ($this->showcaseObject->config['attachments_allow_entries'] &&
                 $this->showcaseObject->userPermissions[UserPermissions::CanViewAttachments]) {
-                $entryAttachments = $this->entryBuildAttachments($entryFields, $postType, $commentSlug ?? '');
+                $templatesContext['entryAttachments'] = $this->entryBuildAttachments(
+                    $entryFields,
+                    $postType,
+                    $commentSlug ?? ''
+                );
             }
 
-            $entryFields = implode('', $entryFields);
+            $templatesContext['entryFields'] = implode('', $entryFields);
         }
 
         // todo, this should probably account for additional groups, but I just took it from post bit logic for now
@@ -271,13 +304,9 @@ class Render
             $groupPermissions = usergroup_permissions(1);
         }
 
-        if (empty($userData['username'])) {
-            $userData['username'] = $lang->guest;
-        }
+        $templatesContext['userProfileLinkPlain'] = get_profile_link($userID);
 
-        $userProfileLinkPlain = get_profile_link($userID);
-
-        $userName = htmlspecialchars_uni($userData['username']);
+        $userName = htmlspecialchars_uni($userData['username'] ?? $lang->guest);
 
         $userNameFormatted = format_name(
             $userName,
@@ -285,29 +314,29 @@ class Render
             $userData['displaygroup'] ?? 0
         );
 
-        $userProfileLink = build_profile_link($userNameFormatted, $userID);
+        $templatesContext['userProfileLink'] = build_profile_link($userNameFormatted, $userID);
 
-        $userAvatar = $userStars = $userGroupImage = $userDetailsReputationLink = $userDetailsWarningLevel = $userSignature = '';
+        $templatesContext['userAvatar'] = $templatesContext['userStars'] = $templatesContext['userGroupImage'] = $userDetailsReputationLink = $userDetailsWarningLevel = $templatesContext['userSignature'] = '';
 
         if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_avatars_entries'] ||
             $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_avatars_comments']) {
             if (isset($userData['avatar']) && isset($mybb->user['showavatars']) && !empty($mybb->user['showavatars']) || !$currentUserID) {
-                $userAvatar = format_avatar(
+                $templatesContext['userAvatar'] = $userAvatar = format_avatar(
                     $userData['avatar'],
                     $userData['avatardimensions'],
                     $this->showcaseObject->maximumAvatarSize
                 );
-
-                $userAvatarImage = $userAvatar['image'] ?? '';
-
-                $userAvatarWidthHeight = $userAvatar['width_height'] ?? '';
-
-                $userAvatar = eval($this->templateGet($templatePrefix . 'UserAvatar'));
+                /*
+                                $templatesContext['userAvatar'] = $this->templateGetTwig($templatePrefix . 'UserAvatar', [
+                                    'userProfileLinkPlain' => $templatesContext['userProfileLinkPlain'],
+                                    'userAvatar' => $userAvatar,
+                                    'userData' => $userData,
+                                ]);*/
             }
         }
 
         if (!empty($groupPermissions['usertitle']) && empty($userData['usertitle'])) {
-            $userData['usertitle'] = $groupPermissions['usertitle'];
+            $userData['usertitle'] = $groupPermissions['usertitle'] ?? '';
         } elseif (empty($groupPermissions['usertitle']) && ($userTitlesCache = $this->cacheGetUserTitles())) {
             foreach ($userTitlesCache as $postNumber => $titleinfo) {
                 if ($userData['postnum'] >= $postNumber) {
@@ -324,7 +353,7 @@ class Render
             }
         }
 
-        $userTitle = htmlspecialchars_uni($userData['usertitle']);
+        $templatesContext['userTitle'] = htmlspecialchars_uni($userData['usertitle']);
 
         if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_stars_entries'] ||
             $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_stars_comments']) {
@@ -332,10 +361,12 @@ class Render
                 $groupStarImage = str_replace('{theme}', $theme['imgdir'], $groupPermissions['starimage']);
 
                 for ($i = 0; $i < $groupPermissions['stars']; ++$i) {
-                    $userStars .= eval($this->templateGet($templatePrefix . 'UserStar', false));
+                    $templatesContext['userStars'] = $this->templateGetTwig('UserStar', [
+                        'groupStarImage' => $groupStarImage,
+                    ]);
                 }
 
-                $userStars .= '<br />';
+                $templatesContext['userStars'] .= '<br />';
             }
         }
 
@@ -348,21 +379,28 @@ class Render
 
                 $groupTitle = $groupPermissions['title'];
 
-                $userGroupImage = eval($this->templateGet($templatePrefix . 'UserGroupImage'));
+                $templatesContext['userGroupImage'] = $this->templateGetTwig('UserGroupImage', [
+                    'groupImage' => $groupImage,
+                    'groupTitle' => $groupTitle,
+                ]);
             }
         }
 
-        $userOnlineStatus = '';
+        $templatesContext['userOnlineStatus'] = '';
 
         if (isset($userData['lastactive'])) {
             if ($userData['lastactive'] > TIME_NOW - $mybb->settings['wolcutoff'] &&
                 (empty($userData['invisible']) || !empty($mybb->usergroup['canviewwolinvis'])) &&
                 (int)$userData['lastvisit'] !== (int)$userData['lastactive']) {
-                $userOnlineStatus = eval($this->templateGet($templatePrefix . 'UserOnlineStatusOnline'));
+                $templatesContext['userOnlineStatus'] = $this->templateGetTwig('UserOnlineStatusOnline', [
+                    'baseUrl' => $baseUrl,
+                ]);
             } elseif (!empty($userData['away']) && !empty($mybb->settings['allowaway'])) {
-                $userOnlineStatus = eval($this->templateGet($templatePrefix . 'UserOnlineStatusAway'));
+                $templatesContext['userOnlineStatus'] = $this->templateGetTwig('UserOnlineStatusAway', [
+                    'userProfileLinkPlain' => $userProfileLinkPlain,
+                ]);
             } else {
-                $userOnlineStatus = eval($this->templateGet($templatePrefix . 'UserOnlineStatusOffline'));
+                $templatesContext['userOnlineStatus'] = $this->templateGetTwig('UserOnlineStatusOffline');
             }
         }
 
@@ -378,32 +416,38 @@ class Render
 
         $userCanSoftDeleteComments = $userID === $currentUserID && $this->showcaseObject->userPermissions[UserPermissions::CanDeleteComments];
 
-        $buttonEdit = '';
+        $templatesContext['buttonEdit'] = '';
 
         if (!$isPreview && $postType === self::POST_TYPE_ENTRY && ($moderatorCanManageEntries || $userCanUpdateEntries)) {
             $editUrl = url(
-                URL_TYPE_ENTRY_UPDATE,
+                RouterUrls::EntryUpdate,
                 [
-                    'entry_slug' => $entrySlug,
+                    'entry_slug' => $templatesContext['entrySlug'],
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                 ]
             )->getRelativeUrl();
 
-            $buttonEdit = eval($this->templateGet($templatePrefix . 'ButtonEdit'));
+            $templatesContext['buttonEdit'] = $this->templateGetTwig($templatePrefix . 'ButtonEdit', [
+                'editUrl' => $editUrl,
+                'entrySlug' => $templatesContext['entrySlug'],
+            ]);
         } elseif (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanUpdateComments)) {
             $editUrl = url(
-                URL_TYPE_COMMENT_UPDATE,
+                RouterUrls::CommentUpdate,
                 [
-                    'entry_slug' => $entrySlug,
+                    'entry_slug' => $templatesContext['entrySlug'],
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     'comment_slug' => $commentSlug
                 ]
             )->getRelativeUrl();
 
-            $buttonEdit = eval($this->templateGet($templatePrefix . 'ButtonEdit'));
+            $templatesContext['buttonEdit'] = $this->templateGetTwig($templatePrefix . 'ButtonEdit', [
+                'editUrl' => $editUrl,
+                'commentSlug' => $commentSlug,
+            ]);
         }
 
-        $buttonWarn = '';
+        $templatesContext['buttonWarn'] = '';
 
         if (!empty($mybb->settings['enablewarningsystem']) &&
             !empty($groupPermissions['canreceivewarnings']) &&
@@ -424,7 +468,13 @@ class Render
 
             // If we can warn them, it's not the same person, and we're in a PM or a post.
             if (!empty($mybb->usergroup['canwarnusers']) && $userID !== $currentUserID) {
-                $buttonWarn = eval($this->templateGet($templatePrefix . 'ButtonWarn'));
+                $templatesContext['buttonWarn'] = $this->templateGetTwig($templatePrefix . 'ButtonWarn', [
+                    'baseUrl' => $this->showcaseObject->urlBase,
+                    'userID' => $userID,
+                    'showcaseID' => $this->showcaseObject->showcase_id,
+                    'entrySlug' => $templatesContext['entrySlug'],
+                    'commentSlug' => $commentSlug,
+                ]);
 
                 $warningUrl = "warnings.php?uid={$userID}";
             } else {
@@ -433,7 +483,10 @@ class Render
 
             if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_group_image_entries'] ||
                 $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_group_image_comments']) {
-                $userDetailsWarningLevel = eval($this->templateGet($templatePrefix . 'UserWarningLevel'));
+                $userDetailsWarningLevel = $this->templateGetTwig($templatePrefix . 'UserWarningLevel', [
+                    'warningUrl' => $warningUrl,
+                    'warningLevel' => $warningLevel,
+                ]);
             }
         }
 
@@ -462,45 +515,58 @@ class Render
                 $signatureParserOptions['allow_imgcode'] = false;
             }
 
-            $userSignature = $this->showcaseObject->parseMessage(
-                $userData['signature'],
-                $signatureParserOptions
-            );
-
-            $userSignature = eval($this->templateGet($templatePrefix . 'UserSignature'));
+            $templatesContext['userSignature'] = $this->templateGetTwig($templatePrefix . 'UserSignature', [
+                'userSignature' => $this->showcaseObject->parseMessage(
+                    $userData['signature'],
+                    $signatureParserOptions
+                ),
+                'signatureParserOptions' => $signatureParserOptions,
+                'config' => $this->showcaseObject->config,
+            ]);
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $date = my_date('relative', $this->showcaseObject->entryData['dateline']);
+            $templatesContext['date'] = $this->showcaseObject->entryData['dateline'];
         } else {
-            $date = my_date('relative', $commentData['dateline']);
+            $templatesContext['date'] = $commentData['dateline'];
         }
-
-        $approvedByMessage = '';
 
         if ($moderatorCanManageEntries && (
-                $postType === self::POST_TYPE_ENTRY && !empty($this->showcaseObject->entryData['moderator_user_id']) ||
-                $postType === self::POST_TYPE_COMMENT && !empty($commentData['moderator_user_id'])
+                $postType === self::POST_TYPE_ENTRY && !empty($this->showcaseObject->entryData['edit_user_id']) ||
+                $postType === self::POST_TYPE_COMMENT && !empty($commentData['edit_user_id'])
             )) {
-            $moderatorUserData = get_user(
-                $postType === self::POST_TYPE_ENTRY ? $this->showcaseObject->entryData['moderator_user_id'] : $commentData['moderator_user_id']
+            $editUserData = get_user(
+                $postType === self::POST_TYPE_ENTRY ? $this->showcaseObject->entryData['edit_user_id'] : $commentData['edit_user_id']
             );
 
-            $moderatorUserProfileLink = build_profile_link(
-                $moderatorUserData['username'],
-                $moderatorUserData['uid']
+            $templatesContext['editedBy'] = $this->templateGetTwig(
+                $templatePrefix . 'EditedBy',
+                [
+                    'editUserProfileLink' => build_profile_link(
+                        $editUserData['username'],
+                        $editUserData['uid']
+                    ),
+                    'entrySlug' => $entrySlug,
+                    'commentSlug' => $commentSlug,
+                    'myShowcaseEntryEditedBy' => $myShowcaseEntryEditedBy, // todo ?
+                    'myShowcaseCommentEditedBy' => $myShowcaseCommentEditedBy, // todo ?
+                ]
             );
-
-            $approvedByMessage = eval($this->templateGet($templatePrefix . 'ModeratedBy'));
         }
 
-        $buttonEmail = '';
+        $templatesContext['buttonEmail'] = '';
 
         if (empty($userData['hideemail']) && $userID !== $currentUserID && !empty($mybb->usergroup['cansendemail'])) {
-            $buttonEmail = eval($this->templateGet($templatePrefix . 'ButtonEmail'));
+            $templatesContext['buttonEmail'] = $this->templateGetTwig(
+                $templatePrefix . 'ButtonEmail',
+                [
+                    'baseUrl' => $this->showcaseObject->urlBase,
+                    'userID' => $userID,
+                ]
+            );
         }
 
-        $buttonPrivateMessage = '';
+        $templatesContext['buttonPrivateMessage'] = '';
 
         if (!empty($mybb->settings['enablepms']) &&
             $userID !== $currentUserID &&
@@ -512,27 +578,36 @@ class Render
                         ',' . $currentUserID . ','
                     ) === false) ||
                 !empty($mybb->usergroup['canoverridepm']))) {
-            $buttonPrivateMessage = eval(
-            $this->templateGet(
-                $templatePrefix . 'ButtonPrivateMessage'
-            )
+            $templatesContext['buttonPrivateMessage'] = $this->templateGetTwig(
+                $templatePrefix . 'ButtonPrivateMessage',
+                [
+                    'baseUrl' => $this->showcaseObject->urlBase,
+                    'userID' => $userID,
+                ]
             );
         }
 
-        $buttonWebsite = '';
+        $templatesContext['buttonWebsite'] = '';
 
         if (!empty($userData['website']) &&
             !is_member($mybb->settings['hidewebsite']) &&
             !empty($groupPermissions['canchangewebsite'])) {
             $userWebsite = htmlspecialchars_uni($userData['website']);
 
-            $buttonWebsite = eval($this->templateGet($templatePrefix . 'ButtonWebsite'));
+            $templatesContext['buttonWebsite'] = $this->templateGetTwig($templatePrefix . 'ButtonWebsite', [
+                'userWebsite' => $userWebsite,
+            ]);
         }
 
-        $buttonPurgeSpammer = '';
+        $templatesContext['buttonPurgeSpammer'] = '';
 
-        if (!$isPreview && $userID && purgespammer_show($userData['postnum'], $userData['usergroup'], $userID)) {
-            $buttonPurgeSpammer = eval($this->templateGet($templatePrefix . 'ButtonPurgeSpammer'));
+        require_once MYBB_ROOT . 'inc/functions_user.php';
+
+        if (!$isPreview && $userID && purgespammer_show($userData['postnum'] ?? 0, $userData['usergroup'], $userID)) {
+            $templatesContext['buttonPurgeSpammer'] = $this->templateGetTwig($templatePrefix . 'ButtonPurgeSpammer', [
+                'baseUrl' => $this->showcaseObject->urlBase,
+                'userID' => $userID,
+            ]);
         }
 
         global $db;
@@ -550,11 +625,15 @@ class Render
 
         $userPermissions = user_permissions($userID);
 
-        $buttonReport = '';
+        $templatesContext['buttonReport'] = '';
 
         if ($postType === self::POST_TYPE_ENTRY) {
             if (!in_array($currentUserID, $reportUserIDs) && !empty($userPermissions['canbereported'])) {
-                $buttonReport = eval($this->templateGet($templatePrefix . 'ButtonReport'));
+                $templatesContext['buttonReport'] = $this->templateGetTwig($templatePrefix . 'ButtonReport', [
+                    'entrySlug' => $entrySlug,
+                    'commentSlug' => $commentSlug,
+                    'showcaseID' => $showcaseID,
+                ]);
             }
 
             $postStatus = (int)$this->showcaseObject->entryData['status'];
@@ -562,125 +641,158 @@ class Render
             $postStatus = (int)$commentData['status'];
         }
 
-        $buttonApprove = $buttonUnpprove = $buttonRestore = $buttonSoftDelete = $buttonDelete = '';
+        $templatesContext['buttonApprove'] = $templatesContext['buttonUnpprove'] = $templatesContext['buttonRestore'] = $templatesContext['buttonSoftDelete'] = $templatesContext['buttonDelete'] = '';
 
         if (!$isPreview && $postType === self::POST_TYPE_ENTRY && ($moderatorCanManageEntries || $userCanSoftDeleteEntries)) {
             if ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_PENDING_APPROVAL) {
                 $approveUrl = url(
-                    URL_TYPE_ENTRY_APPROVE,
+                    RouterUrls::EntryApprove,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     ]
                 )->getRelativeUrl();
 
-                $buttonApprove = eval($this->templateGet($templatePrefix . 'ButtonApprove'));
+                $templatesContext['buttonApprove'] = $this->templateGetTwig($templatePrefix . 'ButtonApprove', [
+                    'approveUrl' => $approveUrl,
+                    'entrySlug' => $entrySlug,
+                ]);
             } elseif ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_VISIBLE) {
                 $unapproveUrl = url(
-                    URL_TYPE_ENTRY_UNAPPROVE,
+                    RouterUrls::EntryUnapprove,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     ]
                 )->getRelativeUrl();
 
-                $buttonUnpprove = eval($this->templateGet($templatePrefix . 'ButtonUnapprove'));
+                $templatesContext['buttonUnpprove'] = $this->templateGetTwig($templatePrefix . 'ButtonUnapprove', [
+                    'entrySlug' => $entrySlug,
+                    'unapproveUrl' => $unapproveUrl,
+                ]);
             }
 
             if ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_SOFT_DELETED) {
                 $restoreUrl = url(
-                    URL_TYPE_ENTRY_RESTORE,
+                    RouterUrls::EntryRestore,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     ]
                 )->getRelativeUrl();
 
-                $buttonRestore = eval($this->templateGet($templatePrefix . 'ButtonRestore'));
+                $templatesContext['buttonRestore'] = $this->templateGetTwig($templatePrefix . 'ButtonRestore', [
+                    'entrySlug' => $entrySlug,
+                    'restoreUrl' => $restoreUrl,
+                ]);
             } elseif ($postStatus === ENTRY_STATUS_VISIBLE && $userCanSoftDeleteEntries) {
                 $softDeleteUrl = url(
-                    URL_TYPE_ENTRY_SOFT_DELETE,
+                    RouterUrls::EntrySoftDelete,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     ]
                 )->getRelativeUrl();
 
-                $buttonSoftDelete = eval($this->templateGet($templatePrefix . 'ButtonSoftDelete'));
+                $templatesContext['buttonSoftDelete'] = $this->templateGetTwig($templatePrefix . 'ButtonSoftDelete', [
+                    'commentSlug' => $commentSlug,
+                    'softDeleteUrl' => $softDeleteUrl,
+                    'entrySlug' => $entrySlug,
+                ]);
             }
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
             if ($moderatorCanManageEntries) {
                 $deleteUrl = url(
-                    URL_TYPE_ENTRY_DELETE,
+                    RouterUrls::EntryDelete,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                     ]
                 )->getRelativeUrl();
 
-                $buttonDelete = eval($this->templateGet($templatePrefix . 'ButtonDelete'));
+                $templatesContext['buttonDelete'] = $this->templateGetTwig($templatePrefix . 'ButtonDelete', [
+                    'entrySlug' => $entrySlug,
+                    'deleteUrl' => $deleteUrl,
+                ]);
             }
         }
 
         if (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
             if ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_PENDING_APPROVAL) {
                 $approveUrl = $this->showcaseObject->urlGetCommentApprove(
-                    $entrySlug,
+                    $templatesContext['entrySlug'],
                     $this->showcaseObject->entryData['entry_slug_custom'],
                     $commentSlug
                 );
 
-                $buttonApprove = eval($this->templateGet($templatePrefix . 'ButtonApprove'));
+                $templatesContext['buttonApprove'] = $this->templateGetTwig($templatePrefix . 'ButtonApprove', [
+                    'approveUrl' => $approveUrl,
+                    'deleteUrl' => $deleteUrl,
+                    'commentSlug' => $commentSlug,
+                ]);
             } elseif ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_VISIBLE) {
                 $unapproveUrl = url(
-                    URL_TYPE_COMMENT_UNAPPROVE,
+                    RouterUrls::CommentUnapprove,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 )->getRelativeUrl();
 
-                $buttonUnpprove = eval($this->templateGet($templatePrefix . 'ButtonUnapprove'));
+                $templatesContext['buttonUnpprove'] = $this->templateGetTwig($templatePrefix . 'ButtonUnapprove', [
+                    'commentSlug' => $commentSlug,
+                    'unapproveUrl' => $unapproveUrl,
+                ]);
             }
 
             if ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_SOFT_DELETED) {
                 $restoreUrl = url(
-                    URL_TYPE_COMMENT_RESTORE,
+                    RouterUrls::CommentRestore,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 )->getRelativeUrl();
 
-                $buttonRestore = eval($this->templateGet($templatePrefix . 'ButtonRestore'));
+                $templatesContext['buttonRestore'] = $this->templateGetTwig($templatePrefix . 'ButtonRestore', [
+                    'commentSlug' => $commentSlug,
+                    'restoreUrl' => $restoreUrl,
+                ]);
             } elseif ($postStatus === COMMENT_STATUS_VISIBLE) {
                 $softDeleteUrl = url(
-                    URL_TYPE_COMMENT_SOFT_DELETE,
+                    RouterUrls::CommentSoftDelete,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 )->getRelativeUrl();
 
-                $buttonSoftDelete = eval($this->templateGet($templatePrefix . 'ButtonSoftDelete'));
+                $templatesContext['buttonSoftDelete'] = $this->templateGetTwig($templatePrefix . 'ButtonSoftDelete', [
+                    'commentSlug' => $commentSlug,
+                    'softDeleteUrl' => $softDeleteUrl,
+                    'entrySlug' => $entrySlug,
+                ]);
             }
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
             if ($moderatorCanManageComments) {
                 $deleteUrl = url(
-                    URL_TYPE_COMMENT_DELETE,
+                    RouterUrls::CommentDelete,
                     [
-                        'entry_slug' => $entrySlug,
+                        'entry_slug' => $templatesContext['entrySlug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 )->getRelativeUrl();
 
-                $buttonDelete = eval($this->templateGet($templatePrefix . 'ButtonDelete'));
+                $templatesContext['buttonDelete'] = $this->templateGetTwig($templatePrefix . 'ButtonDelete', [
+                    'commentSlug' => $commentSlug,
+                    'deleteUrl' => $deleteUrl,
+                ]);
             }
         }
 
@@ -690,7 +802,7 @@ class Render
 
         extract($hookArguments['extractVariables']);
 
-        $userDetails = '';
+        $templatesContext['userDetails'] = '';
 
         if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_user_details_entries'] ||
             $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_user_details_comments']) {
@@ -703,26 +815,34 @@ class Render
             if (!empty($groupPermissions['usereputationsystem']) && !empty($mybb->settings['enablereputation'])) {
                 $userReputation = get_reputation($userData['reputation'], $userID);
 
-                $userDetailsReputationLink = eval($this->templateGet($templatePrefix . 'UserReputation'));
+                $userDetailsReputationLink = $this->templateGetTwig($templatePrefix . 'UserReputation', [
+                    'userReputation' => $userReputation,
+                ]);
             }
 
             if ($userID) {
-                $userDetails = eval($this->templateGet($templatePrefix . 'UserDetails'));
+                $templatesContext['userDetails'] = $this->templateGetTwig($templatePrefix . 'UserDetails', [
+                    'userPostNumber' => $userPostNumber,
+                    'userThreadNumber' => $userThreadNumber,
+                    'userRegistrationDate' => $userRegistrationDate,
+                    'userDetailsReputationLink' => $userDetailsReputationLink,
+                    'userDetailsWarningLevel' => $userDetailsWarningLevel,
+                ]);
             }
         }
 
-        $styleClass = '';
+        $templatesContext['styleClass'] = '';
 
         switch ($postStatus) {
             case COMMENT_STATUS_PENDING_APPROVAL:
-                $styleClass = 'unapproved_post';
+                $templatesContext['styleClass'] = 'unapproved_post';
                 break;
             case COMMENT_STATUS_SOFT_DELETED:
-                $styleClass = 'unapproved_post deleted_post';
+                $templatesContext['styleClass'] = 'unapproved_post deleted_post';
                 break;
         }
 
-        $deletedBit = $ignoredBit = $postVisibility = '';
+        $templatesContext['deletedBit'] = $templatesContext['ignoredBit'] = $templatesContext['postVisibility'] = '';
 
         if (!$isPreview && (
                 self::POST_TYPE_ENTRY && $postStatus === ENTRY_STATUS_SOFT_DELETED ||
@@ -734,9 +854,13 @@ class Render
                 $deletedMessage = $lang->sprintf($lang->myShowcaseCommentDeletedMessage, $userName);
             }
 
-            $deletedBit = eval($this->templateGet($templatePrefix . 'DeletedBit'));
+            $templatesContext['deletedBit'] = $this->templateGetTwig($templatePrefix . 'DeletedBit', [
+                'userProfileLink' => $userProfileLink,
+                'entrySlug' => $entrySlug,
+                'commentSlug' => $commentSlug,
+            ]);
 
-            $postVisibility = 'display: none;';
+            $templatesContext['postVisibility'] = 'display: none;';
         }
 
         // Is the user (not moderator) logged in and have unapproved posts?
@@ -752,28 +876,38 @@ class Render
                 ))) {
             $ignoredMessage = $lang->sprintf($lang->postbit_post_under_moderation, $userName);
 
-            $ignoredBit = eval($this->templateGet($templatePrefix . 'IgnoredBit'));
+            $templatesContext['ignoredBit'] = $this->templateGetTwig($templatePrefix . 'IgnoredBit', [
+                'baseUrl' => $this->showcaseObject->urlBase,
+                'entryUrl' => $entryUrl,
+                'commentSlug' => $commentSlug,
+                'ignoredMessage' => $ignoredMessage,
+            ]);
 
-            $postVisibility = 'display: none;';
+            $templatesContext['postVisibility'] = 'display: none;';
         }
 
         // Is this author on the ignore list of the current user? Hide this post
         if (!$isPreview && is_array($currentUserIgnoredUsers) &&
             $userID &&
             isset($currentUserIgnoredUsers[$userID]) &&
-            empty($deletedBit)) {
+            empty($templatesContext['deletedBit'])) {
             $ignoredMessage = $lang->sprintf(
                 $lang->myShowcaseEntryIgnoredUserMessage,
                 $userName,
                 $mybb->settings['bburl']
             );
 
-            $ignoredBit = eval($this->templateGet($templatePrefix . 'IgnoredBit'));
+            $templatesContext['ignoredBit'] = $this->templateGetTwig($templatePrefix . 'IgnoredBit', [
+                'baseUrl' => $this->showcaseObject->urlBase,
+                'entryUrl' => $entryUrl,
+                'commentSlug' => $commentSlug,
+                'ignoredMessage' => $ignoredMessage,
+            ]);
 
-            $postVisibility = 'display: none;';
+            $templatesContext['postVisibility'] = 'display: none;';
         }
 
-        return eval($this->templateGet($templatePrefix));
+        return $this->templateGetTwig($templatePrefix, $templatesContext);
     }
 
     public function buildEntry(bool $isPreview = false): string
@@ -918,7 +1052,9 @@ class Render
                                             $imageAlternativeText = $lang->myShowcaseEntryFieldValueCheckBoxNo;
                                         }
 
-                                        $entryFieldValueImage = eval($this->templateGet('pageViewDataFieldCheckBoxImage'));
+                                        $entryFieldValueImage = eval($this->templateGet('pageViewDataFieldCheckBoxImage', [
+            'imageName' => $imageName,
+            ]));
                                     }
 
                                     $entryFieldsList[$fieldKey] = eval($this->templateGet('pageViewDataFieldCheckBox'));
@@ -1005,9 +1141,11 @@ class Render
 
         $attachedFiles = $attachedThumbnails = $attachedImages = '';
 
+        $templatesContextAttachment = [];
+
         foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-            $attachmentUrl = url(
-                URL_TYPE_ATTACHMENT_VIEW,
+            $templatesContextAttachment['attachmentUrl'] = url(
+                RouterUrls::AttachmentView,
                 [
                     'entry_slug' => $entrySlug,
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
@@ -1016,10 +1154,10 @@ class Render
             )->getRelativeUrl();
 
             if (empty($attachmentData['thumbnail_name'])) {
-                $attachmentThumbnailUrl = $attachmentUrl;
+                $templatesContextAttachment['attachmentThumbnailUrl'] = $templatesContextAttachment['attachmentUrl'];
             } else {
-                $attachmentThumbnailUrl = url(
-                    URL_TYPE_THUMBNAIL_VIEW,
+                $templatesContextAttachment['attachmentThumbnailUrl'] = url(
+                    RouterUrls::ThumbnailView,
                     [
                         'entry_slug' => $entrySlug,
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
@@ -1029,23 +1167,25 @@ class Render
             }
 
             if ($attachmentData['status']) { // There is an attachment thats status!
-                $attachmentFileName = htmlspecialchars_uni($attachmentData['attachment_name']);
+                $templatesContextAttachment['attachmentFileName'] = htmlspecialchars_uni(
+                    $attachmentData['attachment_name']
+                );
 
-                $attachmentFileSize = get_friendly_size($attachmentData['file_size']);
+                $templatesContextAttachment['attachmentFileSize'] = get_friendly_size($attachmentData['file_size']);
 
                 $attachmentExtension = get_extension($attachmentData['attachment_name']);
 
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
 
-                $attachmentIcon = get_attachment_icon($attachmentExtension);
+                $templatesContextAttachment['attachmentIcon'] = get_attachment_icon($attachmentExtension);
 
-                $attachmentDownloads = my_number_format($attachmentData['downloads']);
+                $templatesContextAttachment['attachmentDownloads'] = my_number_format($attachmentData['downloads']);
 
                 if (!$attachmentData['dateline']) {
                     $attachmentData['dateline'] = $this->showcaseObject->entryData['dateline'];
                 }
 
-                $attachmentDate = my_date('normal', $attachmentData['dateline']);
+                $templatesContextAttachment['attachmentDate'] = my_date('normal', $attachmentData['dateline']);
 
                 // Support for [attachment=attachment_hash] code
                 $attachmentInField = false;
@@ -1063,14 +1203,20 @@ class Render
                         if ((int)$attachmentData['thumbnail_dimensions'] !== ATTACHMENT_THUMBNAIL_SMALL &&
                             $attachmentData['thumbnail_name'] !== '' &&
                             $this->showcaseObject->attachmentsDisplayThumbnails) {
-                            $attachmentBit = eval($this->templateGet('pageViewEntryAttachmentsThumbnailsItem'));
+                            $attachmentBit = $this->templateGetTwig(
+                                'pageViewEntryAttachmentsThumbnailsItem',
+                                $templatesContextAttachment
+                            );
                         } elseif ((((int)$attachmentData['thumbnail_dimensions'] === ATTACHMENT_THUMBNAIL_SMALL &&
                                     $this->showcaseObject->userPermissions[UserPermissions::CanDownloadAttachments]) ||
                                 $this->showcaseObject->attachmentsDisplayFullSizeImage) &&
                             $isImageAttachment) {
                             $attachmentBit = eval($this->templateGet('pageViewEntryAttachmentsImagesItem'));
                         } else {
-                            $attachmentBit = eval($this->templateGet('pageViewEntryAttachmentsFilesItem'));
+                            $attachmentBit = $this->templateGetTwig(
+                                'pageViewEntryAttachmentsFilesItem',
+                                $templatesContextAttachment
+                            );
                         }
 
                         $fieldValue = preg_replace(
@@ -1088,7 +1234,10 @@ class Render
                     // Show as thumbnail IF image is big && thumbnail exists && setting=='thumb'
                     // Show as full size image IF setting=='fullsize' || (image is small && permissions allow)
                     // Show as download for all other cases
-                    $attachedThumbnails .= eval($this->templateGet('pageViewEntryAttachmentsThumbnailsItem'));
+                    $attachedThumbnails .= $this->templateGetTwig(
+                        'pageViewEntryAttachmentsThumbnailsItem',
+                        $templatesContextAttachment
+                    );
 
                     if ($thumbnailsCount === $this->showcaseObject->config['attachments_grouping']) {
                         $attachedThumbnails .= '<br />';
@@ -1104,7 +1253,10 @@ class Render
                     if ($this->showcaseObject->userPermissions[UserPermissions::CanDownloadAttachments]) {
                         $attachedImages .= eval($this->templateGet('pageViewEntryAttachmentsImagesItem'));
                     } else {
-                        $attachedThumbnails .= eval($this->templateGet('pageViewEntryAttachmentsThumbnailsItem'));
+                        $attachedThumbnails .= $this->templateGetTwig(
+                            'pageViewEntryAttachmentsThumbnailsItem',
+                            $templatesContextAttachment
+                        );
 
                         if ($thumbnailsCount === $this->showcaseObject->config['attachments_grouping']) {
                             $attachedThumbnails .= '<br />';
@@ -1115,7 +1267,10 @@ class Render
                         ++$thumbnailsCount;
                     }
                 } elseif (!$attachmentInField) {
-                    $attachedFiles .= eval($this->templateGet('pageViewEntryAttachmentsFilesItem'));
+                    $attachedFiles .= $this->templateGetTwig(
+                        'pageViewEntryAttachmentsFilesItem',
+                        $templatesContextAttachment
+                    );
                 }
             } else {
                 ++$unapprovedCount;
@@ -1132,23 +1287,37 @@ class Render
                 );
             }
 
+            $attachedFiles .= $this->templateGetTwig('pageViewEntryAttachmentsFilesItemUnapproved', [
+                'unapprovedMessage' => $unapprovedMessage,
+            ]);
+
             $attachedFiles .= eval($this->templateGet('pageViewEntryAttachmentsFilesItemUnapproved'));
         }
 
+        $templatesContext = [];
+
         if ($attachedFiles) {
-            $attachedFiles = eval($this->templateGet('pageViewEntryAttachmentsFiles'));
+            $attachedFiles = $this->templateGetTwig('pageViewEntryAttachmentsFiles', [
+                'attachedFiles' => $attachedFiles,
+            ]);
+
+            $templatesContext['attachedFiles'] = $attachedFiles;
         }
 
         if ($attachedThumbnails) {
             $attachedThumbnails = eval($this->templateGet('pageViewEntryAttachmentsThumbnails'));
+
+            $templatesContext['attachedThumbnails'] = $attachedThumbnails;
         }
 
         if ($attachedImages) {
             $attachedImages = eval($this->templateGet('pageViewEntryAttachmentsImages'));
+
+            $templatesContext['attachedImages'] = $attachedImages;
         }
 
         if ($attachedThumbnails || $attachedImages || $attachedFiles) {
-            return eval($this->templateGet('pageViewEntryAttachments'));
+            return $this->templateGetTwig('pageViewEntryAttachments', $templatesContext);
         }
 
         return '';
@@ -1181,11 +1350,36 @@ class Render
             $version = TIME_NOW;
         }
 
+        $myDropzoneSettingMaximumFileSize = 0;
+
+        $myDropzoneSettingAllowedMimeFileTypes = [];
+
+        array_map(
+            function ($attachmentType) use (
+                &$myDropzoneSettingMaximumFileSize,
+                &$myDropzoneSettingAllowedMimeFileTypes
+            ): void {
+                if (is_member($attachmentType['allowed_groups'])) {
+                    $myDropzoneSettingMaximumFileSize = max(
+                        $attachmentType['maximum_size'],
+                        $myDropzoneSettingMaximumFileSize
+                    );
+
+                    $myDropzoneSettingAllowedMimeFileTypes[] = $attachmentType['mime_type'];
+
+                    $myDropzoneSettingAllowedMimeFileTypes[] = $attachmentType['file_extension'];
+                }
+            },
+            cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcaseObject->showcase_id]
+        );
+
+        $myDropzoneSettingAllowedMimeFileTypes = implode(',', $myDropzoneSettingAllowedMimeFileTypes);
+
         $entrySlug = $this->showcaseObject->entryData['entry_slug'];
 
         if ($isEditPage) {
             $createUpdateUrl = url(
-                URL_TYPE_ENTRY_UPDATE,
+                RouterUrls::EntryUpdate,
                 [
                     'entry_slug' => $entrySlug,
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
@@ -1194,7 +1388,7 @@ class Render
             )->getRelativeUrl();
         } else {
             $createUpdateUrl = url(
-                URL_TYPE_ENTRY_CREATE,
+                RouterUrls::EntryCreate,
                 getParams: $this->showcaseObject->urlParams
             )->getRelativeUrl();
         }
@@ -1233,10 +1427,18 @@ class Render
                 get_friendly_size($totalUserUsage)
             );
 
-            $viewMyAttachmentsLink = eval($this->templateGet('pageEntryCommentCreateUpdateAttachmentsBoxViewLink'));
+            $viewMyAttachmentsLink = $this->templateGetTwig('pageEntryCommentCreateUpdateAttachmentsBoxViewLink');
         }
 
-        return eval($this->templateGet('pageEntryCommentCreateUpdateAttachmentsBox'));
+        return $this->templateGetTwig('pageEntryCommentCreateUpdateAttachmentsBox', [
+            'createUpdateUrl' => $createUpdateUrl,
+            'myDropzoneSettingMaximumFileSize' => $myDropzoneSettingMaximumFileSize,
+            'myDropzoneSettingAllowedMimeFileTypes' => $myDropzoneSettingAllowedMimeFileTypes,
+            'usageQuoteNote' => $usageQuoteNote,
+            'usageDetails' => $usageDetails,
+            'viewMyAttachmentsLink' => $viewMyAttachmentsLink,
+            'watermarkSelectedElement' => $watermarkSelectedElement,
+        ]);
     }
 
     public function buildEntrySubject(): string

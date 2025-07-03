@@ -1,7 +1,0 @@
-<form id="deleteComment{$commentSlug}" action="{$deleteUrl}" method="post" style="display:none;">
-    <input type="hidden" name="my_post_key" value="{$mybb->post_code}"/>
-</form>
-<a href="javascript:void(0)" title="{$lang->myShowcaseCommentButtonDeleteDescription}" class="postbit_delete_pm"
-   onclick="Showcase.confirmSubmit('{$lang->myShowcaseCommentButtonDeleteConfirm}', 'deleteComment{$commentSlug}');">
-    <span>{$lang->myShowcaseCommentButtonDelete}</span>
-</a>

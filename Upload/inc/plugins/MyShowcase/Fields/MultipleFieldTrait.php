@@ -16,11 +16,11 @@ namespace MyShowcase\Fields;
 use MyBB;
 use MyShowcase\System\FieldHtmlTypes;
 
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\fieldDataGet;
-use function MyShowcase\Core\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 
-use const MyShowcase\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 
 trait MultipleFieldTrait
 {
@@ -34,7 +34,11 @@ trait MultipleFieldTrait
 
         $fieldDescription = $this->getFieldDescription();
 
-        $inputName = $this->fieldData['field_key'] . '[]';
+        $templatesContext = [
+            'fieldData' => $this->fieldData,
+            'fieldTabIndex' => $fieldTabIndex,
+            'inputName' => $this->fieldData['field_key'] . '[]',
+        ];
 
         if ($this->fieldAcceptsMultipleValues()) {
             $fieldItems = explode($this->multipleSeparator, $userValue);
@@ -42,14 +46,12 @@ trait MultipleFieldTrait
             $fieldItems = [$userValue];
         }
 
-        $inputID = $this->fieldData['field_key'] . '_input';
-
         $inputValues = $mybb->get_input($this->fieldData['field_key'], MyBB::INPUT_ARRAY);
 
-        $requiredElement = '';
+        $templatesContext['requiredElement'] = '';
 
         if ($this->fieldData['is_required']) {
-            $requiredElement = 'required="required"';
+            $templatesContext['requiredElement'] = 'required="required"';
         }
 
         $fieldID = (int)$this->fieldData['field_id'];
@@ -76,16 +78,16 @@ trait MultipleFieldTrait
                 continue;
             }
 
-            $valueIdentifier = $fieldDataID;
+            $templatesContext['valueIdentifier'] = $fieldDataID;
 
-            $valueName = htmlspecialchars_uni($fieldDataData['value']);
+            $templatesContext['valueName'] = htmlspecialchars_uni($fieldDataData['value']);
 
-            $checkedElement = $selectedElement = '';
+            $templatesContext['checkedElement'] = $templatesContext['selectedElement'] = '';
 
             if (!empty($inputValues[$this->fieldData['field_key']])) {
-                $checkedElement = 'checked="checked"';
+                $templatesContext['checkedElement'] = 'checked="checked"';
 
-                $selectedElement = 'selected="selected"';
+                $templatesContext['selectedElement'] = 'selected="selected"';
             }
 
             // todo, check box can be required per check box
@@ -108,16 +110,16 @@ trait MultipleFieldTrait
                 $userValue = htmlspecialchars_uni($userValue);
             }
 
-            $valueIdentifier = 1;
+            $templatesContext['valueIdentifier'] = 1;
 
-            $valueName = htmlspecialchars_uni($this->fieldData['field_key']);
+            $templatesContext['valueName'] = htmlspecialchars_uni($this->fieldData['field_key']);
 
-            $checkedElement = $selectedElement = '';
+            $checkedElement = $templatesContext['selectedElement'] = '';
 
             if (!empty($inputValues[$this->fieldData['field_key']])) {
                 $checkedElement = 'checked="checked"';
 
-                $selectedElement = 'selected="selected"';
+                $templatesContext['selectedElement'] = 'selected="selected"';
             }
 
             // todo, check box can be required per check box
@@ -131,16 +133,18 @@ trait MultipleFieldTrait
 
         $fieldItems = implode('', $fieldItems);
 
-        $fieldPlaceholder = htmlspecialchars_uni($this->fieldData['placeholder']);
+        $templatesContext['fieldPlaceholder'] = htmlspecialchars_uni($this->fieldData['placeholder']);
 
-        $fieldItems = eval(
-        $this->showcaseObject->renderObject->templateGet(
-            $this->templatePrefixCreateUpdate . $this->templateName
-        )
+        $fieldItems = $this->showcaseObject->renderObject->templateGetTwig(
+            $this->templatePrefixCreateUpdate . $this->templateName,
+            $templatesContext
         );
 
-        $acceptElement = '';
+        $templatesContext['acceptElement'] = '';
 
-        return eval($this->showcaseObject->renderObject->templateGet($this->templatePrefixCreateUpdate));
+        return $this->showcaseObject->renderObject->templateGetTwig(
+            $this->templatePrefixCreateUpdate,
+            $templatesContext
+        );
     }
 }

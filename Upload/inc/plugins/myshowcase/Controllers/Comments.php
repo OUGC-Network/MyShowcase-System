@@ -16,23 +16,23 @@ declare(strict_types=1);
 namespace MyShowcase\Controllers;
 
 use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Plugin\RouterUrls;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
 
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\commentUpdate;
-use function MyShowcase\Core\dataHandlerGetObject;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\generateUUIDv4;
-use function MyShowcase\Core\hooksRun;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\commentUpdate;
+use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\generateUUIDv4;
+use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\SimpleRouter\url;
 
 use const MyShowcase\ROOT;
-use const MyShowcase\Core\ENTRY_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\HTTP_CODE_PERMANENT_REDIRECT;
-use const MyShowcase\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW;
-use const MyShowcase\Core\DATA_HANDLER_METHOD_UPDATE;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 
 class Comments extends Base
 {
@@ -426,7 +426,7 @@ class Comments extends Base
                     $mainUrl = str_replace(
                         '/user/',
                         '/user/' . $this->showcaseObject->entryUserID,
-                        url(URL_TYPE_MAIN_USER)->getRelativeUrl()
+                        url(\MyShowcase\Plugin\RouterUrls::MainUser)->getRelativeUrl()
                     );
 
                     break;
@@ -440,7 +440,7 @@ class Comments extends Base
         $entrySubject = $this->renderObject->buildEntrySubject();
 
         $entryUrl = url(
-            URL_TYPE_ENTRY_VIEW,
+            RouterUrls::EntryView,
             [
                 'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                 'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
@@ -488,12 +488,24 @@ class Comments extends Base
         extract($hookArguments['extractVariables']);
 
         if ($commentPreview) {
-            $commentPreview = eval($this->renderObject->templateGet('pageEntryCommentCreateUpdateContentsPreview'));
+            $commentPreview = $this->renderObject->templateGetTwig('pageEntryCommentCreateUpdateContentsPreview', [
+                'commentPreview' => $commentPreview,
+            ]);
         }
 
         $postHash = htmlspecialchars_uni($mybb->get_input('post_hash'));
 
-        $this->outputSuccess(eval($this->renderObject->templateGet('pageEntryCommentCreateUpdateContents')));
+        $this->outputSuccess($this->renderObject->templateGetTwig('pageEntryCommentCreateUpdateContents', [
+            'baseUrl' => $this->showcaseObject->urlBase,
+            'commentPreview' => $commentPreview,
+            'commentMessage' => $commentMessage,
+            'editorCodeButtons' => $editorCodeButtons,
+            'commentLengthLimitNote' => $commentLengthLimitNote,
+            'buttonText' => $buttonText,
+            'postHash' => $postHash,
+            'createUpdateUrl' => $createUpdateUrl,
+            'attachmentsUpload' => $attachmentsUpload,
+        ]));
     }
 
     #[NoReturn] public function update(string $entrySlug, string $entrySlugCustom, string $commentSlug): void

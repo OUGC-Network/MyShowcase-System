@@ -1,0 +1,6 @@
+<a href="javascript:void(0)"
+   onclick="Showcase.reportComment('{{ commentSlug }}', {{ showcaseID }}) return false;"
+   title="{{ lang.myShowcaseCommentButtonReportDescription }}" class="post-control post-control--report">
+    {{ include('partials/icon.twig', {icon: 'flag', class: 'post-control__icon fa-fw'}, with_context = false) }}
+    <span class="post-control__text">{{ lang.myShowcaseCommentButtonReport }}</span>
+</a>

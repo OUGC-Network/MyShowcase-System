@@ -13,7 +13,7 @@
 
 declare(strict_types=1);
 
-use function MyShowcase\Core\getTemplatesList;
+use function MyShowcase\Plugin\Functions\getTemplatesList;
 
 const IN_MYBB = 1;
 

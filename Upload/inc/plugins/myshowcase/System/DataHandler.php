@@ -17,28 +17,31 @@ namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
 
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\attachmentUpdate;
-use function MyShowcase\Core\commentInsert;
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\commentUpdate;
-use function MyShowcase\Core\generateUUIDv4;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\fieldTypeMatchChar;
-use function MyShowcase\Core\fieldTypeMatchInt;
-use function MyShowcase\Core\fieldTypeMatchText;
-use function MyShowcase\Core\hooksRun;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\attachmentUpdate;
+use function MyShowcase\Plugin\Functions\commentInsert;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\commentUpdate;
+use function MyShowcase\Plugin\Functions\fieldGetObject;
+use function MyShowcase\Plugin\Functions\generateUUIDv4;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\getSetting;
+use function MyShowcase\Plugin\Functions\hooksRun;
 
-use function MyShowcase\Core\slugGenerateComment;
+use function MyShowcase\Plugin\Functions\postParser;
+use function MyShowcase\Plugin\Functions\slugGenerateComment;
 
-use const MyShowcase\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\COMMENT_STATUS_VISIBLE;
-use const MyShowcase\Core\DATA_HANDLER_METHOD_INSERT;
-use const MyShowcase\Core\DATA_TABLE_STRUCTURE;
-use const MyShowcase\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\ENTRY_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\ENTRY_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_INSERT;
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 
 /**
  * MyShowcase handling class, provides common structure to handle post data.
@@ -163,8 +166,8 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid status');
         }
 
-        if (!empty($entryData['moderator_user_id']) && empty(get_user($this->data['moderator_user_id'])['uid'])) {
-            $this->set_error('invalid moderator identifier');
+        if (!empty($entryData['edit_user_id']) && empty(get_user($this->data['edit_user_id'])['uid'])) {
+            $this->set_error('invalid edit user identifier');
         }
 
         if (isset($entryData['dateline']) && $entryData['dateline'] < 0) {
@@ -178,6 +181,8 @@ class DataHandler extends CoreDataHandler
         global $lang;
 
         foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldData) {
+            $fieldObject = fieldGetObject($this->showcaseObject, $fieldData);
+
             $fieldKey = $fieldData['field_key'];
 
             if (!$fieldData['enabled'] ||
@@ -219,20 +224,25 @@ class DataHandler extends CoreDataHandler
 
              */
 
-            $fieldValueLength = my_strlen($entryData[$fieldKey]);
+            if (empty($entryData[$fieldKey]) && $fieldData['default_value'] !== '') {
+                $entryData[$fieldKey] = $fieldData['default_value'];
+            }
+
+            _dump($fieldObject);
 
             if (fieldTypeMatchInt($fieldData['field_type'])) {
-                if (isset($entryData[$fieldKey]) && !is_numeric($entryData[$fieldKey])) {
+                if (!is_numeric($entryData[$fieldKey])) {
                     $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey]);
                 }
             } elseif (fieldTypeMatchChar($fieldData['field_type']) ||
                 fieldTypeMatchText($fieldData['field_type'])) {
-                if (isset($entryData[$fieldKey]) && !is_scalar($entryData[$fieldKey])) {
+                if (!is_scalar($entryData[$fieldKey])) {
                     $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey]);
                 }
 
-                //date fields do not have length limitations since the min/max are settings for the year
                 if ($fieldData['html_type'] !== FieldHtmlTypes::Date) {
+                    $fieldValueLength = my_strlen($entryData[$fieldKey]);
+
                     if ($fieldValueLength > $fieldData['maximum_length'] ||
                         $fieldValueLength < $fieldData['minimum_length']) {
                         $this->set_error(
@@ -257,10 +267,6 @@ class DataHandler extends CoreDataHandler
                         }
                     }
                 }
-            }
-
-            if (empty($entryData[$fieldKey]) && $fieldData['default_value'] !== '') {
-                _dump('default_value', $fieldData['default_value']);
             }
 
             if ($fieldData['filter_on_save']) {
@@ -393,7 +399,11 @@ class DataHandler extends CoreDataHandler
         }
 
         if (isset($commentData['comment']) || $this->method === DATA_HANDLER_METHOD_INSERT) {
-            $commentLength = my_strlen($this->data['comment']);
+            if (getSetting('parserMyCodeAffectsLength')) {
+                $commentLength = my_strlen($this->data['comment']);
+            } else {
+                $commentLength = my_strlen(postParser()->text_parse_message($this->data['comment']));
+            }
 
             if ($commentLength < $this->showcaseObject->config['comments_minimum_length']) {
                 $this->set_error('the message is too short');
@@ -415,8 +425,8 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid status');
         }
 
-        if (!empty($commentData['moderator_user_id']) && empty(get_user($this->data['moderator_user_id'])['uid'])) {
-            $this->set_error('invalid moderator identifier');
+        if (!empty($commentData['edit_user_id']) && empty(get_user($this->data['edit_user_id'])['uid'])) {
+            $this->set_error('invalid edit user identifier');
         }
 
         $this->set_validated();

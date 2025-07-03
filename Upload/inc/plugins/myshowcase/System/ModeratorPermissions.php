@@ -15,13 +15,9 @@ namespace MyShowcase\System;
 
 class ModeratorPermissions
 {
-    public const CanManageEntries = 'canmodapprove';
-    public const CanManageComments = 'canmoddelcomment';
-    public const CanManageAttachments = 'canmodapprove';
+    public const CanManageEntries = 'can_manage_entries';
+    public const CanManageComments = 'can_manage_comments';
+    public const CanManageAttachments = 'can_manage_attachments';
     public const CanManageReports = 'can_manage_reports';
     public const CaManageLogs = 'can_manage_logs';
-    public const CanEditEntries = 'canmodedit';
-    public const CanDeleteEntries = 'canmoddelete';
-    public const CanDeleteComments = 'canmoddelcomment';
-    public const CanEditComments = 'canmodedit';
 }

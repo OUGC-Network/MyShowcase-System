@@ -18,19 +18,19 @@ namespace MyShowcase\Hooks\Admin;
 use MyBB;
 use FormContainer;
 
-use function MyShowcase\Core\cacheUpdate;
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\permissionsDelete;
-use function MyShowcase\Core\permissionsGet;
-use function MyShowcase\Core\sanitizeTableFieldValue;
-use function MyShowcase\Core\showcaseGet;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\permissionsDelete;
+use function MyShowcase\Plugin\Functions\permissionsGet;
+use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
+use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Admin\buildPermissionsRow;
 
-use const MyShowcase\Core\CACHE_TYPE_ATTACHMENT_TYPES;
-use const MyShowcase\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Core\FIELDS_DATA;
-use const MyShowcase\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
+use const MyShowcase\Plugin\Core\FIELDS_DATA;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 function admin_config_plugins_deactivate(): bool
 {

@@ -26,11 +26,11 @@ $l['removeshowcaseattach_confirm'] = 'Are you sure you want to remove the select
 $l['removeshowcasecomment_confirm'] = 'Are you sure you want to remove the selected comment from this entry?';
 
 //basic headers for index table
-$l['myShowcaseMainTableTheadView'] = 'View';
-$l['myShowcaseMainTableTheadAuthor'] = 'Author';
-$l['myShowcaseMainTableTheadComments'] = 'Comments';
-$l['myShowcaseMainTableTheadViews'] = 'Views';
-$l['myShowcaseMainTableTheadLastEdit'] = 'Last Updated';
+$l['myShowcaseMainTableHeadView'] = 'View';
+$l['myShowcaseMainTableHeadAuthor'] = 'Author';
+$l['myShowcaseMainTableHeadComments'] = 'Comments';
+$l['myShowcaseMainTableHeadViews'] = 'Views';
+$l['myShowcaseMainTableHeadLastEdit'] = 'Last Updated';
 
 $l['myShowcaseMainTableRowLastComment'] = 'Last comment';
 
@@ -96,7 +96,7 @@ $l['myshowcase_viewing_attachment'] = 'Viewing Attachment of &quot;{username}&qu
 //new/edit myshowcase
 $l['myShowcaseButtonEntryCreate'] = 'Create Entry';
 $l['myShowcaseButtonEntryUpdate'] = 'Update Entry';
-$l['myShowcaseButtonCommentCreate'] = 'Create Comment';
+$l['myShowcaseButtonCommentCreate'] = 'Post Comment';
 $l['myShowcaseButtonCommentUpdate'] = 'Update Comment';
 $l['myshowcase_post'] = 'Post';
 $l['myshowcase_edit_user'] = 'Edit entry of &quot;{username}&quot;';
@@ -204,7 +204,7 @@ $l = array_merge($l, [
 
     'myShowcaseNewEditEntryPreview' => 'Entry Preview',
 
-    'myShowcaseCommentCreateUpdateFormButtonCreate' => 'Create Comment',
+    'myShowcaseCommentCreateUpdateFormButtonCreate' => 'Post Comment',
     'myShowcaseCommentCreateUpdateFormButtonUpdate' => 'Update Comment',
     'myShowcaseCommentCreateUpdateFormButtonPreview' => 'Preview Comment',
 
@@ -214,9 +214,15 @@ $l = array_merge($l, [
     'myShowcaseEntryFieldValueCheckBoxYes' => 'Yes',
     'myShowcaseEntryFieldValueCheckBoxNo' => 'No',
 
+    'myShowcaseEntrySearchEntry' => 'Search Entry',
+    'myShowcaseEntryEnterKeywords' => 'Enter Keywords...',
+
+    'myShowcaseEntryNextOldest' => 'Next Oldest',
+    'myShowcaseEntryNextNewest' => 'Next Newest',
+
     'myShowcaseEntryIgnoredUserMessage' => 'The contents of this message are hidden because {1} is on your <a href="{2}/usercp.php?action=editlists">ignore list</a>.',
 
-    'myShowcaseEntryModeratedBy' => 'Moderated by',
+    'myShowcaseEntryEditedBy' => 'This entry was last modified: {1} by',
     'myShowcaseEntryDeletedMessage' => 'This entry by {1} has been deleted.',
     'myShowcaseEntryDeletedSButtonShow' => 'Show this Comment',
 
@@ -263,7 +269,7 @@ $l = array_merge($l, [
     'myShowcaseCommentButtonWebsite' => 'Website',
     'myShowcaseCommentButtonWebsiteDescription' => "Visit this user's website",
 
-    'myShowcaseCommentModeratedBy' => 'Moderated by',
+    'myShowcaseCommentEditedBy' => 'This comment was last modified: {1} by',
     'myShowcaseCommentDeletedMessage' => 'This entry by {1} has been deleted.',
     'myShowcaseCommentDeletedSButtonShow' => 'Show this Comment',
 
@@ -291,9 +297,11 @@ $l = array_merge($l, [
     'myShowcaseCommentButtonRestoreDescription' => 'Restore comment',
     'myShowcaseCommentButtonRestoreConfirm' => 'Are you sure you want to restore this comment?',
 
-    'myShowcaseCommentCreateTitle' => 'Entry Comment',
+    'myShowcaseCommentCreateTitle' => 'Quick Comment',
     'myShowcaseCommentCreateMessage' => 'Message:',
-    'myShowcaseCommentCreateMessageNote' => 'Type your comment to this entry here.',
+    'myShowcaseCommentCreateMessageOptionSignature' => 'Signature',
+    'myShowcaseCommentCreateMessageOptionDisableSmiles' => 'Disable Smiles',
+    'myShowcaseCommentCreateMessagePlaceholder' => 'Compose your message...',
     'myShowcaseCommentCreateButton' => 'Post Comment',
 
     'myShowcaseCommentCreated' => 'Your comment has been created successfully.<br />You will now be returned back to where you came from.',

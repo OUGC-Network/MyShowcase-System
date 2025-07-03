@@ -1,7 +1,0 @@
-<form id="unapproveCommentForm{$commentSlug}" action="{$unapproveUrl}" method="post" style="display:none;">
-    <input type="hidden" name="my_post_key" value="{$mybb->post_code}"/>
-</form>
-<a href="javascript:void(0)" title="{$lang->myShowcaseCommentButtonUnapproveDescription}" class="postbit_qdelete"
-   onclick="Showcase.confirmSubmit('{$lang->myShowcaseCommentButtonUnapproveConfirm}', 'unapproveCommentForm{$commentSlug}');">
-    <span>{$lang->myShowcaseCommentButtonUnapprove}</span>
-</a>

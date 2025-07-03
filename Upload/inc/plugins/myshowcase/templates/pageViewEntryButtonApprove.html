@@ -1,8 +1,0 @@
-<form id="approveEntry{$entrySlug}" action="{$approveUrl}" method="post" style="display:none;">
-    <input type="hidden" name="my_post_key" value="{$mybb->post_code}"/>
-</form>
-<a href="javascript:void(0)" title="{$lang->myShowcaseEntryButtonApproveDescription}" class="postbit_qrestore"
-   onclick="Showcase.confirmSubmit('{$lang->myShowcaseEntryButtonApproveConfirm}', 'approveEntry{$entrySlug}');"
-   style="display: inline;">
-    <span>{$lang->myShowcaseEntryButtonApprove}</span>
-</a>

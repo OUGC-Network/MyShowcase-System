@@ -15,7 +15,7 @@ namespace MyShowcase\Fields;
 
 use MyShowcase\System\Showcase;
 
-use function MyShowcase\Core\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 
 class SelectUsersField implements FieldsInterface
 {

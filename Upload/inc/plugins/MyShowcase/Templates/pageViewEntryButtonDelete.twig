@@ -1,0 +1,15 @@
+<form id="deleteEntry{{ entrySlug }}" action="{{ deleteUrl }}" method="post" style="display:none;">
+    <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+</form>
+<a href="javascript:void(0)"
+   onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonDeleteConfirm }}', 'deleteEntry{{ entrySlug }}');"
+   id="quick_delete_{{ entrySlug }}" title="{{ lang.myShowcaseEntryButtonDeleteDescription }}"
+   class="post-control post-control--delete">
+    {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
+    <span class="post-control__text">{{ lang.myShowcaseEntryButtonDelete }}</span>
+</a>
+<script type="text/javascript">
+    // <!--
+        $('#quick_delete_{{ entrySlug }}').css('display', '{{ post.quick_delete_display }}');
+    // -->
+</script>

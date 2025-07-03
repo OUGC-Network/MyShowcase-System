@@ -13,7 +13,7 @@
 
 declare(strict_types=1);
 
-use function MyShowcase\Core\hooksRun;
+use function MyShowcase\Plugin\Functions\hooksRun;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
@@ -46,7 +46,7 @@ function myshowcase_meta(): bool
     ];
 
     /*
-    if (function_exists('MyShowcase\Core\hooksRun')) {
+    if (function_exists('MyShowcase\Plugin\Core\hooksRun')) {
         $sub_menu = hooksRun('admin_module_meta_start', $sub_menu);
 
         foreach (showcaseGet([], ['name']) as $showcaseID => $showcaseData) {

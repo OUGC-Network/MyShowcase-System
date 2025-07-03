@@ -1,0 +1,20 @@
+<div class="post post--message deleted_comment_collapsed" id="deleted_comment_{{ commentSlug }}">
+    <div class="post__meta">
+        <h3 class="post__author">{{ userProfileLink|raw }}</h3>
+    </div>
+    <div class="post__body post__body--message post_body" id="deleted_post{{ commentSlug }}">
+        {{ deletedMessage }}
+        <div class="post--message__button" id="show_deleted_link_{{ commentSlug }}">
+            <a href="javascript:void(0)" onclick="Showcase.showDeletedComment('{{ commentSlug }}'); return false;"
+               class="button">
+                {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myShowcaseCommentDeletedSButtonShow }}</span>
+            </a>
+        </div>
+        <script type="text/javascript">
+            <!--
+                $('#show_deleted_link_{{ commentSlug }}').show();
+            // -->
+        </script>
+    </div>
+</div>

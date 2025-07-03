@@ -16,14 +16,14 @@ namespace MyShowcase\Fields;
 
 trait FieldTrait
 {
-    public function setUserValue(string $userValue): FieldsInterface
+    public function setUserValue(string|int $userValue): FieldsInterface
     {
         $this->entryFieldValue = $userValue;
 
         return $this;
     }
 
-    public function getUserValue(): string
+    public function getUserValue(): string|int
     {
         return $this->entryFieldValue ?? '';
     }
@@ -46,10 +46,11 @@ trait FieldTrait
                 // todo, add description for comma/line multiple separator
             }
 
-            $fieldDescription = eval(
-            $this->showcaseObject->renderObject->templateGet(
-                $this->templatePrefixCreateUpdate . 'Description'
-            )
+            $fieldDescription = $this->showcaseObject->renderObject->templateGetTwig(
+                $this->templatePrefixCreateUpdate . 'Description',
+                [
+                    'fieldDescription' => &$fieldDescription,
+                ]
             );
         }
 
@@ -58,7 +59,7 @@ trait FieldTrait
 
     public function fieldAcceptsMultipleValues(): bool
     {
-        return /*\MyShowcase\Core\fieldTypeMatchText($this->fieldData['field_type']) &&*/ $this->fieldData['allow_multiple_values'];
+        return /*\MyShowcase\Plugin\Core\fieldTypeMatchText($this->fieldData['field_type']) &&*/ $this->fieldData['allow_multiple_values'];
     }
 
     public function renderMain(): string
@@ -66,6 +67,8 @@ trait FieldTrait
         if (!$this->fieldData['display_in_main_page'] || !is_member($this->fieldData['allowed_groups_view'])) {
             return '';
         }
+
+        _dump('123');
     }
 
     public function renderEntry(): string
@@ -104,10 +107,14 @@ trait FieldTrait
 
             $userValues = implode($this->multipleConcatenator, $userValues);
 
-            return eval(
-            $this->showcaseObject->renderObject->templateGet(
-                $this->templatePrefixEntry . $this->templateName
-            )
+            return $this->showcaseObject->renderObject->templateGetTwig(
+                $this->templatePrefixEntry . $this->templateName,
+                [
+                    'fieldHeader' => $fieldHeader,
+                    'entryFieldValue' => $this->getUserValue(),
+                    'userValue' => $userValue,
+                    'userValues' => $userValues,
+                ]
             );
         } elseif ($this->showcaseObject->config['display_empty_fields']) {
             global $lang;

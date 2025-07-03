@@ -1,0 +1,96 @@
+<script type="text/javascript">
+    <!--
+        var myDropzoneAttachmentUploadUrl = "{{ mybb.settings.homeurl }}{{ createUpdateUrl }}";
+        var myDropzoneMaximumFileSize = "{{ myDropzoneSettingMaximumFileSize }}";
+        var myDropzoneAllowedMimeFileTypes = "{{ myDropzoneSettingAllowedMimeFileTypes }}";
+    // -->
+</script>
+
+<script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css"/>
+
+<br/>
+<table border="0" cellspacing="{{ theme.borderwidth }}" cellpadding="{{ theme.tablespace }}" class="tborder">
+    <tr>
+        <td class="thead" colspan="3">
+            <strong>{{ lang.attachments }}</strong>
+        </td>
+    </tr>
+    <tr>
+        <td class="tcat smalltext" colspan="3">
+            {{ usageQuoteNote }} {{ usageDetails }} {{ viewMyAttachmentsLink|raw }}
+        </td>
+    </tr>
+    <tr>
+        <td class="trow1" colspan="3">
+            <div id="dropzoneContainer" class="dropzone">
+            </div>
+            <div class="flow-drop">
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td class="tfoot" colspan="3">
+            <label>
+                <input type="checkbox" name="attachment_watermark_file" value="1" {{ $watermarkSelectedElement }}>
+                {{ lang.myShowcaseAttachmentsWatermarkInput }}
+            </label>
+        </td>
+    </tr>
+</table>
+
+<input type="file" class="filepond"/>
+
+<link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet"/>
+<link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet"/>
+<link
+        href="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css"
+        rel="stylesheet"
+/>
+
+<script src="https://unpkg.com/filepond-plugin-file-validate-size/dist/filepond-plugin-file-validate-size.js"></script>
+<script src="https://unpkg.com/filepond-plugin-file-validate-type/dist/filepond-plugin-file-validate-type.js"></script>
+<script src="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.js"></script>
+<script src="https://unpkg.com/filepond-plugin-image-validate-size/dist/filepond-plugin-image-validate-size.js"></script>
+<script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+
+<script>
+    FilePond.parse(document.body);
+
+    // Register the plugin
+    FilePond.registerPlugin(FilePondPluginFileValidateSize);
+    FilePond.registerPlugin(FilePondPluginFileValidateType);
+    FilePond.registerPlugin(FilePondPluginImagePreview);
+    FilePond.registerPlugin(FilePondPluginImageValidateSize);
+
+    // ... FilePond initialisation code here
+
+    Dropzone.autoDiscover = false;
+
+    window.onload = function() {
+        let myDropzone = new Dropzone("#dropzoneContainer", {
+            url:  "{{ mybb.settings.homeurl }}{{ createUpdateUrl }}",
+            maxFilesize: "{{ myDropzoneSettingMaximumFileSize }}",  // bytes
+            acceptedFiles: "{{ myDropzoneSettingAllowedMimeFileTypes }}",
+            paramName: "attachment",
+            createImageThumbnails: false,
+            chunking: true,
+            chunkSize: 1*1024*1024,
+            forceChunking: false,
+            parallelChunkUploads: true,
+            parallelChunkUploads: true,
+            retryChunks: true,
+            retryChunksLimit: 3,
+            chunksUploaded: function(big_file, done_func){
+                console.log([big_file, done_func]);
+                done_func();
+            },
+            sending: function(a,b,formdata){ // in case you want to add data and not override chunk info
+                console.log([a,b,formdata]);
+                $.each(params, function(nm,vl){
+                    formdata.append(nm,vl);
+                });
+            },
+        });
+    };
+</script>

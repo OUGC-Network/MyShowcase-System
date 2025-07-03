@@ -26,17 +26,17 @@ use MyShowcase\System\ExceptionUnsatisfiableRange;
 use MyShowcase\System\PartialFileServlet;
 use MyShowcase\System\RangeHeader;
 
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\attachmentLogInsert;
-use function MyShowcase\Core\attachmentUpdate;
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\hooksRun;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\attachmentLogInsert;
+use function MyShowcase\Plugin\Functions\attachmentUpdate;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\hooksRun;
 
 use const MyShowcase\ROOT;
-use const MyShowcase\Core\TABLES_DATA;
-use const MyShowcase\Core\ATTACHMENT_STATUS_VISIBLE;
-use const MyShowcase\Core\CACHE_TYPE_ATTACHMENT_TYPES;
-use const MyShowcase\Core\ENTRY_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 
 class Attachments extends Base
 {

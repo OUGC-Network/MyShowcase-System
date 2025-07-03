@@ -13,46 +13,16 @@
 
 declare(strict_types=1);
 
+use MyShowcase\Plugin\RouterUrls;
 use Pecee\Http\Middleware\Exceptions\TokenMismatchException;
 use Pecee\SimpleRouter\Exceptions\NotFoundHttpException;
 use Pecee\SimpleRouter\SimpleRouter;
 
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\renderGetObject;
-use function MyShowcase\Core\showcaseGetObjectByScriptName;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\renderGetObject;
+use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 
-use const MyShowcase\Core\URL_TYPE_COMMENT;
 use const MyShowcase\ROOT;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW_PAGE;
-use const MyShowcase\Core\URL_TYPE_MAIN_APPROVE;
-use const MyShowcase\Core\URL_TYPE_MAIN_DELETE;
-use const MyShowcase\Core\URL_TYPE_MAIN_PAGE;
-use const MyShowcase\Core\URL_TYPE_MAIN_RESTORE;
-use const MyShowcase\Core\URL_TYPE_MAIN_SOFT_DELETE;
-use const MyShowcase\Core\URL_TYPE_MAIN_UNAPPROVE;
-use const MyShowcase\Core\URL_TYPE_MAIN_UNAPPROVED;
-use const MyShowcase\Core\URL_TYPE_SEARCH;
-use const MyShowcase\Core\URL_TYPE_ATTACHMENT_VIEW;
-use const MyShowcase\Core\URL_TYPE_THUMBNAIL_VIEW;
-use const MyShowcase\Core\FILTER_TYPE_USER_ID;
-use const MyShowcase\Core\URL_TYPE_COMMENT_APPROVE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_CREATE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_DELETE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_RESTORE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_SOFT_DELETE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_UNAPPROVE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_UPDATE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_VIEW;
-use const MyShowcase\Core\URL_TYPE_ENTRY_APPROVE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_CREATE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_DELETE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_RESTORE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_SOFT_DELETE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_UNAPPROVE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_UPDATE;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW;
-use const MyShowcase\Core\URL_TYPE_MAIN;
-use const MyShowcase\Core\URL_TYPE_MAIN_USER;
 
 /*
  * Only user edits required
@@ -145,7 +115,6 @@ if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
     $minimalLoad = false;
 
     require_once $change_dir . '/global.php';
-    require_once MYBB_ROOT . 'inc/functions_user.php';
 }
 
 hooksRun('script_file_start');
@@ -189,158 +158,164 @@ foreach (
     SimpleRouter::get(
         $route,
         ['MyShowcase\Controllers\Entries', 'mainView']
-    )->name(URL_TYPE_MAIN);
+    )->name(RouterUrls::Main);
 }
-
+/*
+SimpleRouter::all($showcaseObject->selfPhpScript . $requestBaseUriExtra . '/abc/123', function ($param1, $param2) {
+    // param1 = abc
+    // param2 = 123
+    _dump($param1, $param2);
+})->setMatch('/\/([\w]+)\/?([0-9]+)?\/?/is');
+*/
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/unapproved',
     ['MyShowcase\Controllers\Entries', 'mainUnapproved']
-)->name(URL_TYPE_MAIN_UNAPPROVED);
+)->name(RouterUrls::MainUnapproved);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search',
     ['MyShowcase\Controllers\Search', 'mainSearch']
-)->name(URL_TYPE_SEARCH);
+)->name(RouterUrls::Search);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search/{search_hash}',
     ['MyShowcase\Controllers\Search', 'mainSearch']
-)->name(URL_TYPE_SEARCH);
+)->name(RouterUrls::Search);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/user/{user_id}',
     ['MyShowcase\Controllers\Entries', 'mainUser']
-)->name(URL_TYPE_MAIN_USER)->where(['id' => '[0-9]+']);
+)->name(RouterUrls::MainUser)->where(['id' => '[0-9]+']);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/page/{page_id}',
     ['MyShowcase\Controllers\Entries', 'mainPage']
-)->name(URL_TYPE_MAIN_PAGE);
+)->name(RouterUrls::MainPage);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/approve',
     ['MyShowcase\Controllers\Entries', 'approveEntries']
-)->name(URL_TYPE_MAIN_APPROVE);
+)->name(RouterUrls::MainApprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/unapprove',
     ['MyShowcase\Controllers\Entries', 'unapproveEntries']
-)->name(URL_TYPE_MAIN_UNAPPROVE);
+)->name(RouterUrls::MainUnapprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/soft_delete',
     ['MyShowcase\Controllers\Entries', 'softDeleteEntries']
-)->name(URL_TYPE_MAIN_SOFT_DELETE);
+)->name(RouterUrls::MainSoftDelete);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/restore',
     ['MyShowcase\Controllers\Entries', 'restoreEntries']
-)->name(URL_TYPE_MAIN_RESTORE);
+)->name(RouterUrls::MainRestore);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/delete',
     ['MyShowcase\Controllers\Entries', 'deleteEntries']
-)->name(URL_TYPE_MAIN_DELETE);
+)->name(RouterUrls::MainDelete);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . '/create',
     ['MyShowcase\Controllers\Entries', 'createEntry']
-)->name(URL_TYPE_ENTRY_CREATE);
+)->name(RouterUrls::EntryCreate);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
     ['MyShowcase\Controllers\Entries', 'viewEntry']
-)->name(URL_TYPE_ENTRY_VIEW);
+)->name(RouterUrls::EntryView);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update',
     ['MyShowcase\Controllers\Entries', 'updateEntry']
-)->name(URL_TYPE_ENTRY_UPDATE);
+)->name(RouterUrls::EntryUpdate);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
     ['MyShowcase\Controllers\Entries', 'viewEntry']
-)->name(URL_TYPE_ENTRY_VIEW_PAGE);
+)->name(RouterUrls::EntryViewPage);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/approve',
     ['MyShowcase\Controllers\Entries', 'approveEntry']
-)->name(URL_TYPE_ENTRY_APPROVE);
+)->name(RouterUrls::EntryApprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/unapprove',
     ['MyShowcase\Controllers\Entries', 'unapproveEntry']
-)->name(URL_TYPE_ENTRY_UNAPPROVE);
+)->name(RouterUrls::EntryUnapprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
     ['MyShowcase\Controllers\Entries', 'softDeleteEntry']
-)->name(URL_TYPE_ENTRY_SOFT_DELETE);
+)->name(RouterUrls::EntrySoftDelete);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/restore',
     ['MyShowcase\Controllers\Entries', 'restoreEntry']
-)->name(URL_TYPE_ENTRY_RESTORE);
+)->name(RouterUrls::EntryRestore);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/delete',
     ['MyShowcase\Controllers\Entries', 'deleteEntry']
-)->name(URL_TYPE_ENTRY_DELETE);
+)->name(RouterUrls::EntryDelete);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . '/comment/{comment_slug}',
     ['MyShowcase\Controllers\Comments', 'redirect']
-)->name(URL_TYPE_COMMENT);
+)->name(RouterUrls::Comment);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment',
     ['MyShowcase\Controllers\Comments', 'create']
-)->name(URL_TYPE_COMMENT_CREATE);
+)->name(RouterUrls::CommentCreate);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
     ['MyShowcase\Controllers\Comments', 'view']
-)->name(URL_TYPE_COMMENT_VIEW);
+)->name(RouterUrls::CommentView);
 
 SimpleRouter::form(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
     ['MyShowcase\Controllers\Comments', 'update']
-)->name(URL_TYPE_COMMENT_UPDATE);
+)->name(RouterUrls::CommentUpdate);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
     ['MyShowcase\Controllers\Comments', 'approve']
-)->name(URL_TYPE_COMMENT_APPROVE);
+)->name(RouterUrls::CommentApprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
     ['MyShowcase\Controllers\Comments', 'unapprove']
-)->name(URL_TYPE_COMMENT_UNAPPROVE);
+)->name(RouterUrls::CommentUnapprove);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
     ['MyShowcase\Controllers\Comments', 'softDelete']
-)->name(URL_TYPE_COMMENT_SOFT_DELETE);
+)->name(RouterUrls::CommentSoftDelete);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
     ['MyShowcase\Controllers\Comments', 'restore']
-)->name(URL_TYPE_COMMENT_RESTORE);
+)->name(RouterUrls::CommentRestore);
 
 SimpleRouter::post(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
     ['MyShowcase\Controllers\Comments', 'delete']
-)->name(URL_TYPE_COMMENT_DELETE);
+)->name(RouterUrls::CommentDelete);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
     ['MyShowcase\Controllers\Attachments', 'downloadAttachment']
-)->name(URL_TYPE_ATTACHMENT_VIEW);
+)->name(RouterUrls::AttachmentView);
 
 SimpleRouter::get(
     $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
     ['MyShowcase\Controllers\Attachments', 'viewThumbnail']
-)->name(URL_TYPE_THUMBNAIL_VIEW);
+)->name(RouterUrls::ThumbnailView);
 
 hooksRun('script_file_end');
 

@@ -1,0 +1,7 @@
+<a href="{{ baseUrl }}/warnings.php?action=warn&amp;uid={{ userID }}&amp;showcase_id={{ showcaseID }}&amp;comment_slug={{ commentSlug }}"
+   title="{{ lang.myShowcaseCommentButtonWarnDescription }}"
+   class="post-control post-control--warn">
+    {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context =
+    false) }}
+    <span class="post-control__text">{{ lang.myShowcaseCommentButtonWarn }}</span>
+</a>

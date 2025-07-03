@@ -13,49 +13,52 @@
 
 declare(strict_types=1);
 
+use MyShowcase\Plugin\FormTypes;
 use MyShowcase\System\FieldHtmlTypes;
 
 use function MyShowcase\Admin\buildDbFieldDefinition;
 use function MyShowcase\Admin\languageModify;
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\cacheUpdate;
-use function MyShowcase\Core\dataTableStructureGet;
-use function MyShowcase\Core\fieldDataDelete;
-use function MyShowcase\Core\fieldDataGet;
-use function MyShowcase\Core\fieldDataInsert;
-use function MyShowcase\Core\fieldDataUpdate;
-use function MyShowcase\Core\fieldsDelete;
-use function MyShowcase\Core\fieldsetDelete;
-use function MyShowcase\Core\fieldsetGet;
-use function MyShowcase\Core\fieldsetInsert;
-use function MyShowcase\Core\fieldsetUpdate;
-use function MyShowcase\Core\fieldsGet;
-use function MyShowcase\Core\fieldsInsert;
-use function MyShowcase\Core\fieldsUpdate;
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\showcaseDataTableExists;
-use function MyShowcase\Core\showcaseDataTableFieldDrop;
-use function MyShowcase\Core\showcaseDataTableFieldExists;
-use function MyShowcase\Core\showcaseDataTableFieldRename;
-use function MyShowcase\Core\showcaseGet;
-use function MyShowcase\Core\urlHandlerBuild;
-use function MyShowcase\Core\urlHandlerSet;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
+use function MyShowcase\Plugin\Functions\dataTableStructureGet;
+use function MyShowcase\Plugin\Functions\fieldDataDelete;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
+use function MyShowcase\Plugin\Functions\fieldDataInsert;
+use function MyShowcase\Plugin\Functions\fieldDataUpdate;
+use function MyShowcase\Plugin\Functions\fieldsDelete;
+use function MyShowcase\Plugin\Functions\fieldsetDelete;
+use function MyShowcase\Plugin\Functions\fieldsetGet;
+use function MyShowcase\Plugin\Functions\fieldsetInsert;
+use function MyShowcase\Plugin\Functions\fieldsetUpdate;
+use function MyShowcase\Plugin\Functions\fieldsGet;
+use function MyShowcase\Plugin\Functions\fieldsInsert;
+use function MyShowcase\Plugin\Functions\fieldsUpdate;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
+use function MyShowcase\Plugin\Functions\showcaseDataTableFieldDrop;
+use function MyShowcase\Plugin\Functions\showcaseDataTableFieldExists;
+use function MyShowcase\Plugin\Functions\showcaseDataTableFieldRename;
+use function MyShowcase\Plugin\Functions\showcaseGet;
+use function MyShowcase\Plugin\Functions\urlHandlerBuild;
+use function MyShowcase\Plugin\Functions\urlHandlerSet;
 
-use const MyShowcase\Core\TABLES_DATA;
-use const MyShowcase\Core\FORM_TYPE_NUMERIC_FIELD;
-use const MyShowcase\Core\FORM_TYPE_SELECT_FIELD;
-use const MyShowcase\Core\FORM_TYPE_SELECT_MULTIPLE_GROUP_FIELD;
-use const MyShowcase\Core\FORM_TYPE_TEXT_FIELD;
-use const MyShowcase\Core\FORM_TYPE_YES_NO_FIELD;
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_DATA;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Core\CACHE_TYPE_FIELDS;
+use const MyShowcase\Plugin\Functions\TABLES_DATA;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELD_DATA;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELD_SETS;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELDS;
+use const MyShowcase\ROOT;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
 }
+
+require_once ROOT . '/System/FieldDefaultTypes.php';
+require_once ROOT . '/System/FieldHtmlTypes.php';
+require_once ROOT . '/System/FieldTypes.php';
+require_once ROOT . '/System/FilterTypes.php';
+require_once ROOT . '/System/FormatTypes.php';
 
 global $lang, $cache, $db, $plugins, $mybb;
 global $page;
@@ -153,19 +156,19 @@ $groupsSelectFunction = function (string $settingKey) use ($mybb, $lang): string
                         <dt>
                             <label style="display: block;">
                                 <input type="radio" name="{$settingKey}_type" value="all" {$groupChecked['all']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" />
-                                <strong>{$lang->all_groups}</strong>
+                                <strong>{{ lang.all_groups }}</strong>
                             </label>
                         </dt>
                         <dt>
                             <label style="display: block;">
                                 <input type="radio" name="{$settingKey}_type" value="custom" {$groupChecked['custom']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" />
-                                <strong>{$lang->select_groups}</strong>
+                                <strong>{{ lang.select_groups }}</strong>
                             </label>
                         </dt>
                         <dd style="margin-top: 4px;" id="{$settingKey}_forums_groups_custom" class="{$settingKey}_forums_groups">
                             <table cellpadding="4">
                                 <tr>
-                                    <td valign="top"><small>{$lang->groups_colon}</small></td>
+                                    <td valign="top"><small>{{ lang.groups_colon }}</small></td>
                                     <td>{$form->generate_group_select(
         "{$settingKey}[]",
         $selectedValues,
@@ -176,7 +179,7 @@ $groupsSelectFunction = function (string $settingKey) use ($mybb, $lang): string
                         </dd>
                         <dt>
                             <label style="display: block;"><input type="radio" name="{$settingKey}_type" value="none" {$groupChecked['none']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" /> 
-                            <strong>{$lang->none}</strong></label>
+                            <strong>{{ lang.none }}</strong></label>
                         </dt>
                     </dl>
                     <script type="text/javascript">
@@ -268,17 +271,17 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 }
 
                 switch ($fieldData['formType']) {
-                    case FORM_TYPE_TEXT_FIELD:
-                    case FORM_TYPE_SELECT_FIELD:
+                    case FormTypes::Text:
+                    case FormTypes::Select:
                         $insertData[$fieldName] = $mybb->get_input($fieldName);
 
                         break;
-                    case FORM_TYPE_YES_NO_FIELD:
-                    case FORM_TYPE_NUMERIC_FIELD:
+                    case FormTypes::YesNo:
+                    case FormTypes::Number:
                         $insertData[$fieldName] = $mybb->get_input($fieldName, MyBB::INPUT_INT);
 
                         break;
-                    case FORM_TYPE_SELECT_MULTIPLE_GROUP_FIELD:
+                    case FormTypes::SelectMultipleGroups:
                         $insertData[$fieldName] = $mybb->get_input($fieldName, MyBB::INPUT_ARRAY);
 
                         break;
@@ -457,7 +460,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $formInput = '';
 
         switch ($fieldData['formType']) {
-            case FORM_TYPE_TEXT_FIELD:
+            case FormTypes::Text:
                 $formInput .= $form->generate_text_box(
                     $fieldName,
                     $mybb->get_input($fieldName),
@@ -465,7 +468,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 );
 
                 break;
-            case FORM_TYPE_NUMERIC_FIELD:
+            case FormTypes::Number:
                 $formInput = $form->generate_numeric_field(
                     $fieldName,
                     $mybb->get_input($fieldName, MyBB::INPUT_INT),
@@ -478,7 +481,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 );
 
                 break;
-            case FORM_TYPE_SELECT_FIELD:
+            case FormTypes::Select:
                 $formInput = $form->generate_select_box(
                     $fieldName,
                     $fieldData['formFunction'](),
@@ -490,11 +493,11 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 );
 
                 break;
-            case FORM_TYPE_SELECT_MULTIPLE_GROUP_FIELD:
+            case FormTypes::SelectMultipleGroups:
                 $formInput = $groupsSelectFunction($fieldName);
 
                 break;
-            case FORM_TYPE_YES_NO_FIELD:
+            case FormTypes::YesNo:
                 $formInput = $form->generate_yes_no_radio(
                     $fieldName,
                     $mybb->get_input($fieldName, MyBB::INPUT_INT),
@@ -781,7 +784,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     } else {
         $l = [];
 
-        include_once $languagePath . '/myshowcase_fs' . $fieldsetID . '.lang.php';
+        //include_once $languagePath . '/myshowcase_fs' . $fieldsetID . '.lang.php';
 
         $maximumViewOrder = 1;
 
@@ -1022,21 +1025,21 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                         }
 
                         switch ($fieldData['formType']) {
-                            case FORM_TYPE_TEXT_FIELD:
+                            case FormTypes::Text:
                                 $insertData[$fieldName] = $mybb->get_input(
                                     $fieldName,
                                     MyBB::INPUT_ARRAY
                                 )[$fieldDataID];
 
                                 break;
-                            case FORM_TYPE_NUMERIC_FIELD:
+                            case FormTypes::Number:
                                 $insertData[$fieldName] = (int)$mybb->get_input(
                                     $fieldName,
                                     MyBB::INPUT_ARRAY
                                 )[$fieldDataID];
 
                                 break;
-                            case FORM_TYPE_SELECT_MULTIPLE_GROUP_FIELD:
+                            case FormTypes::SelectMultipleGroups:
                                 $insertData[$fieldName] = implode(
                                     ',',
                                     (array)($mybb->get_input(
@@ -1074,15 +1077,15 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                     }
 
                     switch ($fieldData['formType']) {
-                        case FORM_TYPE_TEXT_FIELD:
+                        case FormTypes::Text:
                             $insertData[$fieldName] = $mybb->get_input($fieldName);
 
                             break;
-                        case FORM_TYPE_NUMERIC_FIELD:
+                        case FormTypes::Number:
                             $insertData[$fieldName] = $mybb->get_input($fieldName, MyBB::INPUT_INT);
 
                             break;
-                        case FORM_TYPE_SELECT_MULTIPLE_GROUP_FIELD:
+                        case FormTypes::SelectMultipleGroups:
                             $insertData[$fieldName] = implode(',', $mybb->get_input($fieldName, MyBB::INPUT_ARRAY));
 
                             break;

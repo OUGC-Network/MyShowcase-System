@@ -15,9 +15,9 @@ namespace MyShowcase\Fields;
 
 interface FieldsInterface
 {
-    public function setUserValue(string $userValue): FieldsInterface;
+    public function setUserValue(string|int $userValue): FieldsInterface;
 
-    public function getUserValue(): string;
+    public function getUserValue(): string|int;
 
     public function getFieldHeader(): string;
 

@@ -16,20 +16,20 @@ declare(strict_types=1);
 namespace MyShowcase\Controllers;
 
 use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Plugin\RouterUrls;
 use MyShowcase\System\Render;
 use MyShowcase\System\Showcase;
 
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\renderGetObject;
-use function MyShowcase\Core\showcaseGetObjectByScriptName;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\renderGetObject;
+use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 use function MyShowcase\SimpleRouter\url;
 
-use const MyShowcase\Core\DEBUG;
-use const MyShowcase\Core\ERROR_TYPE_NOT_CONFIGURED;
-use const MyShowcase\Core\ERROR_TYPE_NOT_INSTALLED;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW;
-use const MyShowcase\Core\URL_TYPE_MAIN;
-use const MyShowcase\Core\VERSION_CODE;
+use const MyShowcase\Plugin\Core\DEBUG;
+use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
+use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
+use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 abstract class Base
 {
@@ -56,7 +56,7 @@ abstract class Base
             $theme['imglangdir'] = $forumDirectoryPathTrailing . substr($theme['imglangdir'], 0);
         }
 
-        //\MyShowcase\Core\cacheUpdate(\MyShowcase\Core\CACHE_TYPE_CONFIG);
+        //\MyShowcase\Plugin\Core\cacheUpdate(\MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG);
 //start by constructing the showcase
         $this->showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
 
@@ -92,44 +92,52 @@ abstract class Base
 
     #[NoReturn] public function outputSuccess(string $pageContents): void
     {
-        global $mybb, $lang;
-        global $headerinclude, $header, $footer;
+        $templatesContext = ['pageContents' => $pageContents];
 
-        $mainUrl = url(URL_TYPE_MAIN, getParams: $this->showcaseObject->urlParams)->getRelativeUrl();
+        $hookArguments = [
+            'templatesContext' => &$templatesContext,
+        ];
 
-        $pageTitle = $this->showcaseObject->config['name'];
+        $templatesContext['mainUrl'] = url(
+            RouterUrls::Main,
+            getParams: $this->showcaseObject->urlParams
+        )->getRelativeUrl();
 
-        $errorMessages = empty($this->showcaseObject->errorMessages) ? '' : inline_error(
+        $templatesContext['pageTitle'] = $this->showcaseObject->config['name'];
+
+        $templatesContext['errorMessages'] = empty($this->showcaseObject->errorMessages) ? '' : inline_error(
             $this->showcaseObject->errorMessages
         );
 
-        $version = VERSION_CODE;
+        $templatesContext['version'] = VERSION_CODE;
 
         if (DEBUG) {
-            $version = TIME_NOW;
+            $templatesContext['version'] = TIME_NOW;
         }
 
-        $metaData = '';
+        $templatesContext['pageMeta'] = '';
 
         $showcaseDescription = htmlspecialchars_uni($this->showcaseObject->config['description']);
 
         if ($this->showcaseObject->entryID) {
             $entryUrl = url(
-                URL_TYPE_ENTRY_VIEW,
+                RouterUrls::EntryView,
                 [
                     'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
                 ]
             )->getRelativeUrl();
 
-            $metaData .= eval($this->renderObject->templateGet('pageMetaCanonical'));
+            $templatesContext['pageMeta'] = $this->renderObject->templateGetTwig('pageMetaCanonical', [
+                'baseUrl' => $this->showcaseObject->urlBase,
+                'entryUrl' => $entryUrl,
+                'showcaseDescription' => $showcaseDescription,
+            ]);
         }
 
-        $pageContents = eval($this->renderObject->templateGet('page'));
+        $hookArguments = hooksRun('controller_base_output_success', $hookArguments);
 
-        //$plugins->run_hooks('myshowcase_end');
-
-        output_page($pageContents);
+        output_page($this->renderObject->templateGetTwig('page', $templatesContext));
 
         exit;
     }

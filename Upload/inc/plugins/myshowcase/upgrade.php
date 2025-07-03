@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 use MyShowcase\System\UserPermissions;
 
-use function MyShowcase\Core\getTemplatesList;
+use function MyShowcase\Plugin\Functions\getTemplatesList;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
@@ -105,29 +105,7 @@ function myshowcase_upgrade_activate(array $need_upgrade): bool
                 $db->write_query($query);
             }
 
-            //delete bad template
-            $db->delete_query('templates', 'title=\'portal_rand_showcase\' and sid=-2');
-
-            //insert corrected template
-            $insert_array = [
-                'title' => 'portal_rand_showcase',
-                'template' => $db->escape_string($myshowcase_templates['portal_rand_showcase']),
-                'sid' => -2,
-                'version' => 1600,
-                'dateline' => TIME_NOW
-            ];
-
             $db->insert_query('templates', $insert_array);
-
-            //insert missing template
-            $db->delete_query('templates', 'title=\'portal_basic_box\' and sid=-2');
-            $insert_array = [
-                'title' => 'portal_basic_box',
-                'template' => $db->escape_string($myshowcase_templates['portal_basic_box']),
-                'sid' => -2,
-                'version' => 1600,
-                'dateline' => TIME_NOW
-            ];
 
             $db->insert_query('templates', $insert_array);
 

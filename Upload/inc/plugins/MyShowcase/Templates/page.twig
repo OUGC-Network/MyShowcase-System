@@ -1,0 +1,29 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+<title>{{ pageTitle }} - {{ mybb.settings.bbname }}</title>
+<meta property="og:site_name" content="{{ mybb.settings.bbname }}">
+{{ pageMeta|raw }}
+{% endblock head %}
+
+{% block jscripts %}
+<script type="text/javascript"
+        src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ version }}"></script>
+<script type="text/javascript">
+    <!--
+    var removeshowcase_confirm = "{{ lang.removeshowcase_confirm }}";
+    var removeshowcasecomment_confirm = "{{ lang.removeshowcasecomment_confirm }}";
+    var removeshowcaseattach_confirm = "{{ lang.removeshowcaseattach_confirm }}";
+    var showcase_url = "{{ mainUrl }}";
+    // -->
+</script>
+{% endblock jscripts %}
+
+{% block body %}
+<div class="page-content">
+
+    {{ errorMessages|raw }}
+    {{ pageContents|raw }}
+
+</div>
+{% endblock body %}

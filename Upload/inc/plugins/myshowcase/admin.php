@@ -18,40 +18,39 @@ namespace MyShowcase\Admin;
 use Form;
 use MyBB;
 
-use function MyShowcase\Core\cacheUpdate;
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\commentUpdate;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\entryUpdate;
-use function MyShowcase\Core\dataTableStructureGet;
-use function MyShowcase\Core\fieldTypeMatchBinary;
-use function MyShowcase\Core\fieldTypeMatchChar;
-use function MyShowcase\Core\fieldTypeMatchDateTime;
-use function MyShowcase\Core\fieldTypeMatchText;
-use function MyShowcase\Core\getTemplatesList;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\showcaseDataTableDrop;
-use function MyShowcase\Core\showcaseDataTableExists;
-use function MyShowcase\Core\showcaseGet;
-use function MyShowcase\Core\slugGenerateComment;
-use function MyShowcase\Core\slugGenerateEntry;
+use MyShowcase\Plugin\FormTypes;
 
-use const MyShowcase\Core\VERSION;
-use const MyShowcase\Core\TABLES_DATA;
-use const MyShowcase\Core\FIELDS_DATA;
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_DATA;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Core\DATA_TABLE_STRUCTURE;
-use const MyShowcase\Core\FORM_TYPE_CHECK_BOX;
-use const MyShowcase\Core\FORM_TYPE_NUMERIC_FIELD;
-use const MyShowcase\Core\FORM_TYPE_SELECT_FIELD;
-use const MyShowcase\Core\FORM_TYPE_TEXT_FIELD;
-use const MyShowcase\Core\FORM_TYPE_YES_NO_FIELD;
-use const MyShowcase\Core\VERSION_CODE;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\commentUpdate;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\entryUpdate;
+use function MyShowcase\Plugin\Functions\dataTableStructureGet;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\getTemplatesList;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
+use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
+use function MyShowcase\Plugin\Functions\showcaseGet;
+use function MyShowcase\Plugin\Functions\slugGenerateComment;
+use function MyShowcase\Plugin\Functions\slugGenerateEntry;
+
+use const MyShowcase\Plugin\Core\VERSION;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\FIELDS_DATA;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\VERSION_CODE;
+use const MyShowcase\ROOT;
 
 function pluginInformation(): array
 {
@@ -70,7 +69,7 @@ function pluginInformation(): array
         'authorsite' => 'https://ougc.network',
         'version' => VERSION,
         'versioncode' => VERSION_CODE,
-        'compatibility' => '18*',
+        'compatibility' => '19*',
         'codename' => 'ougc_myshowcase',
         'pl' => [
             'version' => 13,
@@ -122,12 +121,6 @@ function pluginActivation(): bool
     /*~*~* RUN UPDATES START *~*~*/
 
     global $db;
-
-    $db->update_query(
-        'myshowcase_config',
-        ['attachments_watermark_location' => 0],
-        'attachments_watermark_location NOT IN (1,2,3,4,5)'
-    );
 
     foreach (
         [
@@ -292,13 +285,19 @@ function pluginActivation(): bool
         'tablesData' => &$tablesData
     ];
 
-    $hookArguments = \MyShowcase\Core\hooksRun('admin_activate_intermediate', $hookArguments);
+    $hookArguments = hooksRun('admin_activate_intermediate', $hookArguments);
 
     dbVerifyTables($tablesData);
 
     dbVerifyColumns();
 
     /*~*~* RUN UPDATES START *~*~*/
+
+    $db->update_query(
+        'myshowcase_config',
+        ['attachments_watermark_location' => 0],
+        'attachments_watermark_location NOT IN (1,2,3,4,5)'
+    );
 
     foreach (commentsGet(["comment_slug=''"]) as $commentID => $commentData) {
         commentUpdate(['comment_slug' => slugGenerateComment()], $commentID);
@@ -353,7 +352,7 @@ function pluginIsInstalled(): bool
         'tablesData' => &$tablesData
     ];
 
-    $hookArguments = \MyShowcase\Core\hooksRun('admin_is_installed_start', $hookArguments);
+    $hookArguments = hooksRun('admin_is_installed_start', $hookArguments);
 
     return dbVerifyTablesExists($tablesData) && dbVerifyColumnsExists() && dbVerifyColumnsExists($tablesData);
 }
@@ -715,6 +714,8 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
 
 function buildDbFieldDefinition(array $fieldData): string
 {
+    require_once ROOT . '/System/FieldTypes.php';
+
     $fieldDefinition = '';
 
     $fieldDefinition .= $fieldData['type'];
@@ -863,7 +864,7 @@ function buildPermissionsRow(
     $formInput = '';
 
     switch ($fieldData['formType']) {
-        case FORM_TYPE_TEXT_FIELD:
+        case FormTypes::Text:
             if ($extraText) {
                 $formInput .= '<div class="group_settings_bit">';
 
@@ -887,7 +888,7 @@ function buildPermissionsRow(
             }
 
             break;
-        case FORM_TYPE_NUMERIC_FIELD:
+        case FormTypes::Number:
             if ($extraText) {
                 $formInput .= '<div class="group_settings_bit">';
 
@@ -911,7 +912,7 @@ function buildPermissionsRow(
             }
 
             break;
-        case FORM_TYPE_YES_NO_FIELD:
+        case FormTypes::YesNo:
             $formInput .= $form->generate_yes_no_radio(
                 $fieldName,
                 $mybb->get_input($fieldName, MyBB::INPUT_INT),
@@ -919,7 +920,7 @@ function buildPermissionsRow(
             );
 
             break;
-        case FORM_TYPE_SELECT_FIELD:
+        case FormTypes::Select:
             if ($extraText) {
                 $formInput .= '<div class="group_settings_bit">';
 
@@ -944,7 +945,7 @@ function buildPermissionsRow(
             }
 
             break;
-        case FORM_TYPE_CHECK_BOX:
+        case FormTypes::CheckBox:
             $formInput .= '<div class="user_settings_bit">';
 
             $formInput .= $form->generate_check_box(

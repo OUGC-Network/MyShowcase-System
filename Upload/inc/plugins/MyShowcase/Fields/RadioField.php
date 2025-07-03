@@ -18,7 +18,7 @@ use MyShowcase\System\Showcase;
 class RadioField implements FieldsInterface
 {
     use FieldTrait;
-    use SingleFieldTrait;
+    use MultipleFieldTrait;
 
     public function __construct(
         public Showcase $showcaseObject,

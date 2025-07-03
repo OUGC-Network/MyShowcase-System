@@ -17,49 +17,44 @@ namespace MyShowcase\System;
 
 use MyBB;
 
-use function MyShowcase\Core\attachmentDelete;
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\commentsDelete;
-use function MyShowcase\Core\dataTableStructureGet;
-use function MyShowcase\Core\entryDelete;
-use function MyShowcase\Core\entryInsert;
-use function MyShowcase\Core\getSetting;
-use function MyShowcase\Core\getTemplate;
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\postParser;
-use function MyShowcase\Core\renderGetObject;
-use function MyShowcase\Core\sanitizeTableFieldValue;
-use function MyShowcase\Core\showcaseDataTableExists;
-use function MyShowcase\Core\entryUpdate;
-use function MyShowcase\Core\showcaseDefaultModeratorPermissions;
+use MyShowcase\Plugin\RouterUrls;
+
+use function MyShowcase\Plugin\Functions\attachmentDelete;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\commentsDelete;
+use function MyShowcase\Plugin\Functions\dataTableStructureGet;
+use function MyShowcase\Plugin\Functions\entryDelete;
+use function MyShowcase\Plugin\Functions\entryInsert;
+use function MyShowcase\Plugin\Functions\getSetting;
+use function MyShowcase\Plugin\Functions\getTemplate;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\postParser;
+use function MyShowcase\Plugin\Functions\renderGetObject;
+use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
+use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
+use function MyShowcase\Plugin\Functions\entryUpdate;
+use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
 use function MyShowcase\SimpleRouter\url;
 
-use const MyShowcase\Core\ALL_UNLIMITED_VALUE;
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Core\COMMENT_STATUS_VISIBLE;
-use const MyShowcase\Core\DATA_TABLE_STRUCTURE;
-use const MyShowcase\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Core\ERROR_TYPE_NOT_CONFIGURED;
-use const MyShowcase\Core\ERROR_TYPE_NOT_INSTALLED;
-use const MyShowcase\Core\GUEST_GROUP_ID;
-use const MyShowcase\Core\ORDER_DIRECTION_ASCENDING;
-use const MyShowcase\Core\ORDER_DIRECTION_DESCENDING;
-use const MyShowcase\Core\TABLES_DATA;
-use const MyShowcase\Core\URL_TYPE_COMMENT;
-use const MyShowcase\Core\URL_TYPE_COMMENT_APPROVE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_CREATE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_UPDATE;
-use const MyShowcase\Core\URL_TYPE_COMMENT_VIEW;
-use const MyShowcase\Core\URL_TYPE_ENTRY_VIEW;
-use const MyShowcase\Core\URL_TYPE_MAIN;
+use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
+use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
+use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
+use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
+use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
+use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
+use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class Showcase
 {
@@ -356,7 +351,7 @@ class Showcase
 
         $this->renderObject = renderGetObject($this);
 
-        loadLanguage('myshowcase_fs' . $this->config['field_set_id']);
+        //loadLanguage('myshowcase_fs' . $this->config['field_set_id']);
 
         $hookArguments = [
             'showcaseObject' => &$this,
@@ -598,7 +593,11 @@ class Showcase
      */
     public function commentsDelete(int $entryID): void
     {
-        commentsDelete(["entry_id='{$entryID}'", "showcase_id='{$this->showcase_id}'"]);
+        foreach (
+            commentsGet(["showcase_id='{$this->showcase_id}'", "entry_id='{$entryID}'"]) as $commentID => $commentData
+        ) {
+            commentsDelete($commentID);
+        }
     }
 
     /**
@@ -700,7 +699,7 @@ class Showcase
 
     public function templateGet(string $templateName = '', bool $enableHTMLComments = true): string
     {
-        return getTemplate($templateName, $enableHTMLComments, $this->showcase_id);
+        return getTemplate($templateName, $enableHTMLComments, $this->config['custom_theme_template_prefix']);
     }
 
     public function dataGet(
@@ -838,20 +837,26 @@ class Showcase
 
     public function urlGetMain(): string
     {
-        return url(URL_TYPE_MAIN)->getRelativeUrl();
+        return url(RouterUrls::Main)->getRelativeUrl();
     }
 
-    public function urlGetEntry(string $entrySlug, string $entrySlugCustom, bool $addAnchor = true): string
+    public function urlGetEntry(string $entrySlug, ?string $entrySlugCustom = '', bool $addAnchor = true): string
     {
+        $options = ['entry_slug' => $entrySlug];
+
+        if ($entrySlugCustom !== null) {
+            $options['entry_slug_custom'] = $entrySlugCustom;
+        }
+
         return url(
-                URL_TYPE_ENTRY_VIEW,
-                ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom],
+                RouterUrls::EntryView,
+                $options,
             )->getRelativeUrl() . ($addAnchor ? '#' . $entrySlug : '');
     }
 
     public function urlGetComment(string $commentSlug, bool $addAnchor = true): string
     {
-        return url(URL_TYPE_COMMENT, ['comment_slug' => $commentSlug])->getRelativeUrl();
+        return url(RouterUrls::Comment, ['comment_slug' => $commentSlug])->getRelativeUrl();
     }
 
     public function urlGetEntryComment(
@@ -861,7 +866,7 @@ class Showcase
         bool $addAnchor = true
     ): string {
         return url(
-                URL_TYPE_COMMENT_VIEW,
+                RouterUrls::CommentView,
                 ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
             )->getRelativeUrl() . ($addAnchor ? '#' . $commentSlug : '');
     }
@@ -869,7 +874,7 @@ class Showcase
     public function urlGetCommentCreate(string $entrySlug, string $entrySlugCustom): string
     {
         return url(
-            URL_TYPE_COMMENT_CREATE,
+            RouterUrls::CommentCreate,
             ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom]
         )->getRelativeUrl();
     }
@@ -877,7 +882,7 @@ class Showcase
     public function urlGetCommentUpdate(string $entrySlug, string $entrySlugCustom, string $commentSlug): string
     {
         return url(
-            URL_TYPE_COMMENT_UPDATE,
+            RouterUrls::CommentUpdate,
             ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
         )->getRelativeUrl();
     }
@@ -885,7 +890,7 @@ class Showcase
     public function urlGetCommentApprove(string $entrySlug, string $entrySlugCustom, string $commentSlug): string
     {
         return url(
-            URL_TYPE_COMMENT_APPROVE,
+            RouterUrls::CommentApprove,
             ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
         )->getRelativeUrl();
     }

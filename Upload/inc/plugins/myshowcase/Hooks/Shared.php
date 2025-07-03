@@ -17,9 +17,9 @@ namespace MyShowcase\Hooks\Shared;
 
 use UserDataHandler;
 
-use function MyShowcase\Core\entryDelete;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\showcaseGet;
+use function MyShowcase\Plugin\Functions\entryDelete;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\showcaseGet;
 
 function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDataHandler
 {

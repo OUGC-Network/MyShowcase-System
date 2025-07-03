@@ -13,12 +13,12 @@
 
 declare(strict_types=1);
 
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\showcaseGetObject;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\showcaseGetObject;
 
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\SHOWCASE_STATUS_ENABLED;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
 
 function task_myshowcase(array $taskData): array
 {

@@ -15,10 +15,10 @@ namespace MyShowcase\Fields;
 
 use MyShowcase\System\FieldHtmlTypes;
 
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 
-use const MyShowcase\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 
 trait SingleFieldTrait
 {
@@ -30,20 +30,24 @@ trait SingleFieldTrait
 
         global $mybb, $lang;
 
-        $inputName = $this->fieldData['field_key'];
+        $templatesContext = [
+            'fieldData' => $this->fieldData,
+            'fieldTabIndex' => $fieldTabIndex,
+            'inputName' => $this->fieldData['field_key'],
+        ];
 
-        $inputID = $this->fieldData['field_key'] . '_input';
+        $templatesContext['inputID'] = $this->fieldData['field_key'] . '_input';
 
         $userValue = htmlspecialchars_uni($mybb->get_input($this->fieldData['field_key']));
 
-        $fieldHeader = $this->getFieldHeader();
+        $templatesContext['fieldHeader'] = $this->getFieldHeader();
 
-        $fieldDescription = $this->getFieldDescription();
+        $templatesContext['fieldDescription'] = $this->getFieldDescription();
 
-        $patternElement = '';
+        $templatesContext['patternElement'] = '';
 
         if ($this->fieldData['regular_expression']) {
-            $patternElement = 'pattern="' . $this->fieldData['regular_expression'] . '"';
+            $templatesContext['patternElement'] = 'pattern="' . $this->fieldData['regular_expression'] . '"';
         }
 
         $defaultValue = '';
@@ -52,13 +56,13 @@ trait SingleFieldTrait
             $defaultValue = strip_tags($this->fieldData['default_value']);
         }
 
-        $requiredElement = '';
+        $templatesContext['requiredElement'] = '';
 
         if ($this->fieldData['is_required']) {
-            $requiredElement = 'required="required"';
+            $templatesContext['requiredElement'] = 'required="required"';
         }
 
-        $editorCodeButtons = $editorSmilesInserter = '';
+        $templatesContext['editorCodeButtons'] = $templatesContext['editorSmilesInserter'] = '';
 
         if (in_array($this->fieldData['html_type'], [
             FieldHtmlTypes::Text,
@@ -67,14 +71,14 @@ trait SingleFieldTrait
         ])) {
             if ($this->fieldData['enable_editor']) {
                 $this->showcaseObject->renderObject->buildEditor(
-                    $editorCodeButtons,
-                    $editorSmilesInserter,
-                    $inputID
+                    $templatesContext['editorCodeButtons'],
+                    $templatesContext['editorSmilesInserter'],
+                    $templatesContext['inputID']
                 );
             }
         }
 
-        $acceptElement = $captureElement = '';
+        $templatesContext['acceptElement'] = $templatesContext['captureElement'] = '';
 
         if ($this->fieldData['html_type'] === FieldHtmlTypes::File) {
             $attachmentTypes = cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcaseObject->showcase_id] ?? [];
@@ -87,27 +91,27 @@ trait SingleFieldTrait
                 )
             );
 
-            $acceptElement = "accept=\"{$acceptElement}\"";
+            $templatesContext['acceptElement'] = " accept=\"{$acceptElement}\"";
 
             switch ($this->fieldData['file_capture']) {
                 case 1:
-                    $captureElement = 'capture="user"';
+                    $templatesContext['captureElement'] = 'capture="user"';
 
                     break;
                 case 2:
-                    $captureElement = 'capture="environment"';
+                    $templatesContext['captureElement'] = 'capture="environment"';
 
                     break;
             }
         }
 
-        $inputSize = 40;
+        $templatesContext['inputSize'] = 40;
 
         if ($this->fieldData['html_type'] === FieldHtmlTypes::Select) {
-            $inputSize = 5;
+            $templatesContext['inputSize'] = 5;
         }
 
-        $minimumLength = $maximumLength = '';
+        $templatesContext['minimumLength'] = $templatesContext['maximumLength'] = '';
 
         if (in_array($this->fieldData['html_type'], [
             FieldHtmlTypes::Date,
@@ -118,12 +122,12 @@ trait SingleFieldTrait
             FieldHtmlTypes::Number,
             FieldHtmlTypes::Range,
         ])) {
-            $minimumLength = (int)$this->fieldData['minimum_length'];
+            $templatesContext['minimumLength'] = (int)$this->fieldData['minimum_length'];
 
-            $maximumLength = (int)$this->fieldData['maximum_length'];
+            $templatesContext['maximumLength'] = (int)$this->fieldData['maximum_length'];
         }
 
-        $minValue = $maxValue = '';
+        $templatesContext['minimumValue'] = $templatesContext['maximumValue'] = '';
 
         if (in_array($this->fieldData['html_type'], [
             FieldHtmlTypes::Date,
@@ -134,23 +138,21 @@ trait SingleFieldTrait
             FieldHtmlTypes::Number,
             FieldHtmlTypes::Range,
         ])) {
-            $minValue = (int)$this->fieldData['minimum_length'];
+            $templatesContext['minimumValue'] = (int)$this->fieldData['minimum_length'];
 
-            $maxValue = (int)$this->fieldData['maximum_length'];
+            $templatesContext['maximumValue'] = (int)$this->fieldData['maximum_length'];
         }
 
-        $fieldPlaceholder = htmlspecialchars_uni($this->fieldData['placeholder']);
+        $templatesContext['fieldPlaceholder'] = htmlspecialchars_uni($this->fieldData['placeholder']);
 
-        if (!empty($this->fieldData['regular_expression'])) {
-            $patternElement = 'pattern="' . $this->fieldData['regular_expression'] . '"';
-        }
-
-        $fieldItems = eval(
-        $this->showcaseObject->renderObject->templateGet(
-            $this->templatePrefixCreateUpdate . $this->templateName
-        )
+        $templatesContext['fieldItems'] = $this->showcaseObject->renderObject->templateGetTwig(
+            $this->templatePrefixCreateUpdate . $this->templateName,
+            $templatesContext,
         );
 
-        return eval($this->showcaseObject->renderObject->templateGet($this->templatePrefixCreateUpdate));
+        return $this->showcaseObject->renderObject->templateGetTwig(
+            $this->templatePrefixCreateUpdate,
+            $templatesContext,
+        );
     }
 }

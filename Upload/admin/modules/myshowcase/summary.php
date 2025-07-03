@@ -13,47 +13,47 @@
 
 declare(strict_types=1);
 
+use MyShowcase\Plugin\FormTypes;
+use MyShowcase\System\FieldTypes;
 use MyShowcase\System\ModeratorPermissions;
 
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\cacheUpdate;
-use function MyShowcase\Core\castTableFieldValue;
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\dataTableStructureGet;
-use function MyShowcase\Core\fieldsetGet;
-use function MyShowcase\Core\hooksRun;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\moderatorGet;
-use function MyShowcase\Core\moderatorsDelete;
-use function MyShowcase\Core\moderatorsInsert;
-use function MyShowcase\Core\moderatorsUpdate;
-use function MyShowcase\Core\permissionsDelete;
-use function MyShowcase\Core\permissionsGet;
-use function MyShowcase\Core\permissionsInsert;
-use function MyShowcase\Core\permissionsUpdate;
-use function MyShowcase\Core\showcaseDataTableDrop;
-use function MyShowcase\Core\showcaseDataTableExists;
-use function MyShowcase\Core\showcaseDelete;
-use function MyShowcase\Core\showcaseGet;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\showcaseInsert;
-use function MyShowcase\Core\showcaseUpdate;
-use function MyShowcase\Core\urlHandlerBuild;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
+use function MyShowcase\Plugin\Functions\castTableFieldValue;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\dataTableStructureGet;
+use function MyShowcase\Plugin\Functions\fieldsetGet;
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\moderatorGet;
+use function MyShowcase\Plugin\Functions\moderatorsDelete;
+use function MyShowcase\Plugin\Functions\moderatorsInsert;
+use function MyShowcase\Plugin\Functions\moderatorsUpdate;
+use function MyShowcase\Plugin\Functions\permissionsDelete;
+use function MyShowcase\Plugin\Functions\permissionsGet;
+use function MyShowcase\Plugin\Functions\permissionsInsert;
+use function MyShowcase\Plugin\Functions\permissionsUpdate;
+use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
+use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
+use function MyShowcase\Plugin\Functions\showcaseDelete;
+use function MyShowcase\Plugin\Functions\showcaseGet;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\showcaseInsert;
+use function MyShowcase\Plugin\Functions\showcaseUpdate;
+use function MyShowcase\Plugin\Functions\urlHandlerBuild;
 
-use const MyShowcase\Core\FORM_TYPE_CHECK_BOX;
-use const MyShowcase\Core\FORM_TYPE_NUMERIC_FIELD;
-use const MyShowcase\Core\TABLES_DATA;
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Core\MODERATOR_TYPE_GROUP;
-use const MyShowcase\Core\MODERATOR_TYPE_USER;
-use const MyShowcase\Core\SHOWCASE_STATUS_DISABLED;
-use const MyShowcase\Core\SHOWCASE_STATUS_ENABLED;
+use const MyShowcase\Plugin\Functions\TABLES_DATA;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELD_SETS;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_MODERATORS;
+use const MyShowcase\Plugin\Functions\CACHE_TYPE_PERMISSIONS;
+use const MyShowcase\Plugin\Functions\MODERATOR_TYPE_GROUP;
+use const MyShowcase\Plugin\Functions\MODERATOR_TYPE_USER;
+use const MyShowcase\Plugin\Functions\SHOWCASE_STATUS_DISABLED;
+use const MyShowcase\Plugin\Functions\SHOWCASE_STATUS_ENABLED;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
@@ -437,7 +437,7 @@ $(function() {
                 $key = str_replace(' ', '', ucwords(str_replace('_', ' ', $permissionName)));
 
                 switch ($fieldData['formType']) {
-                    case FORM_TYPE_NUMERIC_FIELD:
+                    case FormTypes::Number:
                         $formInput = '<div class="group_settings_bit">';
 
                         $formInput .= $lang->{'myShowcaseAdminSummaryPermissionsField' . $key};
@@ -459,7 +459,7 @@ $(function() {
                         $fields[] = $formInput;
 
                         break;
-                    case FORM_TYPE_CHECK_BOX:
+                    case FormTypes::CheckBox:
                         $fields[] = $form->generate_check_box(
                             "permissions[{$permissionName}]",
                             1,
@@ -565,7 +565,7 @@ $(function() {
                             $mybb->input[$fieldName],
                             $fieldDefinition['type']
                         );
-                    } elseif ($fieldDefinition['formType'] === FORM_TYPE_CHECK_BOX) {
+                    } elseif ($fieldDefinition['formType'] === FormTypes::CheckBox) {
                         $insertData[$fieldName] = $fieldDefinition['default'];
                     }
                 }
@@ -794,6 +794,14 @@ $(function() {
                             MyBB::INPUT_INT
                         ),
                     ];
+
+                    foreach (
+                        array_flip(
+                            (new ReflectionClass(ModeratorPermissions::class))->getConstants()
+                        ) as $key => $value
+                    ) {
+                        _dump($key, $value);
+                    }
 
                     moderatorsInsert($showcaseID, $moderatorData);
                 } elseif ($mybb->get_input('add') == 'user') {
@@ -1291,7 +1299,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
             if (empty($default_checked)) {
                 $form_container->output_cell(
-                    "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{$lang->myShowcaseAdminSummaryPermissionsFormEdit}</a>",
+                    "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{{ lang.myShowcaseAdminSummaryPermissionsFormEdit }}</a>",
                     ['class' => 'align_center']
                 );
 
@@ -1305,12 +1313,12 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                 );
 
                 $form_container->output_cell(
-                    "<a href=\"{$clearPermissionsUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$lang->myShowcaseAdminSummaryPermissionsFormConfirmClear}')\">{$lang->myShowcaseAdminSummaryPermissionsFormClear}</a>",
+                    "<a href=\"{$clearPermissionsUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{{ lang.myShowcaseAdminSummaryPermissionsFormConfirmClear }}')\">{$lang->myShowcaseAdminSummaryPermissionsFormClear }}</a>",
                     ['class' => 'align_center']
                 );
             } else {
                 $form_container->output_cell(
-                    "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{$lang->myShowcaseAdminSummaryPermissionsFormSet}</a>",
+                    "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{{ lang.myShowcaseAdminSummaryPermissionsFormSet }}</a>",
                     ['class' => 'align_center', 'colspan' => 2]
                 );
             }
@@ -1395,7 +1403,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
         while ($moderatorData = $db->fetch_array($query)) {
             if (!empty($moderatorData['is_group'])) {
-                $moderatorData['img'] = "<img src=\"styles/{$page->style}/images/icons/group.png\" alt=\"{$lang->myshowcase_moderators_group}\" title=\"{$lang->myshowcase_moderators_group}\" />";
+                $moderatorData['img'] = "<img src=\"styles/{$page->style}/images/icons/group.png\" alt=\"{{ lang.myshowcase_moderators_group }}\" title=\"{$lang->myshowcase_moderators_group }}\" />";
 
                 foreach ($groupsCache as $groupData) {
                     if ($groupData['gid'] == $moderatorData['user_id']) {
@@ -1409,7 +1417,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                     ) . '</a>'
                 );
             } else {
-                $moderatorData['img'] = "<img src=\"styles/{$page->style}/images/icons/user.png\" alt=\"{$lang->myshowcase_moderators_user}\" title=\"{$lang->myshowcase_moderators_user}\" />";
+                $moderatorData['img'] = "<img src=\"styles/{$page->style}/images/icons/user.png\" alt=\"{{ lang.myshowcase_moderators_user }}\" title=\"{$lang->myshowcase_moderators_user }}\" />";
 
                 $userData = get_user($moderatorData['user_id']);
 
@@ -1422,7 +1430,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
             $formContainer->output_cell(
                 $form->generate_check_box(
-                    "permissions[{$moderatorData['moderator_id']}][canmodapprove]",
+                    "permissions[{$moderatorData['moderator_id']}][can_manage_attachments]",
                     1,
                     '',
                     [
@@ -1461,7 +1469,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
             $formContainer->output_cell(
                 $form->generate_check_box(
-                    "permissions[{$moderatorData['moderator_id']}][canmoddelcomment]",
+                    "permissions[{$moderatorData['moderator_id']}][can_manage_comments]",
                     1,
                     '',
                     [
@@ -1481,7 +1489,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                 ]) . '#tab_moderators';
 
             $formContainer->output_cell(
-                "<a href=\"{$deleteModeratorUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$lang->myShowcaseAdminConfirmModeratorDelete}')\">{$lang->myShowcaseAdminButtonDelete}</a>",
+                "<a href=\"{$deleteModeratorUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{{ lang.myShowcaseAdminConfirmModeratorDelete }}')\">{$lang->myShowcaseAdminButtonDelete }}</a>",
                 ['class' => 'align_center']
             );
 
@@ -1545,7 +1553,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
         $rowOptions = [
             $form->generate_check_box(
-                'gcanmodapprove',
+                'gcan_manage_attachments',
                 1,
                 $lang->myShowcaseAdminSummaryEditModeratorPermissionsCanApproveEntries,
                 ['checked' => 1]
@@ -1563,7 +1571,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                 ['checked' => 1]
             ) . '<br />',
             $form->generate_check_box(
-                'gcanmoddelcomment',
+                'gcan_manage_comments',
                 1,
                 $lang->myShowcaseAdminSummaryEditModeratorPermissionsCanDeleteComments,
                 ['checked' => 1]
@@ -1614,7 +1622,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
         $rowOptions = [
             $form->generate_check_box(
-                'ucanmodapprove',
+                'ucan_manage_attachments',
                 1,
                 $lang->myShowcaseAdminSummaryEditModeratorPermissionsCanApproveEntries,
                 ['checked' => 1]
@@ -1632,7 +1640,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                 ['checked' => 1]
             ) . '<br />',
             $form->generate_check_box(
-                'ucanmoddelcomment',
+                'ucan_manage_comments',
                 1,
                 $lang->myShowcaseAdminSummaryEditModeratorPermissionsCanDeleteComments,
                 ['checked' => 1]
@@ -2299,7 +2307,7 @@ function retrieveSinglePermissionsRow(int $groupID): string
 
     if (empty($default_checked)) {
         $form_container->output_cell(
-            "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{$lang->myShowcaseAdminSummaryPermissionsFormEdit}</a>",
+            "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{{ lang.myShowcaseAdminSummaryPermissionsFormEdit }}</a>",
             ['class' => 'align_center']
         );
 
@@ -2313,12 +2321,12 @@ function retrieveSinglePermissionsRow(int $groupID): string
         );
 
         $form_container->output_cell(
-            "<a href=\"{$clearPermissionsUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$lang->myShowcaseAdminSummaryPermissionsFormConfirmClear}')\">{$lang->myShowcaseAdminSummaryPermissionsFormClear}</a>",
+            "<a href=\"{$clearPermissionsUrl}\" onclick=\"return AdminCP.deleteConfirmation(this, '{{ lang.myShowcaseAdminSummaryPermissionsFormConfirmClear }}')\">{$lang->myShowcaseAdminSummaryPermissionsFormClear }}</a>",
             ['class' => 'align_center']
         );
     } else {
         $form_container->output_cell(
-            "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{$lang->myShowcaseAdminSummaryPermissionsFormSet}</a>",
+            "<a href=\"{$permissionsUrl}\" onclick=\"MyBB.popupWindow('{$permissionsModalUrl}', null, true); return false;\">{{ lang.myShowcaseAdminSummaryPermissionsFormSet }}</a>",
             ['class' => 'align_center', 'colspan' => 2]
         );
     }

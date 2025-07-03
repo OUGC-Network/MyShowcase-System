@@ -38,6 +38,8 @@ class FieldHtmlTypes
     public const SelectEntries = 'select2_entries';
     public const SelectThreads = 'select2_threads';
 
+    //public const Poll = 'poll'; allow multiple
+
     // ? tab vs block ? (section) ?
     // custom page field type (Pages)
     // user field type allows for group filter

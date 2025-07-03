@@ -1,0 +1,85 @@
+<div class="float_left">
+    {{ pagination|raw }}
+</div>
+<div class="float_right">
+    {{ buttonEntryCreate|raw }}
+</div>
+<table border="0" cellspacing="{{ theme.borderwidth }}" cellpadding="{{ theme.tablespace }}" class="tborder clear">
+    <tr>
+        <td class="thead" colspan="{{ columnsCount }}">
+            <div>
+                <strong>{{ showcaseName }}</strong>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td class="tcat" width="15%">
+            <span class="smalltext"><strong>
+                <a href="{{ baseUrl }}/{{ sortByUsernameUrl }}">{{ lang.myShowcaseMainTableHeadAuthor }}</a>
+                {{ orderInputs.username|raw }}
+            </strong></span>
+        </td>
+        {{ tableHeadExtra|raw }}
+        <td class="tcat" align="center" width="5%">
+            <span class="smalltext"><strong>
+                <a href="{{ baseUrl }}/{{ sortByCommentsUrl }}">{{ lang.myShowcaseMainTableHeadComments }}</a>
+                {{ orderInputs.comments|raw }}
+            </strong></span>
+        </td>
+        <td class="tcat" align="center" width="5%">
+            <span class="smalltext"><strong>
+                <a href="{{ baseUrl }}/{{ sortByViewsUrl }}">{{ lang.myShowcaseMainTableHeadViews }}</a>
+                {{ orderInputs.views|raw }}
+            </strong></span>
+        </td>
+        <td class="tcat" align="right" width="20%">
+            <span class="smalltext"><strong>
+                <a href="{{ baseUrl }}/{{ sortByDatelineUrl }}">{{ lang.myShowcaseMainTableHeadLastEdit }}</a>
+                {{ orderInputs.dateline|raw }}
+            </strong></span>
+        </td>
+        {{ tableColumnInlineModeration|raw }}
+    </tr>
+    {{ showcaseEntriesList|raw }}
+    <tr>
+        <td class="tfoot" align="right" colspan="{{ columnsCount }}">
+            <form action="{{ baseUrl }}/{{ mainUrl }}" method="post">
+                <input type="hidden" name="page" value="{{ pageCurrent }}"/>
+                {{ selectFieldCode|raw }}
+                <select name="order_by">
+                    <option value="asc" {{ orderAscendingSelectedElement }}>
+                        {{ lang.myShowcaseMainSelectOrderDirection }}
+                        {{ lang.myShowcaseMainSelectAscending }}
+                    </option>
+                    <option value="desc" {{ orderDescendingSelectedElement }}>
+                        {{ lang.myShowcaseMainSelectOrderDirection }}
+                        {{ lang.myShowcaseMainSelectDescending }}
+                    </option>
+                </select>
+                {{ lang.myShowcaseMainSearch }}
+                <select name="search_field">
+                    {{ selectOptionsSearchField|raw }}
+                </select>
+                {{ lang.myShowcaseMainSearchFor }}
+                <input type="text" class="textbox" name="keywords" value="{{ searchKeyWords }}"
+                       size="20"/>
+                {{ lang.myShowcaseMainSearchMatch }}
+                <input type="checkbox" name="exact_match" value="{{ searchExactMatch }}"
+                       {{ inputElementExactMatch }}/>
+                <input type="submit" class="button" value="{{ lang.go }}"/>
+            </form>
+        </td>
+    </tr>
+</table>
+<div class="float_left">
+    {{ pagination|raw }}
+</div>
+<div class="float_right" style="margin-top: 4px;">
+    {{ buttonEntryCreate|raw }}
+</div>
+<br class="clear"/>
+<br/>
+<div class="float_right" style="text-align: right;">
+    {{ inlineModeration|raw }}
+</div>
+<br class="clear"/>

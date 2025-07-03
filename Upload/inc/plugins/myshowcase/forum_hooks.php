@@ -18,20 +18,20 @@ namespace MyShowcase\Hooks\Forum;
 use MyBB;
 use MyShowcase\System\ModeratorPermissions;
 
-use function MyShowcase\Core\attachmentGet;
-use function MyShowcase\Core\cacheGet;
-use function MyShowcase\Core\commentsGet;
-use function MyShowcase\Core\entryGetRandom;
-use function MyShowcase\Core\loadLanguage;
-use function MyShowcase\Core\renderGetObject;
-use function MyShowcase\Core\entryGet;
-use function MyShowcase\Core\showcaseGetObject;
-use function MyShowcase\Core\showcaseGetObjectByScriptName;
-use function MyShowcase\Core\urlHandlerGet;
-use function MyShowcase\Core\urlHandlerSet;
+use function MyShowcase\Plugin\Functions\attachmentGet;
+use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\commentsGet;
+use function MyShowcase\Plugin\Functions\entryGetRandom;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+use function MyShowcase\Plugin\Functions\renderGetObject;
+use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\showcaseGetObject;
+use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
+use function MyShowcase\Plugin\Functions\urlHandlerGet;
+use function MyShowcase\Plugin\Functions\urlHandlerSet;
 
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_MODERATORS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 
 /**
  * Add global notices for unapproved and reported showcases
@@ -119,7 +119,7 @@ function global_start(): bool
                     'pageViewCommentsCommentButtonWebsite',
                     'pageViewCommentsCommentDeletedBit',
                     'pageViewCommentsCommentIgnoredBit',
-                    'pageViewCommentsCommentModeratedBy',
+                    'pageViewCommentsCommentEditedBy',
                     'pageViewCommentsCommentUrl',
                     'pageViewCommentsCommentUserAvatar',
                     'pageViewCommentsCommentUserDetails',
@@ -172,7 +172,7 @@ function global_start(): bool
                     'pageViewEntryButtonWebsite',
                     'pageViewEntryDeletedBit',
                     'pageViewEntryIgnoredBit',
-                    'pageViewEntryModeratedBy',
+                    'pageViewEntryEditedBy',
                     'pageViewEntryUserAvatar',
                     'pageViewEntryUserDetails',
                     'pageViewEntryUserGroupImage',
@@ -253,7 +253,7 @@ function global_intermediate(): bool
             if ($showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries]) {
                 /*
                  $unapprovedEntriesUrl = url(
-                    URL_TYPE_MAIN,
+                    \MyShowcase\Plugin\RouterUrls::Main,
                     getParams: array_merge($showcaseObject->urlParams, ['unapproved' => 1])
                 )->getRelativeUrl();
                 */
@@ -270,7 +270,11 @@ function global_intermediate(): bool
 
                     $renderObjects = renderGetObject($showcaseObject);
 
-                    $unapprovedEntriesNotices[] = eval($renderObjects->templateGet('globalMessageUnapprovedEntries'));
+                    $unapprovedEntriesNotices[] = $renderObjects->templateGetTwig('globalMessageUnapprovedEntries', [
+                        'urlBase' => $showcaseObject->urlBase,
+                        'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
+                        'unapprovedText' => $unapprovedText,
+                    ]);
                 }
             }
         }
@@ -325,7 +329,7 @@ function fetch_wol_activity_end(array &$user_activity): array
             $user_activity['myshowcase_mainfile'] = $myshowcase['script_name'];
 
             if ($parameters['action'] == 'view') {
-                $user_activity['activity'] = 'myShowcaseMainTableTheadView';
+                $user_activity['activity'] = 'myShowcaseMainTableHeadView';
                 if (is_numeric($parameters['entry_id'])) {
                     $user_activity['entry_id'] = $parameters['entry_id'];
                 }
@@ -591,8 +595,6 @@ function portal_start(): bool
     {
         $portal_rand_showcase = entryGetRandom();
         if (!$portal_rand_showcase) {
-            //add code here to use portal_basic_box template box or some
-            //other output if a random showcase with attachments is not found
         }
     }
 
@@ -623,6 +625,8 @@ function report_type(): void
         );
 
         if (empty($entryData)) {
+            global $lang;
+
             $error = $lang->myShowcaseReportEntryInvalid;
 
             return;
@@ -666,6 +670,8 @@ function report_type(): void
         );
 
         if (empty($commentData) || empty($entryData)) {
+            global $lang;
+
             $error = $lang->myShowcaseReportCommentInvalid;
 
             return;

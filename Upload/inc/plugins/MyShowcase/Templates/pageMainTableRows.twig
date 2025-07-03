@@ -1,0 +1,30 @@
+<tr class="inline_row">
+    <td class="{{ alternativeBackground }} {{ styleClass }}">
+        {{ viewAttachmentsCount|raw }}
+        <div>
+            <span>
+                <a href="{{ entryUrl }}">{{ entrySubject }}</a>
+                {{ viewPagination|raw }}
+            </span>
+            <div>
+                <span class="author smalltext">{{ entryUsernameFormatted|raw }}{{ lang.comma }}</span>
+                <span class="thread_start_datetime smalltext">{{ entryDateline }}</span>
+            </div>
+            {{ entryImage|raw }}
+        </div>
+    </td>
+    {{ tableRowExtra|raw }}
+    <td align="center" class="{{ alternativeBackground }} {{ styleClass }}">
+        {{ entryComments }}
+    </td>
+    <td align="center" class="{{ alternativeBackground }} {{ styleClass }}">
+        {{ entryViews }}
+        {{ entryUnapproved }}
+    </td>
+    <td class="{{ alternativeBackground }} {{ styleClass }}" style="white-space: nowrap; text-align: right;">
+		<span class="lastpost smalltext">{{ entryDateline }}<br/>
+		<a href="{{ entryUrlLastComment }}">{{ lang.myShowcaseMainTableRowLastComment }}</a>: {{ viewLastCommenter|raw }}</span>
+    </td>
+    {{ tableRowInlineModeration|raw }}
+</tr>
+

@@ -1,8 +1,0 @@
-<form id="approveCommentForm{$commentSlug}" action="{$approveUrl}" method="post" style="display:none;">
-    <input type="hidden" name="my_post_key" value="{$mybb->post_code}"/>
-</form>
-<a href="javascript:void(0)" title="{$lang->myShowcaseCommentButtonApproveDescription}" class="postbit_qrestore"
-   onclick="Showcase.confirmSubmit('{$lang->myShowcaseCommentButtonApproveConfirm}', 'approveCommentForm{$commentSlug}');"
-   style="display: inline;">
-    <span>{$lang->myShowcaseCommentButtonApprove}</span>
-</a>

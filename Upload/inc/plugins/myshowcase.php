@@ -18,39 +18,40 @@ use function MyShowcase\Admin\pluginDeactivation;
 use function MyShowcase\Admin\pluginInformation;
 use function MyShowcase\Admin\pluginIsInstalled;
 use function MyShowcase\Admin\pluginUninstallation;
-use function MyShowcase\Core\hooksAdd;
-use function MyShowcase\Core\cacheUpdate;
+use function MyShowcase\Plugin\Functions\hooksAdd;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
 
 use const MyShowcase\ROOT;
-use const MyShowcase\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Core\CACHE_TYPE_PERMISSIONS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 
 defined('IN_MYBB') || die('This file cannot be accessed directly.');
 
 // You can uncomment the lines below to avoid storing some settings in the DB
-define('MyShowcase\Core\SETTINGS', [
+define('MyShowcase\Plugin\Core\SETTINGS', [
     //'key' => '',
     'superModeratorGroups' => '3,4',
     'slugLength' => 5,
     'slugBcryptCost' => 10,
+    'ViewsCountSpider' => false,
+    'ViewsCountGuests' => true,
+    'ViewsCountAuthor' => false,
+    'parserMyCodeAffectsLength' => true,
 ]);
 
-define('MyShowcase\Core\DEBUG', true);
+define('MyShowcase\Plugin\Core\DEBUG', true);
 
 define('MyShowcase\ROOT', constant('MYBB_ROOT') . 'inc/plugins/MyShowcase');
 
-require_once ROOT . '/System/FieldDefaultTypes.php';
-require_once ROOT . '/System/FieldHtmlTypes.php';
-require_once ROOT . '/System/FieldTypes.php';
-require_once ROOT . '/System/FormatTypes.php';
-require_once ROOT . '/System/FilterTypes.php';
-require_once ROOT . '/System/ModeratorPermissions.php';
+//require_once ROOT . '/System/FormatTypes.php';
+//require_once ROOT . '/System/FilterTypes.php';
 require_once ROOT . '/System/UserPermissions.php';
-
-require_once ROOT . '/core.php';
+require_once ROOT . '/System/ModeratorPermissions.php';
+require_once ROOT . '/Plugin/Core.php';
+require_once ROOT . '/Plugin/Functions.php';
 
 defined('PLUGINLIBRARY') || define('PLUGINLIBRARY', MYBB_ROOT . 'inc/plugins/pluginlibrary.php');
 
@@ -135,3 +136,16 @@ global $mybb;
 $mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true;
 
 $mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
+
+if (!function_exists('_dump')) {
+    function _dump(): never
+    {
+        echo '<pre>';
+
+        var_dump(func_get_args());
+
+        echo '</pre>';
+
+        exit;
+    }
+}
