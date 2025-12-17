@@ -90,7 +90,7 @@ abstract class Base
     {
     }
 
-    #[NoReturn] public function outputSuccess(string $pageContents): void
+    #[NoReturn] public function outputSuccess(string $pageContents, string $templateName = 'page'): void
     {
         $templatesContext = ['pageContents' => $pageContents];
 
@@ -98,12 +98,12 @@ abstract class Base
             'templatesContext' => &$templatesContext,
         ];
 
-        $templatesContext['mainUrl'] = url(
+        $templatesContext['url_main'] = url(
             RouterUrls::Main,
             getParams: $this->showcaseObject->urlParams
         )->getRelativeUrl();
 
-        $templatesContext['pageTitle'] = $this->showcaseObject->config['name'];
+        $templatesContext['page_title'] = $this->showcaseObject->config['name'];
 
         $templatesContext['errorMessages'] = empty($this->showcaseObject->errorMessages) ? '' : inline_error(
             $this->showcaseObject->errorMessages
@@ -115,8 +115,6 @@ abstract class Base
             $templatesContext['version'] = TIME_NOW;
         }
 
-        $templatesContext['pageMeta'] = '';
-
         $showcaseDescription = htmlspecialchars_uni($this->showcaseObject->config['description']);
 
         if ($this->showcaseObject->entryID) {
@@ -127,17 +125,11 @@ abstract class Base
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
                 ]
             )->getRelativeUrl();
-
-            $templatesContext['pageMeta'] = $this->renderObject->templateGetTwig('pageMetaCanonical', [
-                'baseUrl' => $this->showcaseObject->urlBase,
-                'entryUrl' => $entryUrl,
-                'showcaseDescription' => $showcaseDescription,
-            ]);
         }
 
         $hookArguments = hooksRun('controller_base_output_success', $hookArguments);
 
-        output_page($this->renderObject->templateGetTwig('page', $templatesContext));
+        output_page($this->renderObject->templateGetTwig($templateName, $templatesContext));
 
         exit;
     }

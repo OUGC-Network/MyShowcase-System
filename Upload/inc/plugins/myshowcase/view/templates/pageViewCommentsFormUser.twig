@@ -1,0 +1,57 @@
+<div id="quickreply_spinner" class="spinner spinner--quick-reply" style="display: none"><span class="spinner__icon">{{ include('partials/icon.twig', {icon: 'sync', class: 'spinner__icon fa-spin'}, with_context = false) }}</span>
+</div>
+<div class="alert alert--danger">
+    {{ commentLengthLimitNote }}
+</div>
+<div class="post post--reply post--quick-reply compose compose--quick-reply quick-reply" id="post-reply">
+    <form method="post" action="{{ createUpdateUrl }}" name="quick_comment_form"
+          id="quick_comment_form">
+        <div class="post__meta">
+            <a href="{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
+               title="{{ lang.welcome_my_profile }}">
+                {{ render_avatar(url=mybb.user.avatar, alt=lang.welcome_my_avatar) }}
+            </a>
+            {# TO DO: username styling #}
+            <h3 class="post__author"><a href="{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.username }}</a></h3>
+            <span class="post__date">{{ lang.myShowcaseCommentCreateTitle }}</span>
+        </div>
+        <div class="post__body">
+            <textarea class="textarea" rows="8" cols="80" name="comment" id="comment" tabindex="1"
+                      placeholder="{{ lang.myShowcaseCommentCreateMessagePlaceholder }}"></textarea>
+            {{ editorCodeButtons|raw }}
+        </div>
+        {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles %}
+        <input type="checkbox" class="compose__checkbox" id="show-quick-reply-options">
+        <div class="quick-reply__options">
+            {% if mybb.usergroup.canusesig and mybb.user.suspendsignature != 1 or true %}
+            <label class="quick-reply__option"><input type="checkbox" class="checkbox quick-reply__checkbox"
+                                                      name="commentOptions[signature]" value="1" checked="checked"/> {{
+                lang.myShowcaseCommentCreateMessageOptionSignature }}</label>
+            {% endif %}
+            {% if config.parser_allow_smiles or true %}
+            <label class="quick-reply__option"><input type="checkbox" class="checkbox quick-reply__checkbox"
+                                                      name="commentOptions[disablesmilies]" value="1"/> {{
+                lang.myShowcaseCommentCreateMessageOptionDisableSmiles }} </label>
+            {% endif %}
+        </div>
+        {% endif %}
+        {{ captcha|raw }}
+        <div class="post__foot">
+            <button type="submit" class="button" tabindex="2" accesskey="s" id="quick_reply_submit">
+                {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myShowcaseCommentCreateUpdateFormButtonCreate }}</span>
+            </button>
+            {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles %}
+            <label for="show-quick-reply-options" class="button button--basic">
+                {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.options }}</span>
+            </label>
+            {% endif %}
+            <button type="submit" class="button button--basic" name="preview" value="preview" tabindex="3">
+                {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myShowcaseCommentCreateUpdateFormButtonPreview }}</span>
+            </button>
+        </div>
+        <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+    </form>
+</div>

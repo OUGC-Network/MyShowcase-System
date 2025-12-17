@@ -63,13 +63,13 @@ class Attachments extends Base
 
         $entryData = $this->showcaseObject->dataGet(
             ["entry_slug='{$db->escape_string($entrySlug)}'"],
-            ['user_id', 'entry_hash', 'status'],
+            ['user_id', 'post_hash', 'status'],
             queryOptions: ['limit' => 1]
         );
 
         $this->showcaseObject->entryDataSet($entryData);
 
-        $tableFields = TABLES_DATA['myshowcase_attachments'];
+        $tablesData = TABLES_DATA['myshowcase_attachments'];
 
         $whereClauses = [
             "showcase_id='{$this->showcaseObject->showcase_id}'",
@@ -87,7 +87,7 @@ class Attachments extends Base
             'attachmentsController' => &$this,
             'attachmentData' => &$attachmentData,
             'isThumbnail' => $isThumbnail,
-            'tableFields' => &$tableFields,
+            'tableData' => &$tablesData,
             'whereClauses' => &$whereClauses,
             'incrementDownloadCount' => &$incrementDownloadCount,
         ];
@@ -96,7 +96,7 @@ class Attachments extends Base
 
         $attachmentData = attachmentGet(
             $whereClauses,
-            array_keys($tableFields),
+            array_keys($tablesData),
             queryOptions: ['limit' => 1]
         );
 
@@ -111,11 +111,11 @@ class Attachments extends Base
         $attachmentUserID = (int)$attachmentData['user_id'];
 
         if (
-            !$this->showcaseObject->userPermissions[UserPermissions::CanView] ||
-            !$this->showcaseObject->userPermissions[UserPermissions::CanViewEntries] ||
+            !$this->showcaseObject->user_permissions[UserPermissions::CanView] ||
+            !$this->showcaseObject->user_permissions[UserPermissions::CanViewEntries] ||
             (
                 $currentUserID !== $attachmentUserID &&
-                !$this->showcaseObject->userPermissions[UserPermissions::CanViewAttachments]
+                !$this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]
             )
         ) {
             $this->error($lang->error_invalidattachment);
@@ -146,12 +146,12 @@ class Attachments extends Base
 
         // Don't check the permissions on preview
         if ($currentUserID !== $attachmentUserID) {
-            if (!$this->showcaseObject->userPermissions[UserPermissions::CanDownloadAttachments] && !$isThumbnail) {
+            if (!$this->showcaseObject->user_permissions[UserPermissions::CanDownloadAttachments] && !$isThumbnail) {
                 $this->errorNoPermission();
             }
 
             // Error if attachment is invalid or not visible
-            if (!$this->showcaseObject->userPermissions[ModeratorPermissions::CanManageAttachments] &&
+            if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageAttachments] &&
                 (
                     $attachmentStatus !== ATTACHMENT_STATUS_VISIBLE ||
                     (int)$this->showcaseObject->entryData['status'] !== ENTRY_STATUS_VISIBLE

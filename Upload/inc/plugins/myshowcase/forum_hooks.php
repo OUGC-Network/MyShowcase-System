@@ -102,7 +102,6 @@ function global_start(): bool
                     'pageEntryCreateUpdateDataFieldUrl',
                     'pageEntryCreateUpdateDataFieldWeek',
                     'pageEntryCreateUpdateDataTextUrl',
-                    'pageMetaCanonical',
                     'pageView',
                     'pageViewCommentsComment',
                     'pageViewCommentsCommentButtonApprove',
@@ -241,7 +240,7 @@ function global_intermediate(): bool
         //if showcase is enabled...
         if ($showcaseObject->config['enabled']) {
             //load language if we are going to use it
-            if ($showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries] || $showcaseObject->userPermissions[ModeratorPermissions::CanManageComments]) {
+            if ($showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries] || $showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
                 loadLanguage();
             }
 
@@ -250,7 +249,7 @@ function global_intermediate(): bool
             $showcaseObject->urlSet(urlHandlerGet());
 
             //awaiting approval
-            if ($showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries]) {
+            if ($showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
                 /*
                  $unapprovedEntriesUrl = url(
                     \MyShowcase\Plugin\RouterUrls::Main,
@@ -271,7 +270,7 @@ function global_intermediate(): bool
                     $renderObjects = renderGetObject($showcaseObject);
 
                     $unapprovedEntriesNotices[] = $renderObjects->templateGetTwig('globalMessageUnapprovedEntries', [
-                        'urlBase' => $showcaseObject->urlBase,
+                        'url_base' => $showcaseObject->url_base,
                         'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
                         'unapprovedText' => $unapprovedText,
                     ]);

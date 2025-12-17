@@ -114,7 +114,7 @@ $l = array_merge([
     'myShowcaseAdminSuccessShowcaseDeleted' => 'The showcase was successfully deleted.',
     'myShowcaseAdminSuccessShowcaseUpdated' => 'The showcase settings were successfully updated.',
     'myShowcaseAdminSuccessShowcaseEditOther' => 'The showcase additional settings were successfully edited.',
-    'myShowcaseAdminSuccessShowcaseEditPermissions' => 'The showcase permissions were successfully edited.',
+    'myShowcaseAdminSuccessShowcaseEditPermissions' => 'The showcase custom permissions were successfully edited.',
     'myShowcaseAdminSuccessShowcaseEditModerators' => 'The showcase moderators were successfully edited.',
     'myShowcaseAdminSuccessShowcaseEditModeratorDelete' => 'The moderator was successfully removed.',
 
@@ -256,24 +256,24 @@ $l = array_merge([
     'myShowcaseAdminSummaryPermissionsFieldCanSearch' => 'Can Search',
 
     'myShowcaseAdminSummaryPermissionsFormGroup' => 'Group',
-    'myShowcaseAdminSummaryPermissionsFormPermissions' => 'Permissions',
+    'myShowcaseAdminSummaryPermissionsFormPermissions' => 'Custom Permissions',
     'myShowcaseAdminSummaryPermissionsFormAllowedActions' => 'Overview: Allowed Actions',
     'myShowcaseAdminSummaryPermissionsFormDisallowedActions' => 'Overview: Disallowed Actions',
     'myShowcaseAdminSummaryPermissionsFormInherited' => 'inherited',
     'myShowcaseAdminSummaryPermissionsFormCustom' => 'custom',
-    'myShowcaseAdminSummaryPermissionsFormEdit' => 'Edit Permissions',
+    'myShowcaseAdminSummaryPermissionsFormEdit' => 'Edit Custom Permissions',
     'myShowcaseAdminSummaryPermissionsFormClear' => 'Clear Custom Permissions',
     'myShowcaseAdminSummaryPermissionsFormSet' => 'Set Custom Permissions',
     'myShowcaseAdminSummaryPermissionsFormSave' => 'Save Custom Permissions',
 
     'myShowcaseAdminSummaryPermissionsFormCustomPermissions' => 'Custom Permissions',
-    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsDescription' => 'Here you can modify the full permissions for an individual group for a single showcase.',
+    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsDescription' => 'Here you can modify the full custom permissions for an individual group for a single showcase.',
 
-    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess' => 'The showcase permissions have been saved successfully.',
+    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess' => 'The showcase custom permissions have been saved successfully.',
 
     'myShowcaseAdminSummaryPermissionsFormConfirmClear' => 'Are you sure you wish to clear this custom permission?',
 
-    'myShowcaseAdminSummaryPermissionsFormButtonSubmit' => 'Save Permissions',
+    'myShowcaseAdminSummaryPermissionsFormButtonSubmit' => 'Save Custom Permissions',
 
     'myShowcaseAdminSummaryPermissionsClearConfirm' => 'Are you sure you wish to clear this custom permission?',
     'myShowcaseAdminSummaryPermissionsClearSuccess' => 'The custom permissions for this showcase have been cleared successfully.',

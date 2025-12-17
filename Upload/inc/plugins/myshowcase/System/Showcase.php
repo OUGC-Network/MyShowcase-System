@@ -22,6 +22,7 @@ use MyShowcase\Plugin\RouterUrls;
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\cacheUpdate;
 use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\commentsDelete;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -48,6 +49,7 @@ use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
@@ -55,6 +57,7 @@ use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 class Showcase
 {
@@ -64,7 +67,7 @@ class Showcase
      * @return Showcase
      */
     public function __construct(
-        public string $scriptName,
+        public string $script_name,
         public ?Render &$renderObject = null,
         public string $selfPhpScript = '',
         public string $dataTableName = '',
@@ -83,9 +86,9 @@ class Showcase
         public int $entryUserID = 0,
         //public string $entryHash = '',
         //public string $commentHash = '',
-        public array $fieldSetFieldsDisplayFields = [],
+        public array $fieldset_fields_display_fields = [],
         public string $searchField = '',
-        public string $sortByField = '',
+        public string $sort_by_field = '',
         public string $orderBy = '',
         public array $errorMessages = [],
         #Config
@@ -131,12 +134,18 @@ class Showcase
     ) {
         global $db, $mybb, $cache;
 
-        //make sure plugin is installed and active
+        //make sure the plugin is installed and active
         $plugin_cache = $cache->read('plugins');
 
         //check if the requesting file is in the cache
         foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcaseID => $showcaseData) {
-            if ($showcaseData['script_name'] === $this->scriptName/* &&
+            $showcaseData['version'] = VERSION_CODE;
+
+            if (DEBUG) {
+                $showcaseData['version'] = TIME_NOW;
+            }
+
+            if ($showcaseData['script_name'] === $this->script_name/* &&
                 $showcaseData['script_name'] === THIS_SCRIPT*/) {
                 $this->config = array_merge($showcaseData, $this->config);
 
@@ -167,7 +176,7 @@ class Showcase
             $pattern
         );
 
-        // Cut off punctuation at beginning and end.
+        // Cut off punctuation at the beginning and end.
         $this->cleanName = preg_replace(
             "/^[$pattern]+|[$pattern]+$/u",
             '',
@@ -181,7 +190,7 @@ class Showcase
             $this->cleanName
         );
 
-        //make sure data table exists and assign table name var if it does
+        //make sure the data table exists and assign table name var if it does
         if (showcaseDataTableExists($this->showcase_id)) {
             $this->dataTableName = 'myshowcase_data' . $this->showcase_id;
         }
@@ -194,12 +203,12 @@ class Showcase
             return;
         }
 
-        //get basename of the calling file. This is used later for SEO support
+        //Get the basename of the calling file. This is used later for SEO support
         $this->prefix = explode('.', $this->config['script_name'])[0];
 
         $currentUserID = (int)$mybb->user['uid'];
 
-        $this->userPermissions = $this->userPermissionsGet($currentUserID);
+        $this->user_permissions = $this->userPermissionsGet($currentUserID);
 
         $this->parserOptions = array_merge($this->parserOptions, [
             'allow_html' => $this->config['parser_allow_html'],
@@ -219,27 +228,27 @@ class Showcase
         if ($this->config['field_set_id']) {
             $this->fieldSetCache = cacheGet(CACHE_TYPE_FIELDS)[$this->config['field_set_id']] ?? [];
 
-            foreach ($this->fieldSetCache as $fieldID => $fieldData) {
-                if (!$fieldData['enabled']/* || $fieldData['is_required']*/) {
+            foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+                if (!$fieldDefinition['enabled']/* || $fieldDefinition['is_required']*/) {
                     unset($this->fieldSetCache[$fieldID]);
 
                     continue;
                 }
 
-                $this->fieldSetFieldsIDs[$fieldData['field_key']] = $fieldID;
+                $this->fieldSetFieldsIDs[$fieldDefinition['field_key']] = $fieldID;
 
-                $this->fieldSetEnabledFields[$fieldData['field_key']] = $fieldData['html_type'];
+                $this->fieldSetEnabledFields[$fieldDefinition['field_key']] = $fieldDefinition['html_type'];
 
-                if ($fieldData['enable_search']) {
-                    $this->fieldSetSearchableFields[$fieldData['field_key']] = $fieldData['html_type'];
+                if ($fieldDefinition['enable_search']) {
+                    $this->fieldSetSearchableFields[$fieldDefinition['field_key']] = $fieldDefinition['html_type'];
                 }
 
-                $this->fieldSetFieldsOrder[$fieldData['render_order']] = $fieldID;
-                //$this->fieldSetFieldsOrder[$fieldData['display_order']] = $fieldData['field_key'];
+                $this->fieldSetFieldsOrder[$fieldDefinition['render_order']] = $fieldID;
+                //$this->fieldSetFieldsOrder[$fieldDefinition['display_order']] = $fieldDefinition['field_key'];
             }
         }
 
-        $this->fieldSetFieldsDisplayFields = [
+        $this->fieldset_fields_display_fields = [
             'dateline' => '',
             //'edit_stamp' => '',
             'username' => '',
@@ -249,14 +258,14 @@ class Showcase
         ];
 
         foreach ($this->fieldSetFieldsOrder as $renderOrder => $fieldID) {
-            $fieldKey = $this->fieldSetCache[$fieldID]['field_key'];
+            $field_key = $this->fieldSetCache[$fieldID]['field_key'];
 
-            $this->fieldSetFieldsDisplayFields[$fieldKey] = '';
+            $this->fieldset_fields_display_fields[$field_key] = '';
         }
 
         $this->searchField = $mybb->get_input('search_field');
 
-        $this->sortByField = $mybb->get_input('sort_by');
+        $this->sort_by_field = $mybb->get_input('sort_by');
 
         if ($mybb->get_input('order_by') === ORDER_DIRECTION_ASCENDING) {
             $this->orderBy = ORDER_DIRECTION_ASCENDING;
@@ -264,14 +273,14 @@ class Showcase
             $this->orderBy = ORDER_DIRECTION_DESCENDING;
         }
 
-        if (!array_key_exists($this->sortByField, $this->fieldSetFieldsDisplayFields)) {
-            $this->sortByField = 'dateline';
+        if (!array_key_exists($this->sort_by_field, $this->fieldset_fields_display_fields)) {
+            $this->sort_by_field = 'dateline';
         }
 
-        $this->urlBase = $mybb->settings['homeurl'];
+        $this->url_base = $mybb->settings['homeurl'];
 
-        if (str_ends_with($this->urlBase, '/')) {
-            $this->urlBase = rtrim($this->urlBase, '/');
+        if (str_ends_with($this->url_base, '/')) {
+            $this->url_base = rtrim($this->url_base, '/');
         }
 
         if ($this->config['enable_friendly_urls']) {
@@ -400,6 +409,16 @@ class Showcase
 
             $dataFields = TABLES_DATA['myshowcase_permissions'];
 
+            $hookArguments = [
+                'dataFields' => &$dataFields,
+            ];
+
+            // todo, similar to `admin_user_groups_edit_graph_start`
+            $hookArguments = hooksRun(
+                'admin_user_groups_edit_graph_start',
+                $hookArguments
+            );
+
             foreach ($dataFields as $dataFieldKey => $dataFieldData) {
                 if (!isset($dataFieldData['isPermission'])) {
                     continue;
@@ -477,13 +496,19 @@ class Showcase
                         }
 
                         if (isset($userPermissions[$userID][$permissionName])) {
-                            if (empty($dataFieldData['lowest'])) {
-                                $userPermissions[$userID][$permissionName] = max(
+                            if (!empty($dataFieldData['closest_to'])) {
+                                if (
+                                    abs($dataFieldData['closest_to'] - $userPermissions[$userID][$permissionName]) >
+                                    abs($groupPermissions[$permissionName] - $dataFieldData['closest_to'])) {
+                                    $userPermissions[$userID][$permissionName] = $groupPermissions[$permissionName];
+                                }
+                            } elseif (!empty($dataFieldData['lowest'])) {
+                                $userPermissions[$userID][$permissionName] = min(
                                     $userPermissions[$userID][$permissionName],
                                     $groupPermissions[$permissionName]
                                 );
                             } else {
-                                $userPermissions[$userID][$permissionName] = min(
+                                $userPermissions[$userID][$permissionName] = max(
                                     $userPermissions[$userID][$permissionName],
                                     $groupPermissions[$permissionName]
                                 );
@@ -626,7 +651,7 @@ class Showcase
 
     public function permissionCheck(string $permissionKey): bool|int
     {
-        return $this->userPermissions[$permissionKey];
+        return $this->user_permissions[$permissionKey];
     }
 
     public function parseMessage(string $message, array $parserOptions = []): string
@@ -675,7 +700,7 @@ class Showcase
         if ($this->config['relative_path']) {
             return $this->config['relative_path'] . '/' . $this->config['script_name'];
         } else {
-            return $this->urlBase . '/' . $this->config['script_name'];
+            return $this->url_base . '/' . $this->config['script_name'];
         }
     }
 
@@ -690,7 +715,7 @@ class Showcase
             'COUNT(entry_id) AS totalUnapprovedEntries',
             "approved='{$entryStatusUnapproved}'",
             [
-                'group_by' => 'entry_id, approved'
+                'group_by' => 'entry_id'
             ]
         );
 
@@ -774,8 +799,8 @@ class Showcase
             $this->entryUserID = (int)$this->entryData['user_id'];
         }
 
-        if (isset($this->entryData['entry_hash'])) {
-            //$this->entryHash = (string)$this->entryData['entry_hash'];
+        if (isset($this->entryData['post_hash'])) {
+            //$this->entryHash = (string)$this->entryData['post_hash'];
         }
     }
 
@@ -823,9 +848,9 @@ class Showcase
     public function getBasicUrl(): string
     {
         if ($this->config['enable_friendly_urls']) {
-            $scriptBasicUrl = str_replace('.php', '/', $this->scriptName);
+            $scriptBasicUrl = str_replace('.php', '/', $this->script_name);
         } else {
-            $scriptBasicUrl = $this->scriptName;
+            $scriptBasicUrl = $this->script_name;
         }
 
         if (str_ends_with($scriptBasicUrl, '/')) {
@@ -911,7 +936,7 @@ class Showcase
             "status='{$statusVisible}'",
         ];
 
-        if ($this->userPermissions[ModeratorPermissions::CanManageComments]) {
+        if ($this->user_permissions[ModeratorPermissions::CanManageComments]) {
             $whereClausesStatus[] = "status='{$statusPendingApproval}'";
 
             $whereClausesStatus[] = "status='{$statusSoftDeleted}'";
@@ -935,8 +960,8 @@ class Showcase
         $whereClauses = ["entryData.entry_slug='{$db->escape_string($entrySlug)}'"];
 
         $queryFields = array_merge(
-            array_map(function (string $columnName): string {
-                return 'entryData.' . $columnName;
+            array_map(function (string $fieldName): string {
+                return 'entryData.' . $fieldName;
             }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
             [
                 'userData.username',
@@ -946,25 +971,25 @@ class Showcase
         $queryTables = ['users userData ON (userData.uid=entryData.user_id)'];
 
         if ($loadFields) {
-            foreach ($this->fieldSetCache as $fieldID => $fieldData) {
-                $fieldKey = $fieldData['field_key'];
+            foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+                $field_key = $fieldDefinition['field_key'];
 
-                $htmlType = $fieldData['html_type'];
+                $htmlType = $fieldDefinition['html_type'];
 
-                $fieldID = (int)$fieldData['field_id'];
+                $fieldID = (int)$fieldDefinition['field_id'];
 
                 if ($htmlType === FieldHtmlTypes::Select || $htmlType === FieldHtmlTypes::Radio) {
-                    $queryTables[] = "myshowcase_field_data table_{$fieldKey} ON (table_{$fieldKey}.field_data_id=entryData.{$fieldKey} AND table_{$fieldKey}.field_id='{$fieldID}')";
+                    $queryTables[] = "myshowcase_field_data table_{$field_key} ON (table_{$field_key}.field_data_id=entryData.{$field_key} AND table_{$field_key}.field_id='{$fieldID}')";
 
-                    //$queryFields[] = "table_{$fieldKey}.value AS {$fieldKey}";
+                    //$queryFields[] = "table_{$field_key}.value AS {$field_key}";
 
-                    $queryFields[] = "table_{$fieldKey}.display_style AS {$fieldKey}";
+                    $queryFields[] = "table_{$field_key}.display_style AS {$field_key}";
 
                     // todo, I don't understand the purpose of this now
                     // the condition after OR seems to fix it for now
-                    //$whereClauses[] = "(table_{$fieldKey}.set_id='{$this->config['field_set_id']}' OR entryData.{$fieldKey}=0)";
+                    //$whereClauses[] = "(table_{$field_key}.set_id='{$this->config['field_set_id']}' OR entryData.{$field_key}=0)";
                 } else {
-                    $queryFields[] = $fieldKey;
+                    $queryFields[] = $field_key;
                 }
             }
         }

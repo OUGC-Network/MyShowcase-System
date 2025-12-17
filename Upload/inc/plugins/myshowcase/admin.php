@@ -128,7 +128,7 @@ function pluginActivation(): bool
                 'aid' => 'attachment_id',
                 'gid' => 'entry_id',
                 'id' => 'showcase_id',
-                'posthash' => 'entry_hash',
+                'posthash' => 'post_hash',
                 'uid' => 'user_id',
                 'filename' => 'file_name',
                 'filetype' => 'mime_type',
@@ -234,13 +234,13 @@ function pluginActivation(): bool
             'myshowcase_data' => [
                 'gid' => 'entry_id',
                 'uid' => 'user_id',
-                'posthash' => 'entry_hash',
+                'posthash' => 'post_hash',
                 'entry_slug' => 'entry_slug_custom',
             ],
-        ] as $tableName => $tableColumns
+        ] as $tableName => $tableData
     ) {
         if ($db->table_exists($tableName)) {
-            foreach ($tableColumns as $oldColumnName => $newColumnName) {
+            foreach ($tableData as $oldColumnName => $newColumnName) {
                 if ($db->field_exists($oldColumnName, $tableName) &&
                     !$db->field_exists($newColumnName, $tableName) &&
                     isset(TABLES_DATA[$tableName][$newColumnName])) {
@@ -257,7 +257,7 @@ function pluginActivation(): bool
         if ($tableName === 'myshowcase_data') {
             foreach (showcaseGet() as $showcaseID => $showcaseData) {
                 if (showcaseDataTableExists($showcaseID)) {
-                    foreach ($tableColumns as $oldColumnName => $newColumnName) {
+                    foreach ($tableData as $oldColumnName => $newColumnName) {
                         if ($db->field_exists($oldColumnName, 'myshowcase_data' . $showcaseID) &&
                             !$db->field_exists($newColumnName, 'myshowcase_data' . $showcaseID)) {
                             $db->rename_column(
@@ -371,12 +371,12 @@ function pluginUninstallation(): bool
             }
         }
 
-        foreach (dbTables() as $tableName => $tableColumns) {
+        foreach (dbTables() as $tableName => $tableData) {
             $db->drop_table($tableName);
         }
 
-        foreach (FIELDS_DATA as $tableName => $tableColumns) {
-            foreach ($tableColumns as $fieldName => $fieldDefinition) {
+        foreach (FIELDS_DATA as $tableName => $tableData) {
+            foreach ($tableData as $fieldName => $fieldDefinition) {
                 !$db->field_exists($fieldName, $tableName) || $db->drop_column($tableName, $fieldName);
             }
         }
@@ -515,24 +515,24 @@ function dbTables(array $tableObjects = TABLES_DATA): array
 {
     $tablesData = [];
 
-    foreach ($tableObjects as $tableName => $tableColumns) {
-        foreach ($tableColumns as $fieldName => $fieldData) {
-            if (!isset($fieldData['type'])) {
+    foreach ($tableObjects as $tableName => $tableData) {
+        foreach ($tableData as $fieldName => $fieldDefinition) {
+            if (!isset($fieldDefinition['type'])) {
                 continue;
             }
 
-            $tablesData[$tableName][$fieldName] = buildDbFieldDefinition($fieldData);
+            $tablesData[$tableName][$fieldName] = buildDbFieldDefinition($fieldDefinition);
         }
 
-        foreach ($tableColumns as $fieldName => $fieldData) {
-            if (isset($fieldData['primary_key'])) {
+        foreach ($tableData as $fieldName => $fieldDefinition) {
+            if (isset($fieldDefinition['primary_key'])) {
                 $tablesData[$tableName]['primary_key'] = $fieldName;
             }
 
             if ($fieldName === 'unique_keys') {
                 $tablesData[$tableName]['unique_keys'] = array_merge(
                     $tablesData[$tableName]['unique_keys'] ?? [],
-                    $fieldData
+                    $fieldDefinition
                 );
             }
         }
@@ -551,15 +551,15 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
 
     foreach (dbTables($tableObjects) as $tableName => $tableData) {
         if ($db->table_exists($tableName)) {
-            foreach ($tableData as $fieldName => $fieldData) {
+            foreach ($tableData as $fieldName => $fieldDefinition) {
                 if ($fieldName === 'primary_key' || $fieldName === 'unique_keys') {
                     continue;
                 }
 
                 if ($db->field_exists($fieldName, $tableName)) {
-                    $db->modify_column($tableName, "`{$fieldName}`", $fieldData);
+                    $db->modify_column($tableName, "`{$fieldName}`", $fieldDefinition);
                 } else {
-                    $db->add_column($tableName, $fieldName, $fieldData);
+                    $db->add_column($tableName, $fieldName, $fieldDefinition);
                 }
             }
         } else {
@@ -567,11 +567,11 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
 
             $fields = [];
 
-            foreach ($tableData as $fieldName => $fieldData) {
+            foreach ($tableData as $fieldName => $fieldDefinition) {
                 if ($fieldName === 'primary_key') {
-                    $fields[] = "PRIMARY KEY (`{$fieldData}`)";
+                    $fields[] = "PRIMARY KEY (`{$fieldDefinition}`)";
                 } elseif ($fieldName !== 'unique_keys') {
-                    $fields[] = "`{$fieldName}` {$fieldData}";
+                    $fields[] = "`{$fieldName}` {$fieldDefinition}";
                 }
             }
 
@@ -657,16 +657,16 @@ function dbVerifyColumns(array $fieldObjects = FIELDS_DATA): bool
 {
     global $db;
 
-    foreach ($fieldObjects as $tableName => $tableColumns) {
-        foreach ($tableColumns as $fieldName => $fieldData) {
-            if (!isset($fieldData['type'])) {
+    foreach ($fieldObjects as $tableName => $tableData) {
+        foreach ($tableData as $fieldName => $fieldDefinition) {
+            if (!isset($fieldDefinition['type'])) {
                 continue;
             }
 
             if ($db->field_exists($fieldName, $tableName)) {
-                $db->modify_column($tableName, "`{$fieldName}`", buildDbFieldDefinition($fieldData));
+                $db->modify_column($tableName, "`{$fieldName}`", buildDbFieldDefinition($fieldDefinition));
             } else {
-                $db->add_column($tableName, $fieldName, buildDbFieldDefinition($fieldData));
+                $db->add_column($tableName, $fieldName, buildDbFieldDefinition($fieldDefinition));
             }
         }
     }
@@ -693,15 +693,15 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
 
     $isInstalledEach = true;
 
-    foreach ($fieldObjects as $tableName => $tableColumns) {
+    foreach ($fieldObjects as $tableName => $tableData) {
         if (!$db->table_exists($tableName)) {
             $isInstalledEach = false;
 
             continue;
         }
 
-        foreach ($tableColumns as $fieldName => $fieldData) {
-            if (!isset($fieldData['type'])) {
+        foreach ($tableData as $fieldName => $fieldDefinition) {
+            if (!isset($fieldDefinition['type'])) {
                 continue;
             }
 
@@ -712,53 +712,53 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
     return $isInstalledEach;
 }
 
-function buildDbFieldDefinition(array $fieldData): string
+function buildDbFieldDefinition(array $fieldDefinition): string
 {
     require_once ROOT . '/System/FieldTypes.php';
 
-    $fieldDefinition = '';
+    $definitionString = '';
 
-    $fieldDefinition .= $fieldData['type'];
+    $definitionString .= $fieldDefinition['type'];
 
-    if (isset($fieldData['size']) && (
-            !fieldTypeMatchText($fieldData['type']) ||
-            !fieldTypeMatchDateTime($fieldData['type'])
+    if (isset($fieldDefinition['size']) && (
+            !fieldTypeMatchText($fieldDefinition['type']) ||
+            !fieldTypeMatchDateTime($fieldDefinition['type'])
         )) {
-        $fieldDefinition .= "({$fieldData['size']})";
+        $definitionString .= "({$fieldDefinition['size']})";
     }
 
-    if (isset($fieldData['unsigned']) && (
-            !fieldTypeMatchChar($fieldData['type']) ||
-            !fieldTypeMatchText($fieldData['type']) ||
-            !fieldTypeMatchDateTime($fieldData['type']) ||
-            !fieldTypeMatchBinary($fieldData['type'])
+    if (isset($fieldDefinition['unsigned']) && (
+            !fieldTypeMatchChar($fieldDefinition['type']) ||
+            !fieldTypeMatchText($fieldDefinition['type']) ||
+            !fieldTypeMatchDateTime($fieldDefinition['type']) ||
+            !fieldTypeMatchBinary($fieldDefinition['type'])
         )) {
-        if ($fieldData['unsigned'] === true) {
-            $fieldDefinition .= ' UNSIGNED';
+        if ($fieldDefinition['unsigned'] === true) {
+            $definitionString .= ' UNSIGNED';
         } else {
-            $fieldDefinition .= ' SIGNED';
+            $definitionString .= ' SIGNED';
         }
     }
 
-    if (!isset($fieldData['null'])) {
-        $fieldDefinition .= ' NOT';
+    if (!isset($fieldDefinition['null'])) {
+        $definitionString .= ' NOT';
     }
 
-    $fieldDefinition .= ' NULL';
+    $definitionString .= ' NULL';
 
-    if (isset($fieldData['auto_increment'])) {
-        $fieldDefinition .= ' AUTO_INCREMENT';
+    if (isset($fieldDefinition['auto_increment'])) {
+        $definitionString .= ' AUTO_INCREMENT';
     }
 
-    if (isset($fieldData['default'])) {
-        if (in_array($fieldData['default'], ['TIMESTAMP', 'UUID'])) {
-            $fieldDefinition .= " DEFAULT {$fieldData['default']}";
+    if (isset($fieldDefinition['default'])) {
+        if (in_array($fieldDefinition['default'], ['TIMESTAMP', 'UUID'])) {
+            $definitionString .= " DEFAULT {$fieldDefinition['default']}";
         } else {
-            $fieldDefinition .= " DEFAULT '{$fieldData['default']}'";
+            $definitionString .= " DEFAULT '{$fieldDefinition['default']}'";
         }
     }
 
-    return $fieldDefinition;
+    return $definitionString;
 }
 
 /**
@@ -853,7 +853,7 @@ function languageModify(
 function buildPermissionsRow(
     Form $form,
     string $fieldName,
-    array $fieldData,
+    array $fieldDefinition,
     string $key,
     string $section = 'Main',
     bool $extraText = false,
@@ -863,7 +863,13 @@ function buildPermissionsRow(
 
     $formInput = '';
 
-    switch ($fieldData['formType']) {
+    $options = ['id' => $fieldName, 'class' => $fieldDefinition['formClass'] ?? ''];
+
+    if (!empty($fieldDefinition['is_disabled'])) {
+        $options['id'] .= '" disabled="disabled';
+    }
+
+    switch ($fieldDefinition['formType']) {
         case FormTypes::Text:
             if ($extraText) {
                 $formInput .= '<div class="group_settings_bit">';
@@ -877,10 +883,12 @@ function buildPermissionsRow(
                 $formInput .= '</small><br />';
             }
 
+            $options['max'] = $fieldDefinition['size'];
+
             $formInput .= $form->generate_text_box(
                 $fieldName,
                 $mybb->get_input($fieldName),
-                ['id' => $fieldName, 'max' => $fieldData['size']]
+                $options
             );
 
             if ($extraText) {
@@ -904,7 +912,7 @@ function buildPermissionsRow(
             $formInput .= $form->generate_numeric_field(
                 $fieldName,
                 $mybb->get_input($fieldName, MyBB::INPUT_INT),
-                ['id' => $fieldName, 'class' => $fieldData['formClass'] ?? '']
+                $options
             );
 
             if ($extraText) {
@@ -916,7 +924,7 @@ function buildPermissionsRow(
             $formInput .= $form->generate_yes_no_radio(
                 $fieldName,
                 $mybb->get_input($fieldName, MyBB::INPUT_INT),
-                ['id' => $fieldName]
+                $options
             );
 
             break;
@@ -935,9 +943,10 @@ function buildPermissionsRow(
 
             $formInput .= $form->generate_select_box(
                 $fieldName,
-                isset($fieldData['form_function']) ? $fieldData['form_function']() : $fieldData['form_array'],
+                isset($fieldDefinition['form_function']) ? $fieldDefinition['form_function'](
+                ) : $fieldDefinition['form_array'],
                 [$mybb->get_input($fieldName, MyBB::INPUT_INT)],
-                ['id' => $fieldName]
+                $options
             );
 
             if ($extraText) {
@@ -948,11 +957,13 @@ function buildPermissionsRow(
         case FormTypes::CheckBox:
             $formInput .= '<div class="user_settings_bit">';
 
+            $options['checked'] = $mybb->get_input($fieldName, MyBB::INPUT_INT);
+
             $formInput .= $form->generate_check_box(
                 $fieldName,
                 1,
                 $lang->{$languagePrefix . $section . $key},
-                ['checked' => $mybb->get_input($fieldName, MyBB::INPUT_INT)]
+                $options
             );
 
             $formInput .= '</div>';

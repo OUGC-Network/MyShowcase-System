@@ -62,18 +62,20 @@ $l['myshowcase_unapproved_link'] = 'Click to view unapproved.';
 
 //sorting words
 $l['myShowcaseMainSelectSortBy'] = 'Sort By:';
-$l['myShowcaseMainSortDateline'] = 'Creation Date';
+$l['myShowcaseMainSortDateline'] = 'Date';
 $l['myShowcaseMainSortEditDate'] = 'Edited Date';
 $l['myShowcaseMainSortUsername'] = 'Username';
+$l['myShowcaseMainSortUser'] = 'User';
 $l['myShowcaseMainSortUid'] = 'User ID';
 $l['myShowcaseMainSortViews'] = 'Views';
 $l['myShowcaseMainSortComments'] = 'Comments';
-$l['myShowcaseMainSelectAscending'] = 'Ascending';
-$l['myShowcaseMainSelectDescending'] = 'Descending';
+$l['myShowcaseMainSelectAsc'] = 'Ascending';
+$l['myShowcaseMainSelectDesc'] = 'Descending';
 $l['myshowcase_order'] = 'Order By:';
 $l['myShowcaseMainSearch'] = 'Search:';
 $l['myShowcaseMainSearchFor'] = 'for:';
-$l['myShowcaseMainSelectOrderDirection'] = 'Direction:';
+$l['myShowcaseMainSelectOrderDirection'] = 'Order:';
+$l['myShowcaseMainButtonSortEntries'] = 'Sort Entries';
 
 $l['myshowcase_asc'] = 'asc';
 $l['myshowcase_desc'] = 'desc';
@@ -81,7 +83,7 @@ $l['myshowcase_desc'] = 'desc';
 $l['myShowcaseMainSearchMatch'] = 'exact match';
 
 //query results
-$l['myShowcaseMainTableEmpty'] = 'There are no entries at this time.';
+$l['myShowcaseMainTableEmpty'] = 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.';
 $l['myShowcaseMainTableEmptySearch'] = 'The search returned no results. Please try another search term.';
 $l['myshowcase_invalid_id'] = 'The specified Entry ID is invalid.';
 $l['myshowcase_invalid_comment_id'] = 'The specified Comment ID is invalid.';
@@ -94,7 +96,7 @@ $l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{username}&quot;';
 $l['myshowcase_viewing_attachment'] = 'Viewing Attachment of &quot;{username}&quot;';
 
 //new/edit myshowcase
-$l['myShowcaseButtonEntryCreate'] = 'Create Entry';
+$l['myShowcaseButtonEntryCreate'] = 'Post Entry';
 $l['myShowcaseButtonEntryUpdate'] = 'Update Entry';
 $l['myShowcaseButtonCommentCreate'] = 'Post Comment';
 $l['myShowcaseButtonCommentUpdate'] = 'Update Comment';

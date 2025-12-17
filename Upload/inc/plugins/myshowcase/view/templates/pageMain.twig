@@ -1,0 +1,299 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ showcase.name }} - {{ mybb.settings.bbname }}</title>
+    <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
+
+    {% if page_canonical %}
+        <link rel="canonical" href="{{ page_canonical }}"/>
+    {% endif %}
+
+    {% if page_meta %}
+        {% for meta in page_meta %}
+            <meta property="{{ meta.property }}" content="{{ meta.content }}">
+        {% endfor %}
+    {% endif %}
+{% endblock head %}
+
+{% block jscripts %}
+    <script type="text/javascript"
+            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
+    <script type="text/javascript">
+        <!--
+        const removeshowcase_confirm = "{{ lang.removeshowcase_confirm }}";
+        const removeshowcasecomment_confirm = "{{ lang.removeshowcasecomment_confirm }}";
+        const removeshowcaseattach_confirm = "{{ lang.removeshowcaseattach_confirm }}";
+        const showcase_url = "{{ url_main }}";
+        // -->
+    </script>
+{% endblock jscripts %}
+
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            <h1 class="title title--page">
+                {{ showcase.name }}
+            </h1>
+            {% if showcase.description %}
+                <p class="page-description">{{ showcase.description }}</p>
+            {% endif %}
+        </header>
+
+        {# Moderated by #}
+        {% if moderators %}
+            <p>{{ lang.moderated_by }}
+                <strong>
+                    {% for moderator in moderators.users %}
+                        <a
+                        href="{{ get_profile_link(moderator.user_id) }}">{{ moderator.user_id|format_name }}</a>{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    {% endfor %}
+                    {% if moderators.users and moderators.groups %}{{ lang.comma }} {% endif %}
+                    {% for moderator in moderators.groups %}
+                        {{ moderator.title }}{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    {% endfor %}
+                </strong>
+            </p>
+        {% endif %}
+
+        {% if url_entry_create %}
+            {% set button_new_entry %}
+                <a href="{{ url_base }}{{ url_entry_create }}" class="button button--medium button--full-width">
+                    {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">{{ lang.myShowcaseButtonEntryCreate }}</span>
+                </a>
+            {% endset %}
+        {% endif %}
+
+        {% if foruminfo.type != 'c' %}
+            <div class="page-controls page-controls--top">
+                <div class="page-buttons">
+                    {{ button_new_entry }}
+                </div>
+                {{ pagination|raw }}
+            </div>
+            <section class="thread-list">
+                {# Sorting #}
+                {% set ascDesc %}
+                    <span class="sort-threads__order">
+                        <a href="{{ url_base }}/{{ urlSortRow }}">
+                            {% if orderBy == 'asc' %}
+                                {{ include('partials/icon.twig', {icon: 'chevron-circle-up', class: '', title: sorting.oppsort}, with_context = false) }}
+                            {% else %}
+                                {{ include('partials/icon.twig', {icon: 'chevron-circle-down', class: '', title: sorting.oppsort}, with_context = false) }}
+                            {% endif %}
+                        </a>
+                    </span>
+                {% endset %}
+
+                <div class="sort-threads">
+                    <div class="sort-threads__column sort-threads__column--primary">
+                        <a href="{{ sorting.url }}&amp;sortby=subject&amp;order=asc"
+                           class="sort-threads__link">{{ lang.thread }}</a> {% if sort_by_field == 'subject' %}{{ ascDesc }}{% endif %}
+                        <span class="sort-threads__author"> &mdash; <a
+                                    href="{{ url_base }}/{{ sortByUsernameUrl }}"
+                                    class="sort-threads__link">{{ lang.myShowcaseMainTableHeadAuthor }}</a> {% if sort_by_field == 'username' %}{{ ascDesc }}{% endif %}</span>
+                    </div>
+                    {% for render_order, field_id in fieldSetFieldsOrder %}
+                        <div class="sort-threads__column sort-threads__column--replies">
+                            <a href="{{ url_base }}/{{ sortByCommentsUrl }}"
+                               class="sort-threads__link">{{ attribute(lang, 'myshowcase_field_' ~ fieldSetCache[field_id].field_key) }}</a> {% if sort_by_field == fieldSetCache[field_id].field_key %}{{ ascDesc }}{% endif %}
+                        </div>
+                    {% endfor %}
+                    <div class="sort-threads__column sort-threads__column--replies">
+                        <a href="{{ url_base }}/{{ sortByCommentsUrl }}"
+                           class="sort-threads__link">{{ lang.myShowcaseMainTableHeadComments }}</a> {% if sort_by_field == 'comments' %}{{ ascDesc }}{% endif %}
+                    </div>
+                    <div class="sort-threads__column sort-threads__column--latest">
+                        <a href="{{ url_base }}/{{ sortByDatelineUrl }}"
+                           class="sort-threads__link">{{ lang.myShowcaseMainTableHeadLastEdit }}</a> {% if sort_by_field == 'dateline' %}{{ ascDesc }}{% endif %}
+                    </div>
+                    {% if can_manage_entries %}
+                        <span class="sort-threads__column sort-threads__column--checkbox">
+                            <label>
+                                <input type="checkbox" name="allbox" onclick="inlineModeration.checkAll(this)"/>
+                            </label>
+                        </span>
+                    {% endif %}
+                </div>
+
+                {# Select all #}
+                {% if can_manage_entries and totalEntries > showcase.entries_per_page %}
+                    <div class="thread-list__select-all" id="selectAllrow">
+                        {{ trans('page_selected', entriesObjects|length) }} <a href="javascript:void(0)"
+                                                                               onclick='inlineModeration.selectAll(); return false;'>{{ trans('select_all', totalEntries) }}</a>
+                    </div>
+                    <div class="thread-list__select-all" id="allSelectedrow">
+                        {{ trans('all_selected', treadcount) }} <a href="javascript:void(0)"
+                                                                   onclick='inlineModeration.clearChecked(); return false;'>{{ lang.clear_selection }}</a>
+                    </div>
+                {% endif %}
+
+                {# Threads – errors #}
+                {% if totalEntries is empty %}
+                    <div class="alert alert--no-results">
+                        {% if searchKeyWords %}
+                            {{ lang.myShowcaseMainTableEmptySearch }}
+                        {% else %}
+                            {{ lang.myShowcaseMainTableEmpty }}
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="thread-list__container">
+                        {% if entriesObjects|length > 0 %}
+                            <div class="thread-list__normal-threads">
+                                <h2 class="visually-hidden">{{ lang.normal_threads }}</h2>
+                            </div>
+                            {% for entry in entriesObjects %}
+
+                                {% if can_manage_entries and entry.visible == -1 and can_manage_entries %}
+                                    {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
+                                {% else %}
+                                    {% include '@ext.myshowcase/pageMainEntry.twig' %}
+                                {% endif %}
+
+                            {% endfor %}
+                            {# No threads #}
+                        {% else %}
+                            <div class="alert alert--no-results">{{ lang.nothreads }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                {# Threadlist footer #}
+                <div class="sort-results">
+                    <form action="{{ url_base }}/{{ url_main }}" method="get">
+                        <input type="hidden" name="page" value="{{ pageCurrent }}"/>
+                        <h3 class="sort-results__title visually-hidden">{{ lang.sort_threads }}</h3>
+                        <div class="select-field">
+                            {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
+                            <label>
+                                <select name="sort_by">
+                                    {% for field_key, field_display_name in fieldset_fields_display_fields %}
+                                        <option value="{{ field_key }}"{% if field_key == sort_by_field %} selected{% endif %}>{{ lang.myShowcaseMainSelectSortBy }} {{ attribute(lang, 'myShowcaseMainSort' ~ field_key|capitalize) }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                        <div class="select-field">
+                            {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
+                            <label>
+                                <select name="order_by">
+                                    {% for field in ['asc', 'desc'] %}
+                                        <option value="{{ field }}"{% if orderBy == mybb.input['order_by'] %} selected{% endif %}>{{ lang.myShowcaseMainSelectOrderDirection }} {{ attribute(lang, 'myShowcaseMainSelect' ~ field|capitalize) }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                        <div class="select-field">
+                            {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
+                            <label>
+                                <select name="datecut">
+                                    <option value="1"{% if mybb.input.datecut == 1 %} selected{% endif %}>{{ lang.datelimit_1day }}</option>
+                                    {% for field in [5, 10, 20, 50, 75, 100] %}
+                                        <option value="{{ field }}"{% if mybb.input.datecut == field %} selected{% endif %}>{{ attribute(lang, 'datelimit_' ~ field ~ 'days') }}</option>
+                                    {% endfor %}
+                                    <option value="365"{% if mybb.input.datecut == 365 %} selected{% endif %}>{{ lang.datelimit_lastyear }}</option>
+                                    <option value="9999"{% if mybb.input.datecut == 9999 or mybb.input.datecut == '' %} selected{% endif %}>{{ lang.datelimit_beginning }}</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button type="submit" class="button button--inline">
+                            {{ include('partials/icon.twig', {icon: 'random', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myShowcaseMainButtonSortEntries }}</span>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            {{ pagination|raw }}
+
+            <footer class="page-footer">
+                <div class="row row--no-border page-tools">
+                    {# Search #}
+                    <div class="forum-search page-tools__item">
+                        <h2 class="title title--legend {% if not can_manage_entries %}visually-hidden{% endif %}">{{ lang.search_forum }}</h2>
+                        <form action="{{ baseUrl }}/{{ mainUrl }}" method="post">
+                            <label>
+                                <input type="text" name="keywords" placeholder="{{ lang.enter_keywords }}"
+                                       class="textbox textbox--large"/>
+                            </label>
+                            <input type="hidden" name="page" value="{{ pageCurrent }}"/>
+                            <button type="submit" class="button button--inline">
+                                {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
+                                <span class="button__text">{{ lang.search_forum }}</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    {# Inline moderation #}
+                    {% if can_manage_entries %}
+                        {% include '@ext.myshowcase/pageMainInlineModeration.twig' %}
+                    {% endif %}
+                </div>
+
+                {# Users browsing #}
+                {% if mybb.settings.browsingthisforum %}
+                    <div class="container container--small container--users-browsing">{{ lang.users_browsing_forum }}
+                        {% for user in users_browsing %}
+                            <a
+                            href="{{ get_profile_link(user.uid) }}">{{ user.uid|format_name }}</a>{% if user.invisible %}*{% endif %}{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                        {% endfor %}
+
+                        {% if users_browsing_counter.invisible and mybb.usergroup.canviewwolinvis != 1 %}
+                            {% if users_browsing %}{{ lang.comma }} {% endif %}{{ trans('users_browsing_forum_guests', users_browsing_counter.guests) }}
+                        {% endif %}
+
+                        {% if users_browsing_counter.guests %}
+                            {% if users_browsing or (users_browsing_counter.invisible and mybb.usergroup.canviewwolinvis != 1) %}{{ lang.comma }} {% endif %}{{ trans('users_browsing_forum_guests', users_browsing_counter.guests) }}
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </footer>
+        {% endif %}
+        <!--
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        -->
+        <table border="0" cellspacing="{{ theme.borderwidth }}" cellpadding="{{ theme.tablespace }}"
+               class="tborder clear">
+            <tr>
+                <td class="tfoot" align="right" colspan="{{ columnsCount }}">
+                    <form action="{{ url_base }}/{{ url_main }}" method="post">
+                        <input type="hidden" name="page" value="{{ pageCurrent }}"/>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+{% endblock body %}

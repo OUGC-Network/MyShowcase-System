@@ -1,0 +1,60 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ showcase.name }} - {{ mybb.settings.bbname }}</title>
+    <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
+
+    {% if page_canonical %}
+        <link rel="canonical" href="{{ page_canonical }}"/>
+    {% endif %}
+
+    {% if page_meta %}
+        {% for meta in page_meta %}
+            <meta property="{{ meta.property }}" content="{{ meta.content }}">
+        {% endfor %}
+    {% endif %}
+{% endblock head %}
+
+{% block jscripts %}
+    <script type="text/javascript"
+            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ version }}"></script>
+    <script type="text/javascript">
+        <!--
+        const removeshowcase_confirm = "{{ lang.removeshowcase_confirm }}";
+        const removeshowcasecomment_confirm = "{{ lang.removeshowcasecomment_confirm }}";
+        const removeshowcaseattach_confirm = "{{ lang.removeshowcaseattach_confirm }}";
+        const showcase_url = "{{ url_main }}";
+        // -->
+    </script>
+{% endblock jscripts %}
+
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            <h1 class="title title--page">{{ showcase.name }}</h1>
+            {% if showcase.description %}
+                <p class="page-description">{{ showcase.description }}</p>
+            {% endif %}
+        </header>
+
+        {# Moderated by #}
+        {% if moderators %}
+            <p>{{ lang.moderated_by }}
+                <strong>
+                    {% for moderator in moderators.users %}
+                        <a
+                        href="{{ moderator.profilelink|raw }}">{{ moderator.username|raw }}</a>{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    {% endfor %}
+                    {% if moderators.groups %}{{ lang.comma }} {% endif %}
+                    {% for moderator in moderators.groups %}
+                        {{ moderator.title }}{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    {% endfor %}
+                </strong>
+            </p>
+        {% endif %}
+
+        {{ errorMessages|raw }}
+        {{ pageContents|raw }}
+
+    </div>
+{% endblock body %}

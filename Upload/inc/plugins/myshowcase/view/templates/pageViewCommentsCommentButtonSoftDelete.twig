@@ -1,0 +1,7 @@
+<form id="softDeleteCommentForm{{ commentSlug }}" action="{{ softDeleteUrl }}" method="post" style="display:none;">
+    <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+</form>
+<a href="javascript:void(0)" title="{{ lang.myShowcaseCommentButtonSoftDeleteDescription }}" class="postbit_qdelete"
+   onclick="Showcase.confirmSubmit('{{ lang.myShowcaseCommentButtonSoftDeleteConfirm }}', 'softDeleteCommentForm{{ commentSlug }}');">
+    <span>{{ lang.myShowcaseCommentButtonSoftDelete }}</span>
+</a>

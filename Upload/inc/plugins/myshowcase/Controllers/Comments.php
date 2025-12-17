@@ -68,12 +68,12 @@ class Comments extends Base
 
         if (!$this->showcaseObject->config['comments_allow'] ||
             !(
-                $this->showcaseObject->userPermissions[UserPermissions::CanViewEntries] ||
-                $this->showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries]
+                $this->showcaseObject->user_permissions[UserPermissions::CanViewEntries] ||
+                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]
             ) ||
             !(
-                $this->showcaseObject->userPermissions[UserPermissions::CanViewComments] ||
-                $this->showcaseObject->userPermissions[ModeratorPermissions::CanManageComments]
+                $this->showcaseObject->user_permissions[UserPermissions::CanViewComments] ||
+                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]
             )) {
             return self::NO_PERMISSION;
         }
@@ -97,7 +97,7 @@ class Comments extends Base
         $commentUserID = (int)$commentData['user_id'];
 
         if ($commentStatus === self::STATUS_PENDING_APPROVAL && $currentUserID !== $commentUserID ||
-            $commentStatus === self::STATUS_SOFT_DELETE && !$this->showcaseObject->userPermissions[ModeratorPermissions::CanManageComments]) {
+            $commentStatus === self::STATUS_SOFT_DELETE && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
             return self::INVALID_COMMENT;
         }
 
@@ -122,7 +122,7 @@ class Comments extends Base
         $entryUserID = (int)$entryData['user_id'];
 
         if ($entryStatus === ENTRY_STATUS_PENDING_APPROVAL && $currentUserID !== $entryUserID ||
-            $entryStatus === ENTRY_STATUS_SOFT_DELETED && !$this->showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries]) {
+            $entryStatus === ENTRY_STATUS_SOFT_DELETED && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
             return self::INVALID_COMMENT;
         }
 
@@ -215,7 +215,7 @@ class Comments extends Base
         $totalCommentsBeforeMainComment = (int)(commentsGet(
             array_merge($whereClauses, ["dateline<='{$commentTimeStamp}'"]),
             ['COUNT(comment_id) AS total_comments'],
-            ['limit' => 1]
+            ['limit' => 1, 'group_by' => 'comment_id']
         )['total_comments'] ?? 0);
 
         if (($totalCommentsBeforeMainComment % $this->showcaseObject->config['comments_per_page']) == 0) {
@@ -247,7 +247,7 @@ class Comments extends Base
         $totalComments = $this->showcaseObject->commentGet(
             $whereClauses,
             ['COUNT(comment_id) AS total_comments'],
-            ['group_by' => 'entry_id', 'limit' => 1]
+            ['group_by' => 'entry_id, comment_id', 'limit' => 1]
         )['total_comments'] ?? 0;
 
         $this->showcaseObject->dataUpdate(['comments' => $totalComments]);
@@ -263,8 +263,8 @@ class Comments extends Base
 
         if ($isUpdate) {
             if (!(
-                $this->showcaseObject->userPermissions[UserPermissions::CanUpdateComments] ||
-                $this->showcaseObject->userPermissions[ModeratorPermissions::CanManageEntries]
+                $this->showcaseObject->user_permissions[UserPermissions::CanUpdateComments] ||
+                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]
             )) {
                 error_no_permission();
             }
@@ -286,7 +286,7 @@ class Comments extends Base
             }
         } elseif (empty($mybb->input['post_hash'])) {
             $mybb->input['post_hash'] = generateUUIDv4();
-        } elseif (!$this->showcaseObject->userPermissions[UserPermissions::CanCreateEntries]) {
+        } elseif (!$this->showcaseObject->user_permissions[UserPermissions::CanCreateEntries]) {
             error_no_permission();
         }
 
@@ -335,15 +335,15 @@ class Comments extends Base
                 $insertData['dateline'] = TIME_NOW;
             }
 
-            if (!$this->showcaseObject->userPermissions[ModeratorPermissions::CanManageComments]) {
+            if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
                 if ($isUpdate && (
                         $this->showcaseObject->config['moderate_comments_update'] ||
-                        $this->showcaseObject->userPermissions[UserPermissions::ModerateCommentsUpdate]
+                        $this->showcaseObject->user_permissions[UserPermissions::ModerateCommentsUpdate]
                     )) {
                     $insertData['status'] = ENTRY_STATUS_PENDING_APPROVAL;
                 } elseif (!$isUpdate && $this->showcaseObject->config['moderate_comments_create'] && (
                         $this->showcaseObject->config['moderate_comments_create'] ||
-                        $this->showcaseObject->userPermissions[UserPermissions::ModerateCommentsCreate]
+                        $this->showcaseObject->user_permissions[UserPermissions::ModerateCommentsCreate]
                     )) {
                     $insertData['status'] = ENTRY_STATUS_PENDING_APPROVAL;
                 }
@@ -496,7 +496,7 @@ class Comments extends Base
         $postHash = htmlspecialchars_uni($mybb->get_input('post_hash'));
 
         $this->outputSuccess($this->renderObject->templateGetTwig('pageEntryCommentCreateUpdateContents', [
-            'baseUrl' => $this->showcaseObject->urlBase,
+            'url_base' => $this->showcaseObject->url_base,
             'commentPreview' => $commentPreview,
             'commentMessage' => $commentMessage,
             'editorCodeButtons' => $editorCodeButtons,
@@ -536,10 +536,10 @@ class Comments extends Base
 
         $currentUserID = (int)$mybb->user['uid'];
 
-        if (!$this->showcaseObject->userPermissions[ModeratorPermissions::CanManageComments]) {
+        if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
             if (!($status === self::STATUS_SOFT_DELETE &&
                 (int)$this->commentData['user_id'] === $currentUserID &&
-                $this->showcaseObject->userPermissions[UserPermissions::CanDeleteComments])) {
+                $this->showcaseObject->user_permissions[UserPermissions::CanDeleteComments])) {
                 error_no_permission();
             }
         }

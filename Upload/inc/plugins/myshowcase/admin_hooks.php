@@ -125,8 +125,8 @@ function admin_user_groups_edit_graph(): bool
 
     $rowObjects = [];
 
-    foreach ($tablesData['myshowcase_permissions'] as $fieldName => $fieldData) {
-        if (!isset($fieldData['isPermission'])) {
+    foreach ($tablesData['myshowcase_permissions'] as $fieldName => $fieldDefinition) {
+        if (!isset($fieldDefinition['isPermission'])) {
             continue;
         }
 
@@ -135,9 +135,9 @@ function admin_user_groups_edit_graph(): bool
 
         //$key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
 
-        //$rowObjects[$fieldData['formCategory']][$fieldName] = $lang->{'myShowcaseAdminSummaryPermissionsField' . $key};
+        //$rowObjects[$fieldDefinition['formCategory']][$fieldName] = $lang->{'myShowcaseAdminSummaryPermissionsField' . $key};
 
-        $rowObjects[$fieldData['formCategory']][$fieldName] = $fieldData;
+        $rowObjects[$fieldDefinition['formCategory']][$fieldName] = $fieldDefinition;
     }
 
     foreach ($rowObjects as $formSection => $fieldObjects) {
@@ -145,13 +145,13 @@ function admin_user_groups_edit_graph(): bool
 
         $settingCode = '';
 
-        foreach ($fieldObjects as $fieldName => $fieldData) {
+        foreach ($fieldObjects as $fieldName => $fieldDefinition) {
             $key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
 
             $settingCode .= buildPermissionsRow(
                 $form,
                 'myshowcase_' . $fieldName,
-                $fieldData,
+                $fieldDefinition,
                 $key,
                 '',
                 true,

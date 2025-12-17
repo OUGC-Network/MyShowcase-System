@@ -1,0 +1,44 @@
+<div class="inline-moderation page-tools__item">
+    {{ asset('jscripts/inline_moderation.js', static=true) }}
+    <form id="inlinemoderation_options" action="{{ showcase.script_name }}" method="post">
+        <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+        <input type="hidden" name="modtype" value="inlineshowcase"/>
+        <input type="hidden" name="sort_by" value="{{ sort_by_field }}"/>
+        <input type="hidden" name="order_by" value="{{ orderBy }}"/>
+        <input type="hidden" name="page" value="{{ pageCurrent }}"/>
+        <input type="hidden" name="search_field" value="{{ searchField }}"/>
+        <input type="hidden" name="keywords" value="{{ searchKeyWords }}"/>
+        <input type="hidden" name="exact" value="{{ searchExactMatch }}"/>
+        <h2 class="title title--legend">{{ lang.myshowcase_inline_moderation }}</h2>
+        <div class="select-field">
+            {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
+            <label for="inlinemoderation_options_selector"></label>
+            <select name="action" id="inlinemoderation_options_selector">
+                <optgroup label="{{ lang.standard_mod_tools }}">
+                    <option value="multiapprove">{{ lang.myshowcase_mod_approve }}</option>
+                    <option value="multiunapprove">{{ lang.myshowcase_mod_unapprove }}</option>
+                    <option value="multidelete">{{ lang.myshowcase_mod_delete }}</option>
+                </optgroup>
+            </select>
+        </div>
+        <button type="submit" name="go" class="button button--inline">
+            {{ include('partials/icon.twig', {icon: 'arrow-right', class: 'button__icon'}, with_context = false) }}
+            <span class="button__text" id="inline_go">{{ lang.go }} ({{ inlinecount }})</span>
+        </button>
+        <button type="button" class="button button--secondary button--inline"
+                onclick="inlineModeration.clearChecked();">
+            {{ include('partials/icon.twig', {icon: 'times', class: 'button__icon'}, with_context = false) }}
+            <span class="button__text">{{ lang.myshowcase_clear }}</span>
+        </button>
+    </form>
+    <script type="text/javascript">
+        <!--
+        const go_text = "{{ lang.inline_go }}";
+        const all_text = "{{ totalEntries }}";
+        const inlineType = "showcase";
+        let inlineId = {{ showcase.showcase_id }};
+        lang.select_tool = "{{ lang.inline_no_tool_selected }}";
+        lang.selected_nil = "{{ lang.inline_no_post_selected }}";
+        // -->
+    </script>
+</div>

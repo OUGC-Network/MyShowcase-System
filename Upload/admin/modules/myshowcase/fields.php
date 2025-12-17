@@ -43,12 +43,12 @@ use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Plugin\Functions\urlHandlerBuild;
 use function MyShowcase\Plugin\Functions\urlHandlerSet;
 
-use const MyShowcase\Plugin\Functions\TABLES_DATA;
-use const MyShowcase\Plugin\Functions\CACHE_TYPE_CONFIG;
-use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELD_DATA;
-use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Plugin\Functions\CACHE_TYPE_FIELDS;
 use const MyShowcase\ROOT;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
@@ -156,19 +156,19 @@ $groupsSelectFunction = function (string $settingKey) use ($mybb, $lang): string
                         <dt>
                             <label style="display: block;">
                                 <input type="radio" name="{$settingKey}_type" value="all" {$groupChecked['all']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" />
-                                <strong>{{ lang.all_groups }}</strong>
+                                <strong>{$lang->all_groups}</strong>
                             </label>
                         </dt>
                         <dt>
                             <label style="display: block;">
                                 <input type="radio" name="{$settingKey}_type" value="custom" {$groupChecked['custom']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" />
-                                <strong>{{ lang.select_groups }}</strong>
+                                <strong>{$lang->select_groups}</strong>
                             </label>
                         </dt>
                         <dd style="margin-top: 4px;" id="{$settingKey}_forums_groups_custom" class="{$settingKey}_forums_groups">
                             <table cellpadding="4">
                                 <tr>
-                                    <td valign="top"><small>{{ lang.groups_colon }}</small></td>
+                                    <td valign="top"><small>{$lang->groups_colon}</small></td>
                                     <td>{$form->generate_group_select(
         "{$settingKey}[]",
         $selectedValues,
@@ -179,7 +179,7 @@ $groupsSelectFunction = function (string $settingKey) use ($mybb, $lang): string
                         </dd>
                         <dt>
                             <label style="display: block;"><input type="radio" name="{$settingKey}_type" value="none" {$groupChecked['none']} class="{$settingKey}_forums_groups_check" onclick="checkAction('{$settingKey}');" style="vertical-align: middle;" /> 
-                            <strong>{{ lang.none }}</strong></label>
+                            <strong>{$lang->none}</strong></label>
                         </dt>
                     </dl>
                     <script type="text/javascript">
@@ -188,7 +188,7 @@ $groupsSelectFunction = function (string $settingKey) use ($mybb, $lang): string
     EOL;
 };
 
-$tableFields = TABLES_DATA;
+$tablesData = TABLES_DATA;
 
 if (in_array($pageAction, ['newField', 'editField'])) {
     $newPage = $pageAction === 'newField';
@@ -203,13 +203,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         admin_redirect($pageTabs['myShowcaseAdminFieldSets']['link']);
     }
 
-    $queryFields = $tableFields['myshowcase_fields'];
+    $queryFields = $tablesData['myshowcase_fields'];
 
     unset($queryFields['unique_keys']);
 
-    $fieldData = fieldsGet(["field_id='{$fieldID}'"], array_keys($queryFields), ['limit' => 1]);
+    $fieldDefinition = fieldsGet(["field_id='{$fieldID}'"], array_keys($queryFields), ['limit' => 1]);
 
-    if (!$newPage && empty($fieldData)) {
+    if (!$newPage && empty($fieldDefinition)) {
         flash_message($lang->myShowcaseAdminErrorInvalidField, 'error');
 
         admin_redirect(urlHandlerBuild(['action' => 'viewFields', 'set_id' => $fieldsetID]));
@@ -237,7 +237,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 break;
             }
 
-            if (showcaseDataTableFieldExists($showcaseID, $fieldData['field_key'])) {
+            if (showcaseDataTableFieldExists($showcaseID, $fieldDefinition['field_key'])) {
                 $fieldIsInUse = true;
 
                 break;
@@ -264,13 +264,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             'set_id' => $fieldsetID,
         ];
 
-        (function () use ($mybb, $tableFields, &$insertData): void {
-            foreach ($tableFields['myshowcase_fields'] as $fieldName => $fieldData) {
-                if (!isset($fieldData['formType'])) {
+        (function () use ($mybb, $tablesData, &$insertData): void {
+            foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
+                if (!isset($fieldDefinition['formType'])) {
                     continue;
                 }
 
-                switch ($fieldData['formType']) {
+                switch ($fieldDefinition['formType']) {
                     case FormTypes::Text:
                     case FormTypes::Select:
                         $insertData[$fieldName] = $mybb->get_input($fieldName);
@@ -315,13 +315,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $existingFields = cacheGet(CACHE_TYPE_FIELDS)[$fieldsetID] ?? [];
 
         if (in_array($insertData['field_key'], array_column($existingFields, 'field_key')) &&
-            (function (string $fieldKey) use ($fieldsetID, $existingFields, $fieldID): bool {
+            (function (string $field_key) use ($fieldsetID, $existingFields, $fieldID): bool {
                 $duplicatedName = false;
 
-                foreach ($existingFields as $fieldData) {
-                    if ($fieldData['field_key'] === $fieldKey &&
-                        /*$fieldData['set_id'] !== $fieldsetID &&*/
-                        $fieldData['field_id'] !== $fieldID) {
+                foreach ($existingFields as $fieldDefinition) {
+                    if ($fieldDefinition['field_key'] === $field_key &&
+                        /*$fieldDefinition['set_id'] !== $fieldsetID &&*/
+                        $fieldDefinition['field_id'] !== $fieldID) {
                         $duplicatedName = true;
                     }
                 }
@@ -335,7 +335,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
         $fieldDefaultOption = 0;
 
-        if (!$newPage && $insertData['field_key'] === $fieldData['field_key']) {
+        if (!$newPage && $insertData['field_key'] === $fieldDefinition['field_key']) {
             unset($insertData['field_key']);
         }
 
@@ -352,18 +352,18 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             if ($newPage) {
                 $fieldID = fieldsInsert($insertData);
             } else {
-                if ($fieldIsInUse && isset($insertData['field_key']) && $insertData['field_key'] !== $fieldData['field_key']) {
+                if ($fieldIsInUse && isset($insertData['field_key']) && $insertData['field_key'] !== $fieldDefinition['field_key']) {
                     foreach (showcaseGet(["field_set_id='{$fieldsetID}'"]) as $showcaseID => $showcaseData) {
                         if (showcaseDataTableExists($showcaseID)) {
                             $dataTableStructure = dataTableStructureGet($showcaseID);
 
-                            if (showcaseDataTableFieldExists($showcaseID, $fieldData['field_key']) &&
+                            if (showcaseDataTableFieldExists($showcaseID, $fieldDefinition['field_key']) &&
                                 !showcaseDataTableFieldExists($showcaseID, $insertData['field_key'])) {
                                 showcaseDataTableFieldRename(
                                     $showcaseID,
-                                    $fieldData['field_key'],
+                                    $fieldDefinition['field_key'],
                                     $insertData['field_key'],
-                                    buildDbFieldDefinition($dataTableStructure[$fieldData['field_key']])
+                                    buildDbFieldDefinition($dataTableStructure[$fieldDefinition['field_key']])
                                 );
                             }
                         }
@@ -372,9 +372,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
                 fieldsUpdate($insertData, $fieldID);
 
-                if (isset($fieldData['field_key']) &&
-                    in_array($fieldData['html_type'], [
-                        FieldHtmlTypes::CheckBox,
+                if (isset($fieldDefinition['field_key']) &&
+                    in_array($fieldDefinition['html_type'], [
+                        //FieldHtmlTypes::CheckBox,
                         FieldHtmlTypes::Radio,
                         FieldHtmlTypes::Select,
                     ])) {
@@ -383,7 +383,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                             ["field_id='{$fieldID}'", "set_id='{$fieldsetID}'"]
                         ) as $fieldDataID => $fieldDataData
                     ) {
-                        fieldDataUpdate(['field_key' => $fieldData['field_key']], $fieldDataID);
+                        fieldDataUpdate(['field_key' => $fieldDefinition['field_key']], $fieldDataID);
                     }
                 }
             }
@@ -405,7 +405,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 languageModify(
                     'myshowcase_fs' . $fieldsetID,
                     [
-                        'myshowcase_field_' . ($insertData['field_key'] ?? $fieldData['field_key']) => ucfirst(
+                        'myshowcase_field_' . ($insertData['field_key'] ?? $fieldDefinition['field_key']) => ucfirst(
                             $mybb->get_input('label') ?? $mybb->get_input('field_key')
                         )
                     ]
@@ -426,9 +426,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
             admin_redirect(urlHandlerBuild(['action' => 'viewFields', 'set_id' => $fieldsetID]));
         }
-    } elseif (!empty($fieldData)) {
+    } elseif (!empty($fieldDefinition)) {
         foreach (['allowed_groups_fill', 'allowed_groups_view'] as $settingKey) {
-            $mybb->input[$settingKey] = explode(',', $fieldData[$settingKey] ?? '');
+            $mybb->input[$settingKey] = explode(',', $fieldDefinition[$settingKey] ?? '');
         }
     }
 
@@ -438,7 +438,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         );
     }
 
-    $mybb->input = array_merge($fieldData, $mybb->input);
+    $mybb->input = array_merge($fieldDefinition, $mybb->input);
 
     $form = new Form(
         $pageTabs[$newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit']['link'],
@@ -452,19 +452,19 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $pageTabs[$newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit']['title']
     );
 
-    foreach ($tableFields['myshowcase_fields'] as $fieldName => $fieldData) {
-        if (!isset($fieldData['formType']) || isset($fieldData['quickSetting'])) {
+    foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
+        if (!isset($fieldDefinition['formType']) || isset($fieldDefinition['quickSetting'])) {
             continue;
         }
 
         $formInput = '';
 
-        switch ($fieldData['formType']) {
+        switch ($fieldDefinition['formType']) {
             case FormTypes::Text:
                 $formInput .= $form->generate_text_box(
                     $fieldName,
                     $mybb->get_input($fieldName),
-                    ['id' => $fieldName . '" maxlength="' . ($fieldData['size'] ?? '')]
+                    ['id' => $fieldName . '" maxlength="' . ($fieldDefinition['size'] ?? '')]
                 );
 
                 break;
@@ -474,9 +474,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                     $mybb->get_input($fieldName, MyBB::INPUT_INT),
                     [
                         'id' => $fieldName,
-                        'min' => empty($fieldData['unsigned']) ? '' : 0,
-                        'max' => $fieldData['size'] ?? '',
-                        'class' => $fieldData['formClass'] ?? ''
+                        'min' => empty($fieldDefinition['unsigned']) ? '' : 0,
+                        'max' => $fieldDefinition['size'] ?? '',
+                        'class' => $fieldDefinition['formClass'] ?? ''
                     ]
                 );
 
@@ -484,11 +484,11 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             case FormTypes::Select:
                 $formInput = $form->generate_select_box(
                     $fieldName,
-                    $fieldData['formFunction'](),
+                    $fieldDefinition['formFunction'](),
                     $mybb->get_input($fieldName),
                     [
                         'id' => $fieldName,
-                        'class' => $fieldData['formClass'] ?? ''
+                        'class' => $fieldDefinition['formClass'] ?? ''
                     ]
                 );
 
@@ -503,7 +503,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                     $mybb->get_input($fieldName, MyBB::INPUT_INT),
                     [
                         'id' => $fieldName,
-                        'class' => $fieldData['formClass'] ?? ''
+                        'class' => $fieldDefinition['formClass'] ?? ''
                     ]
                 );
 
@@ -513,7 +513,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
 
         $formContainer->output_row(
-            $lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key} . (empty($fieldData['formRequired']) ? '' : '<em>*</em>'),
+            $lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key} . (empty($fieldDefinition['formRequired']) ? '' : '<em>*</em>'),
             $lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key . 'Description'},
             $formInput,
             $fieldName,
@@ -698,8 +698,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         foreach (fieldsGet(["set_id='{$fieldsetID}'"]) as $fieldID => $insertData) {
             $insertData = [];
 
-            foreach ($tableFields['myshowcase_fields'] as $fieldName => $fieldData) {
-                if (empty($fieldData['quickSetting'])) {
+            foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
+                if (empty($fieldDefinition['quickSetting'])) {
                     continue;
                 }
 
@@ -751,8 +751,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         ['width' => '5%', 'class' => 'align_center']
     );
 
-    foreach ($tableFields['myshowcase_fields'] as $fieldName => $fieldData) {
-        if (empty($fieldData['quickSetting'])) {
+    foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
+        if (empty($fieldDefinition['quickSetting'])) {
             continue;
         }
 
@@ -768,7 +768,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $maximumViewOrder = 0;
 
-    $queryFields = $tableFields['myshowcase_fields'];
+    $queryFields = $tablesData['myshowcase_fields'];
 
     unset($queryFields['unique_keys']);
 
@@ -788,13 +788,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
         $maximumViewOrder = 1;
 
-        foreach ($fieldObjects as $fieldID => $fieldData) {
+        foreach ($fieldObjects as $fieldID => $fieldDefinition) {
             $formContainer->output_cell(my_number_format($fieldID), ['class' => 'align_center']);
 
             $viewOptionsUrl = '';
 
-            if (in_array($fieldData['html_type'], [
-                FieldHtmlTypes::CheckBox,
+            if (in_array($fieldDefinition['html_type'], [
+                //FieldHtmlTypes::CheckBox,
                 FieldHtmlTypes::Radio,
                 FieldHtmlTypes::Select,
             ])) {
@@ -804,32 +804,32 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             }
 
             $formContainer->output_cell(
-                $viewOptionsUrl ? "<a href='{$viewOptionsUrl}'>{$fieldData['field_key']}</a>" : $fieldData['field_key'],
+                $viewOptionsUrl ? "<a href='{$viewOptionsUrl}'>{$fieldDefinition['field_key']}</a>" : $fieldDefinition['field_key'],
                 ['class' => 'align_left']
             );
 
-            if (empty($fieldData['field_label'])) {
-                $fieldData['field_label'] = $l['myshowcase_field_' . $fieldData['field_key']] ?? '';
+            if (empty($fieldDefinition['field_label'])) {
+                $fieldDefinition['field_label'] = $l['myshowcase_field_' . $fieldDefinition['field_key']] ?? '';
             }
 
             $formContainer->output_cell(
-                $fieldData['field_label'],
+                $fieldDefinition['field_label'],
                 ['class' => 'align_left']
             );
 
             $formContainer->output_cell(
-                $fieldData['html_type'],
+                $fieldDefinition['html_type'],
                 ['class' => 'align_center']
             );
 
             $formContainer->output_cell(
-                $fieldData['field_type'],
+                $fieldDefinition['field_type'],
                 ['class' => 'align_center']
             );
 
-            (function (array $values) use ($tableFields, $fieldID, $formContainer, $form) {
-                foreach ($tableFields['myshowcase_fields'] as $fieldName => $fieldData) {
-                    if (empty($fieldData['quickSetting'])) {
+            (function (array $values) use ($tablesData, $fieldID, $formContainer, $form) {
+                foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
+                    if (empty($fieldDefinition['quickSetting'])) {
                         continue;
                     }
 
@@ -844,7 +844,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                     );
                 }
             })(
-                $fieldData
+                $fieldDefinition
             );
 
             $popup = new PopupMenu("field_{$fieldID}", $lang->options);
@@ -859,8 +859,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 urlHandlerBuild(['action' => 'deleteField', 'field_id' => $fieldID, 'set_id' => $fieldsetID]),
             );
 
-            if (in_array($fieldData['html_type'], [
-                FieldHtmlTypes::CheckBox,
+            if (in_array($fieldDefinition['html_type'], [
+                //FieldHtmlTypes::CheckBox,
                 FieldHtmlTypes::Radio,
                 FieldHtmlTypes::Select,
             ])) {
@@ -870,7 +870,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 );
             }
 
-            $maximumViewOrder = max($maximumViewOrder, $fieldData['display_order']);
+            $maximumViewOrder = max($maximumViewOrder, $fieldDefinition['display_order']);
 
             $formContainer->output_cell($popup->fetch(), ['class' => 'align_center']);
 
@@ -923,7 +923,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
         hooksRun('admin_fieldset_delete_post');
 
-        foreach (fieldsGet(["set_id='{$fieldsetID}'"]) as $fieldID => $fieldData) {
+        foreach (fieldsGet(["set_id='{$fieldsetID}'"]) as $fieldID => $fieldDefinition) {
             fieldsDelete($fieldsetID);
         }
 
@@ -961,14 +961,14 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $lang->sprintf($lang->myShowcaseAdminConfirmFieldsetDelete, $fieldsetName)
     );
 } elseif ($pageAction == 'editOption') {
-    $fieldData = fieldsGet(
+    $fieldDefinition = fieldsGet(
         ["field_id='{$fieldID}'", "set_id='{$fieldsetID}'"],
         ['field_key', 'html_type'],
         ['limit' => 1]
     );
 
-    if (!$fieldData || !in_array($fieldData['html_type'], [
-            FieldHtmlTypes::CheckBox,
+    if (!$fieldDefinition || !in_array($fieldDefinition['html_type'], [
+            //FieldHtmlTypes::CheckBox,
             FieldHtmlTypes::Radio,
             FieldHtmlTypes::Select,
         ])) {
@@ -988,7 +988,11 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $fieldOptionData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
 
     $page->add_breadcrumb_item(
-        $lang->sprintf($lang->myshowcase_admin_edit_fieldopt, $fieldData['field_key'], $fieldOptionData['set_name']),
+        $lang->sprintf(
+            $lang->myshowcase_admin_edit_fieldopt,
+            $fieldDefinition['field_key'],
+            $fieldOptionData['set_name']
+        ),
         urlHandlerBuild()
     );
 
@@ -1018,13 +1022,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
                 $insertData = [];
 
-                (function () use ($mybb, $tableFields, &$insertData, $fieldDataID): void {
-                    foreach ($tableFields['myshowcase_field_data'] as $fieldName => $fieldData) {
-                        if (!isset($fieldData['formType'])) {
+                (function () use ($mybb, $tablesData, &$insertData, $fieldDataID): void {
+                    foreach ($tablesData['myshowcase_field_data'] as $fieldName => $fieldDefinition) {
+                        if (!isset($fieldDefinition['formType'])) {
                             continue;
                         }
 
-                        switch ($fieldData['formType']) {
+                        switch ($fieldDefinition['formType']) {
                             case FormTypes::Text:
                                 $insertData[$fieldName] = $mybb->get_input(
                                     $fieldName,
@@ -1070,13 +1074,13 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 'field_key' => $db->escape_string($mybb->get_input('field_key')),
             ];
 
-            (function () use ($mybb, $tableFields, &$insertData): void {
-                foreach ($tableFields['myshowcase_field_data'] as $fieldName => $fieldData) {
-                    if (!isset($fieldData['formType'])) {
+            (function () use ($mybb, $tablesData, &$insertData): void {
+                foreach ($tablesData['myshowcase_field_data'] as $fieldName => $fieldDefinition) {
+                    if (!isset($fieldDefinition['formType'])) {
                         continue;
                     }
 
-                    switch ($fieldData['formType']) {
+                    switch ($fieldDefinition['formType']) {
                         case FormTypes::Text:
                             $insertData[$fieldName] = $mybb->get_input($fieldName);
 
@@ -1160,7 +1164,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $maximumViewOrder = 0;
 
-    $queryFields = array_flip(array_keys($tableFields['myshowcase_field_data']));
+    $queryFields = array_flip(array_keys($tablesData['myshowcase_field_data']));
 
     unset($queryFields['unique_keys']);
 
@@ -1309,7 +1313,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         ['class' => 'align_center']
     );
 
-    echo $form->generate_hidden_field('field_key', $fieldData['field_key']);
+    echo $form->generate_hidden_field('field_key', $fieldDefinition['field_key']);
 
     echo $form->generate_hidden_field('value_id', ++$maximumViewOrder);
 
@@ -1418,9 +1422,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         admin_redirect(urlHandlerBuild());
     }
 
-    $fieldData = fieldsGet(["set_id='{$fieldsetID}'", "field_id='{$fieldID}'"], ['field_key'], ['limit' => 1]);
+    $fieldDefinition = fieldsGet(["set_id='{$fieldsetID}'", "field_id='{$fieldID}'"], ['field_key'], ['limit' => 1]);
 
-    if (empty($fieldData['field_id'])) {
+    if (empty($fieldDefinition['field_id'])) {
         flash_message($lang->myshowcase_field_invalid_id, 'error');
         admin_redirect(
             urlHandlerBuild(['action' => 'viewFields', 'set_id' => $fieldsetID]),
@@ -1429,7 +1433,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $showcaseObjects = showcaseGet(["field_set_id='{$fieldsetID}'"]);
 
-    $fieldKey = $fieldData['field_key'] ?? $fieldData['field_id'];
+    $field_key = $fieldDefinition['field_key'] ?? $fieldDefinition['field_id'];
 
     $fieldIsInUse = false;
 
@@ -1438,7 +1442,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             break;
         }
 
-        if (showcaseDataTableFieldExists($showcaseID, $fieldKey)) {
+        if (showcaseDataTableFieldExists($showcaseID, $field_key)) {
             $fieldIsInUse = true;
 
             break;
@@ -1463,7 +1467,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         languageModify(
             'myshowcase_fs' . $fieldsetID,
             [],
-            ['myshowcase_field_' . $fieldKey => '']
+            ['myshowcase_field_' . $field_key => '']
         );
 
         if ($fieldIsInUse) {
@@ -1472,8 +1476,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                     break;
                 }
 
-                if (showcaseDataTableFieldExists($showcaseID, $fieldKey)) {
-                    showcaseDataTableFieldDrop($showcaseID, $fieldKey);
+                if (showcaseDataTableFieldExists($showcaseID, $field_key)) {
+                    showcaseDataTableFieldDrop($showcaseID, $field_key);
                 }
             }
         }
@@ -1503,7 +1507,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         urlHandlerBuild(['action' => 'deleteField', 'field_id' => $fieldID, 'set_id' => $fieldsetID]),
         $lang->sprintf(
             $lang->myShowcaseAdminConfirmFieldDelete,
-            $fieldKey
+            $field_key
         ) . ($fieldIsInUse ? $lang->myShowcaseAdminConfirmFieldDeleteExisting : '')
     );
 } else {

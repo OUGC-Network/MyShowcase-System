@@ -180,20 +180,20 @@ class DataHandler extends CoreDataHandler
 
         global $lang;
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldData) {
-            $fieldObject = fieldGetObject($this->showcaseObject, $fieldData);
+        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+            $fieldObject = fieldGetObject($this->showcaseObject, $fieldDefinition);
 
-            $fieldKey = $fieldData['field_key'];
+            $field_key = $fieldDefinition['field_key'];
 
-            if (!$fieldData['enabled'] ||
-                !isset($entryData[$fieldKey]) ||
-                !is_member($fieldData['allowed_groups_fill'])) {
+            if (!$fieldDefinition['enabled'] ||
+                !isset($entryData[$field_key]) ||
+                !is_member($fieldDefinition['allowed_groups_fill'])) {
                 // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            if ($fieldData['is_required'] && empty($entryData[$fieldKey])) {
-                $this->set_error('missing_field', [$lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey]);
+            if ($fieldDefinition['is_required'] && empty($entryData[$field_key])) {
+                $this->set_error('missing_field', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
             }
             /*
              * array(1) {
@@ -224,33 +224,38 @@ class DataHandler extends CoreDataHandler
 
              */
 
-            if (empty($entryData[$fieldKey]) && $fieldData['default_value'] !== '') {
-                $entryData[$fieldKey] = $fieldData['default_value'];
+            if (empty($entryData[$field_key]) && $fieldDefinition['default_value'] !== '') {
+                $entryData[$field_key] = $fieldDefinition['default_value'];
             }
 
-            _dump($fieldObject);
+            //_dump($fieldObject);
 
-            if (fieldTypeMatchInt($fieldData['field_type'])) {
-                if (!is_numeric($entryData[$fieldKey])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey]);
+            if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
+                if (is_array($entryData[$field_key])) {
+                    foreach ($entryData[$field_key] as $fieldValue) {
+                        if (!is_numeric($fieldValue)) {
+                            $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
+                        }
+                    }
+                } elseif (!is_numeric($entryData[$field_key])) {
+                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
                 }
-            } elseif (fieldTypeMatchChar($fieldData['field_type']) ||
-                fieldTypeMatchText($fieldData['field_type'])) {
-                if (!is_scalar($entryData[$fieldKey])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey]);
+            } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
+                fieldTypeMatchText($fieldDefinition['field_type'])) {
+                if (!is_scalar($entryData[$field_key])) {
+                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
                 }
+                /*if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
+                    $fieldValueLength = my_strlen($entryData[$field_key]);
 
-                if ($fieldData['html_type'] !== FieldHtmlTypes::Date) {
-                    $fieldValueLength = my_strlen($entryData[$fieldKey]);
-
-                    if ($fieldValueLength > $fieldData['maximum_length'] ||
-                        $fieldValueLength < $fieldData['minimum_length']) {
+                    if ($fieldValueLength > $fieldDefinition['maximum_length'] ||
+                        $fieldValueLength < $fieldDefinition['minimum_length']) {
                         $this->set_error(
                             'invalid_length',
                             [
-                                $lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey,
+                                $lang->{'myshowcase_field_' . $field_key} ?? $field_key,
                                 $fieldValueLength,
-                                $fieldData['minimum_length'] . '-' . $fieldData['maximum_length']
+                                $fieldDefinition['minimum_length'] . '-' . $fieldDefinition['maximum_length']
                             ]
                         );
 
@@ -259,18 +264,18 @@ class DataHandler extends CoreDataHandler
                             $this->set_error(
                                 'message_too_long',
                                 [
-                                    $lang->{'myshowcase_field_' . $fieldKey} ?? $fieldKey,
+                                    $lang->{'myshowcase_field_' . $field_key} ?? $field_key,
                                     $fieldValueLength,
                                     $this->showcaseObject->config['maximum_text_field_length']
                                 ]
                             );
                         }
                     }
-                }
+                }*/
             }
 
-            if ($fieldData['filter_on_save']) {
-                _dump('filter_on_save', $fieldData['filter_on_save']);
+            if ($fieldDefinition['filter_on_save']) {
+                _dump('filter_on_save', $fieldDefinition['filter_on_save']);
             }
         }
 
@@ -313,8 +318,8 @@ class DataHandler extends CoreDataHandler
             $this->insertData[$key] = $value;
         }
 
-        if (!$isUpdate && empty($this->insertData['entry_hash'])) {
-            $this->insertData['entry_hash'] = generateUUIDv4();
+        if (!$isUpdate && empty($this->insertData['post_hash'])) {
+            $this->insertData['post_hash'] = generateUUIDv4();
         }
 
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
@@ -322,28 +327,28 @@ class DataHandler extends CoreDataHandler
         if ($isUpdate) {
             $this->entry_id = $this->showcaseObject->dataUpdate($this->insertData);
 
-            if (!isset($this->insertData['entry_hash'])) {
+            if (!isset($this->insertData['post_hash'])) {
                 $commentData = entryGet(
                     $this->showcaseObject->showcase_id,
                     ["entry_id='{$this->entry_id}'"],
-                    ['entry_hash']
+                    ['post_hash']
                 );
 
-                $this->returnData['entry_hash'] = $commentData['entry_hash'];
+                $this->returnData['post_hash'] = $commentData['post_hash'];
             }
         } else {
             $this->entry_id = $this->showcaseObject->dataInsert($this->insertData);
 
-            $this->returnData['entry_hash'] = $this->insertData['entry_hash'];
+            $this->returnData['post_hash'] = $this->insertData['post_hash'];
         }
 
-        // Assign any uploaded attachments with the specific entry_hash to the newly created entry.
+        // Assign any uploaded attachments with the specific post_hash to the newly created entry.
         foreach (
             attachmentGet(
-                ["entry_hash='{$db->escape_string($this->returnData['entry_hash'])}'"]
+                ["post_hash='{$db->escape_string($this->returnData['post_hash'])}'"]
             ) as $attachmentID => $attachmentData
         ) {
-            attachmentUpdate(['entry_id' => $this->entry_id, 'entry_hash' => ''], $attachmentID);
+            attachmentUpdate(['entry_id' => $this->entry_id, 'post_hash' => ''], $attachmentID);
         }
 
         $this->returnData['entry_id'] = $this->entry_id;

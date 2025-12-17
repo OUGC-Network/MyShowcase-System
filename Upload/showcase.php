@@ -117,6 +117,8 @@ if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
     require_once $change_dir . '/global.php';
 }
 
+function_exists('MyShowcase\Plugin\Functions\hooksRun') || error();
+
 hooksRun('script_file_start');
 
 //change directory back to current where script is
