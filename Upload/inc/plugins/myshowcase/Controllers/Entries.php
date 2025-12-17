@@ -21,7 +21,6 @@ use MyShowcase\Plugin\RouterUrls;
 use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
-
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -29,6 +28,7 @@ use Twig\Error\SyntaxError;
 use function MyBB\View\template;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentUpload;
+use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\cleanSlug;
 use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
@@ -42,6 +42,8 @@ use function MyShowcase\Plugin\Functions\moderatorGet;
 use function MyShowcase\Plugin\Functions\urlHandlerBuild;
 use function MyShowcase\SimpleRouter\url;
 
+use const MyShowcase\ROOT;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
 use const MyShowcase\Plugin\Core\ATTACHMENT_THUMBNAIL_SMALL;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
@@ -53,7 +55,6 @@ use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
-use const MyShowcase\ROOT;
 
 class Entries extends Base
 {
@@ -359,7 +360,7 @@ class Entries extends Base
                 $optionSelectedElement = 'selected="selected"';
             }
 
-            $templatesContext['selectOptionsSearchField'] .= $this->renderObject->templateGetTwig(
+            $templatesContext['selectOptionsSearchField'] .= $this->renderObject->templateGet(
                 'pageMainSelectOption',
                 [
                     'field_key' => $field_key,
@@ -384,7 +385,7 @@ class Entries extends Base
         }, $this->showcaseObject->fieldset_fields_display_fields);
 
         if ($inputOrderText) {
-            $templatesContext['orderInputs'][$this->showcaseObject->sort_by_field] = $this->renderObject->templateGetTwig(
+            $templatesContext['orderInputs'][$this->showcaseObject->sort_by_field] = $this->renderObject->templateGet(
                 'pageMainTableHeadFieldSort',
                 [
                     'url_base' => $this->showcaseObject->url_base,
@@ -737,7 +738,7 @@ class Entries extends Base
                             $urlImage = $thumbnailUrl;
                         }
 
-                        $templatesContextEntry['entryImage'] = $this->renderObject->templateGetTwig(
+                        $templatesContextEntry['entryImage'] = $this->renderObject->templateGet(
                             'pageMainTableRowsImage',
                             [
                                 'urlImage' => $urlImage,
@@ -826,7 +827,7 @@ class Entries extends Base
 
                 $templatesContextEntry['tableRowExtra'] = implode('', $showcaseTableRowExtra);
 
-                /*$templatesContext['showcaseEntriesList'] .= $this->renderObject->templateGetTwig(
+                /*$templatesContext['showcaseEntriesList'] .= $this->renderObject->templateGet(
                     'pageMainTableRows',
                     $templatesContextEntry
                 );*/
@@ -924,6 +925,11 @@ class Entries extends Base
         );
     }
 
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
     #[NoReturn] public function createEntry(
         bool $isEditPage = false,
         string $entrySlug = '',
@@ -1004,14 +1010,17 @@ class Entries extends Base
 
         $templatesContext = [];
 
+        $templatesContext['isEditPage'] = $isEditPage;
+
         $templatesContext['entryPreview'] = '';
 
         if ($mybb->request_method === 'post') {
             verify_post_check($mybb->get_input('my_post_key'));
 
-            //$this->showcaseObject->entryHash = $mybb->get_input('post_hash');
+            //$this->showcaseObject->post_hash = $mybb->get_input('post_hash');
 
             if ($this->showcaseObject->config['attachments_allow_entries']) {
+                _dump(965);
                 global $mybb;
 
                 echo json_encode([$mybb->input]);
@@ -1032,8 +1041,8 @@ class Entries extends Base
 
                 $insertData['dateline'] = TIME_NOW;
 
-                if ($this->showcaseObject->entryHash) {
-                    $insertData['post_hash'] = $this->showcaseObject->entryHash;
+                if ($this->showcaseObject->post_hash) {
+                    $insertData['post_hash'] = $this->showcaseObject->post_hash;
                 }
             }
 
@@ -1117,7 +1126,7 @@ class Entries extends Base
              }*/
 
             if (!$isEditPage) {
-                $insertData['entry_slug'] = $entrySlug;
+                $insertData['entry_slug_custom'] = $entrySlug;
             }
             // todo, slug should load all field data after update/insert to build
 
@@ -1167,7 +1176,10 @@ class Entries extends Base
                 } else {
                     $entryUrl = url(
                         RouterUrls::EntryView,
-                        ['entry_slug' => $dataHandler->returnData['entry_slug']]
+                        [
+                            'entry_slug' => $dataHandler->returnData['entry_slug'],
+                            'entry_slug_custom' => $dataHandler->returnData['entry_slug_custom']
+                        ]
                     )->getRelativeUrl();
 
                     redirect(
@@ -1229,7 +1241,7 @@ class Entries extends Base
                 }
 
                 switch ($fieldDefinition['html_type']) {
-                    //case FieldHtmlTypes::CheckBox:
+                    case FieldHtmlTypes::CheckBox:
                     case FieldHtmlTypes::Radio:
                     case FieldHtmlTypes::Select:
                         $fieldDefinition['fieldDataObjects'] = [];
@@ -1244,6 +1256,33 @@ class Entries extends Base
                             if (is_member($fieldDefinition['allowed_groups_fill'])) {
                                 $fieldDefinition['fieldDataObjects'][$field_data_id] = $field_data_data;
                             }
+                        }
+
+                        break;
+                    case FieldHtmlTypes::File:
+                        $attachmentTypes = cacheGet(
+                            CACHE_TYPE_ATTACHMENT_TYPES
+                        )[$this->showcaseObject->showcase_id] ?? [];
+
+                        $acceptElement = implode(
+                            ',',
+                            array_merge(
+                                array_column($attachmentTypes, 'mime_type'),
+                                array_column($attachmentTypes, 'file_extension')
+                            )
+                        );
+
+                        $fieldDefinition['acceptElement'] = $acceptElement;
+
+                        switch ($fieldDefinition['file_capture']) {
+                            case 1:
+                                $fieldDefinition['captureElement'] = 'user';
+
+                                break;
+                            case 2:
+                                $fieldDefinition['captureElement'] = 'environment';
+
+                                break;
                         }
                 }
 
@@ -1547,7 +1586,7 @@ class Entries extends Base
                     break;
             }
 
-            $templatesContext['entryFields'] .= $this->renderObject->templateGetTwig('pageEntryCreateUpdateDataField', [
+            $templatesContext['entryFields'] .= $this->renderObject->templateGet('pageEntryCreateUpdateDataField', [
                 'alternativeBackground' => $alternativeBackground,
                 'fieldData' => $fieldDefinition,
                 'fieldHeader' => $fieldHeader,
@@ -1580,22 +1619,14 @@ class Entries extends Base
 
         extract($hookArguments['extractVariables']);
 
-        $templatesContext['isEditPage'] = $isEditPage;
-
-        if ($isEditPage) {
-            $templatesContext['buttonText'] = $lang->myShowcaseNewEditFormButtonUpdateEntry;
-        } else {
-            $templatesContext['buttonText'] = $lang->myShowcaseNewEditFormButtonCreateEntry;
-        }
-
         if ($templatesContext['entryPreview']) {
             $templatesContext['preview'] = true;
         }
 
         output_page(
-            template(
-                '@ext.myshowcase/pageEntryCreateUpdate.twig',
-                $templatesContext
+            $this->renderObject->templateGet(
+                'pageEntryCreateUpdate',
+                $templatesContext,
             )
         );
     }
@@ -1732,7 +1763,7 @@ class Entries extends Base
             $this->showcaseObject->urlViewEntry
         );
 
-        //$this->showcaseObject->entryHash = $this->showcaseObject->entryData['post_hash'];
+        //$this->showcaseObject->post_hash = $this->showcaseObject->entryData['post_hash'];
 
         //trick MyBB into thinking its in archive so it adds bburl to smile link inside parser
         //doing this now should not impact anyhting. no issues with gomobile beta4
@@ -1870,7 +1901,7 @@ class Entries extends Base
             }
 
             if (!$templatesContext['commentsList']) {
-                $commentsEmpty = $this->renderObject->templateGetTwig('pageViewCommentsNone');
+                $commentsEmpty = $this->renderObject->templateGet('pageViewCommentsNone');
             }
 
             $hookArguments = hooksRun('entry_view_comment_form_end', $hookArguments);
@@ -1912,12 +1943,12 @@ class Entries extends Base
                     $templatesContext['editorSmilesInserter']
                 );
 
-                $templatesContext['commentsForm'] = $this->renderObject->templateGetTwig(
+                $templatesContext['commentsForm'] = $this->renderObject->templateGet(
                     'pageViewCommentsFormUser',
                     $templatesContext
                 );
             } elseif (!$currentUserID) {
-                $templatesContext['commentsForm'] = $this->renderObject->templateGetTwig('pageViewCommentsFormGuest');
+                $templatesContext['commentsForm'] = $this->renderObject->templateGet('pageViewCommentsFormGuest');
             }
         }
 
@@ -1946,7 +1977,7 @@ class Entries extends Base
 
         $templatesContext['canSearch'] = $this->showcaseObject->user_permissions[UserPermissions::CanSearch];
 
-        $this->outputSuccess($this->renderObject->templateGetTwig('pageView', $templatesContext));
+        $this->outputSuccess($this->renderObject->templateGet('pageView', $templatesContext));
     }
 
     #[NoReturn] public function approveEntry(

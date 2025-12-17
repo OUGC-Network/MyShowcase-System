@@ -15,8 +15,6 @@ namespace MyShowcase\Fields;
 
 use MyShowcase\System\Showcase;
 
-use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-
 class MonthField implements FieldsInterface
 {
     use FieldTrait;

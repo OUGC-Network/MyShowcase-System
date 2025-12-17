@@ -16,11 +16,7 @@ namespace MyShowcase\Fields;
 use MyBB;
 use MyShowcase\System\FieldHtmlTypes;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-
-use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 
 trait MultipleFieldTrait
 {
@@ -58,7 +54,7 @@ trait MultipleFieldTrait
         $fieldID = (int)$this->fieldDefinition['field_id'];
 
         switch ($this->fieldDefinition['html_type']) {
-            //case FieldHtmlTypes::CheckBox:
+            case FieldHtmlTypes::CheckBox:
             case FieldHtmlTypes::Radio:
             case FieldHtmlTypes::Select:
                 $fieldDataObjects = fieldDataGet(
@@ -93,10 +89,8 @@ trait MultipleFieldTrait
 
             // todo, check box can be required per check box
 
-            $fieldItems[] = eval(
-            $this->showcaseObject->renderObject->templateGet(
+            $fieldItems[] = $this->showcaseObject->renderObject->templateGet(
                 $this->templatePrefixCreateUpdate . $this->templateName . 'Item'
-            )
             );
         }
 
@@ -136,14 +130,14 @@ trait MultipleFieldTrait
 
         $templatesContext['fieldPlaceholder'] = htmlspecialchars_uni($this->fieldDefinition['placeholder']);
 
-        $fieldItems = $this->showcaseObject->renderObject->templateGetTwig(
+        $fieldItems = $this->showcaseObject->renderObject->templateGet(
             $this->templatePrefixCreateUpdate . $this->templateName,
             $templatesContext
         );
 
         $templatesContext['acceptElement'] = '';
 
-        return $this->showcaseObject->renderObject->templateGetTwig(
+        return $this->showcaseObject->renderObject->templateGet(
             $this->templatePrefixCreateUpdate,
             $templatesContext
         );

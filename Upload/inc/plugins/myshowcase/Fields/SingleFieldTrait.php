@@ -15,11 +15,6 @@ namespace MyShowcase\Fields;
 
 use MyShowcase\System\FieldHtmlTypes;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-
-use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
-
 trait SingleFieldTrait
 {
     public function renderCreateUpdate(string $alternativeBackground, int $fieldTabIndex): string
@@ -82,33 +77,6 @@ trait SingleFieldTrait
             }
         }
 
-        $templatesContext['acceptElement'] = $templatesContext['captureElement'] = '';
-
-        /*if ($this->fieldDefinition['html_type'] === FieldHtmlTypes::File) {
-            $attachmentTypes = cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcaseObject->showcase_id] ?? [];
-
-            $acceptElement = implode(
-                ',',
-                array_merge(
-                    array_column($attachmentTypes, 'mime_type'),
-                    array_column($attachmentTypes, 'file_extension')
-                )
-            );
-
-            $templatesContext['acceptElement'] = " accept=\"{$acceptElement}\"";
-
-            switch ($this->fieldDefinition['file_capture']) {
-                case 1:
-                    $templatesContext['captureElement'] = 'capture="user"';
-
-                    break;
-                case 2:
-                    $templatesContext['captureElement'] = 'capture="environment"';
-
-                    break;
-            }
-        }*/
-
         $templatesContext['inputSize'] = 40;
 
         if ($this->fieldDefinition['html_type'] === FieldHtmlTypes::Select) {
@@ -149,12 +117,12 @@ trait SingleFieldTrait
 
         $templatesContext['fieldPlaceholder'] = htmlspecialchars_uni($this->fieldDefinition['placeholder']);
 
-        $templatesContext['fieldItems'] = $this->showcaseObject->renderObject->templateGetTwig(
+        $templatesContext['fieldItems'] = $this->showcaseObject->renderObject->templateGet(
             $this->templatePrefixCreateUpdate . $this->templateName,
             $templatesContext,
         );
 
-        return $this->showcaseObject->renderObject->templateGetTwig(
+        return $this->showcaseObject->renderObject->templateGet(
             $this->templatePrefixCreateUpdate,
             $templatesContext,
         );

@@ -54,7 +54,6 @@ if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
 }
 
-require_once ROOT . '/System/FieldDefaultTypes.php';
 require_once ROOT . '/System/FieldHtmlTypes.php';
 require_once ROOT . '/System/FieldTypes.php';
 require_once ROOT . '/System/FilterTypes.php';
@@ -374,7 +373,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
                 if (isset($fieldDefinition['field_key']) &&
                     in_array($fieldDefinition['html_type'], [
-                        //FieldHtmlTypes::CheckBox,
+                        FieldHtmlTypes::CheckBox,
                         FieldHtmlTypes::Radio,
                         FieldHtmlTypes::Select,
                     ])) {
@@ -533,6 +532,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $form->end();
 
     //checkbox|color|date|datetime-local|email|file|month|number|password|radio|range|search|tel|text|time|url|week|textarea|select|select2_users|select2_entries|select2_threads
+    /*
     echo '<script type="text/javascript" src="./jscripts/peeker.js?ver=1821"></script>
 	<script type="text/javascript">
 		$(function() {
@@ -547,6 +547,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 				
 		});
 	</script>';
+    */
 
     $page->output_footer();
 } elseif (in_array($pageAction, ['new', 'edit'])) {
@@ -794,7 +795,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             $viewOptionsUrl = '';
 
             if (in_array($fieldDefinition['html_type'], [
-                //FieldHtmlTypes::CheckBox,
+                FieldHtmlTypes::CheckBox,
                 FieldHtmlTypes::Radio,
                 FieldHtmlTypes::Select,
             ])) {
@@ -860,7 +861,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             );
 
             if (in_array($fieldDefinition['html_type'], [
-                //FieldHtmlTypes::CheckBox,
+                FieldHtmlTypes::CheckBox,
                 FieldHtmlTypes::Radio,
                 FieldHtmlTypes::Select,
             ])) {
@@ -968,7 +969,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     );
 
     if (!$fieldDefinition || !in_array($fieldDefinition['html_type'], [
-            //FieldHtmlTypes::CheckBox,
+            FieldHtmlTypes::CheckBox,
             FieldHtmlTypes::Radio,
             FieldHtmlTypes::Select,
         ])) {

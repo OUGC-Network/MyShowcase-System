@@ -30,9 +30,9 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
-
 use function MyShowcase\Plugin\Functions\postParser;
 use function MyShowcase\Plugin\Functions\slugGenerateComment;
+use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
@@ -324,6 +324,10 @@ class DataHandler extends CoreDataHandler
 
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
 
+        if (!isset($this->insertData['entry_slug']) && $this->method === 'insert') {
+            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcaseObject->showcase_id);
+        }
+
         if ($isUpdate) {
             $this->entry_id = $this->showcaseObject->dataUpdate($this->insertData);
 
@@ -354,7 +358,7 @@ class DataHandler extends CoreDataHandler
         $this->returnData['entry_id'] = $this->entry_id;
 
         if (isset($this->insertData['entry_slug'])) {
-            $this->returnData['entry_slug'] = $entryData['entry_slug'];
+            $this->returnData['entry_slug'] = $this->insertData['entry_slug'];
         } else {
             $this->returnData['entry_slug'] = $this->showcaseObject->dataGet(
                 ["entry_id='{$this->entry_id}'"],
@@ -363,8 +367,18 @@ class DataHandler extends CoreDataHandler
             )['entry_slug'];
         }
 
+        if (isset($this->insertData['entry_slug_custom'])) {
+            $this->returnData['entry_slug_custom'] = $this->insertData['entry_slug_custom'];
+        } else {
+            $this->returnData['entry_slug_custom'] = $this->showcaseObject->dataGet(
+                ["entry_id='{$this->entry_id}'"],
+                ['entry_slug_custom'],
+                ['limit' => 1]
+            )['entry_slug_custom'];
+        }
+
         if (isset($this->insertData['status'])) {
-            $this->returnData['status'] = $entryData['status'];
+            $this->returnData['status'] = $this->insertData['status'];
         }
 
         $hookArguments = hooksRun('data_handler_entry_insert_update_end', $hookArguments);

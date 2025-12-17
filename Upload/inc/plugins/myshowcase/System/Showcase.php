@@ -16,22 +16,18 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 use MyBB;
-
 use MyShowcase\Plugin\RouterUrls;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\cacheUpdate;
 use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\commentsDelete;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\entryDelete;
 use function MyShowcase\Plugin\Functions\entryInsert;
 use function MyShowcase\Plugin\Functions\getSetting;
-use function MyShowcase\Plugin\Functions\getTemplate;
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\postParser;
 use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
@@ -722,11 +718,6 @@ class Showcase
         return (int)$db->fetch_field($query, 'totalUnapprovedEntries');
     }
 
-    public function templateGet(string $templateName = '', bool $enableHTMLComments = true): string
-    {
-        return getTemplate($templateName, $enableHTMLComments, $this->config['custom_theme_template_prefix']);
-    }
-
     public function dataGet(
         array $whereClauses,
         array $queryFields = [],
@@ -800,7 +791,7 @@ class Showcase
         }
 
         if (isset($this->entryData['post_hash'])) {
-            //$this->entryHash = (string)$this->entryData['post_hash'];
+            //$this->post_hash = (string)$this->entryData['post_hash'];
         }
     }
 

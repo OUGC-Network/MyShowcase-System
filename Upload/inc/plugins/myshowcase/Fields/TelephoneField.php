@@ -15,8 +15,6 @@ namespace MyShowcase\Fields;
 
 use MyShowcase\System\Showcase;
 
-use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-
 class TelephoneField implements FieldsInterface
 {
     use FieldTrait;

@@ -129,7 +129,7 @@ abstract class Base
 
         $hookArguments = hooksRun('controller_base_output_success', $hookArguments);
 
-        output_page($this->renderObject->templateGetTwig($templateName, $templatesContext));
+        output_page($this->renderObject->templateGet($templateName, $templatesContext));
 
         exit;
     }

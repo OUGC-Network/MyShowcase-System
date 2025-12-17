@@ -269,7 +269,7 @@ function global_intermediate(): bool
 
                     $renderObjects = renderGetObject($showcaseObject);
 
-                    $unapprovedEntriesNotices[] = $renderObjects->templateGetTwig('globalMessageUnapprovedEntries', [
+                    $unapprovedEntriesNotices[] = $renderObjects->templateGet('globalMessageUnapprovedEntries', [
                         'url_base' => $showcaseObject->url_base,
                         'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
                         'unapprovedText' => $unapprovedText,

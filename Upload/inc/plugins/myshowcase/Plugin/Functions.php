@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
-use Exception;
 use Postparser;
 use DirectoryIterator;
 use ReflectionClass;
@@ -52,7 +51,15 @@ use MyShowcase\Fields\TextField;
 use MyShowcase\Fields\TimeField;
 use MyShowcase\Fields\UrlField;
 use MyShowcase\Fields\WeekField;
+use Twig\Environment;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
 
+use function MyBB\app;
+use function MyBB\View\template;
+
+use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\ATTACHMENT_IMAGE_TOO_SMALL_FOR_THUMBNAIL;
 use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_VISIBLE;
@@ -80,7 +87,6 @@ use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_LEFT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_RIGHT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_LEFT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_RIGHT;
-use const MyShowcase\ROOT;
 
 function loadLanguage(
     string $languageFileName = 'myshowcase',
@@ -181,7 +187,7 @@ function getSetting(string $settingKey = '')
     );
 }
 
-function getTemplateName(string $templateName = '', string $showcasePrefix = '', bool $addPrefix = true): string
+function templateGetName(string $templateName = '', string $showcasePrefix = '', bool $addPrefix = true): string
 {
     $templatePrefix = $showcasePrefix !== '' ? $showcasePrefix . '_' : '';
 
@@ -196,43 +202,40 @@ function getTemplateName(string $templateName = '', string $showcasePrefix = '',
     return $templatePrefix . $templateName;
 }
 
-function getTemplate(string $templateName = '', bool $enableHTMLComments = true, string $showcasePrefix = ''): string
-{
-    global $templates;
-
-    if (DEBUG) {
-        //$templates->get(getTemplateName($templateName));
-
-        //$templates->get(getTemplateName($templateName, $showcasePrefix));
+/**
+ * @throws SyntaxError
+ * @throws RuntimeError
+ * @throws LoaderError
+ */
+function templateGet(
+    string $templateName = '',
+    array $templatesContext = [],
+    string $custom_theme_template_prefix = '',
+): string {
+    if ($custom_theme_template_prefix !== '' &&
+        templateExists($custom_theme_template_prefix . '/' . $templateName)) {
+        return template(
+            '@ext.myshowcase/' . $custom_theme_template_prefix . '/' . $templateName . '.twig',
+            $templatesContext
+        );
+    } else {
+        return template(
+            '@ext.myshowcase/' . $templateName . '.twig',
+            $templatesContext
+        );
     }
-
-    if (DEBUG && file_exists($filePath = ROOT . "/Templates/{$templateName}.html")) {
-        $templateContents = file_get_contents($filePath);
-
-        $templates->cache[getTemplateName($templateName)] = $templateContents;
-    } elseif (my_strpos($templateName, '/') !== false) {
-        $templateName = substr($templateName, my_strpos($templateName, '/') + 1);
-    }
-
-    if ($showcasePrefix !== '' && isset($templates->cache[getTemplateName($templateName, $showcasePrefix)])) {
-        return $templates->render(getTemplateName($templateName, $showcasePrefix), true, $enableHTMLComments);
-    } elseif ($showcasePrefix) {
-        return getTemplate($templateName, $enableHTMLComments);
-    }
-
-    return $templates->render(getTemplateName($templateName, $showcasePrefix), true, $enableHTMLComments);
 }
 
-function getTemplateTwig(
-    string $templateName = '',
-    bool $enableHTMLComments = true,
-    string $showcasePrefix = ''
-): string {
-    if (DEBUG && file_exists($filePath = ROOT . "/Templates/{$templateName}.html")) {
-        $templateContents = file_get_contents($filePath);
-    }
+function templateExists(string $template_name): bool
+{
+    /** @var Environment $twig */
+    $twig = app(Environment::class);
 
-    return $templateContents ?? '';
+    $loader = $twig->getLoader();
+
+    return $loader->exists(
+        "@ext.myshowcase/{$template_name}.twig"
+    );
 }
 
 function templateGetCachedName(string $templateName = '', string $showcasePrefix = '', bool $addPrefix = false): string
@@ -248,18 +251,18 @@ function templateGetCachedName(string $templateName = '', string $showcasePrefix
     if (DEBUG && file_exists($filePath = ROOT . "/Templates/{$templateName}.html")) {
         $templateContents = file_get_contents($filePath);
 
-        $templates->cache[getTemplateName($templateName)] = $templateContents;
+        $templates->cache[templateGetName($templateName)] = $templateContents;
     } elseif (my_strpos($templateName, '/') !== false) {
         $templateName = substr($templateName, my_strpos($templateName, '/') + 1);
     }
 
-    if ($showcasePrefix !== '' && isset($templates->cache[getTemplateName($templateName, $showcasePrefix)])) {
-        return getTemplateName($templateName, $showcasePrefix, $addPrefix);
+    if ($showcasePrefix !== '' && isset($templates->cache[templateGetName($templateName, $showcasePrefix)])) {
+        return templateGetName($templateName, $showcasePrefix, $addPrefix);
     } elseif ($showcasePrefix) {
         return templateGetCachedName($templateName, addPrefix: $addPrefix);
     }
 
-    return getTemplateName($templateName, $showcasePrefix, $addPrefix);
+    return templateGetName($templateName, $showcasePrefix, $addPrefix);
 }
 
 //set default permissions for all groups in all myshowcases
@@ -712,6 +715,11 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
     foreach ($tablesData as $fieldName => $fieldDefinition) {
         if (isset($entryData[$fieldName])) {
             $insertData[$fieldName] = sanitizeTableFieldValue($entryData[$fieldName], $fieldDefinition['type']);
+        } elseif (!$isUpdate) {
+            $insertData[$fieldName] = sanitizeTableFieldValue(
+                $fieldDefinition['default'] ?? '',
+                $fieldDefinition['type']
+            );
         }
     }
 
@@ -722,11 +730,14 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
     )['field_set_id'] ?? 0);
 
     $fieldObjects = fieldsGet(
-        ["set_id='{$fieldSetID}'", "enabled='1'"],
+        ["set_id='{$fieldSetID}'"],
         [
             'field_id',
             'field_key',
-            'field_type'
+            'field_type',
+            'default_value',
+            'default_type',
+            'enabled',
         ]
     );
 
@@ -735,7 +746,7 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
     $hookArguments['fieldObjects'] = &$fieldObjects;
 
     foreach ($fieldObjects as $fieldID => $fieldDefinition) {
-        if (isset($entryData[$fieldDefinition['field_key']])) {
+        if (isset($entryData[$fieldDefinition['field_key']]) && !empty($fieldDefinition['enabled'])) {
             if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
                 $insertData[$fieldDefinition['field_key']] = (int)$entryData[$fieldDefinition['field_key']];
             } elseif (fieldTypeMatchFloat($fieldDefinition['field_type'])) {
@@ -750,6 +761,18 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
                 $insertData[$fieldDefinition['field_key']] = $db->escape_binary(
                     $entryData[$fieldDefinition['field_key']]
                 );
+            }
+        } elseif (!$isUpdate) {
+            switch ($fieldDefinition['default_type']) {
+                case FieldDefaultTypes::AsDefined:
+                    $insertData[$fieldDefinition['field_key']] = $db->escape_string($fieldDefinition['default_value']);
+                    break;
+                case FieldDefaultTypes::CurrentTimestamp:
+                    $insertData[$fieldDefinition['field_key']] = $db->escape_string(date('Y-m-d H:i:s', TIME_NOW));
+                    break;
+                case FieldDefaultTypes::UUID:
+                    $insertData[$fieldDefinition['field_key']] = $db->escape_string(generateUUIDv4());
+                    break;
             }
         }
     }
@@ -1541,7 +1564,7 @@ function attachmentUpload(
         [
             "file_name='{$db->escape_string($attachmentData['name'])}'",
             "showcase_id='{$showcase->showcase_id}'",
-            "(post_hash='{$db->escape_string($showcase->entryHash)}' OR (entry_id='{$showcase->entryID}' AND entry_id!='0'))"
+            "(post_hash='{$db->escape_string($showcase->post_hash)}' OR (entry_id='{$showcase->entryID}' AND entry_id!='0'))"
         ],
         queryOptions: ['limit' => 1]
     );
@@ -1618,7 +1641,7 @@ function attachmentUpload(
         'showcase_id' => $showcase->showcase_id,
         'entry_id' => $showcase->entryID,
         'attachment_hash' => generateUUIDv4(),
-        'post_hash' => $showcase->entryHash,
+        'post_hash' => $showcase->post_hash,
         //'post_hash' => $showcase->commentHash,
         'user_id' => $showcase->entryUserID,
         'file_name' => $fileName,
@@ -2120,7 +2143,7 @@ function entryGetRandom(): string
             $rand_img = $rand_showcase['attachments_uploads_path'] . '/' . $rand_entry_thumb;
         }
 
-        return $myshowcase->templateGetTwig('portal_rand_showcase', [
+        return $myshowcase->templateGet('portal_rand_showcase', [
             'showcase' => $rand_showcase,
             'entryUrl' => $entryUrl,
             'entryDescription' => $entry['description'],
@@ -2134,8 +2157,6 @@ function entryGetRandom(): string
 
 function dataTableStructureGet(int $showcaseID = 0): array
 {
-    require_once ROOT . '/System/FieldDefaultTypes.php';
-
     global $db;
 
     $dataTableStructure = DATA_TABLE_STRUCTURE['myshowcase_data'];
@@ -2335,7 +2356,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
         require_once ROOT . '/Fields/SingleFieldTrait.php';
 
         switch ($fieldDefinition['html_type']) {
-            /*case FieldHtmlTypes::CheckBox:
+            case FieldHtmlTypes::CheckBox:
                 require_once ROOT . '/Fields/CheckBoxField.php';
 
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new CheckBoxField(
@@ -2397,7 +2418,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new PasswordField(
                     $showcaseObject, $fieldDefinition
                 );
-                break;*/
+                break;
             case FieldHtmlTypes::Radio:
                 require_once ROOT . '/Fields/RadioField.php';
 
@@ -2405,7 +2426,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                     $showcaseObject, $fieldDefinition
                 );
                 break;
-            /*case FieldHtmlTypes::Range:
+            case FieldHtmlTypes::Range:
                 require_once ROOT . '/Fields/RangeField.php';
 
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new RangeField(
@@ -2425,7 +2446,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TelephoneField(
                     $showcaseObject, $fieldDefinition
                 );
-                break;*/
+                break;
             case FieldHtmlTypes::Text:
                 require_once ROOT . '/Fields/TextField.php';
 
@@ -2433,7 +2454,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                     $showcaseObject, $fieldDefinition
                 );
                 break;
-            /*case FieldHtmlTypes::Time:
+            case FieldHtmlTypes::Time:
                 require_once ROOT . '/Fields/TimeField.php';
 
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TimeField(
@@ -2453,7 +2474,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new WeekField(
                     $showcaseObject, $fieldDefinition
                 );
-                break;*/
+                break;
             case FieldHtmlTypes::TextArea:
                 require_once ROOT . '/Fields/TextAreaField.php';
 
@@ -2468,7 +2489,7 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                     $showcaseObject, $fieldDefinition
                 );
                 break;
-            /*case FieldHtmlTypes::SelectUsers:
+            case FieldHtmlTypes::SelectUsers:
                 require_once ROOT . '/Fields/SelectUsersField.php';
 
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectUsersField(
@@ -2488,9 +2509,9 @@ function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): Field
                 $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectThreadsField(
                     $showcaseObject, $fieldDefinition
                 );
-                break;*/
+                break;
             default:
-                _dump($fieldDefinition['html_type']);
+                _dump(987, $fieldDefinition['html_type']);
         }
     }
 
@@ -2628,8 +2649,8 @@ function fieldDefaultTypes(): array
     return [
         FieldDefaultTypes::AsDefined => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeAsDefined,
         FieldDefaultTypes::IsNull => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeNull,
-        //FieldDefaultTypes::CurrentTimestamp => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeTimeStamp,
-        //FieldDefaultTypes::UUID => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeUUID,
+        FieldDefaultTypes::CurrentTimestamp => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeTimeStamp,
+        FieldDefaultTypes::UUID => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeUUID,
     ];
 }
 

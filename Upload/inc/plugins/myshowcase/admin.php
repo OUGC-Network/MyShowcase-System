@@ -17,7 +17,6 @@ namespace MyShowcase\Admin;
 
 use Form;
 use MyBB;
-
 use MyShowcase\Plugin\FormTypes;
 
 use function MyShowcase\Plugin\Functions\cacheUpdate;
@@ -39,6 +38,7 @@ use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Plugin\Functions\slugGenerateComment;
 use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
+use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\VERSION;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 use const MyShowcase\Plugin\Core\FIELDS_DATA;
@@ -50,7 +50,6 @@ use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\VERSION_CODE;
-use const MyShowcase\ROOT;
 
 function pluginInformation(): array
 {

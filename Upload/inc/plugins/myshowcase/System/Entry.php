@@ -19,18 +19,18 @@ class Entry
 {
     private int $entry_id;
     private int $user_id;
-    private string $entry_hash;
+    private string $post_hash;
 
-    private function __construct(int $entry_id, int $user_id, string $entry_hash)
+    private function __construct(int $entry_id, int $user_id, string $post_hash)
     {
         $this->entry_id = $entry_id;
         $this->user_id = $user_id;
-        $this->post_hash = $entry_hash;
+        $this->post_hash = $post_hash;
     }
 
-    public static function create(int $entry_id, int $user_id, string $entry_hash): Entry
+    public static function create(int $entry_id, int $user_id, string $post_hash): Entry
     {
-        return new self($entry_id, $user_id, $entry_hash);
+        return new self($entry_id, $user_id, $post_hash);
     }
 
     public function entry_id(): int
@@ -43,7 +43,7 @@ class Entry
         return $this->user_id;
     }
 
-    public function entryHash(): string
+    public function post_hash(): string
     {
         return $this->post_hash;
     }

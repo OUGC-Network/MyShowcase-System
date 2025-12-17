@@ -560,14 +560,14 @@ const TABLES_DATA = [
             'formCategory' => 'main',
             'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::Select,
         ],*/
-        /*'custom_theme_template_prefix' => [
+        'custom_theme_template_prefix' => [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => '',
             'formCategory' => 'main',
             'formType' => FormTypes::Text,
         ],
-        'order_default_field' => [ // dateline, username, custom fields, etc
+        /*'order_default_field' => [ // dateline, username, custom fields, etc
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,

@@ -1,0 +1,480 @@
+<div class="row row--form field">
+    <h3 class="field__name visually-hidden">
+        <label for="{{ field_data.field_key }}">{{ fieldHeader }}</label>
+    </h3>
+    {% if field_data.description is not empty %}
+        <p class="field__description">{{ field_data.description }}</p>
+    {% endif %}
+    <div class="{% if field_data.enable_subject %}compose__subject{% else %}compose__container{% endif %}">
+        {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
+        <div class="compose__message compose__{{ field_data.field_key }}">
+            {% endif %}
+            {% if field_data.html_type == 'checkbox' %}
+                <div id="{{ field_data.field_key }}">
+                    {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
+                        <p class="option-field option-field--compact">
+                            <label>
+                                <input type="checkbox"
+                                       name="{{ field_data.field_key }}"
+                                       value="{{ field_data_id }}"
+                                       tabindex="{{ loop.index + 10 }}"
+                                       form="contentForm"
+                                       {% if field_data.read_only %}readonly="readonly"{% endif %}
+                                        {% if field_data.is_required %}required="required"{% endif %}
+                                        {% if mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                />
+                                {{ field_data_data.value }}
+                            </label>
+                        </p>
+                    {% endfor %}
+                </div>
+                {% elseif field_data.html_type == 'color' %}
+            <input type="color"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="color"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'date' %}
+            <input type="date"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="date"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'datetime-local' %}
+            <input type="datetime-local"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="datetime-local"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'email' %}
+            <input type="email"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="email"
+                   inputmode="email"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'file' %}
+            <input type="file"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   class="textbox"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.acceptElement %}accept="{{ field_data.acceptElement }}"{% endif %}
+                    {% if field_data.captureElement %}capture="{{ field_data.captureElement }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
+            />
+                {% elseif field_data.html_type == 'month' %}
+            <input type="month"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="month"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'number' %}
+            <input type="number"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="number"
+                   inputmode="numeric"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'password' %}
+            <input type="password"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="password"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'radio' %}
+                <div id="{{ field_data.field_key }}">
+                    {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
+                        <p class="option-field option-field--compact">
+                            <label>
+                                <input type="radio"
+                                       name="{{ field_data.field_key }}"
+                                       value="{{ field_data_id }}"
+                                       tabindex="{{ loop.index + 10 }}"
+                                       form="contentForm"
+                                       {% if field_data.read_only %}readonly="readonly"{% endif %}
+                                        {% if field_data.is_required %}required="required"{% endif %}
+                                        {% if mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                />
+                                {{ field_data_data.value }}
+                            </label>
+                        </p>
+                    {% endfor %}
+                </div>
+                {% elseif field_data.html_type == 'range' %}
+            <input type="range"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="range"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'search' %}
+            <input type="search"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="search"
+                   inputmode="search"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'tel' %}
+            <input type="tel"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="tel"
+                   inputmode="tel"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'text' %}
+            <input type="text"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="text"
+                   inputmode="text"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'time' %}
+            <input type="time"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="time"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'url' %}
+            <input type="url"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="url"
+                   inputmode="url"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'week' %}
+            <input type="week"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   autocomplete="week"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
+            />
+                {% elseif field_data.html_type == 'textarea' %}
+                <textarea name="{{ field_data.field_key }}"
+                          tabindex="{{ loop.index + 10 }}"
+                          placeholder="{{ field_data.placeholder }}"
+                          rows="20"
+                          cols="70"
+                          id="{{ field_data.field_key }}"
+                          form="contentForm"
+                          {% if field_data.is_required %}required="required"{% endif %}
+                        {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                        {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                >{{ mybb.input[field_data.field_key] }}</textarea>
+                {% elseif field_data.html_type == 'select' %}
+                <select name="{{ field_data.field_key }}"
+                        tabindex="{{ loop.index + 10 }}"
+                        id="{{ field_data.field_key }}"
+                        form="contentForm"
+                        {% if field_data.is_required %}required="required"{% endif %}
+                        {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+                >
+                    {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
+                        <option value="{{ field_data_id }}"
+                                {% if mybb.input[field_data.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
+                    {% endfor %}
+                </select>
+                {% elseif field_data.html_type == 'select2_users' %}
+            <input type="text"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   inputmode="text"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+            />
+                <script type="text/javascript">
+                    <!--
+                    if (use_xmlhttprequest == "1") {
+                        MyBB.select2();
+                        $("#{{ field_data.field_key }}").select2({
+                            placeholder: "{{ lang.search_user }}",
+                            minimumInputLength: 2,
+                            multiple: false,
+                            allowClear: true,
+                            ajax: { // instead of writing the function to execute the request, we use Select2's convenient helper
+                                url: "{{ mybb.settings.bburl }}/xmlhttp.php?action=get_users",
+                                dataType: 'json',
+                                data: function (term, page) {
+                                    return {
+                                        query: term, // search term
+                                    };
+                                },
+                                results: function (data, page) { // parse the results into the format expected by Select2.
+                                    // since we are using custom formatting functions, we do not need to alter remote JSON data
+                                    return {results: data};
+                                }
+                            },
+                            initSelection: function (element, callback) {
+                                var value = $(element).val();
+                                if (value !== "") {
+                                    callback({
+                                        id: value,
+                                        text: value
+                                    });
+                                }
+                            },
+                        });
+                    }
+                    // -->
+                </script>
+                {% elseif field_data.html_type == 'select2_entries' %}
+            <input type="text"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   inputmode="text"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+            />
+
+                <script type="text/javascript">
+                    <!--
+                    if (use_xmlhttprequest == "1") {
+                        MyBB.select2();
+                        $("#{{ field_data.field_key }}").select2({
+                            placeholder: "{{ lang.search_user }}",
+                            minimumInputLength: 2,
+                            multiple: false,
+                            allowClear: true,
+                            ajax: { // instead of writing the function to execute the request, we use Select2's convenient helper
+                                url: "{{ mybb.settings.bburl }}/xmlhttp.php?action=get_users",
+                                dataType: 'json',
+                                data: function (term, page) {
+                                    return {
+                                        query: term, // search term
+                                    };
+                                },
+                                results: function (data, page) { // parse the results into the format expected by Select2.
+                                    // since we are using custom formatting functions, we do not need to alter remote JSON data
+                                    return {results: data};
+                                }
+                            },
+                            initSelection: function (element, callback) {
+                                var value = $(element).val();
+                                if (value !== "") {
+                                    callback({
+                                        id: value,
+                                        text: value
+                                    });
+                                }
+                            },
+                        });
+                    }
+                    // -->
+                </script>
+                {% elseif field_data.html_type == 'select2_threads' %}
+            <input type="text"
+                   name="{{ field_data.field_key }}"
+                   value="{{ mybb.input[field_data.field_key] }}"
+                   tabindex="{{ loop.index + 10 }}"
+                   inputmode="text"
+                   class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_key }}"
+                   form="contentForm"
+                   {% if field_data.is_required %}required="required"{% endif %}
+                    {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
+                    {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
+            />
+                <script type="text/javascript">
+                    <!--
+                    if (use_xmlhttprequest == "1") {
+                        MyBB.select2();
+                        $("#{{ field_data.field_key }}").select2({
+                            placeholder: "{{ lang.search_user }}",
+                            minimumInputLength: 2,
+                            multiple: false,
+                            allowClear: true,
+                            ajax: { // instead of writing the function to execute the request, we use Select2's convenient helper
+                                url: "{{ mybb.settings.bburl }}/xmlhttp.php?action=get_users",
+                                dataType: 'json',
+                                data: function (term, page) {
+                                    return {
+                                        query: term, // search term
+                                    };
+                                },
+                                results: function (data, page) { // parse the results into the format expected by Select2.
+                                    // since we are using custom formatting functions, we do not need to alter remote JSON data
+                                    return {results: data};
+                                }
+                            },
+                            initSelection: function (element, callback) {
+                                var value = $(element).val();
+                                if (value !== "") {
+                                    callback({
+                                        id: value,
+                                        text: value
+                                    });
+                                }
+                            },
+                        });
+                    }
+                    // -->
+                </script>
+            {% endif %}
+            {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
+        </div>
+        {% endif %}
+        {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
+            {{ field_data.editorSmilesInserter|raw }}
+        {% endif %}
+    </div>
+
+    {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
+        {{ field_data.editorCodeButtons|raw }}
+    {% endif %}
+</div>

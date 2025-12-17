@@ -15,6 +15,9 @@
         const showcase_url = "{{ url_main }}";
         // -->
     </script>
+    <link rel="stylesheet" href="{{ mybb.asset_url }}/jscripts/select2/select2.css?ver=1807"/>
+    <script type="text/javascript"
+            src="{{ mybb.asset_url }}/jscripts/select2/select2.min.js?ver=1806"></script>
 {% endblock jscripts %}
 
 {% block body %}
@@ -38,83 +41,7 @@
         <div class="form form--compose compose">
             <section class="section section--form compose__primary-section">
                 {% for field_id, field_data in fieldSetCache %}
-                    <div class="row row--form field">
-                        <h3 class="field__name visually-hidden">
-                            <label for="{{ field_data.field_key }}">{{ fieldHeader }}</label>
-                        </h3>
-                        {% if field_data.description is not empty %}
-                            <p class="field__description">{{ field_data.description }}</p>
-                        {% endif %}
-                        <div class="{% if field_data.enable_subject %}compose__subject{% else %}compose__container{% endif %}">
-                            {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-                            <div class="compose__message compose__{{ field_data.field_key }}">
-                                {% endif %}
-                                {% if field_data.html_type == 'radio' %}
-                                    <div id="{{ field_data.field_key }}">
-                                        {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
-                                            <p class="option-field option-field--compact">
-                                                <label>
-                                                    <input type="radio"
-                                                           name="{{ field_data.field_key }}"
-                                                           value="{{ field_data_id }}"
-                                                           tabindex="{{ loop.index + 10 }}"
-                                                           {% if field_data.is_required %}required="required"{% endif %}
-                                                            {% if mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
-                                                           form="contentForm"/>
-                                                    {{ field_data_data.value }}
-                                                </label>
-                                            </p>
-                                        {% endfor %}
-                                    </div>
-                                {% elseif field_data.html_type == 'text' %}
-                                    <input type="text"
-                                           name="{{ field_data.field_key }}"
-                                           value="{{ mybb.input[field_data.field_key] }}"
-                                           tabindex="{{ loop.index + 10 }}"
-                                           placeholder="{{ field_data.placeholder }}"
-                                           {% if field_data.is_required %}required="required"{% endif %}
-                                           maxlength="{{ field_data.maximum_length }}"
-                                           minlength="{{ field_data.minimum_length }}"
-                                           class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
-                                           step="{{ fieldData.step_size }}"
-                                            {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
-                                           id="{{ field_data.field_key }}"
-                                           form="contentForm"/>
-                                {% elseif field_data.html_type == 'textarea' %}
-                                    <textarea name="{{ field_data.field_key }}"
-                                              tabindex="{{ loop.index + 10 }}"
-                                              placeholder="{{ field_data.placeholder }}"
-                                              {% if field_data.is_required %}required="required"{% endif %}
-                                              maxlength="{{ field_data.maximum_length }}"
-                                              minlength="{{ field_data.minimum_length }}"
-                                              rows="20"
-                                              cols="70"
-                                              id="{{ field_data.field_key }}"
-                                              form="contentForm">{{ mybb.input[field_data.field_key] }}</textarea>
-                                {% elseif field_data.html_type == 'select' %}
-                                    <select name="{{ field_data.field_key }}"
-                                            tabindex="{{ loop.index + 10 }}"
-                                            {% if field_data.is_required %}required="required"{% endif %}
-                                            id="{{ field_data.field_key }}"
-                                            form="contentForm">
-                                        {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
-                                            <option value="{{ field_data_id }}"
-                                                    {% if mybb.input[field_data.field_key][field_data_id] is not empty %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
-                                        {% endfor %}
-                                    </select>
-                                {% endif %}
-                                {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-                            </div>
-                            {% endif %}
-                            {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-                                {{ field_data.editorSmilesInserter|raw }}
-                            {% endif %}
-                        </div>
-
-                        {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-                            {{ field_data.editorCodeButtons|raw }}
-                        {% endif %}
-                    </div>
+                    {% include '@ext.myshowcase/pageEntryCreateUpdateFields.twig' %}
                 {% endfor %}
 
                 <div class="row row--form field">
@@ -151,4 +78,5 @@
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
         <input type="hidden" name="post_hash" value="{{ mybb.input['post_hash'] }}" form="contentForm"/>
     </div>
+    {{ attachmentsUpload|raw }}
 {% endblock body %}

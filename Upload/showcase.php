@@ -19,7 +19,6 @@ use Pecee\SimpleRouter\Exceptions\NotFoundHttpException;
 use Pecee\SimpleRouter\SimpleRouter;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 
 use const MyShowcase\ROOT;

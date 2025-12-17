@@ -8,7 +8,7 @@
 # User-specific stuff
 .idea/**
 .obsidian/**
-Upload/inc/plugins/MyShowcase/vendor/**
+Upload/inc/plugins/myshowcase/vendor/**
 Upload/vendor/**
 package.xml
 Upload/composer.json

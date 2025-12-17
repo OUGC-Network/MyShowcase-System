@@ -14,7 +14,6 @@
 declare(strict_types=1);
 
 use MyShowcase\Plugin\FormTypes;
-use MyShowcase\System\FieldTypes;
 use MyShowcase\System\ModeratorPermissions;
 
 use function MyShowcase\Admin\buildPermissionsRow;
@@ -1750,6 +1749,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
     hooksRun('admin_summary_table_create_rebuild_start');
 
     dbVerifyTables(["myshowcase_data{$showcaseID}" => $dataTableStructure]);
+    _dump($dataTableStructure);
 
     if (showcaseDataTableExists($showcaseID)) {
         log_admin_action(['showcaseID' => $showcaseID, 'createTable' => $createTable]);

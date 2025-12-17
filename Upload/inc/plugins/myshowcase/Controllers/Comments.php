@@ -488,14 +488,14 @@ class Comments extends Base
         extract($hookArguments['extractVariables']);
 
         if ($commentPreview) {
-            $commentPreview = $this->renderObject->templateGetTwig('pageEntryCommentCreateUpdateContentsPreview', [
+            $commentPreview = $this->renderObject->templateGet('pageEntryCommentCreateUpdateContentsPreview', [
                 'commentPreview' => $commentPreview,
             ]);
         }
 
         $postHash = htmlspecialchars_uni($mybb->get_input('post_hash'));
 
-        $this->outputSuccess($this->renderObject->templateGetTwig('pageEntryCommentCreateUpdateContents', [
+        $this->outputSuccess($this->renderObject->templateGet('pageEntryCommentCreateUpdateContents', [
             'url_base' => $this->showcaseObject->url_base,
             'commentPreview' => $commentPreview,
             'commentMessage' => $commentMessage,
