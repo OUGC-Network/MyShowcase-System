@@ -181,7 +181,7 @@ class Entries extends Base
         mixed $filterValue = '',
         array $whereClauses = [],
         int $currentPage = 1,
-    ): void {
+    ): string {
         global $lang, $mybb, $db;
 
         $currentUserID = (int)$mybb->user['uid'];
@@ -192,10 +192,7 @@ class Entries extends Base
 
         $templatesContext = [
             'showcase' => $this->showcaseObject->config,
-            'url_main' => url(
-                RouterUrls::Main,
-                getParams: $this->showcaseObject->urlParams
-            )->getRelativeUrl(),
+            'url_main' => $this->showcaseObject->urlGenerate(RouterUrls::Main, $this->showcaseObject->urlParams),
             'sort_by_field' => $this->showcaseObject->sort_by_field,
             'orderBy' => $this->showcaseObject->orderBy,
             'pageCurrent' => $this->renderObject->pageCurrent,
@@ -219,6 +216,7 @@ class Entries extends Base
                 'members' => 0,
                 'invisible' => 0,
             ],
+            'url_base' => $this->showcaseObject->url_base,
         ];
 
         // Fetch each moderator from the cache and format it, appending it to the list
@@ -318,10 +316,10 @@ class Entries extends Base
                         break;
                 }
         */
-        $mainUrl = url(
+        $mainUrl = $this->showcaseObject->urlGenerate(
             RouterUrls::Main,
-            getParams: $this->showcaseObject->urlParams
-        )->getRelativeUrl();
+            $this->showcaseObject->urlParams
+        );
 
         add_breadcrumb(
             $this->showcaseObject->config['name_friendly'],
@@ -329,10 +327,10 @@ class Entries extends Base
         );
 
         if ($this->showcaseObject->user_permissions[UserPermissions::CanCreateEntries]) {
-            $templatesContext['url_entry_create'] = url(
+            $templatesContext['url_entry_create'] = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryCreate,
-                getParams: $this->showcaseObject->urlParams
-            )->getRelativeUrl();
+                $this->showcaseObject->urlParams
+            );
         }
 
         $templatesContext['orderBy'] = $this->showcaseObject->orderBy;
@@ -449,6 +447,8 @@ class Entries extends Base
 
         $whereClauses = array_merge($whereClauses, $this->showcaseObject->whereClauses);
 
+        $keywords = explode(' ', $this->renderObject->searchKeyWords);
+
         foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
             $field_key = $fieldDefinition['field_key'];
 
@@ -553,20 +553,17 @@ class Entries extends Base
 
             $queryOptions['limit_start'] = $pageStart;
 
-            $urlParams = [];
-
             $templatesContext['pagination'] = multipage(
                 $totalEntries,
                 $this->showcaseObject->config['entries_per_page'],
                 $currentPage,
-                url(
+                $this->showcaseObject->urlGenerate(
                     RouterUrls::MainPage,
                     [
                         'user_id' => $userID,
                         'page_id' => '{page}'
                     ],
-                    $urlParams
-                )->getRelativeUrl()
+                )
             );
 
             $entriesObjects = entryGet(
@@ -670,14 +667,14 @@ class Entries extends Base
 
                 $templatesContextEntry['viewLastCommenter'] = $templatesContextEntry['entryUsernameFormatted']; // todo, show last commenter in the list view
 
-                $entryFieldData['entryUrl'] = url(
+                $entryFieldData['entryUrl'] = $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryView,
                     [
                         'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                         'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
                     ],
                     $this->showcaseObject->urlParams
-                )->getRelativeUrl();
+                );
 
                 $viewLastCommentID = 0; // todo, show last comment ID in the list view
 
@@ -710,23 +707,23 @@ class Entries extends Base
                 //use showcase attachment if one exists, scaled of course
                 if ($this->showcaseObject->config['attachments_main_render_first'] &&
                     !empty($entryAttachmentsCache[$entryFieldData['entry_id']])) {
-                    $attachmentUrl = url(
+                    $attachmentUrl = $this->showcaseObject->urlGenerate(
                         RouterUrls::AttachmentView,
                         [
                             'entry_slug' => $entrySlug,
                             'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                             'attachment_hash' => $entryAttachmentsCache[$entryFieldData['entry_id']]['attachment_hash']
                         ]
-                    )->getRelativeUrl();
+                    );
 
-                    $thumbnailUrl = url(
+                    $thumbnailUrl = $this->showcaseObject->urlGenerate(
                         RouterUrls::ThumbnailView,
                         [
                             'entry_slug' => $entrySlug,
                             'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
                             'attachment_hash' => $entryAttachmentsCache[$entryFieldData['entry_id']]['attachment_hash']
                         ]
-                    )->getRelativeUrl();
+                    );
 
                     if (stristr(
                             $entryAttachmentsCache[$entryFieldData['entry_id']]['mime_type'] ?? '',
@@ -876,11 +873,9 @@ class Entries extends Base
 
         $templatesContext['can_manage_entries'] = $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries];
 
-        output_page(
-            template(
-                '@ext.myshowcase/pageMain.twig',
-                $templatesContext
-            )
+        return template(
+            '@ext.myshowcase/pageMain.twig',
+            $templatesContext
         );
     }
 
@@ -978,15 +973,15 @@ class Entries extends Base
                 $mainUrl = str_replace(
                     '/user/',
                     '/user/' . $this->showcaseObject->entryUserID,
-                    url(\MyShowcase\Plugin\RouterUrls::MainUser)->getRelativeUrl()
+                    $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
                 );
 
                 break;*/
             default:
-                $mainUrl = url(
+                $mainUrl = $this->showcaseObject->urlGenerate(
                     RouterUrls::Main,
-                    getParams: $this->showcaseObject->urlParams
-                )->getRelativeUrl();
+                    $this->showcaseObject->urlParams
+                );
 
                 break;
         }
@@ -1147,25 +1142,25 @@ class Entries extends Base
                 }
 
                 if (isset($dataHandler->returnData['status']) && $dataHandler->returnData['status'] === ENTRY_STATUS_SOFT_DELETED) {
-                    $mainUrl = url(
+                    $mainUrl = $this->showcaseObject->urlGenerate(
                         RouterUrls::Main,
-                        getParams: $this->showcaseObject->urlParams
-                    )->getRelativeUrl();
+                        $this->showcaseObject->urlParams
+                    );
 
                     switch (1 || $this->showcaseObject->config['filter_force_field']) {
                         /*case FILTER_TYPE_USER_ID:
                             $mainUrl = str_replace(
                                 '/user/',
                                 '/user/' . $this->showcaseObject->entryUserID,
-                                url(\MyShowcase\Plugin\RouterUrls::MainUser)->getRelativeUrl()
+                                $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
                             );
 
                             break;*/
                         default:
-                            $mainUrl = url(
+                            $mainUrl = $this->showcaseObject->urlGenerate(
                                 RouterUrls::Main,
-                                getParams: $this->showcaseObject->urlParams
-                            )->getRelativeUrl();
+                                $this->showcaseObject->urlParams
+                            );
                             break;
                     }
 
@@ -1174,13 +1169,13 @@ class Entries extends Base
                         $isEditPage ? $lang->myShowcaseEntryEntryUpdatedStatus : $lang->myShowcaseEntryEntryCreatedStatus
                     );
                 } else {
-                    $entryUrl = url(
+                    $entryUrl = $this->showcaseObject->urlGenerate(
                         RouterUrls::EntryView,
                         [
                             'entry_slug' => $dataHandler->returnData['entry_slug'],
                             'entry_slug_custom' => $dataHandler->returnData['entry_slug_custom']
                         ]
-                    )->getRelativeUrl();
+                    );
 
                     redirect(
                         $entryUrl,
@@ -1601,16 +1596,16 @@ class Entries extends Base
         $hookArguments = hooksRun('output_new_end', $hookArguments);
 
         if ($isEditPage) {
-            $templatesContext['createUpdateUrl'] = url(
+            $templatesContext['createUpdateUrl'] = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryUpdate,
                 ['entry_slug' => $this->showcaseObject->entryData['entry_slug']],
                 $this->showcaseObject->urlParams
-            )->getRelativeUrl();
+            );
         } else {
-            $templatesContext['createUpdateUrl'] = url(
+            $templatesContext['createUpdateUrl'] = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryCreate,
-                getParams: $this->showcaseObject->urlParams
-            )->getRelativeUrl();
+                $this->showcaseObject->urlParams
+            );
         }
 
         $templatesContext['attachmentsUpload'] = $this->renderObject->buildAttachmentsUpload($isEditPage);
@@ -1637,6 +1632,11 @@ class Entries extends Base
         $this->createEntry(true, $entrySlug);
     }
 
+    /**
+     * @throws RuntimeError
+     * @throws LoaderError
+     * @throws SyntaxError
+     */
     #[NoReturn] public function viewEntry(
         string $entrySlug,
         string $entrySlugCustom,
@@ -1645,6 +1645,8 @@ class Entries extends Base
         $this->showcaseObject->setEntry($entrySlug, true);
 
         global $mybb, $lang, $db, $theme;
+
+        //$lang->load('showthread');
 
         $hookArguments = [
             'this' => &$this
@@ -1691,16 +1693,16 @@ class Entries extends Base
                             $mainUrl = str_replace(
                                 '/user/',
                                 '/user/' . $this->showcaseObject->entryUserID,
-                                url(\MyShowcase\Plugin\RouterUrls::MainUser)->getRelativeUrl()
+                                $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
                             );
 
                             break;
             */
             default:
-                $mainUrl = url(
+                $mainUrl = $this->showcaseObject->urlGenerate(
                     RouterUrls::Main,
-                    getParams: $this->showcaseObject->urlParams
-                )->getRelativeUrl();
+                    $this->showcaseObject->urlParams
+                );
                 break;
         }
         add_breadcrumb(
@@ -1712,13 +1714,13 @@ class Entries extends Base
 
         $templatesContext['entrySubject'] = $this->renderObject->buildEntrySubject();
 
-        $entryUrl = url(
+        $entryUrl = $this->showcaseObject->urlGenerate(
             RouterUrls::EntryView,
             [
                 'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                 'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
             ],
-        )->getRelativeUrl();
+        );
 
         $templatesContext['page_canonical'] = $this->showcaseObject->url_base . $entryUrl;
 
@@ -1771,7 +1773,7 @@ class Entries extends Base
 
         $templatesContext['entryPost'] = $this->renderObject->buildEntry();
 
-        $templatesContext['commentsList'] = $commentsEmpty = $templatesContext['commentsForm'] = '';
+        $templatesContext['commentsForm'] = '';
 
         if ($this->showcaseObject->config['comments_allow'] && $this->showcaseObject->user_permissions[UserPermissions::CanViewComments]) {
             $whereClauses = [
@@ -1844,26 +1846,26 @@ class Entries extends Base
 
             //SimpleRouter::get('/product-view/{id}', 'ProductsController@show', ['as' => 'product']);
 
-            $entryUrl = url(
+            $entryUrl = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryView,
                 [
                     'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
                 ],
                 ['category' => 'shoes']
-            )->getRelativeUrl();
+            );
             /*
 
-                \MyShowcase\SimpleRouter123\url('product', ['id' => 22], ['category' => 'shoes'])->getParam('category'),
+                \MyShowcase\SimpleRouter123\$this->showcaseObject->urlGenerate('product', ['id' => 22], ['category' => 'shoes'])->getParam('category'),
 
-                \MyShowcase\SimpleRouter123\url('product', ['id' => 22], ['category' => 'shoes'])->getParams(),
+                \MyShowcase\SimpleRouter123\$this->showcaseObject->urlGenerate('product', ['id' => 22], ['category' => 'shoes'])->getParams(),
             */
 
             $templatesContext['pagination'] = multipage(
                 $totalComments,
                 $this->showcaseObject->config['comments_per_page'],
                 $currentPage,
-                url(
+                $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryViewPage,
                     [
                         'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
@@ -1871,7 +1873,7 @@ class Entries extends Base
                         'page_id' => '{page}'
                     ],
                     $urlParams
-                )->getRelativeUrl()
+                )
             );
 
             extract($hookArguments['extractVariables']);
@@ -1888,10 +1890,12 @@ class Entries extends Base
 
             $templatesContext['alternativeBackground'] = alt_trow(true);
 
-            foreach ($commentObjects as $commentID => $commentData) {
+            $templatesContext['commentObjects'] = &$commentObjects;
+
+            foreach ($commentObjects as $commentID => &$commentData) {
                 ++$commentsCounter;
 
-                $templatesContext['commentsList'] .= $this->renderObject->buildComment(
+                $commentData['comment_formatted'] .= $this->renderObject->buildComment(
                     $commentData,
                     $templatesContext['alternativeBackground'],
                     $commentsCounter,
@@ -1900,11 +1904,9 @@ class Entries extends Base
                 $templatesContext['alternativeBackground'] = alt_trow();
             }
 
-            if (!$templatesContext['commentsList']) {
-                $commentsEmpty = $this->renderObject->templateGet('pageViewCommentsNone');
-            }
-
             $hookArguments = hooksRun('entry_view_comment_form_end', $hookArguments);
+
+            $templatesContext['can_create_comments'] = $this->showcaseObject->user_permissions[UserPermissions::CanCreateComments];
 
             if ($this->showcaseObject->user_permissions[UserPermissions::CanCreateComments]) {
                 global $collapsedthead, $collapsedimg, $expaltext, $collapsed;
@@ -1929,10 +1931,10 @@ class Entries extends Base
 
                 $templatesContext['alternativeBackground'] = alt_trow(true);
 
-                $templatesContext['createUpdateUrl'] = url(
+                $templatesContext['createUpdateUrl'] = $this->showcaseObject->urlGenerate(
                     RouterUrls::CommentCreate,
                     ['entry_slug' => $this->showcaseObject->entryData['entry_slug']]
-                )->getRelativeUrl();
+                );
 
                 $templatesContext['commentMessage'] = htmlspecialchars_uni($mybb->get_input('comment'));
 
@@ -1942,13 +1944,6 @@ class Entries extends Base
                     $templatesContext['editorCodeButtons'],
                     $templatesContext['editorSmilesInserter']
                 );
-
-                $templatesContext['commentsForm'] = $this->renderObject->templateGet(
-                    'pageViewCommentsFormUser',
-                    $templatesContext
-                );
-            } elseif (!$currentUserID) {
-                $templatesContext['commentsForm'] = $this->renderObject->templateGet('pageViewCommentsFormGuest');
             }
         }
 
@@ -1977,7 +1972,7 @@ class Entries extends Base
 
         $templatesContext['canSearch'] = $this->showcaseObject->user_permissions[UserPermissions::CanSearch];
 
-        $this->outputSuccess($this->renderObject->templateGet('pageView', $templatesContext));
+        output_page($this->renderObject->templateGet('pageView', $templatesContext));
     }
 
     #[NoReturn] public function approveEntry(
@@ -1995,10 +1990,10 @@ class Entries extends Base
 
         $this->showcaseObject->dataUpdate(['status' => $status]);
 
-        $entryUrl = url(
+        $entryUrl = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryView,
                 ['entry_slug' => $this->showcaseObject->entryData['entry_slug']]
-            )->getRelativeUrl() . '#entryID' . $this->showcaseObject->entryID;
+            ) . '#entryID' . $this->showcaseObject->entryID;
 
         switch ($status) {
             case ENTRY_STATUS_PENDING_APPROVAL:
@@ -2060,10 +2055,10 @@ class Entries extends Base
 
         $this->showcaseObject->entryDelete();
 
-        $mainUrl = url(
+        $mainUrl = $this->showcaseObject->urlGenerate(
             RouterUrls::Main,
-            getParams: $this->showcaseObject->urlParams
-        )->getRelativeUrl();
+            $this->showcaseObject->urlParams
+        );
 
         redirect($mainUrl, $lang->myShowcaseEntryEntryDeleted);
 

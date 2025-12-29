@@ -36,7 +36,7 @@
             </section>
         {% endif %}
         {{ errors|raw }}
-        <form action="{{ url_base }}{{ createUpdateUrl }}" method="post"
+        <form action="{{ createUpdateUrl }}" method="post"
               enctype="multipart/form-data" name="input" id="contentForm"></form>
         <div class="form form--compose compose">
             <section class="section section--form compose__primary-section">

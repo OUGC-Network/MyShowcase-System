@@ -37,6 +37,6 @@
 </div>
 <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
 <input type="hidden" name="post_hash" value="{{ postHash }}" form="contentForm"/>
-<form action="{{ url_base }}{{ createUpdateUrl }}" method="post"
+<form action="{{ createUpdateUrl }}" method="post"
       enctype="multipart/form-data" name="input" id="contentForm"></form>
 {{ attachmentsUpload|raw }}

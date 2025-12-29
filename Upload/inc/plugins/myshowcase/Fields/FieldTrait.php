@@ -38,7 +38,7 @@ trait FieldTrait
     {
         global $lang;
 
-        return $this->fieldData['field_label'] ?? ($lang->{'myshowcase_field_' . $this->fieldData['field_key']} ?? '');
+        return $this->fieldDefinition['field_label'] ?? ($lang->{'myshowcase_field_' . $this->fieldDefinition['field_key']} ?? '');
     }
 
     public function getFieldDescription(): string

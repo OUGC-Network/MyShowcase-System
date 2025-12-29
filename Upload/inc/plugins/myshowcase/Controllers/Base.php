@@ -24,7 +24,6 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
-use function MyShowcase\SimpleRouter\url;
 
 use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
@@ -98,10 +97,10 @@ abstract class Base
             'templatesContext' => &$templatesContext,
         ];
 
-        $templatesContext['url_main'] = url(
+        $templatesContext['url_main'] = $this->showcaseObject->urlGenerate(
             RouterUrls::Main,
-            getParams: $this->showcaseObject->urlParams
-        )->getRelativeUrl();
+            $this->showcaseObject->urlParams
+        );
 
         $templatesContext['page_title'] = $this->showcaseObject->config['name'];
 
@@ -118,13 +117,13 @@ abstract class Base
         $showcaseDescription = htmlspecialchars_uni($this->showcaseObject->config['description']);
 
         if ($this->showcaseObject->entryID) {
-            $entryUrl = url(
+            $entryUrl = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryView,
                 [
                     'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
                     'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
                 ]
-            )->getRelativeUrl();
+            );
         }
 
         $hookArguments = hooksRun('controller_base_output_success', $hookArguments);

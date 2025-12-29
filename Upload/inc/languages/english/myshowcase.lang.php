@@ -21,9 +21,6 @@ $l['latest_myshowcases'] = "Latest {$showcaseName}";
 $l['myshowcase_showcase'] = 'Showcase';
 
 //headerinclude / JS confirmations
-$l['removeshowcase_confirm'] = 'Are you sure you want to remove the selected entry and all of its comments and attachments?';
-$l['removeshowcaseattach_confirm'] = 'Are you sure you want to remove the selected attachment from this entry?';
-$l['removeshowcasecomment_confirm'] = 'Are you sure you want to remove the selected comment from this entry?';
 
 //basic headers for index table
 $l['myShowcaseMainTableHeadView'] = 'View';
@@ -83,6 +80,8 @@ $l['myshowcase_desc'] = 'desc';
 $l['myShowcaseMainSearchMatch'] = 'exact match';
 
 //query results
+$l['myShowcaseMainTableHeadEntry'] = 'Entry';
+$l['myShowcaseMainTableHeadAuthor'] = 'Author';
 $l['myShowcaseMainTableEmpty'] = 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.';
 $l['myShowcaseMainTableEmptySearch'] = 'The search returned no results. Please try another search term.';
 $l['myshowcase_invalid_id'] = 'The specified Entry ID is invalid.';
@@ -196,6 +195,10 @@ $l['viewing_myshowcase_edit'] = 'Editing a {1} entry';
 $l['viewing_myshowcase_attach'] = "Viewing <a href=\"../{1}\">Attachment</a> in a <a href=\"../{2}\">{3} entry</a> of <a href=\"{4}\">{5}</a>";
 
 $l = array_merge($l, [
+    'myShowcaseMainConfirmDeleteEntries' => 'Are you sure you want to remove the selected entry and all of its comments and attachments?',
+    'myShowcaseMainConfirmDeleteComment' => 'Are you sure you want to remove the selected comment from this entry?',
+    'myShowcaseMainConfirmDeleteAttachments' => 'Are you sure you want to remove the selected attachment from this entry?',
+
     'myShowcaseNewEditFormTitle' => 'New Entry',
     'myShowcaseNewEditFormField' => 'Field',
     'myShowcaseNewEditFormValue' => 'Value',

@@ -14,13 +14,17 @@
 declare(strict_types=1);
 
 use MyShowcase\Plugin\RouterUrls;
-use Pecee\Http\Middleware\Exceptions\TokenMismatchException;
-use Pecee\SimpleRouter\Exceptions\NotFoundHttpException;
-use Pecee\SimpleRouter\SimpleRouter;
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Generator\UrlGenerator;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 
+use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\ROOT;
 
 /*
@@ -92,7 +96,7 @@ if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
     $lang->set_language($mybb->settings['bblanguage']);
 
     if (function_exists('mb_internal_encoding') && !empty($lang->settings['charset'])) {
-        @mb_internal_encoding($lang->settings['charset']);
+        mb_internal_encoding($lang->settings['charset']);
     }
 
     $templateList = '';
@@ -124,10 +128,7 @@ hooksRun('script_file_start');
 chdir($currentWorkingDirectoryPath);
 
 require_once ROOT . '/Controllers/Base.php';
-require_once ROOT . '/vendor/autoload.php'; // router
-require_once ROOT . '/vendor/pecee/simple-router/helpers.php';
-
-$showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+require_once ROOT . '/vendor/autoload.php';
 
 $requestBaseUriExtra = '';
 /*
@@ -147,19 +148,35 @@ if ($minimalLoad) {
     require_once ROOT . '/Controllers/Comments.php';
 }
 
-hooksRun('script_file_intermediate');
+$showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+
+// Create a RouteCollection and add routes
+$routes = new RouteCollection();
 
 foreach (
     [
-        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/',
-        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/limit/{limit}',
-        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/limit/{limit}/start/{start}',
+        //$showcaseObject->selfPhpScript . $requestBaseUriExtra . '/',
+        //$showcaseObject->selfPhpScript . $requestBaseUriExtra . '/limit/{limit}',
+        //$showcaseObject->selfPhpScript . $requestBaseUriExtra . '/limit/{limit}/start/{start}',
+        '/',
+        //'/limit/{limit}',
+        //'/limit/{limit}/start/{start}',
     ] as $route
 ) {
-    SimpleRouter::get(
-        $route,
-        ['MyShowcase\Controllers\Entries', 'mainView']
-    )->name(RouterUrls::Main);
+    $routes->add(
+        RouterUrls::Main,
+        new Route(
+            $showcaseObject->selfPhpScript . '/',
+            [
+                '_controller' => function (): string {
+                    return (new MyShowcase\Controllers\Entries())->mainView();
+                },
+            ],
+            [
+                '_method' => 'GET',
+            ]
+        )
+    );
 }
 /*
 SimpleRouter::all($showcaseObject->selfPhpScript . $requestBaseUriExtra . '/abc/123', function ($param1, $param2) {
@@ -168,162 +185,512 @@ SimpleRouter::all($showcaseObject->selfPhpScript . $requestBaseUriExtra . '/abc/
     _dump($param1, $param2);
 })->setMatch('/\/([\w]+)\/?([0-9]+)?\/?/is');
 */
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/unapproved',
-    ['MyShowcase\Controllers\Entries', 'mainUnapproved']
-)->name(RouterUrls::MainUnapproved);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search',
-    ['MyShowcase\Controllers\Search', 'mainSearch']
-)->name(RouterUrls::Search);
+$routes->add(
+    RouterUrls::MainUnapproved,
+    new Route(
+        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/unapproved',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->mainUnapproved();
+            },
+        ],
+        [
+            '_method' => 'GET',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search/{search_hash}',
-    ['MyShowcase\Controllers\Search', 'mainSearch']
-)->name(RouterUrls::Search);
+$routes->add(
+    RouterUrls::Search,
+    new Route(
+        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Search())->mainSearch();
+            },
+        ],
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/user/{user_id}',
-    ['MyShowcase\Controllers\Entries', 'mainUser']
-)->name(RouterUrls::MainUser)->where(['id' => '[0-9]+']);
+$routes->add(
+    RouterUrls::Search,
+    new Route(
+        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/search/{search_hash}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Search())->mainSearch();
+            },
+        ],
+        [
+            '_method' => 'GET',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/page/{page_id}',
-    ['MyShowcase\Controllers\Entries', 'mainPage']
-)->name(RouterUrls::MainPage);
+$routes->add(
+    RouterUrls::MainUser,
+    new Route(
+        $showcaseObject->selfPhpScript . '/user/{user_id}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->mainUser();
+            },
+        ],
+        [
+            'id' => '[0-9]+',
+            '_method' => 'GET',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/approve',
-    ['MyShowcase\Controllers\Entries', 'approveEntries']
-)->name(RouterUrls::MainApprove);
+$routes->add(
+    RouterUrls::MainPage,
+    new Route(
+        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/page/{page_id}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->mainPage();
+            },
+        ],
+        [
+            '_method' => 'GET',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/unapprove',
-    ['MyShowcase\Controllers\Entries', 'unapproveEntries']
-)->name(RouterUrls::MainUnapprove);
+$routes->add(
+    RouterUrls::MainApprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/approve',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->approveEntries();
+            },
+        ],
+        [
+            '_method' => 'POST',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/soft_delete',
-    ['MyShowcase\Controllers\Entries', 'softDeleteEntries']
-)->name(RouterUrls::MainSoftDelete);
+$routes->add(
+    RouterUrls::MainUnapprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/unapprove',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->unapproveEntries();
+            },
+        ],
+        [
+            '_method' => 'POST',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/restore',
-    ['MyShowcase\Controllers\Entries', 'restoreEntries']
-)->name(RouterUrls::MainRestore);
+$routes->add(
+    RouterUrls::MainSoftDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/soft_delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->softDeleteEntries();
+            },
+        ],
+        [
+            '_method' => 'POST',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/delete',
-    ['MyShowcase\Controllers\Entries', 'deleteEntries']
-)->name(RouterUrls::MainDelete);
+$routes->add(
+    RouterUrls::MainRestore,
+    new Route(
+        $showcaseObject->selfPhpScript . '/restore',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->restoreEntries();
+            },
+        ],
+        [
+            '_method' => 'POST',
+        ]
+    )
+);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . '/create',
-    ['MyShowcase\Controllers\Entries', 'createEntry']
-)->name(RouterUrls::EntryCreate);
+$routes->add(
+    RouterUrls::MainDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->deleteEntries();
+            },
+        ],
+        [
+            '_method' => 'POST',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
-    ['MyShowcase\Controllers\Entries', 'viewEntry']
-)->name(RouterUrls::EntryView);
+$routes->add(
+    RouterUrls::EntryCreate,
+    new Route(
+        $showcaseObject->selfPhpScript . '/create',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->createEntry();
+            },
+        ],
+    )
+);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update',
-    ['MyShowcase\Controllers\Entries', 'updateEntry']
-)->name(RouterUrls::EntryUpdate);
+$routes->add(
+    RouterUrls::EntryView,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->viewEntry();
+            },
+        ],
+        [
+            '_method' => 'GET',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
-    ['MyShowcase\Controllers\Entries', 'viewEntry']
-)->name(RouterUrls::EntryViewPage);
+$routes->add(
+    RouterUrls::EntryUpdate,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->updateEntry();
+            },
+        ],
+        [
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/approve',
-    ['MyShowcase\Controllers\Entries', 'approveEntry']
-)->name(RouterUrls::EntryApprove);
+$routes->add(
+    RouterUrls::EntryViewPage,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->viewEntry();
+            },
+        ],
+        [
+            '_method' => 'GET',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/unapprove',
-    ['MyShowcase\Controllers\Entries', 'unapproveEntry']
-)->name(RouterUrls::EntryUnapprove);
+$routes->add(
+    RouterUrls::EntryApprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/approve',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->approveEntry();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
-    ['MyShowcase\Controllers\Entries', 'softDeleteEntry']
-)->name(RouterUrls::EntrySoftDelete);
+$routes->add(
+    RouterUrls::EntryUnapprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/unapprove',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->unapproveEntry();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/restore',
-    ['MyShowcase\Controllers\Entries', 'restoreEntry']
-)->name(RouterUrls::EntryRestore);
+$routes->add(
+    RouterUrls::EntrySoftDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->softDeleteEntry();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/delete',
-    ['MyShowcase\Controllers\Entries', 'deleteEntry']
-)->name(RouterUrls::EntryDelete);
+$routes->add(
+    RouterUrls::EntryRestore,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/restore',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->restoreEntry();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . '/comment/{comment_slug}',
-    ['MyShowcase\Controllers\Comments', 'redirect']
-)->name(RouterUrls::Comment);
+$routes->add(
+    RouterUrls::EntryDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Entries())->deleteEntry();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment',
-    ['MyShowcase\Controllers\Comments', 'create']
-)->name(RouterUrls::CommentCreate);
+$routes->add(
+    RouterUrls::Comment,
+    new Route(
+        $showcaseObject->selfPhpScript . '/comment/{comment_slug}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->redirect();
+            },
+        ],
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
-    ['MyShowcase\Controllers\Comments', 'view']
-)->name(RouterUrls::CommentView);
+$routes->add(
+    RouterUrls::CommentCreate,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->create();
+            },
+        ],
+        [
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::form(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
-    ['MyShowcase\Controllers\Comments', 'update']
-)->name(RouterUrls::CommentUpdate);
+$routes->add(
+    RouterUrls::CommentView,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->view();
+            },
+        ],
+        [
+            '_method' => 'GET',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
-    ['MyShowcase\Controllers\Comments', 'approve']
-)->name(RouterUrls::CommentApprove);
+$routes->add(
+    RouterUrls::CommentUpdate,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->update();
+            },
+        ],
+        [
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
-    ['MyShowcase\Controllers\Comments', 'unapprove']
-)->name(RouterUrls::CommentUnapprove);
+$routes->add(
+    RouterUrls::CommentApprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->approve();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
-    ['MyShowcase\Controllers\Comments', 'softDelete']
-)->name(RouterUrls::CommentSoftDelete);
+$routes->add(
+    RouterUrls::CommentUnapprove,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->unapprove();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
-    ['MyShowcase\Controllers\Comments', 'restore']
-)->name(RouterUrls::CommentRestore);
+$routes->add(
+    RouterUrls::CommentSoftDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->softDelete();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::post(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
-    ['MyShowcase\Controllers\Comments', 'delete']
-)->name(RouterUrls::CommentDelete);
+$routes->add(
+    RouterUrls::CommentRestore,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->restore();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
-    ['MyShowcase\Controllers\Attachments', 'downloadAttachment']
-)->name(RouterUrls::AttachmentView);
+$routes->add(
+    RouterUrls::CommentDelete,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Comments())->delete();
+            },
+        ],
+        [
+            '_method' => 'POST',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
 
-SimpleRouter::get(
-    $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
-    ['MyShowcase\Controllers\Attachments', 'viewThumbnail']
-)->name(RouterUrls::ThumbnailView);
+$routes->add(
+    RouterUrls::AttachmentView,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Attachments())->downloadAttachment();
+            },
+        ],
+        [
+            '_method' => 'GET',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
+
+$routes->add(
+    RouterUrls::ThumbnailView,
+    new Route(
+        $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
+        [
+            '_controller' => function (): string {
+                return (new MyShowcase\Controllers\Attachments())->viewThumbnail();
+            },
+        ],
+        [
+            '_method' => 'GET',
+            'entry_slug' => '[a-z0-9-]+',
+            'entry_slug_custom' => '[a-z0-9-]*',
+        ]
+    )
+);
+
+hooksRun('script_file_intermediate');
+
+// Match the current request
+$context = new RequestContext('/'); // Base URL
+
+$context->setBaseUrl($mybb->settings['bburl']);
+
+// Create the UrlGenerator
+$showcaseObject->generator = new UrlGenerator($routes, $context);
+
+$request = Request::createFromGlobals();
+
+$context->fromRequest($request);
+
+$matcher = new UrlMatcher($routes, $context);
 
 hooksRun('script_file_end');
 
 try {
-    SimpleRouter::start();
-} catch (TokenMismatchException|NotFoundHttpException|\Pecee\SimpleRouter\Exceptions\HttpException|Exception $e) {
-    error($e->getMessage());
+    $parameters = $matcher->match($request->getPathInfo());
+
+    $controller = $parameters['_controller'];
+
+    unset($parameters['_controller'], $parameters['_route']);
+
+    $showcaseObject->urlParamsSet($parameters);
+
+    output_page($controller());
+} catch (Exception $e) {
+    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : '');
 }
 
 exit;

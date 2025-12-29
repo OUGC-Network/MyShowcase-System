@@ -17,6 +17,7 @@ namespace MyShowcase\System;
 
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
+use Symfony\Component\Routing\Generator\UrlGenerator;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
@@ -57,6 +58,8 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 class Showcase
 {
+    public ?UrlGenerator $generator;
+
     /**
      * Constructor of class.
      *
@@ -273,7 +276,7 @@ class Showcase
             $this->sort_by_field = 'dateline';
         }
 
-        $this->url_base = $mybb->settings['homeurl'];
+        $this->url_base = !empty($mybb->settings['homeurl']) ? $mybb->settings['homeurl'] : $mybb->settings['bburl'];
 
         if (str_ends_with($this->url_base, '/')) {
             $this->url_base = rtrim($this->url_base, '/');
@@ -988,5 +991,15 @@ class Showcase
         $this->entryDataSet(
             $this->dataGet($whereClauses, $queryFields, ['limit' => 1], $queryTables)
         );
+    }
+
+    public function urlGenerate(string $name, array $parameters = []): string
+    {
+        return $this->generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_URL);
+    }
+
+    public function urlParamsSet(array $urlParams): void
+    {
+        $this->urlParams = $urlParams;
     }
 }
