@@ -15,9 +15,15 @@ namespace MyShowcase\Fields;
 
 interface FieldsInterface
 {
-    public function setUserValue(string|int $userValue): FieldsInterface;
+    public function isViewableInEntry(): bool;
 
-    public function getUserValue(): string|int;
+    public function valueSet(string|int $userValue): FieldsInterface;
+
+    public function valuesBuild(): FieldsInterface;
+
+    public function getUserValue(): string;
+
+    public function getUserValueDisplay(): string;
 
     public function getFieldHeader(): string;
 

@@ -56,7 +56,6 @@ if (!defined('IN_MYBB')) {
 
 require_once ROOT . '/System/FieldHtmlTypes.php';
 require_once ROOT . '/System/FieldTypes.php';
-require_once ROOT . '/System/FilterTypes.php';
 require_once ROOT . '/System/FormatTypes.php';
 
 global $lang, $cache, $db, $plugins, $mybb;
@@ -339,7 +338,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         }
 
         if (!empty($insertData['regular_expression']) &&
-            preg_match("/{$insertData['regular_expression']}/i", '') === false) {
+            preg_match($insertData['regular_expression'], '') === false) {
             $errorMessages[] = $lang->myShowcaseAdminErrorRegularExpression;
         }
 
@@ -511,7 +510,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
 
         $formContainer->output_row(
-            $lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key} . (empty($fieldDefinition['formRequired']) ? '' : '<em>*</em>'),
+            ($lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key} ?? 'myShowcaseAdminFieldsCreateUpdateForm' . $key) . (empty($fieldDefinition['formRequired']) ? '' : '<em>*</em>'),
             $lang->{'myShowcaseAdminFieldsCreateUpdateForm' . $key . 'Description'},
             $formInput,
             $fieldName,

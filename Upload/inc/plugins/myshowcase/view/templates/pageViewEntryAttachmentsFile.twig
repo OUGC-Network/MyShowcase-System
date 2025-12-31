@@ -1,0 +1,7 @@
+<div>{{ attachment.icon|raw }}&nbsp;&nbsp;
+    <a href="{{ attachment.url }}" target="_blank" title="{{ attachment.dateline|my_date|striptags }}">
+        {{ attachment.file_name }}
+    </a>
+    ({{ lang.postbit_attachment_size }} {{ attachment.file_size }}
+    / {{ lang.postbit_attachment_downloads }} {{ attachment.downloads|my_number_format }})
+</div>

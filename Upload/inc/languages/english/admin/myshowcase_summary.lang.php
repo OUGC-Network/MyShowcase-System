@@ -97,7 +97,6 @@ $l = array_merge([
     'myShowcaseAdminErrorInvalidShowcase' => 'Invalid showcase',
     'myShowcaseAdminErrorNoFieldSets' => 'Can not create a new showcase as there are no field sets defined.',
     'myShowcaseAdminErrorDuplicatedName' => 'The selected name is already in use.',
-    'myShowcaseAdminErrorRegularExpression' => 'The selected regular expression seems to be invalid.',
     'myShowcaseAdminErrorDuplicatedScriptFile' => 'The selected script file is already in use.',
     'myShowcaseAdminErrorDuplicatedTemplatePrefix' => 'The selected template prefix is already in use.',
     'myShowcaseAdminErrorTableDelete' => "This showcase's data table contains data and can not be deleted separately. If you wish to delete the populated table, delete the entire showcase.",

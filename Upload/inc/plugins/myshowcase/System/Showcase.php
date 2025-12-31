@@ -17,7 +17,6 @@ namespace MyShowcase\System;
 
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
-use Symfony\Component\Routing\Generator\UrlGenerator;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
@@ -57,9 +56,8 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 class Showcase
 {
-    public ?UrlGenerator $generator;
-
     public array $fieldset_display_fields = [];
+    public readonly array $user_permissions;
 
     /**
      * Constructor of class.
@@ -81,8 +79,8 @@ class Showcase
         ],
         public int $errorType = 0,
         public string $showcaseUrl = '',
-        public array $entryData = [],
-        public int $entryID = 0,
+        public array $entry_data = [],
+        public int $entry_id = 0,
         public int $entryUserID = 0,
         //public string $entryHash = '',
         //public string $commentHash = '',
@@ -131,6 +129,7 @@ class Showcase
         public array $whereClauses = [],
         // ***/
         public array $fields = [],
+        public int $current_user_id = 0,
     ) {
         global $db, $mybb, $cache;
 
@@ -206,9 +205,9 @@ class Showcase
         //Get the basename of the calling file. This is used later for SEO support
         $this->prefix = explode('.', $this->config['script_name'])[0];
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
-        $this->user_permissions = $this->userPermissionsGet($currentUserID);
+        $this->user_permissions = $this->userPermissionsGet($current_user_id);
 
         $this->parserOptions = array_merge($this->parserOptions, [
             'allow_html' => $this->config['parser_allow_html'],
@@ -217,7 +216,7 @@ class Showcase
             'allow_smilies' => $this->config['parser_allow_smiles']
         ]);
 
-        $this->entryUserID = $currentUserID;
+        $this->entryUserID = $current_user_id;
 
         // todo, probably unnecessary since entryDataSet() already sets the entryUserID
         // probably also ignores moderator permissions
@@ -368,19 +367,11 @@ class Showcase
             'showcaseObject' => &$this,
         ];
 
+        RouterUrls::init($this);
+
         $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
 
         return $this;
-    }
-
-    public function urlGetCreateEntry(): string
-    {
-        return $this->urlBuild($this->urlCreateEntry);
-    }
-
-    public function urlGetUpdateEntry(): string
-    {
-        return $this->urlBuild($this->urlUpdateEntry, $this->entryData['entry_slug_custom']);
     }
 
     public function urlBuild(
@@ -653,11 +644,6 @@ class Showcase
         return true;
     }
 
-    public function permissionCheck(string $permissionKey): bool|int
-    {
-        return $this->user_permissions[$permissionKey];
-    }
-
     public function parseMessage(string $message, array $parserOptions = []): string
     {
         return postParser()->parse_message(
@@ -694,17 +680,6 @@ class Showcase
                 )) {
                 rmdir($this->config['attachments_uploads_path'] . '/' . $dateDirectory[0]);
             }
-        }
-    }
-
-    public function urlGet(): string
-    {
-        global $mybb;
-
-        if ($this->config['relative_path']) {
-            return $this->config['relative_path'] . '/' . $this->config['script_name'];
-        } else {
-            return $this->url_base . '/' . $this->config['script_name'];
         }
     }
 
@@ -768,7 +743,7 @@ class Showcase
         return entryUpdate(
             $this->showcase_id,
             $updateData,
-            $this->entryID,
+            $this->entry_id,
         );
     }
 
@@ -788,17 +763,17 @@ class Showcase
 
     public function entryDataSet(array $entryData): void
     {
-        $this->entryData = $entryData;
+        $this->entry_data = $entryData;
 
-        if (isset($this->entryData['entry_id'])) {
-            $this->entryID = (int)$this->entryData['entry_id'];
+        if (isset($this->entry_data['entry_id'])) {
+            $this->entry_id = (int)$this->entry_data['entry_id'];
         }
 
-        if (isset($this->entryData['user_id'])) {
-            $this->entryUserID = (int)$this->entryData['user_id'];
+        if (isset($this->entry_data['user_id'])) {
+            $this->entryUserID = (int)$this->entry_data['user_id'];
         }
 
-        if (isset($this->entryData['post_hash'])) {
+        if (isset($this->entry_data['post_hash'])) {
             //$this->post_hash = (string)$this->entryData['post_hash'];
         }
     }
@@ -808,35 +783,13 @@ class Showcase
         $this->showcaseUrl = $showcaseUrl;
     }
 
-    public function getDefaultFilter(): void
-    {/*
-        if (!$this->config['filter_force_field']) {
-            return;
-        }
-
-        global $mybb;
-
-        switch ($this->config['filter_force_field']) {
-            case FILTER_TYPE_USER_ID:
-                if (!isset($mybb->input['user_id'])) {
-                    error_no_permission();
-                }
-
-                //$this->urlParams['user_id'] = $mybb->get_input('user_id', MyBB::INPUT_INT);
-
-                //$this->whereClauses[] = "user_id='{$this->urlParams['user_id']}'";
-
-                break;
-        }*/
-    }
-
     public function entryDelete(): void
     {
-        $this->attachmentsDelete($this->entryID);
+        $this->attachmentsDelete($this->entry_id);
 
-        $this->commentsDelete($this->entryID);
+        $this->commentsDelete($this->entry_id);
 
-        $this->showcaseDataDelete($this->entryID);
+        $this->showcaseDataDelete($this->entry_id);
     }
 
     public function commentDelete(int $commentID): void
@@ -857,11 +810,6 @@ class Showcase
         }
 
         return $scriptBasicUrl;
-    }
-
-    public function urlGetMain(): string
-    {
-        return url(RouterUrls::Main)->getRelativeUrl();
     }
 
     public function urlGetEntry(string $entrySlug, ?string $entrySlugCustom = '', bool $addAnchor = true): string
@@ -895,22 +843,6 @@ class Showcase
             )->getRelativeUrl() . ($addAnchor ? '#' . $commentSlug : '');
     }
 
-    public function urlGetCommentCreate(string $entrySlug, string $entrySlugCustom): string
-    {
-        return url(
-            RouterUrls::CommentCreate,
-            ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom]
-        )->getRelativeUrl();
-    }
-
-    public function urlGetCommentUpdate(string $entrySlug, string $entrySlugCustom, string $commentSlug): string
-    {
-        return url(
-            RouterUrls::CommentUpdate,
-            ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
-        )->getRelativeUrl();
-    }
-
     public function urlGetCommentApprove(string $entrySlug, string $entrySlugCustom, string $commentSlug): string
     {
         return url(
@@ -923,7 +855,7 @@ class Showcase
     {
         global $mybb;
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         $statusVisible = COMMENT_STATUS_VISIBLE;
 
@@ -940,7 +872,7 @@ class Showcase
 
             $whereClausesStatus[] = "status='{$statusSoftDeleted}'";
         } else {
-            $whereClausesStatus[] = "(user_id='{$currentUserID}' AND status='{$statusPendingApproval}')";
+            $whereClausesStatus[] = "(user_id='{$current_user_id}' AND status='{$statusPendingApproval}')";
         }
 
         $whereClausesStatus = implode(' OR ', $whereClausesStatus);
@@ -977,7 +909,7 @@ class Showcase
 
                 $fieldID = (int)$fieldDefinition['field_id'];
 
-                if ($htmlType === FieldHtmlTypes::Select || $htmlType === FieldHtmlTypes::Radio) {
+                if (false and ($htmlType === FieldHtmlTypes::Select || $htmlType === FieldHtmlTypes::Radio)) {
                     $queryTables[] = "myshowcase_field_data table_{$field_key} ON (table_{$field_key}.field_data_id=entryData.{$field_key} AND table_{$field_key}.field_id='{$fieldID}')";
 
                     //$queryFields[] = "table_{$field_key}.value AS {$field_key}";
@@ -1000,7 +932,7 @@ class Showcase
 
     public function urlGenerate(string $name, array $parameters = []): string
     {
-        return $this->generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_URL);
+        return RouterUrls::generateUrl($name, $parameters);
     }
 
     public function urlParamsSet(array $urlParams): void

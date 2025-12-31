@@ -97,11 +97,6 @@ abstract class Base
             'templatesContext' => &$templatesContext,
         ];
 
-        $templatesContext['url_main'] = $this->showcaseObject->urlGenerate(
-            RouterUrls::Main,
-            $this->showcaseObject->urlParams
-        );
-
         $templatesContext['page_title'] = $this->showcaseObject->config['name'];
 
         $templatesContext['errorMessages'] = empty($this->showcaseObject->errorMessages) ? '' : inline_error(
@@ -116,12 +111,12 @@ abstract class Base
 
         $showcaseDescription = htmlspecialchars_uni($this->showcaseObject->config['description']);
 
-        if ($this->showcaseObject->entryID) {
+        if ($this->showcaseObject->entry_id) {
             $entryUrl = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryView,
                 [
-                    'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
+                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
                 ]
             );
         }

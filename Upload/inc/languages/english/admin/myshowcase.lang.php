@@ -27,6 +27,7 @@ $l = [
 
     'myShowcaseAdminErrorInvalidPostKey' => 'Invalid post key',
     'myShowcaseAdminErrorMissingRequiredFields' => 'Some required fields are missing.',
+    'myShowcaseAdminErrorRegularExpression' => 'The selected regular expression seems to be invalid.',
 
     'report_content_showcase_comments' => 'Showcase comments',
 

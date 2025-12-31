@@ -708,7 +708,7 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
         'entryData' => &$entryData,
         'isUpdate' => $isUpdate,
         'showcaseID' => &$showcaseID,
-        'entryID' => &$entryID,
+        'entry_id' => &$entryID,
         'tableData' => &$tablesData,
     ];
 
@@ -746,7 +746,21 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
     $hookArguments['fieldObjects'] = &$fieldObjects;
 
     foreach ($fieldObjects as $fieldID => $fieldDefinition) {
-        if (isset($entryData[$fieldDefinition['field_key']]) && !empty($fieldDefinition['enabled'])) {
+        if (!isset($entryData[$fieldDefinition['field_key']]) && !$isUpdate) {
+            switch ($fieldDefinition['default_type']) {
+                case FieldDefaultTypes::AsDefined:
+                    $entryData[$fieldDefinition['field_key']] = $db->escape_string($fieldDefinition['default_value']);
+                    break;
+                case FieldDefaultTypes::CurrentTimestamp:
+                    $entryData[$fieldDefinition['field_key']] = $db->escape_string(date('Y-m-d H:i:s', TIME_NOW));
+                    break;
+                case FieldDefaultTypes::UUID:
+                    $entryData[$fieldDefinition['field_key']] = $db->escape_string(generateUUIDv4());
+                    break;
+            }
+        }
+
+        if (isset($entryData[$fieldDefinition['field_key']])/* && !empty($fieldDefinition['enabled'])*/) {
             if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
                 $insertData[$fieldDefinition['field_key']] = (int)$entryData[$fieldDefinition['field_key']];
             } elseif (fieldTypeMatchFloat($fieldDefinition['field_type'])) {
@@ -761,18 +775,6 @@ function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, 
                 $insertData[$fieldDefinition['field_key']] = $db->escape_binary(
                     $entryData[$fieldDefinition['field_key']]
                 );
-            }
-        } elseif (!$isUpdate) {
-            switch ($fieldDefinition['default_type']) {
-                case FieldDefaultTypes::AsDefined:
-                    $insertData[$fieldDefinition['field_key']] = $db->escape_string($fieldDefinition['default_value']);
-                    break;
-                case FieldDefaultTypes::CurrentTimestamp:
-                    $insertData[$fieldDefinition['field_key']] = $db->escape_string(date('Y-m-d H:i:s', TIME_NOW));
-                    break;
-                case FieldDefaultTypes::UUID:
-                    $insertData[$fieldDefinition['field_key']] = $db->escape_string(generateUUIDv4());
-                    break;
             }
         }
     }
@@ -1232,7 +1234,7 @@ function entryDelete(int $showcaseID, int $entryID): bool
     global $db;
 
     $hookArguments = [
-        'entryID' => &$entryID,
+        'entry_id' => &$entryID,
         'showcaseID' => &$showcaseID,
     ];
 
@@ -1564,7 +1566,7 @@ function attachmentUpload(
         [
             "file_name='{$db->escape_string($attachmentData['name'])}'",
             "showcase_id='{$showcase->showcase_id}'",
-            "(post_hash='{$db->escape_string($showcase->post_hash)}' OR (entry_id='{$showcase->entryID}' AND entry_id!='0'))"
+            "(post_hash='{$db->escape_string($showcase->post_hash)}' OR (entry_id='{$showcase->entry_id}' AND entry_id!='0'))"
         ],
         queryOptions: ['limit' => 1]
     );
@@ -1598,7 +1600,7 @@ function attachmentUpload(
 
     $attachmentHas = generateUUIDv4();
 
-    $fileName = "attachment_{$showcase->entryUserID}_{$showcase->entryID}_{$timeNow}_{$attachmentHas}.attach";
+    $fileName = "attachment_{$showcase->entryUserID}_{$showcase->entry_id}_{$timeNow}_{$attachmentHas}.attach";
 
     $fileDataResult = fileUpload(
         $attachmentData,
@@ -1639,7 +1641,7 @@ function attachmentUpload(
 
     $insertData = [
         'showcase_id' => $showcase->showcase_id,
-        'entry_id' => $showcase->entryID,
+        'entry_id' => $showcase->entry_id,
         'attachment_hash' => generateUUIDv4(),
         'post_hash' => $showcase->post_hash,
         //'post_hash' => $showcase->commentHash,

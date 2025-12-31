@@ -1,0 +1,30 @@
+<div class="attachments">
+    <h4 class="attachments__title">{{ lang.myshowcase_view_attachments }}</h4>
+
+    {% if attachedThumbnails %}
+        {% set tcount = 0 %}
+        <span class="smalltext"><strong>{{ lang.myshowcase_view_attachments_thumbnails }}</strong></span><br/>
+        {% for thumbnail in attachedThumbnails %}
+            {% include '@ext.myshowcase/pageViewCommentAttachmentsThumbnail.twig' %}
+            {% if tcount == 5 %}
+                {% set tcount = 0 %}
+            {% endif %}
+            {% set tcount = tcount + 1 %}
+        {% endfor %}
+    {% endif %}
+
+    {% if attachedImages %}
+        <span class="smalltext"><strong>{{ lang.myshowcase_view_attachments_images }}</strong></span><br/>
+        {% for image in attachedImages %}
+            {% include '@ext.myshowcase/pageViewCommentAttachmentsImage.twig' %}
+        {% endfor %}
+    {% endif %}
+
+    {% for attachment in attachedFiles %}
+        {% include '@ext.myshowcase/pageViewCommentAttachmentsFile.twig' %}
+    {% endfor %}
+
+    {% if show_unapproved %}
+        <strong>{{ unapproved_message }}</strong>
+    {% endif %}
+</div>

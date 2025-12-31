@@ -233,6 +233,12 @@ function global_intermediate(): bool
 
     $unapprovedEntriesNotices = $reportedEntriesNotices = [];
 
+    $unapprovedEntriesNotices[] = $renderObjects->templateGet('globalMessageUnapprovedEntries', [
+        'url_base' => $showcaseObject->url_base,
+        'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
+        'unapprovedText' => $unapprovedText,
+    ]);
+
     foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcaseID => $showcaseData) {
         //$showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
         $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
@@ -585,7 +591,7 @@ function portal_start(): bool
 
     //if user is guest or no showcases set to show on portal output something else?
     /*
-    if($currentUserID == 0)
+    if($current_user_id == 0)
     {
         //add code here to display something for guests
     }
@@ -717,7 +723,7 @@ function modcp_reports_report(): void
                 $showcaseObject->urlViewEntry,
                 $entryData['entry_slug'],
                 $entryData['entry_slug_custom']
-            ) . '#entryID' . $entryID,
+            ) . '#entry_id' . $entryID,
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id2'])['username'] ?? ''),
                 $report['id2'] ?? 0

@@ -59,7 +59,7 @@ class Attachments extends Base
 
         $lang->load('messages');
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         $entryData = $this->showcaseObject->dataGet(
             ["entry_slug='{$db->escape_string($entry_slug)}'"],
@@ -73,7 +73,7 @@ class Attachments extends Base
 
         $whereClauses = [
             "showcase_id='{$this->showcaseObject->showcase_id}'",
-            "entry_id='{$this->showcaseObject->entryID}'",
+            "entry_id='{$this->showcaseObject->entry_id}'",
             "attachment_hash='{$db->escape_string($attachment_hash)}'",
         ];
 
@@ -114,7 +114,7 @@ class Attachments extends Base
             !$this->showcaseObject->user_permissions[UserPermissions::CanView] ||
             !$this->showcaseObject->user_permissions[UserPermissions::CanViewEntries] ||
             (
-                $currentUserID !== $attachmentUserID &&
+                $current_user_id !== $attachmentUserID &&
                 !$this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]
             )
         ) {
@@ -145,7 +145,7 @@ class Attachments extends Base
         $attachmentStatus = (int)$attachmentData['status'];
 
         // Don't check the permissions on preview
-        if ($currentUserID !== $attachmentUserID) {
+        if ($current_user_id !== $attachmentUserID) {
             if (!$this->showcaseObject->user_permissions[UserPermissions::CanDownloadAttachments] && !$is_thumbnail) {
                 $this->errorNoPermission();
             }
@@ -154,7 +154,7 @@ class Attachments extends Base
             if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageAttachments] &&
                 (
                     $attachmentStatus !== ATTACHMENT_STATUS_VISIBLE ||
-                    (int)$this->showcaseObject->entryData['status'] !== ENTRY_STATUS_VISIBLE
+                    (int)$this->showcaseObject->entry_data['status'] !== ENTRY_STATUS_VISIBLE
                 )
             ) {
                 $this->error($lang->error_invalidattachment);
@@ -162,7 +162,7 @@ class Attachments extends Base
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($incrementDownloadCount && !$is_thumbnail && $currentUserID !== $attachmentUserID) {
+        if ($incrementDownloadCount && !$is_thumbnail && $current_user_id !== $attachmentUserID) {
             if (!is_member($attachmentTypeData['allowed_groups'])) {
                 $this->errorNoPermission();
             }
@@ -267,7 +267,7 @@ class Attachments extends Base
                 header('HTTP/1.1 500 Internal Server Error');
             } finally {
                 attachmentLogInsert([
-                    'user_id' => $currentUserID,
+                    'user_id' => $current_user_id,
                     'attachment_id' => $attachmentID,
                     'ipaddress' => $mybb->session->packedip,
                     'dateline' => TIME_NOW,

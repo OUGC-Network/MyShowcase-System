@@ -1,12 +1,11 @@
 {% extends 'layouts/master.twig' %}
 
 {% block head %}
-    <title>{{ trans('newthread_in', forum.name) }} - {{ mybb.settings.bbname }}</title>
+    <title>{{ trans('myshowcase_create_update_entry_title_create', showcase.name) }}
+        - {{ mybb.settings.bbname }}</title>
 {% endblock head %}
 
 {% block jscripts %}
-    <script type="text/javascript"
-            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
     <link rel="stylesheet" href="{{ mybb.asset_url }}/jscripts/select2/select2.css?ver=1807"/>
     <script type="text/javascript"
             src="{{ mybb.asset_url }}/jscripts/select2/select2.min.js?ver=1806"></script>
@@ -17,27 +16,28 @@
         <header class="page-header">
             <h1 class="title title--page">{{ lang.myShowcaseNewEditFormTitle }}</h1>
         </header>
-        {% if preview %}
+        {% if is_preview_page %}
             <section class="block block--container">
                 <h1 class="title title--major title--separation">{{ lang.myShowcaseNewEditEntryPreview }}</h1>
                 <div id="posts_container">
                     <div id="posts">
-                        {{ entryPreview|raw }}
+                        {{ entry_preview|raw }}
                     </div>
                 </div>
             </section>
         {% endif %}
         {{ errors|raw }}
-        <form action="{{ createUpdateUrl }}" method="post"
+        <form action="{{ url.crate_update }}" method="post"
               enctype="multipart/form-data" name="input" id="contentForm"></form>
         <div class="form form--compose compose">
             <section class="section section--form compose__primary-section">
                 {% for field_id, field_data in fieldSetCache %}
-                    {% include '@ext.myshowcase/pageEntryCreateUpdateFields.twig' %}
+                    {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
                 {% endfor %}
 
                 <div class="row row--form field">
-                    <h3 class="field__name visually-hidden"><label for="message">{{ lang.your_message }}</label>
+                    <h3 class="field__name visually-hidden"><label
+                                for="message">{{ lang.myshowcase_create_update_entry_your_message }}</label>
                     </h3>
                     <div class="compose__container">
                         <div class="compose__message">
@@ -58,7 +58,7 @@
                     form="contentForm">
                 {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">
-                        {% if isEditPage %}
+                        {% if is_update_page %}
                             {{ lang.myShowcaseNewEditFormButtonUpdateEntry }}
                         {% else %}
                             {{ lang.myShowcaseNewEditFormButtonCreateEntry }}
@@ -68,7 +68,9 @@
         </div>
 
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
-        <input type="hidden" name="post_hash" value="{{ mybb.input['post_hash'] }}" form="contentForm"/>
+        <input type="hidden" name="post_hash"
+               value="{% if mybb.input.post_hash is defined %}{{ mybb.input.post_hash }}{% endif %}"
+               form="contentForm"/>
     </div>
     {{ attachmentsUpload|raw }}
 {% endblock body %}

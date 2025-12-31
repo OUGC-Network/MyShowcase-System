@@ -1,79 +1,294 @@
-<header class="page-header">
-    <h1 class="title title--page">{{ entrySubject|raw }}</h1>
-</header>
+{% extends 'layouts/master.twig' %}
 
-<div class="page-controls page-controls--top">
-    <div class="thread-pagination thread-pagination--top">
-        {{ pagination|raw }}
-    </div>
-</div>
+{% block head %}
+    <title>{{ entrySubject|striptags }} - {{ mybb.settings.bbname }}</title>
+    <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
-<section class="post-list" id="entry">
-    {{ entryPost|raw }}
-</section>
+    {% if page_canonical %}
+        <link rel="canonical" href="{{ page_canonical }}"/>
+    {% endif %}
 
-<section class="post-list" id="comments">
-    {{ commentsList|raw }}{{ commentsEmpty|raw }}
-</section>
+    {% if page_meta %}
+        {% for meta in page_meta %}
+            <meta property="{{ meta.property }}" content="{{ meta.content }}">
+        {% endfor %}
+    {% endif %}
+{% endblock head %}
 
-{{ commentsForm|raw }}
+{% block jscripts %}
+    <script type="text/javascript"
+            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ version }}"></script>
+{% endblock jscripts %}
 
-<footer class="page-footer">
-    <div class="row row--simple-columns thread-actions">
-        {% if canSearch %}
-            <div class="thread-search inline-form">
-                <form action="search.php" method="post">
-                    <input type="text" name="keywords" placeholder="{{ lang.myShowcaseEntryEnterKeywords }}"
-                           class="textbox textbox--large" size="25"/>
-                    <button type="submit" class="button button--inline">
-                        {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
-                        <span class="button__text">{{ lang.myShowcaseEntrySearchEntry }}</span>
-                    </button>
-                    <input type="hidden" name="action" value="entry"/>
-                    <input type="hidden" name="entry_id" value="{{ entryID }}"/>
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            {% if entry_data.prefix %}
+                <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix }}">{{ entry_data.displayprefix|raw }}</span>
+            {% endif %}
+            <h1 class="title title--page">{{ entrySubject|raw }}</h1>
+        </header>
+
+        <div class="page-controls page-controls--top">
+            <div class="page-buttons">
+                {% if permissions.can_create_comments %}
+                    {% if not entry_data.is_closed %}
+                        <a href="{{ url.comment }}"
+                           class="button button--medium button--full-width">
+                            {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
+                        </a>
+                    {% elseif entry_data.is_closed and permissions.can_manage_entries %}
+                        <a href="{{ url.comment }}"
+                           class="button button--medium button--danger">
+                            {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url.entry }}"
+                           class="button button--medium button--danger">
+                            {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="thread-pagination thread-pagination--top">
+                {{ pagination|raw }}
+            </div>
+        </div>
+
+        {{ asset('jscripts/thread.js', static=true) }}
+
+        <section class="post-list" id="entry">
+            {{ entryPost|raw }}
+        </section>
+
+        <section class="post-list" id="comments">
+            {% if commentObjects|length > 0 %}
+                {% for comment_id, comment_data in commentObjects %}
+                    {{ comment_data.comment_formatted|raw }}
+                {% endfor %}
+            {% else %}
+                <div class="alert alert--warning">
+                    {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
+                    <div class="alert__message">
+                        <p class="alert__description">{{ lang.myshowcase_view_entry_comments_none }}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <div class="page-controls page-controls--bottom">
+            <div class="thread-pagination thread-pagination--bottom">
+                {{ pagination|raw }}
+            </div>
+            <div class="page-buttons">
+                {% if permissions.can_create_comments %}
+                    {% if not entry_data.is_closed %}
+                        <a href="{{ url.comment }}"
+                           class="button button--medium button--full-width">
+                            {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
+                        </a>
+                    {% elseif entry_data.is_closed and permissions.can_manage_entries %}
+                        <a href="{{ url.comment }}"
+                           class="button button--medium button--danger">
+                            {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url.entry }}"
+                           class="button button--medium button--danger">
+                            {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if can_create_comments %}
+            <div id="quickreply_spinner" class="spinner spinner--quick-reply" style="display: none"><span
+                        class="spinner__icon">{{ include('partials/icon.twig', {icon: 'sync', class: 'spinner__icon fa-spin'}, with_context = false) }}</span>
+            </div>
+            <div class="alert alert--danger">
+                {{ commentLengthLimitNote }}
+            </div>
+            <div class="post post--reply post--quick-reply compose compose--quick-reply quick-reply" id="post-reply">
+                <form method="post" action="{{ createUpdateUrl }}" name="quick_comment_form"
+                      id="quick_comment_form">
+                    <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+                    <div class="post__meta">
+                        <a href="{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
+                           title="{{ lang.myshowcase_view_entry_go_to_my_profile }}">
+                            {{ render_avatar(url=mybb.user.avatar, alt=lang.welcome_my_avatar) }}
+                        </a>
+                        {# TO DO: username styling #}
+                        <h3 class="post__author"><a
+                                    href="{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.username }}</a></h3>
+                        <span class="post__date">{{ lang.myShowcaseCommentCreateTitle }}</span>
+                    </div>
+                    <div class="post__body">
+                        <label>
+                        <textarea class="textarea" rows="8" cols="80" name="comment" id="comment" tabindex="1"
+                                  placeholder="{{ lang.myshowcase_view_entry_quick_comment_message }}"></textarea>
+                        </label>
+                        {{ editorCodeButtons|raw }}
+                    </div>
+                    {{ captcha|raw }}
+                    <div class="post__foot">
+                        <button type="submit" class="button" tabindex="2" accesskey="s" id="quick_reply_submit">
+                            {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myShowcaseCommentCreateUpdateFormButtonCreate }}</span>
+                        </button>
+                        <button type="submit" class="button button--basic" name="preview" value="preview" tabindex="3">
+                            {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myShowcaseCommentCreateUpdateFormButtonPreview }}</span>
+                        </button>
+                    </div>
                 </form>
             </div>
+        {% elseif mybb.user.uid is empty %}
+            <div class="alert alert--warning">
+                {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
+                <div class="alert__message">
+                    <p class="alert__description">{{ lang.myshowcase_view_entry_comments_not_logged_in }}</p>
+                </div>
+            </div>
         {% endif %}
-        <div class="thread-nav">
-            <a href="{{ entryOlderUrl|raw }}" class="button button--basic">
-                {{ include('partials/icon.twig', {icon: 'angle-double-left', class: 'button__icon'}, with_context =
-                    false) }}
-                <span class="button__text">{{ lang.myShowcaseEntryNextOldest }}</span>
-            </a>
-            <a href="{{ entryNewerUrl|raw }}" class="button button--basic">
-                <span class="button__text">{{ lang.myShowcaseEntryNextNewest }}</span>
-                {{ include('partials/icon.twig', {icon: 'angle-double-right', class: 'button__icon
-                button__icon--after'}, with_context = false) }}
-            </a>
-        </div>
+
+        <footer class="page-footer">
+            <div class="row row--simple-columns thread-actions">
+                {% if permissions.can_search %}
+                    <div class="thread-search inline-form">
+                        <form action="search.php" method="post">
+                            <input type="hidden" name="action" value="thread"/>
+                            <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
+                            <input type="text" name="keywords"
+                                   placeholder="{{ lang.myshowcase_view_entry_search_keywords }}"
+                                   class="textbox textbox--large" size="25"/>
+                            <button type="submit" class="button button--inline">
+                                {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
+                                <span class="button__text">{{ lang.myshowcase_view_entry_search }}</span>
+                            </button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if permissions.can_manage_entries %}
+                {% include '@ext.myshowcase/pageViewInlineModeration.twig' %}
+            {% endif %}
+
+            {% if mybb.settings.browsingthisthread %}
+                <div class="container container--small container--users-browsing">
+                    {{ lang.myshowcase_view_entry_users_browsing_entry }}
+                    {% for user in online_users %}
+                        <a href="{{ get_profile_link(user.uid) }}"
+                           title="{{ lang.myshowcase_view_entry_users_browsing_entry_reading }} ({{ user.reading }})">{{ user.uid|format_name }}</a>{{ user.invisible_mark }}{% if not loop.last %}{{ lang.comma }}{% endif %}
+                    {% endfor %}
+                    {% if online_count.invisible and online_count.users %}
+                        {{ lang.comma }}
+                    {% endif %}
+                    {% if online_count.invisible and mybb.usergroup.canviewwolinvis %}
+                        {{ trans('users_browsing_thread_invis', online_count.invisible) }}
+                    {% endif %}
+                    {% if (online_count.invisible and online_count.guests) or (online_count.users and online_count.guests) %}
+                        {{ lang.comma }}
+                    {% endif %}
+                    {% if online_count.guests %}
+                        {{ trans('users_browsing_thread_guests', online_count.guests) }}
+                    {% endif %}
+                </div>
+            {% endif %}
+        </footer>
     </div>
 
-    {% if is_moderator %}
-        {% include 'showthread/moderation.twig' %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    {% if false %}
+        <header class="page-header">
+            <h1 class="title title--page">{{ entrySubject|raw }}</h1>
+        </header>
+
+        <div class="page-controls page-controls--top">
+            <div class="thread-pagination thread-pagination--top">
+                {{ pagination|raw }}
+            </div>
+        </div>
+
+        {{ commentsForm|raw }}
+
+        <footer class="page-footer">
+            <div class="row row--simple-columns thread-actions">
+                {% if permissions.can_search %}
+                    <div class="thread-search inline-form">
+                        <form action="search.php" method="post">
+                            <input type="text" name="keywords" placeholder="{{ lang.myShowcaseEntryEnterKeywords }}"
+                                   class="textbox textbox--large" size="25"/>
+                            <button type="submit" class="button button--inline">
+                                {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
+                                <span class="button__text">{{ lang.myShowcaseEntrySearchEntry }}</span>
+                            </button>
+                            <input type="hidden" name="action" value="entry"/>
+                            <input type="hidden" name="entry_id" value="{{ entry_id }}"/>
+                        </form>
+                    </div>
+                {% endif %}
+                <div class="thread-nav">
+                    <a href="{{ entryOlderUrl|raw }}" class="button button--basic">
+                        {{ include('partials/icon.twig', {icon: 'angle-double-left', class: 'button__icon'}, with_context =
+                            false) }}
+                        <span class="button__text">{{ lang.myShowcaseEntryNextOldest }}</span>
+                    </a>
+                    <a href="{{ entryNewerUrl|raw }}" class="button button--basic">
+                        <span class="button__text">{{ lang.myShowcaseEntryNextNewest }}</span>
+                        {{ include('partials/icon.twig', {icon: 'angle-double-right', class: 'button__icon
+                button__icon--after'}, with_context = false) }}
+                    </a>
+                </div>
+            </div>
+
+            {% if is_moderator %}
+                {% include 'showthread/moderation.twig' %}
+            {% endif %}
+        </footer>
+
+        <br class="clear"/>
+        <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"/>
+
+        <script type="text/javascript">
+            jQuery(document).ready(function ($) {
+                Fancybox.bind("[data-fancybox]", {
+                    animated: false,
+                    closeExisting: true,
+                    compact: true,
+                    groupAll: true,
+                    l10n: "{{ lang.settings.htmllangs }}"
+                });
+            });
+        </script>
     {% endif %}
-</footer>
-<script type="text/javascript">
-    var thread_deleted = "{{ thread_deleted }}";
-
-    if(thread_deleted == "1")
-    {
-        $("#quick_reply_form, .new_reply_button, .thread_tools, .inline_rating").hide();
-        $("#moderator_options_selector option.option_mirage").attr("disabled","disabled");
-    }
-</script>
-
-<br class="clear"/>
-<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"/>
-
-<script type="text/javascript">
-    jQuery(document).ready(function($) {
-        Fancybox.bind("[data-fancybox]", {
-            animated: false,
-            closeExisting: true,
-            compact: true,
-            groupAll: true,
-            l10n: "{{ lang.settings.htmllangs }}"
-        });
-    });
-</script>
+{% endblock body %}

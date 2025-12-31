@@ -15,6 +15,18 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin;
 
+use MyShowcase\Controllers\Attachments;
+use MyShowcase\Controllers\Comments;
+use MyShowcase\Controllers\Entries;
+use MyShowcase\Controllers\Search;
+use MyShowcase\System\Showcase;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Generator\UrlGenerator;
+
 class RouterUrls
 {
     public const Main = 'main';
@@ -47,4 +59,602 @@ class RouterUrls
     public const CommentDelete = 'comment_delete';
     public const AttachmentView = 'attachment_view';
     public const ThumbnailView = 'thumbnail_view';
+    private static ?Showcase $showcase = null;
+
+    private static ?RouteCollection $routes = null;
+
+    private static ?RequestContext $context = null;
+    private static ?UrlGenerator $generator = null;
+    private static ?Request $request = null;
+    private static ?UrlMatcher $matcher = null;
+
+    public static function buildRoutes(): RouteCollection
+    {
+        if (self::$routes !== null) {
+            return self::$routes;
+        }
+
+        // Create a RouteCollection and add routes
+        self::$routes = new RouteCollection();
+
+        foreach (
+            [
+                //self::$showcase->selfPhpScript .  '/',
+                //self::$showcase->selfPhpScript .  '/limit/{limit}',
+                //self::$showcase->selfPhpScript .  '/limit/{limit}/start/{start}',
+                '/',
+                //'/limit/{limit}',
+                //'/limit/{limit}/start/{start}',
+            ] as $route
+        ) {
+            self::$routes->add(
+                self::Main,
+                new Route(
+                    self::$showcase->selfPhpScript . '/',
+                    [
+                        '_controller' => function (): string {
+                            return (new Entries())->mainView();
+                        },
+                    ],
+                    [
+                        '_method' => 'GET',
+                    ]
+                )
+            );
+        }
+
+        self::$routes->add(
+            self::MainUnapproved,
+            new Route(
+                self::$showcase->selfPhpScript . '/unapproved',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->mainUnapproved();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::Search,
+            new Route(
+                self::$showcase->selfPhpScript . '/search',
+                [
+                    '_controller' => function (): string {
+                        return (new Search())->mainSearch();
+                    },
+                ],
+            )
+        );
+
+        self::$routes->add(
+            self::Search,
+            new Route(
+                self::$showcase->selfPhpScript . '/search/{search_hash}',
+                [
+                    '_controller' => function (): string {
+                        return (new Search())->mainSearch();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainUser,
+            new Route(
+                self::$showcase->selfPhpScript . '/user/{user_id}',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->mainUser();
+                    },
+                ],
+                [
+                    'id' => '[0-9]+',
+                    '_method' => 'GET',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainApprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/approve',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->approveEntries();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainUnapprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/unapprove',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->unapproveEntries();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainSoftDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/soft_delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->softDeleteEntries();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainRestore,
+            new Route(
+                self::$showcase->selfPhpScript . '/restore',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->restoreEntries();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::MainDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->deleteEntries();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryCreate,
+            new Route(
+                self::$showcase->selfPhpScript . '/create',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->createEntry();
+                    },
+                ],
+            )
+        );
+
+        self::$routes->add(
+            self::EntryView,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Entries())->viewEntry(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryUpdate,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->updateEntry();
+                    },
+                ],
+                [
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryViewPage,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->viewEntry();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryApprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/approve',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->approveEntry();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryUnapprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/unapprove',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->unapproveEntry();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntrySoftDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->softDeleteEntry();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryRestore,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/restore',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->restoreEntry();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Entries())->deleteEntry();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::Comment,
+            new Route(
+                self::$showcase->selfPhpScript . '/comment/{comment_slug}',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->redirect();
+                    },
+                ],
+                [
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentCreate,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Comments())->create(...$parameters);
+                    },
+                ],
+                [
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentView,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->view();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentUpdate,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Comments())->update(...$parameters);
+                    },
+                ],
+                [
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentApprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->approve();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentUnapprove,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->unapprove();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentSoftDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->softDelete();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentRestore,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->restore();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::CommentDelete,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
+                [
+                    '_controller' => function (): string {
+                        return (new Comments())->delete();
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::AttachmentView,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Attachments())->downloadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'attachment_hash' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::ThumbnailView,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
+                [
+                    '_controller' => function (array $parameters): string {
+                        $parameters['is_thumbnail'] = true;
+
+                        return (new Attachments())->viewThumbnail(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                    'attachment_hash' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        return self::$routes;
+    }
+
+    public static function buildContext(): RequestContext
+    {
+        if (self::$context !== null) {
+            return self::$context;
+        }
+
+        global $mybb;
+
+        // Match the current request
+        self::$context = new RequestContext('/'); // Base URL
+
+        self::$context->setBaseUrl($mybb->settings['bburl']);
+
+        return self::$context;
+    }
+
+    public static function buildGenerator(): UrlGenerator
+    {
+        if (self::$generator !== null) {
+            return self::$generator;
+        }
+
+        self::$generator = new UrlGenerator(self::buildRoutes(), self::buildContext());
+
+        return self::$generator;
+    }
+
+    public static function buildRequest(): Request
+    {
+        if (self::$request !== null) {
+            return self::$request;
+        }
+
+        self::$request = Request::createFromGlobals();
+
+        return self::$request;
+    }
+
+    public static function buildMatcher(): UrlMatcher
+    {
+        if (self::$matcher !== null) {
+            return self::$matcher;
+        }
+
+        self::$matcher = new UrlMatcher(self::$routes, self::$context);
+
+        return self::$matcher;
+    }
+
+    public static function getMatch(): array
+    {
+        return self::buildMatcher()->match(self::$request->getPathInfo());
+    }
+
+    public static function init(Showcase $showcase): void
+    {
+        if (self::$showcase === null) {
+            self::$showcase = $showcase;
+        }
+
+        RouterUrls::buildRoutes($showcase);
+
+        RouterUrls::buildContext();
+
+        RouterUrls::buildGenerator();
+
+        RouterUrls::buildRequest();
+
+        self::$context->fromRequest(self::$request);
+
+        RouterUrls::buildMatcher();
+    }
+
+    public static function generateUrl(string $name, array $parameters): string
+    {
+        return self::$generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_URL);
+    }
 }

@@ -1,0 +1,26 @@
+{% if attachment_data.is_thumbnail %}
+    <a href="{{ attachment_data.url }}" target="_blank">
+        <img
+                src="{{ attachment_data.url_thumbnail }}"
+                class="attachment"
+                alt=""
+                title="{{ lang.myshowcase_main_table_row_attachment_file_name }} {{ attachment_data.attachment_name }} {{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }} {{ attachment_data.dateline|my_date|striptags }}"
+        />
+    </a>&nbsp;&nbsp;&nbsp;
+{% elseif attachment_data.is_image %}
+    <img
+            src="{{ attachment_data.url }}"
+            class="attachment"
+            alt=""
+            title="{{ lang.myshowcase_main_table_row_attachment_file_name }} {{ attachment_data.attachment_name }} {{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }} {{ attachment_data.dateline|my_date|striptags }}"
+    />&nbsp;&nbsp;&nbsp;
+{% else %}
+    <div>
+        {{ attachment_data.icon|raw }}&nbsp;&nbsp;
+        <a href="{{ attachment_data.url }}" target="_blank" title="{{ attachment_data.dateline|my_date|striptags }}">
+            {{ attachment_data.attachment_name }}
+        </a>
+        ({{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }}
+        / {{ lang.myshowcase_main_table_row_attachment_downloads }} {{ attachment_data.downloads }})
+    </div>
+{% endif %}

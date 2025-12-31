@@ -103,8 +103,6 @@ $l['myshowcase_entry_unapproved'] = 'The entry has been unapproved.<br>You will 
 
 //comment language
 $l['myshowcase_comments_add'] = 'Add a comment';
-$l['myshowcase_comments_not_logged_in'] = 'You must be logged in to add a comment';
-$l['myshowcase_comments_none'] = 'There are no comments at this time.';
 $l['myshowcase_posted_at'] = 'posted the following comment at';
 $l['myshowcase_comment_edit'] = 'Edit';
 $l['myshowcase_comment_delete'] = 'Delete';
@@ -242,6 +240,69 @@ $l = array_merge($l, [
     'myshowcase_main_sort_days_25' => 'From: 25 Days Ago',
     'myshowcase_main_sort_days_100' => 'From: 100 Days Ago',
 
+    'myshowcase_create_update_entry_title_create' => 'New Thread in {1}',
+    'myshowcase_create_update_entry_your_message' => 'Your Message',
+
+    'myshowcase_view_entry_button_create_comment' => 'Post Comment',
+    'myshowcase_view_entry_button_entry_closed' => 'Closed',
+    'myShowcaseCommentCreateUpdateFormButtonCreate' => 'Post Comment',
+    'myShowcaseCommentCreateUpdateFormButtonPreview' => 'Preview Comment',
+
+    'myshowcase_view_entry_comments_none' => 'There are no comments at this time.',
+    'myshowcase_view_entry_go_to_my_profile' => 'Go to My Profile',
+    'myShowcaseCommentCreateTitle' => 'Quick Comment',
+    'myshowcase_view_entry_quick_comment_message' => 'Compose your message...',
+    'myshowcase_view_entry_comments_not_logged_in' => 'You must be logged in to add a comment.',
+
+    'myshowcase_view_entry_search' => 'Search Entry',
+    'myshowcase_view_entry_search_keywords' => 'Enter Keywords',
+
+    'myshowcase_view_entry_users_browsing_entry' => 'Users browsing this entry',
+    'myshowcase_view_entry_users_browsing_entry_reading' => 'Reading&hellip;',
+
+    'myshowcase_view_inline_moderation' => 'Moderation Options',
+    'myshowcase_view_inline_moderation_go' => 'Go',
+    'myshowcase_view_inline_moderation_standard_tool' => 'Standard Tools',
+    'myshowcase_view_inline_moderation_open' => 'Open Entry',
+    'myshowcase_view_inline_moderation_close' => 'Close Entry',
+    'myshowcase_view_inline_moderation_stick' => 'Stick Entry',
+    'myshowcase_view_inline_moderation_unstick' => 'Unstick Entry',
+    'myshowcase_view_inline_moderation_approve' => 'Approve Entry',
+    'myshowcase_view_inline_moderation_unapprove' => 'Unapprove Entry',
+    'myshowcase_view_inline_moderation_soft_delete' => 'Soft Delete Entry',
+    'myshowcase_view_inline_moderation_restore' => 'Restore Entry',
+    'myshowcase_view_inline_moderation_delete' => 'Delete Entry',
+    'myshowcase_view_inline_moderation_clear' => 'Clear',
+
+    'myshowcase_view_inline_moderation_comments' => 'Inline Comment Moderation',
+    'myshowcase_view_inline_moderation_comments_go' => 'Go',
+    'myshowcase_view_inline_moderation_comments_standard_tool' => 'Standard Tools',
+    'myshowcase_view_inline_moderation_comments_approve' => 'Approve Comments',
+    'myshowcase_view_inline_moderation_comments_unapprove' => 'Unapprove Comments',
+    'myshowcase_view_inline_moderation_comments_soft_delete' => 'Soft Delete Comments',
+    'myshowcase_view_inline_moderation_comments_restore' => 'Restore Comments',
+    'myshowcase_view_inline_moderation_comments_delete' => 'Delete Comments',
+    'myshowcase_view_inline_moderation_comments_clear' => 'Clear',
+    'myshowcase_view_inline_moderation_comments_no_tool_selected' => 'Please select a tool to perform moderation action.',
+    'myshowcase_view_inline_moderation_comments_no_entry_selected' => 'You need to select one or more comments to perform the moderation action on.',
+
+    'myshowcase_view_attachments' => 'Attached Files',
+    'myshowcase_view_attachments_thumbnails' => 'Thumbnail(s)',
+    'myshowcase_view_attachments_images' => 'Image(s)',
+    'myshowcase_view_attachments_unapproved_plural' => '{1} unapproved attachments.',
+    'myshowcase_view_attachments_unapproved_single' => '1 unapproved attachment.',
+
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
     'myShowcaseNewEditFormTitle' => 'New Entry',
     'myShowcaseNewEditFormField' => 'Field',
     'myShowcaseNewEditFormValue' => 'Value',
@@ -252,9 +313,7 @@ $l = array_merge($l, [
 
     'myShowcaseNewEditEntryPreview' => 'Entry Preview',
 
-    'myShowcaseCommentCreateUpdateFormButtonCreate' => 'Post Comment',
     'myShowcaseCommentCreateUpdateFormButtonUpdate' => 'Update Comment',
-    'myShowcaseCommentCreateUpdateFormButtonPreview' => 'Preview Comment',
 
     'myShowcaseCommentCreateUpdatePreview' => 'Comment Preview',
 
@@ -345,7 +404,6 @@ $l = array_merge($l, [
     'myShowcaseCommentButtonRestoreDescription' => 'Restore comment',
     'myShowcaseCommentButtonRestoreConfirm' => 'Are you sure you want to restore this comment?',
 
-    'myShowcaseCommentCreateTitle' => 'Quick Comment',
     'myShowcaseCommentCreateMessage' => 'Message:',
     'myShowcaseCommentCreateMessageOptionSignature' => 'Signature',
     'myShowcaseCommentCreateMessageOptionDisableSmiles' => 'Disable Smiles',

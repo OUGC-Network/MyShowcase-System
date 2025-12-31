@@ -1,6 +1,6 @@
 <div class="row row--form field">
     <h3 class="field__name visually-hidden">
-        <label for="{{ field_data.field_key }}">{{ fieldHeader }}</label>
+        <label for="{{ field_data.field_key }}">{{ field_data.field_label }}</label>
     </h3>
     {% if field_data.description is not empty %}
         <p class="field__description">{{ field_data.description }}</p>
@@ -21,7 +21,7 @@
                                        form="contentForm"
                                        {% if field_data.read_only %}readonly="readonly"{% endif %}
                                         {% if field_data.is_required %}required="required"{% endif %}
-                                        {% if mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                        {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
@@ -31,7 +31,7 @@
                 {% elseif field_data.html_type == 'color' %}
             <input type="color"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="color"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -39,12 +39,12 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'date' %}
             <input type="date"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="date"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -55,12 +55,12 @@
                     {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'datetime-local' %}
             <input type="datetime-local"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="datetime-local"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -71,12 +71,12 @@
                     {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'email' %}
             <input type="email"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="email"
                    inputmode="email"
@@ -90,26 +90,26 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'file' %}
             <input type="file"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    class="textbox"
                    id="{{ field_data.field_key }}"
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.acceptElement %}accept="{{ field_data.acceptElement }}"{% endif %}
-                    {% if field_data.captureElement %}capture="{{ field_data.captureElement }}"{% endif %}
+                    {% if field_data.file_capture %}capture="{{ field_data.file_capture }}"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
                     {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
             />
                 {% elseif field_data.html_type == 'month' %}
             <input type="month"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="month"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -120,12 +120,12 @@
                     {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'number' %}
             <input type="number"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="number"
                    inputmode="numeric"
@@ -138,12 +138,12 @@
                     {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'password' %}
             <input type="password"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="password"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -155,7 +155,7 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'radio' %}
                 <div id="{{ field_data.field_key }}">
@@ -169,7 +169,7 @@
                                        form="contentForm"
                                        {% if field_data.read_only %}readonly="readonly"{% endif %}
                                         {% if field_data.is_required %}required="required"{% endif %}
-                                        {% if mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                        {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
@@ -179,7 +179,7 @@
                 {% elseif field_data.html_type == 'range' %}
             <input type="range"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="range"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -192,7 +192,7 @@
                 {% elseif field_data.html_type == 'search' %}
             <input type="search"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="search"
                    inputmode="search"
@@ -205,12 +205,12 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'tel' %}
             <input type="tel"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="tel"
                    inputmode="tel"
@@ -223,12 +223,12 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'text' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="text"
                    inputmode="text"
@@ -241,12 +241,12 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'time' %}
             <input type="time"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="time"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -257,12 +257,12 @@
                     {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'url' %}
             <input type="url"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="url"
                    inputmode="url"
@@ -275,12 +275,12 @@
                     {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                     {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                     {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
-                    {% if field_data.regular_expression %}pattern="{{ field_data.regular_expression }}"{% endif %}
+                    {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'week' %}
             <input type="week"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="week"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -303,7 +303,7 @@
                           {% if field_data.is_required %}required="required"{% endif %}
                         {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                         {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
-                >{{ mybb.input[field_data.field_key] }}</textarea>
+                >{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}</textarea>
                 {% elseif field_data.html_type == 'select' %}
                 <select name="{{ field_data.field_key }}"
                         tabindex="{{ loop.index + 10 }}"
@@ -314,13 +314,13 @@
                 >
                     {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
                         <option value="{{ field_data_id }}"
-                                {% if mybb.input[field_data.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
+                                {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
                     {% endfor %}
                 </select>
                 {% elseif field_data.html_type == 'select2_users' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -369,7 +369,7 @@
                 {% elseif field_data.html_type == 'select2_entries' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -419,7 +419,7 @@
                 {% elseif field_data.html_type == 'select2_threads' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{{ mybb.input[field_data.field_key] }}"
+                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"

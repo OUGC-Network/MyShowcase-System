@@ -1,42 +1,30 @@
-<br/>
-<br/>
-<fieldset>
-    <legend><strong>{{ lang.postbit_attachments }}</strong></legend>
-    {{ attachedThumbnails|raw }}
-    {{ attachedImages|raw }}
-    {{ attachedFiles|raw }}
-</fieldset>
-
-
-{% if post.hasattachments %}
 <div class="attachments">
-    <h4 class="attachments__title">{{ lang.postbit_attachments }}</h4>
+    <h4 class="attachments__title">{{ lang.myshowcase_view_attachments }}</h4>
 
-    {% if attached.thumbs %}
-    {% set tcount = 0 %}
-    <span class="smalltext"><strong>{{ lang.postbit_attachments_thumbnails }}</strong></span><br/>
-    {% for thumb in attached.thumbs %}
-    {% include 'postbit/postbit_attached_thumbnail.twig' %}
-    {% if tcount == 5 %}
-    {% set tcount = 0 %}
-    {% endif %}
-    {% set tcount = tcount + 1 %}
-    {% endfor %}
-    {% endif %}
-
-    {% if attached.images %}
-    <span class="smalltext"><strong>{{ lang.postbit_attachments_images }}</strong></span><br/>
-    {% for image in attached.images %}
-    {% include 'postbit/postbit_attached_image.twig' %}
-    {% endfor %}
+    {% if attachedThumbnails %}
+        {% set tcount = 0 %}
+        <span class="smalltext"><strong>{{ lang.myshowcase_view_attachments_thumbnails }}</strong></span><br/>
+        {% for thumbnail in attachedThumbnails %}
+            {% include '@ext.myshowcase/pageViewEntryAttachmentsThumbnail.twig' %}
+            {% if tcount == 5 %}
+                {% set tcount = 0 %}
+            {% endif %}
+            {% set tcount = tcount + 1 %}
+        {% endfor %}
     {% endif %}
 
-    {% for attachment in attached.attachments %}
-    {% include 'postbit/postbit_attachment.twig' %}
+    {% if attachedImages %}
+        <span class="smalltext"><strong>{{ lang.myshowcase_view_attachments_images }}</strong></span><br/>
+        {% for image in attachedImages %}
+            {% include '@ext.myshowcase/pageViewEntryAttachmentsImage.twig' %}
+        {% endfor %}
+    {% endif %}
+
+    {% for attachment in attachedFiles %}
+        {% include '@ext.myshowcase/pageViewEntryAttachmentsFile.twig' %}
     {% endfor %}
 
-    {% if post.showunapproved %}
-    <strong>{{ lang.postbit_unapproved_attachment_language }}</strong>
+    {% if show_unapproved %}
+        <strong>{{ unapproved_message }}</strong>
     {% endif %}
 </div>
-{% endif %}

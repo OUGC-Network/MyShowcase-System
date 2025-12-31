@@ -140,9 +140,13 @@ $l = array_merge([
     For text, this means to separate values using a comma.<br/>
     For text area, this means to separate values using per line.',
     'myShowcaseAdminFieldsCreateUpdateFormRegularExpression' => 'Regular Expression',
-    'myShowcaseAdminFieldsCreateUpdateFormRegularExpressionDescription' => 'Enter a regular expression that should be matched from the user input. You must make sure the regular expression is valid and safe—no validation is performed. Empty for anything.<br/>
+    'myShowcaseAdminFieldsCreateUpdateFormRegularExpressionDescription' => 'Enter a regular expression that should be matched to validate the user input. You must make sure the regular expression is valid and safe. Empty for anything.<br/>
+    It must be a valid PHP regular expression, to be passed on to the <a href="https://www.php.net/manual/en/function.preg-match.php">`preg_match()` function as the `pattern` argument</a>.<br />
+     <b>Example:</b> /^[a-zA-Z0-9\s]+$/',
+    'myShowcaseAdminFieldsCreateUpdateFormInputPattern' => 'Input Pattern',
+    'myShowcaseAdminFieldsCreateUpdateFormInputPatternDescription' => 'Enter a regular expression that should be used for the HTML input field pattern element. You must make sure the regular expression is valid and safe—no validation is performed. Empty for anything.<br/>
     It must be a valid JavaScript regular expression, as used by the <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp">RegExp</a> type, and as documented in the MDN Web Docs <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions">guide on regular expressions</a>.<br />
-     <b>Example:</b> ([a-z0-9_\- ,.+]+)',
+     <b>Example:</b> ^[A-Za-z0-9\s]+$',
     'myShowcaseAdminFieldsCreateUpdateFormDisplayInCreateUpdatePage' => 'Display in Create/Update Page',
     'myShowcaseAdminFieldsCreateUpdateFormDisplayInCreateUpdatePageDescription' => 'Display this field in the create/update page.',
     'myShowcaseAdminFieldsCreateUpdateFormDisplayInViewPage' => 'Display in View Page',
@@ -155,6 +159,8 @@ $l = array_merge([
     'myShowcaseAdminFieldsCreateUpdateFormMaximumLengthDescription' => 'The maximum length of the field.',
     'myShowcaseAdminFieldsCreateUpdateFormStepSize' => 'Step Size',
     'myShowcaseAdminFieldsCreateUpdateFormStepSizeDescription' => 'The step size for numeric fields.',
+    'myShowcaseAdminFieldsCreateUpdateFormInputSize' => 'Input Size',
+    'myShowcaseAdminFieldsCreateUpdateFormInputSizeDescription' => 'The input size for text based input fields.',
     'myShowcaseAdminFieldsCreateUpdateFormAllowedGroupsFill' => 'Allowed Fill Groups',
     'myShowcaseAdminFieldsCreateUpdateFormAllowedGroupsFillDescription' => 'The groups that can fill this field.',
     'myShowcaseAdminFieldsCreateUpdateFormAllowedGroupsView' => 'Allowed View Groups',
@@ -173,6 +179,20 @@ $l = array_merge([
     'myShowcaseAdminFieldsCreateUpdateFormRenderOrderDescription' => 'The order for rendering this field in the main and view pages.',
     'myShowcaseAdminFieldsCreateUpdateFormFormat' => 'Format',
     'myShowcaseAdminFieldsCreateUpdateFormFormatDescription' => 'Apply a function format on display.',
+    'myShowcaseAdminFieldsCreateUpdateFormIsRequired' => 'Is Required',
+    'myShowcaseAdminFieldsCreateUpdateFormIsRequiredDescription' => 'Make this field required.',
+    'myShowcaseAdminFieldsCreateUpdateFormParse' => 'Parse',
+    'myShowcaseAdminFieldsCreateUpdateFormParseDescription' => 'Parse the content of this field using the MyBB parser.',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSearch' => 'Enable Search',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSearchDescription' => 'Enable searching the content of this field.',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSlug' => 'Enable Slug',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSlugDescription' => 'Enable generating slugs from this field.',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSubject' => 'Enable Subject',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableSubjectDescription' => 'Enable using this field as part of the subject.',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableEditor' => 'Enable Editor',
+    'myShowcaseAdminFieldsCreateUpdateFormEnableEditorDescription' => 'Enable the rich text editor for this field.',
+    'myShowcaseAdminFieldsCreateUpdateFormReadOnly' => 'Read Only',
+    'myShowcaseAdminFieldsCreateUpdateFormReadOnlyDescription' => 'Make this field read only, users will not be able to edit it.',
     'myShowcaseAdminFieldsCreateUpdateFormFilterOnSave' => 'Filter On Save',
     'myShowcaseAdminFieldsCreateUpdateFormFilterOnSaveDescription' => 'Apply a function filter on save.',
 

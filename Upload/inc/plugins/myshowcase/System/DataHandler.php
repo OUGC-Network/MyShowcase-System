@@ -19,10 +19,11 @@ use DataHandler as CoreDataHandler;
 
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentUpdate;
+use function MyShowcase\Plugin\Functions\cleanSlug;
 use function MyShowcase\Plugin\Functions\commentInsert;
 use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\commentUpdate;
-use function MyShowcase\Plugin\Functions\fieldGetObject;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
@@ -38,6 +39,7 @@ use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_INSERT;
+use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
@@ -63,7 +65,7 @@ class DataHandler extends CoreDataHandler
          *
          * @var string
          */
-        public $language_prefix = 'myshowcasedata',
+        public $language_prefix = 'myshowcase_datahandler',
         /**
          * What are we performing?
          * new = New showcase entry
@@ -125,37 +127,40 @@ class DataHandler extends CoreDataHandler
 
         $hookArguments = hooksRun('data_handler_entry_validate_start', $hookArguments);
 
-        $entryData = $this->data;
+        $entry_data = &$this->data;
 
-        if (isset($entryData['entry_id']) && (int)$entryData['entry_id'] !== $this->showcaseObject->entryID) {
-            $this->set_error('invalid entry identifier');
+        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->showcaseObject->entry_id) {
+            $this->set_error('invalid_entry');
         }
 
-        if (isset($entryData['entry_slug_custom'])) {
+        if (isset($entry_data['entry_slug_custom'])) {
             $slugLength = my_strlen($this->data['entry_slug_custom']);
 
             if ($slugLength < 1) {
-                $this->set_error('the slug is too short');
+                $this->set_error('custom_slug_too_short', 1);
             }
 
             if ($slugLength > DATA_TABLE_STRUCTURE['myshowcase_data']['entry_slug_custom']['size']) {
-                $this->set_error('the slug is too large');
+                $this->set_error(
+                    'custom_slug_too_long',
+                    DATA_TABLE_STRUCTURE['myshowcase_data']['entry_slug_custom']['size']
+                );
             }
         }
 
-        if (!empty($entryData['user_id']) && empty(get_user($this->data['user_id'])['uid'])) {
-            $this->set_error('invalid user identifier');
+        if (!empty($entry_data['user_id']) && empty(get_user($this->data['user_id'])['uid'])) {
+            $this->set_error('invalid_user');
         }
 
-        if (isset($entryData['views']) && $entryData['views'] < 0) {
-            $this->set_error('invalid views count');
+        if (isset($entry_data['views']) && $entry_data['views'] < 0) {
+            $this->set_error('invalid_views');
         }
 
-        if (isset($entryData['comments']) && $entryData['comments'] < 0) {
-            $this->set_error('invalid comments count');
+        if (isset($entry_data['comments']) && $entry_data['comments'] < 0) {
+            $this->set_error('invalid_comments');
         }
 
-        if (isset($entryData['status']) && !in_array(
+        if (isset($entry_data['status']) && !in_array(
                 $this->data['status'],
                 [
                     ENTRY_STATUS_PENDING_APPROVAL,
@@ -163,125 +168,161 @@ class DataHandler extends CoreDataHandler
                     ENTRY_STATUS_SOFT_DELETED
                 ]
             )) {
-            $this->set_error('invalid status');
+            $this->set_error('invalid_status');
         }
 
-        if (!empty($entryData['edit_user_id']) && empty(get_user($this->data['edit_user_id'])['uid'])) {
-            $this->set_error('invalid edit user identifier');
+        if (!empty($entry_data['edit_user_id']) && empty(get_user($this->data['edit_user_id'])['uid'])) {
+            $this->set_error('invalid_edit_user');
         }
 
-        if (isset($entryData['dateline']) && $entryData['dateline'] < 0) {
-            $this->set_error('invalid create stamp');
+        if (isset($entry_data['dateline']) && $entry_data['dateline'] < 0) {
+            $this->set_error('invalid_dateline');
         }
 
-        if (isset($entryData['edit_stamp']) && $entryData['edit_stamp'] < 0) {
-            $this->set_error('invalid edit stamp');
+        if (isset($entry_data['edit_stamp']) && $entry_data['edit_stamp'] < 0) {
+            $this->set_error('invalid_edit_stamp');
         }
 
         global $lang;
 
         foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
-            $fieldObject = fieldGetObject($this->showcaseObject, $fieldDefinition);
-
-            $field_key = $fieldDefinition['field_key'];
-
             if (!$fieldDefinition['enabled'] ||
-                !isset($entryData[$field_key]) ||
+                $fieldDefinition['read_only'] ||
+                !isset($entry_data[$fieldDefinition['field_key']]) ||
                 !is_member($fieldDefinition['allowed_groups_fill'])) {
                 // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            if ($fieldDefinition['is_required'] && empty($entryData[$field_key])) {
-                $this->set_error('missing_field', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]);
-            }
-            /*
-             * array(1) {
-  [0]=>
-  array(32) {
-    ["html_type"]=>
-    string(8) "checkbox"
-    ["field_type"]=>
-    string(7) "tinyint"
-    ["allow_multiple_values"]=>
-    int(1)
-    ["regular_expression"]=>
-    string(7) "varchar"
-    ["display_in_create_update_page"]=>
-    int(1)
-    ["display_in_view_page"]=>
-    int(1)
-    ["display_in_main_page"]=>
-    int(1)
-    ["minimum_length"]=>
-    int(0)
-    ["maximum_length"]=>
-    int(1)
-    ["step_size"]=>
-    int(0)
-  }
-}
-
-             */
-
-            if (empty($entryData[$field_key]) && $fieldDefinition['default_value'] !== '') {
-                $entryData[$field_key] = $fieldDefinition['default_value'];
+            if ($fieldDefinition['regular_expression'] &&
+                preg_match($fieldDefinition['regular_expression'], '') !== false &&
+                preg_match($fieldDefinition['regular_expression'], $entry_data[$fieldDefinition['field_key']]) === 1) {
+                $this->set_error(
+                    'invalid_value',
+                    [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                );
             }
 
-            //_dump($fieldObject);
+            if ($fieldDefinition['is_required'] && empty($entry_data[$fieldDefinition['field_key']])) {
+                $this->set_error(
+                    'required_field',
+                    [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                );
+            }
+
+            if (empty($entry_data[$fieldDefinition['field_key']]) && $fieldDefinition['default_value'] !== '') {
+                $entry_data[$fieldDefinition['field_key']] = $fieldDefinition['default_value'];
+            }
 
             if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
-                if (is_array($entryData[$field_key])) {
-                    foreach ($entryData[$field_key] as $fieldValue) {
+                if (is_array($entry_data[$fieldDefinition['field_key']])) {
+                    foreach ($entry_data[$fieldDefinition['field_key']] as $fieldValue) {
                         if (!is_numeric($fieldValue)) {
                             $this->set_error(
-                                'invalid_type',
-                                [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                                'invalid_value',
+                                [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
                             );
                         }
                     }
-                } elseif (!is_numeric($entryData[$field_key])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                } elseif (!is_numeric($entry_data[$fieldDefinition['field_key']])) {
+                    $this->set_error(
+                        'invalid_value',
+                        [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
                     );
                 }
             } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
                 fieldTypeMatchText($fieldDefinition['field_type'])) {
-                if (!is_scalar($entryData[$field_key])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                if (!is_scalar($entry_data[$fieldDefinition['field_key']])) {
+                    $this->set_error(
+                        'invalid_value',
+                        [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
                     );
                 }
-                /*if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
-                    $fieldValueLength = my_strlen($entryData[$field_key]);
 
-                    if ($fieldValueLength > $fieldDefinition['maximum_length'] ||
-                        $fieldValueLength < $fieldDefinition['minimum_length']) {
+                if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
+                    if ($fieldDefinition['minimum_length'] &&
+                        my_strlen($entry_data[$fieldDefinition['field_key']]) < $fieldDefinition['minimum_length']) {
                         $this->set_error(
-                            'invalid_length',
+                            'invalid_length_minimum',
                             [
-                                $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key,
-                                $fieldValueLength,
-                                $fieldDefinition['minimum_length'] . '-' . $fieldDefinition['maximum_length']
+                                $lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
+                                my_strlen($entry_data[$fieldDefinition['field_key']]),
+                                my_number_format($fieldDefinition['minimum_length']),
+                                my_number_format($fieldDefinition['maximum_length']),
                             ]
                         );
-
-                        if ($fieldValueLength > $this->showcaseObject->config['maximum_text_field_length'] &&
-                            $this->showcaseObject->config['maximum_text_field_length'] > 0) {
-                            $this->set_error(
-                                'message_too_long',
-                                [
-                                    $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key,
-                                    $fieldValueLength,
-                                    $this->showcaseObject->config['maximum_text_field_length']
-                                ]
-                            );
-                        }
                     }
-                }*/
+
+                    if ($fieldDefinition['maximum_length'] &&
+                        my_strlen($entry_data[$fieldDefinition['field_key']]) > $fieldDefinition['maximum_length']) {
+                        $this->set_error(
+                            'invalid_length_maximum',
+                            [
+                                $lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
+                                my_strlen($entry_data[$fieldDefinition['field_key']]),
+                                my_number_format($fieldDefinition['minimum_length']),
+                                my_number_format($fieldDefinition['maximum_length']),
+                            ]
+                        );
+                    }
+                }
+            }
+        }
+
+        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+            if (!$fieldDefinition['enabled'] ||
+                !isset($entry_data[$fieldDefinition['field_key']]) ||
+                !is_member($fieldDefinition['allowed_groups_fill'])) {
+                continue;
             }
 
             if ($fieldDefinition['filter_on_save']) {
-                _dump('filter_on_save', $fieldDefinition['filter_on_save']);
+                $entry_data[$fieldDefinition['field_key']] = match ($fieldDefinition['filter_on_save']) {
+                    FilterTypes::UUID => generateUUIDv4(),
+                    default => $entry_data[$fieldDefinition['field_key']],
+                };
             }
+        }
+
+        // it doesn't matter if this changes, only the entry_slug should remain the same always
+        if ($this->method !== DATA_HANDLER_METHOD_UPDATE) {
+            $entry_slug_custom = [];
+
+            foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+                if (!$fieldDefinition['enable_slug']) {
+                    continue;
+                }
+
+                if (is_array($entry_data[$fieldDefinition['field_key']])) {
+                    foreach ($entry_data[$fieldDefinition['field_key']] as $field_data_id) {
+                        $field_data_id = (int)$field_data_id;
+
+                        if (!isset($this->showcaseObject->fieldSetCache[$field_data_id])) {
+                            continue;
+                        }
+
+                        foreach (
+                            fieldDataGet(
+                                [
+                                    "field_data_id='{$field_data_id}'"
+                                ],
+                                ['value', 'allowed_groups_fill'],
+                                ['order_by' => 'display_order']
+                            ) as $field_data_id => $field_data_data
+                        ) {
+                            if (is_member($field_data_data['allowed_groups_fill'])) {
+                                $entry_slug_custom[] = $field_data_data['value'];
+                            }
+                        }
+                    }
+                } elseif (is_member($fieldDefinition['allowed_groups_fill'])) {
+                    $entry_slug_custom[] = $entry_data[$fieldDefinition['field_key']];
+                }
+            }
+
+            $entry_slug_custom = cleanSlug(implode('-', $entry_slug_custom));
+
+            $entry_data['entry_slug_custom'] = $entry_slug_custom;
         }
 
         $this->set_validated();
@@ -414,7 +455,7 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid showcase identifier');
         }
 
-        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->showcaseObject->entryID) {
+        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->showcaseObject->entry_id) {
             $this->set_error('invalid entry identifier');
         }
 
@@ -505,7 +546,7 @@ class DataHandler extends CoreDataHandler
             $this->comment_id = commentInsert(
                 array_merge($this->insertData, [
                     'showcase_id' => $this->showcaseObject->showcase_id,
-                    'entry_id' => $this->showcaseObject->entryID
+                    'entry_id' => $this->showcaseObject->entry_id
                 ])
             );
         }

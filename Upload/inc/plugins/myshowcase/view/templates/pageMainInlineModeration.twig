@@ -1,6 +1,6 @@
 <div class="inline-moderation page-tools__item">
     {{ asset('jscripts/inline_moderation.js', static=true) }}
-    <form id="inlinemoderation_options" action="{{ url_main }}" method="post">
+    <form id="inlinemoderation_options" action="{{ url.main }}" method="post">
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
         <input type="hidden" name="action" value="inline_moderation"/>
         <input type="hidden" name="field" value="{{ sorting.field }}"/>

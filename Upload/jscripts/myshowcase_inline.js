@@ -1,238 +1,210 @@
-var inlineModeration = {
-	init: function()
-	{
-		inlineModeration.inlineCount = 0;
-		if(!inlineType || !inlineId)
-		{
-			return false;
-		}
+const inlineModeration = {
+    init: function () {
+        let tr;
+        inlineModeration.inlineCount = 0;
+        if (!inlineType || !inlineId) {
+            return false;
+        }
 
-		inlineModeration.cookieName = "inlinemod_"+inlineType+inlineId;
-		inputs = document.getElementsByTagName("input");
+        inlineModeration.cookieName = "inlinemod_" + inlineType + inlineId;
+        let inputs = document.getElementsByTagName("input");
 
-		if(!inputs)
-		{
-			return false;
-		}
+        if (!inputs) {
+            return false;
+        }
 
-		inlineCookie = Cookie.get(inlineModeration.cookieName);
+        let inlineCookie = Cookie.get(inlineModeration.cookieName);
 
-		if(inlineCookie)
-		{
-			inlineIds = inlineCookie.split("|");
-		}
-		
-		for(var i=0;i<inputs.length;i++)
-		{
-			var element = inputs[i];
-			if((element.name != "allbox") && (element.type == "checkbox") && (element.id.split("_")[0] == "inlinemod"))
-			{
-				Event.observe(element, "click", inlineModeration.checkItem);
-			}
+        let inlineIds;
+        if (inlineCookie) {
+            inlineIds = inlineCookie.split("|");
+        }
 
-			if(inlineCookie)
-			{
-				inlineCheck = element.id.split("_");
-				id = inlineCheck[1];
+        let inlineCheck;
+        let id;
+        for (let i = 0; i < inputs.length; i++) {
+            const element = inputs[i];
+            if ((element.name !== "allbox") && (element.type === "checkbox") && (element.id.split("_")[0] === "inlinemod")) {
+                Event.observe(element, "click", inlineModeration.checkItem);
+            }
 
-				if(inlineIds.indexOf(id) != -1)
-				{
-					element.checked = true;
-					var tr = element.up('tr');
-					
-					if(tr)
-					{
-						tr.addClassName('trow_selected');
-					}
-				}
-				else
-				{
-					element.checked = false;
-					var tr = element.up('tr');
-					if(tr)
-					{
-						tr.removeClassName('trow_selected');
-					}
-				}
-			}
-		}
-		
-		if(inlineCookie)
-		{
-			goButton = $("inline_go");
-			if(inlineIds)
-			{
-				var inlineCount = 0;
-				inlineIds.each(function(item) {
-					if(item != '') inlineCount++;
-				});
-				inlineModeration.inlineCount = inlineCount;
-			}
-			goButton.value = go_text+" ("+(inlineModeration.inlineCount)+")";
-		}
-		return true;
-	},
+            if (inlineCookie) {
+                inlineCheck = element.id.split("_");
+                id = inlineCheck[1];
 
-	checkItem: function(e)
-	{
-		element = Event.element(e);
+                if (inlineIds.indexOf(id) !== -1) {
+                    element.checked = true;
+                    tr = element.up('tr');
 
-		if(!element)
-		{
-			return false;
-		}
+                    if (tr) {
+                        tr.addClassName('trow_selected');
+                    }
+                } else {
+                    element.checked = false;
+                    tr = element.up('tr');
+                    if (tr) {
+                        tr.removeClassName('trow_selected');
+                    }
+                }
+            }
+        }
 
-		inlineCheck = element.id.split("_");
-		id = inlineCheck[1];
+        let goButton;
+        if (inlineCookie) {
+            goButton = $("inline_go");
+            if (inlineIds) {
+                let inlineCount = 0;
+                inlineIds.each(function (item) {
+                    if (item !== '') inlineCount++;
+                });
+                inlineModeration.inlineCount = inlineCount;
+            }
+            goButton.value = go_text + " (" + (inlineModeration.inlineCount) + ")";
+        }
+        return true;
+    },
 
-		if(!id)
-		{
-			return false;
-		}
+    checkItem: function (e) {
+        let tr;
+        let element = Event.element(e);
 
-		var newIds = new Array();
-		inlineCookie = Cookie.get(inlineModeration.cookieName);
+        if (!element) {
+            return false;
+        }
 
-		if(inlineCookie)
-		{
-			inlineIds = inlineCookie.split("|");
-			inlineIds.each(function(item) {
-				if(item != "" && item != null)
-				{
-					if(item != id)
-					{
-						newIds[newIds.length] = item;
-					}
-				}
-			});
-		}
+        let inlineCheck = element.id.split("_");
+        let id = inlineCheck[1];
 
-		if(element.checked == true)
-		{
-			inlineModeration.inlineCount++;
-			newIds[newIds.length] = id;
-			var tr = element.up('tr');
-			if(tr)
-			{
-				tr.addClassName('trow_selected');
-			}
-		}
-		else
-		{
-			inlineModeration.inlineCount--;
-			var tr = element.up('tr');
-			if(tr)
-			{
-				tr.removeClassName('trow_selected');
-			}
-		}
+        if (!id) {
+            return false;
+        }
 
-		inlineData = "|"+newIds.join("|")+"|";
-		goButton = $("inline_go");
+        const newIds = [];
+        let inlineCookie = Cookie.get(inlineModeration.cookieName);
 
-		if(inlineModeration.inlineCount < 0)
-		{
-			inlineModeration.inlineCount = 0;
-		}
+        let inlineIds;
+        if (inlineCookie) {
+            inlineIds = inlineCookie.split("|");
+            inlineIds.each(function (item) {
+                if (item !== "" && item != null) {
+                    if (item !== id) {
+                        newIds[newIds.length] = item;
+                    }
+                }
+            });
+        }
 
-		goButton.value = go_text+" ("+inlineModeration.inlineCount+")";
-		Cookie.set(inlineModeration.cookieName, inlineData, 3600000);
+        if (element.checked === true) {
+            inlineModeration.inlineCount++;
+            newIds[newIds.length] = id;
+            tr = element.up('tr');
+            if (tr) {
+                tr.addClassName('trow_selected');
+            }
+        } else {
+            inlineModeration.inlineCount--;
+            tr = element.up('tr');
+            if (tr) {
+                tr.removeClassName('trow_selected');
+            }
+        }
 
-		return true;
-	},
+        let inlineData = "|" + newIds.join("|") + "|";
+        let goButton = $("inline_go");
 
-	clearChecked: function()
-	{
-		inputs = document.getElementsByTagName("input");
+        if (inlineModeration.inlineCount < 0) {
+            inlineModeration.inlineCount = 0;
+        }
 
-		if(!inputs)
-		{
-			return false;
-		}
+        goButton.value = go_text + " (" + inlineModeration.inlineCount + ")";
+        Cookie.set(inlineModeration.cookieName, inlineData, 3600000);
 
-		$H(inputs).each(function(element) {
-			var element = element.value;
-			if(!element.value) return;
-			if((element.name != "allbox") && (element.type == "checkbox") && (element.id.split("_")[0] == "inlinemod"))
-			{
-				element.checked = false;
-			}
-		});
+        return true;
+    },
 
-		$$('tr.trow_selected').each(function(element) {
-			element.removeClassName('trow_selected');
-		});
+    clearChecked: function () {
+        $('#selectAllrow').hide();
+        $('#allSelectedrow').hide();
 
-		inlineModeration.inlineCount = 0;
-		goButton = $("inline_go");
-		goButton.value = go_text+" (0)";
-		Cookie.unset(inlineModeration.cookieName);
+        const inputs = $('input');
 
-		return true;
-	},
+        if (!inputs.length) {
+            return false;
+        }
 
-	checkAll: function(master)
-	{
-		inputs = document.getElementsByTagName("input");
+        $(inputs).each(function () {
+            const element = $(this);
+            if (!element.val()) return;
+            if (element.attr('type') == 'checkbox' && ((element.attr('id') && element.attr('id').split('_')[0] == 'inlinemod') || element.attr('name') == 'allbox')) {
+                element.prop('checked', false);
+            }
+        });
 
-		if(!inputs)
-		{
-			return false;
-		}
+        $('.trow_selected').each(function () {
+            $(this).removeClass('trow_selected');
+        });
 
-		inlineCookie = Cookie.get(inlineModeration.cookieName);
+        $('fieldset.inline_selected').each(function () {
+            $(this).removeClass('inline_selected');
+        });
 
-		if(inlineCookie)
-		{
-			inlineIds = inlineCookie.split("|");
-		}
+        $('#inline_go').html(go_text + ' (0)');
+        Cookie.unset(inlineModeration.cookieName);
+        Cookie.unset(inlineModeration.cookieName + '_removed');
 
-		var newIds = new Array();
-		$H(inputs).each(function(element) {
-			var element = element.value;
-			if(!element.value) return;
-			inlineCheck = element.id.split("_");
-			if((element.name != "allbox") && (element.type == "checkbox") && (inlineCheck[0] == "inlinemod"))
-			{
-				id = inlineCheck[1];
-				var changed = (element.checked != master.checked);
-				element.checked = master.checked;
-				
-				var tr = element.up('tr');
-				if(tr && master.checked == true)
-				{
-					tr.addClassName('trow_selected');
-				}
-				else
-				{
-					tr.removeClassName('trow_selected');
-				}
+        return true;
+    },
 
-				if(changed)
-				{
-					if(master.checked == true)
-					{
-						inlineModeration.inlineCount++;
-						newIds[newIds.length] = id;
-					}
-					else
-					{
-						inlineModeration.inlineCount--;
-					}
-				}
-			}
-		});
+    checkAll: function (master) {
+        inputs = document.getElementsByTagName("input");
 
-		inlineData = "|"+newIds.join("|")+"|";
-		goButton = $("inline_go");
+        if (!inputs) {
+            return false;
+        }
 
-		if(inlineModeration.inlineCount < 0)
-		{
-			inlineModeration.inlineCount = 0;
-		}
+        inlineCookie = Cookie.get(inlineModeration.cookieName);
 
-		goButton.value = go_text+" ("+inlineModeration.inlineCount+")";
-		Cookie.set(inlineModeration.cookieName, inlineData, 3600000);
-	}
+        if (inlineCookie) {
+            inlineIds = inlineCookie.split("|");
+        }
+
+        var newIds = new Array();
+        $H(inputs).each(function (element) {
+            var element = element.value;
+            if (!element.value) return;
+            inlineCheck = element.id.split("_");
+            if ((element.name != "allbox") && (element.type == "checkbox") && (inlineCheck[0] == "inlinemod")) {
+                id = inlineCheck[1];
+                var changed = (element.checked != master.checked);
+                element.checked = master.checked;
+
+                var tr = element.up('tr');
+                if (tr && master.checked == true) {
+                    tr.addClassName('trow_selected');
+                } else {
+                    tr.removeClassName('trow_selected');
+                }
+
+                if (changed) {
+                    if (master.checked == true) {
+                        inlineModeration.inlineCount++;
+                        newIds[newIds.length] = id;
+                    } else {
+                        inlineModeration.inlineCount--;
+                    }
+                }
+            }
+        });
+
+        inlineData = "|" + newIds.join("|") + "|";
+        goButton = $("inline_go");
+
+        if (inlineModeration.inlineCount < 0) {
+            inlineModeration.inlineCount = 0;
+        }
+
+        goButton.value = go_text + " (" + inlineModeration.inlineCount + ")";
+        Cookie.set(inlineModeration.cookieName, inlineData, 3600000);
+    }
 };
 Event.observe(document, "dom:loaded", inlineModeration.init);

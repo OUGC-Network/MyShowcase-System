@@ -24,7 +24,6 @@ class SelectThreadsField implements FieldsInterface
         public Showcase $showcaseObject,
         protected array $fieldDefinition,
         protected string $entryFieldValue = '',
-        public string $templatePrefixEntry = 'pageViewDataField',
         public string $templatePrefixCreateUpdate = 'pageEntryCreateUpdateDataField',
         public string $templateName = 'SelectThreads',
         public string $multipleSeparator = ',',

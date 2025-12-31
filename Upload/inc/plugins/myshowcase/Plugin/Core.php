@@ -1042,7 +1042,7 @@ const TABLES_DATA = [
         ],
     ],
     'myshowcase_fieldsets' => [
-        'set_id' => [
+        'set_id' => [ // todo, rename to fieldset_id
             'type' => 'INT',
             'unsigned' => true,
             'auto_increment' => true,
@@ -1395,18 +1395,24 @@ const TABLES_DATA = [
             'formType' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\fileCaptureTypes',
         ],
-        /*'allow_multiple_values' => [//checkbox, select, text area new line, text box comma
+        'allow_multiple_values' => [//checkbox, select, text area new line, text box comma
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::YesNo,
-        ],*/
-        /*'regular_expression' => [
+        ],
+        'regular_expression' => [
             'type' => 'VARCHAR',
             'size' => 500,
             'default' => '',
             'formType' => FormTypes::Text,
-        ],*/
+        ],
+        'input_pattern' => [
+            'type' => 'VARCHAR',
+            'size' => 500,
+            'default' => '',
+            'formType' => FormTypes::Text,
+        ],
         'display_in_create_update_page' => [
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -1438,6 +1444,12 @@ const TABLES_DATA = [
             'formType' => FormTypes::Number,
         ],
         'step_size' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::Number,
+        ],
+        'input_size' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -1488,13 +1500,13 @@ const TABLES_DATA = [
             'formType' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\formatTypes',
         ],
-        /*'filter_on_save' => [ //uuid, etc
+        'filter_on_save' => [ //uuid, etc
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\filterTypes',
-        ],*/
+        ],
         'enabled' => [
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -1505,37 +1517,43 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
         ],
         'parse' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
         ],
         'enable_search' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
         ],
         'enable_slug' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
         ],
         'enable_subject' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
         ],
         'enable_editor' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'formType' => FormTypes::YesNo,
+        ],
+        'read_only' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
         ],
         'unique_keys' => ['set_field_name' => ['set_id', 'field_key']]
         //'unique_keys' => ['setid_fid' => ['set_id', 'field_id']]

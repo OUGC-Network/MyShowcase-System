@@ -27,6 +27,8 @@ use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
+use function redirect;
+
 use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
@@ -56,6 +58,7 @@ class Comments extends Base
     public int $commentID = 0;
 
     public array $commentData = [];
+    private int $entry_id = 0;
 
     public function verifyPermission(
         string $commentSlug,
@@ -79,7 +82,7 @@ class Comments extends Base
 
         global $mybb;
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         $commentData = commentsGet(
             ["comment_slug='{$db->escape_string($commentSlug)}'", "showcase_id='{$this->showcaseObject->showcase_id}'"],
@@ -95,7 +98,7 @@ class Comments extends Base
 
         $commentUserID = (int)$commentData['user_id'];
 
-        if ($commentStatus === self::STATUS_PENDING_APPROVAL && $currentUserID !== $commentUserID ||
+        if ($commentStatus === self::STATUS_PENDING_APPROVAL && $current_user_id !== $commentUserID ||
             $commentStatus === self::STATUS_SOFT_DELETE && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
             return self::INVALID_COMMENT;
         }
@@ -120,7 +123,7 @@ class Comments extends Base
 
         $entryUserID = (int)$entryData['user_id'];
 
-        if ($entryStatus === ENTRY_STATUS_PENDING_APPROVAL && $currentUserID !== $entryUserID ||
+        if ($entryStatus === ENTRY_STATUS_PENDING_APPROVAL && $current_user_id !== $entryUserID ||
             $entryStatus === ENTRY_STATUS_SOFT_DELETED && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
             return self::INVALID_COMMENT;
         }
@@ -132,7 +135,7 @@ class Comments extends Base
             'returnValue' => &$returnValue,
         ];
 
-        $this->entryID = $entryID;
+        $this->entry_id = $entryID;
 
         $this->entryData = $entryData;
 
@@ -170,7 +173,7 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_redirect_end', $hookArguments);
 
-        \redirect($commentUrl, HTTP_CODE_PERMANENT_REDIRECT);
+        redirect($commentUrl, HTTP_CODE_PERMANENT_REDIRECT);
 
         exit;
     }
@@ -190,7 +193,7 @@ class Comments extends Base
 
         global $mybb;
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         $statusVisible = self::STATUS_VISIBLE;
 
@@ -199,7 +202,7 @@ class Comments extends Base
         $statusSoftDeleted = self::STATUS_SOFT_DELETE;
 
         $whereClauses = [
-            "entry_id='{$this->entryID}'",
+            "entry_id='{$this->entry_id}'",
             "showcase_id='{$this->showcaseObject->showcase_id}'",
             $this->showcaseObject->whereClauseStatusComment()
         ];
@@ -234,7 +237,7 @@ class Comments extends Base
     {
         $statusVisible = self::STATUS_VISIBLE;
 
-        $whereClauses = ["entry_id='{$this->showcaseObject->entryID}'", "status='{$statusVisible}'"];
+        $whereClauses = ["entry_id='{$this->showcaseObject->entry_id}'", "status='{$statusVisible}'"];
 
         $hookArguments = [
             'commentsController' => &$this,
@@ -253,11 +256,11 @@ class Comments extends Base
     }
 
     #[NoReturn] public function create(
-        string $entrySlug,
-        string $entrySlugCustom,
+        string $entry_slug,
+        string $entry_slug_custom,
         bool $isUpdate = false,
         string $commentSlug = ''
-    ): void {
+    ): string {
         global $mybb, $lang;
 
         if ($isUpdate) {
@@ -270,8 +273,8 @@ class Comments extends Base
 
             switch ($this->verifyPermission(
                 $commentSlug,
-                $entrySlug,
-                $entrySlugCustom,
+                $entry_slug,
+                $entry_slug_custom,
                 ['comment_slug', 'dateline', 'comment']
             )) {
                 case self::NO_PERMISSION:
@@ -289,7 +292,7 @@ class Comments extends Base
             error_no_permission();
         }
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         $mybb->input = array_merge($this->commentData, $mybb->input);
 
@@ -304,7 +307,7 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_create_update_start', $hookArguments);
 
-        $this->showcaseObject->setEntry($entrySlug, true);
+        $this->showcaseObject->setEntry($entry_slug, true);
 
         $commentPreview = '';
 
@@ -325,7 +328,7 @@ class Comments extends Base
             ];
 
             if (!$isUpdate) {
-                $insertData['user_id'] = $currentUserID;
+                $insertData['user_id'] = $current_user_id;
 
                 $insertData['post_hash'] = $mybb->get_input('post_hash');
 
@@ -372,8 +375,8 @@ class Comments extends Base
                 if (isset($dataHandler->returnData['status']) &&
                     $dataHandler->returnData['status'] === self::STATUS_SOFT_DELETE) {
                     $entryUrl = $this->showcaseObject->urlGetEntry(
-                        $this->showcaseObject->entryData['entry_slug'],
-                        $this->showcaseObject->entryData['entry_slug_custom'],
+                        $this->showcaseObject->entry_data['entry_slug'],
+                        $this->showcaseObject->entry_data['entry_slug_custom'],
                     );
 
                     redirect(
@@ -391,7 +394,7 @@ class Comments extends Base
             }
 
             if ($isPreview) {
-                $this->showcaseObject->entryData = array_merge($this->showcaseObject->entryData, $mybb->input);
+                $this->showcaseObject->entry_data = array_merge($this->showcaseObject->entry_data, $mybb->input);
 
                 $commentPreview = $this->renderObject->buildComment(
                     array_merge($this->commentData, $mybb->input),
@@ -431,27 +434,39 @@ class Comments extends Base
                     break;
             */
             default:
-                $mainUrl = $this->showcaseObject->urlGetMain();
+                $mainUrl = $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryView,
+                    $this->showcaseObject->urlParams
+                );
         }
 
         add_breadcrumb($this->showcaseObject->config['name_friendly'], $mainUrl);
 
         $entrySubject = $this->renderObject->buildEntrySubject();
 
-        $entryUrl = url(
+        $entryUrl = $this->showcaseObject->urlGenerate(
             RouterUrls::EntryView,
             [
-                'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
-                'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
+                'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
             ]
-        )->getRelativeUrl();
+        );
 
         add_breadcrumb($entrySubject, $entryUrl);
 
         if ($isUpdate) {
-            $createUpdateUrl = $this->showcaseObject->urlGetCommentUpdate($entrySlug, $entrySlugCustom, $commentSlug);
+            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+                RouterUrls::CommentUpdate,
+                ['entry_slug' => $entry_slug, 'entry_slug_custom' => $entry_slug_custom, 'comment_slug' => $commentSlug]
+            );
         } else {
-            $createUpdateUrl = $this->showcaseObject->urlGetCommentCreate($entrySlug, $entrySlugCustom);
+            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+                RouterUrls::CommentCreate,
+                [
+                    'entry_slug' => $entry_slug,
+                    'entry_slug_custom' => $entry_slug_custom
+                ],
+            );
         }
 
         if ($isUpdate) {
@@ -507,9 +522,9 @@ class Comments extends Base
         ]));
     }
 
-    #[NoReturn] public function update(string $entrySlug, string $entrySlugCustom, string $commentSlug): void
+    #[NoReturn] public function update(string $entry_slug, string $entry_slug_custom, string $comment_slug): string
     {
-        $this->create($entrySlug, $entrySlugCustom, true, $commentSlug);
+        return $this->create($entry_slug, $entry_slug_custom, true, $comment_slug);
     }
 
     #[NoReturn] public function approve(
@@ -533,11 +548,11 @@ class Comments extends Base
 
         verify_post_check($mybb->get_input('my_post_key'));
 
-        $currentUserID = (int)$mybb->user['uid'];
+        $current_user_id = (int)$mybb->user['uid'];
 
         if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
             if (!($status === self::STATUS_SOFT_DELETE &&
-                (int)$this->commentData['user_id'] === $currentUserID &&
+                (int)$this->commentData['user_id'] === $current_user_id &&
                 $this->showcaseObject->user_permissions[UserPermissions::CanDeleteComments])) {
                 error_no_permission();
             }

@@ -1,5 +1,5 @@
 <div class="row row--thread thread inline_row
-    {% if entry_data.unread_commets %} thread--unread{% endif %}
+    {% if entry_data.unread_comments %} thread--unread{% endif %}
     {% if permissions.can_manage_entries %} thread--moderator{% endif %}
     {% if entry_data.status == 2 and permissions.can_manage_entries %} thread--deleted{% endif %}
     {% if entry_data.status == 0 %} thread--awaiting-approval{% endif %}">
@@ -8,7 +8,7 @@
             {# Entry attachments #}
             {% if entry_data.attachments is not empty %}
                 {% for attachment_id,attachment_data in entry_data.attachments %}
-                    {% include '@ext.myshowcase/pageMainEntryFile.twig' %}
+                    {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
                 {% endfor %}
             {% endif %}
 
@@ -25,7 +25,7 @@
             {% endif %}
 
             {# Go to unread link #}
-            {% if entry_data.unread_commets %}
+            {% if entry_data.unread_comments %}
                 <a href="{{ entry_data.newpostlink }}" class="thread__status">
                     {{ include('partials/icon.twig', {icon: 'circle', class: 'fa-fw', title: lang.myshowcase_main_table_row_go_to_first_unread}, with_context = false) }}
                 </a>

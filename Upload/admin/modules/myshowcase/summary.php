@@ -1962,16 +1962,6 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
     );
 
     $formContainer->output_row_header(
-        $lang->myshowcase_summary_slug,
-        ['width' => '10%', 'class' => 'align_center']
-    );
-
-    $formContainer->output_row_header(
-        $lang->myshowcase_summary_description,
-        ['width' => '17%', 'class' => 'align_center']
-    );
-
-    $formContainer->output_row_header(
         $lang->myshowcase_summary_entries_count,
         ['width' => '5%', 'class' => 'align_center']
     );
@@ -1988,16 +1978,6 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
     $formContainer->output_row_header(
         $lang->myshowcase_summary_attachments_size,
-        ['width' => '5%', 'class' => 'align_center']
-    );
-
-    $formContainer->output_row_header(
-        $lang->myshowcase_summary_main_file,
-        ['width' => '5%', 'class' => 'align_center']
-    );
-
-    $formContainer->output_row_header(
-        $lang->myshowcase_summary_image_folder,
         ['width' => '5%', 'class' => 'align_center']
     );
 
@@ -2125,10 +2105,6 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
             $formContainer->output_cell($showcaseData['name']);
 
-            $formContainer->output_cell($showcaseData['script_name']);
-
-            $formContainer->output_cell($showcaseData['description']);
-
             $formContainer->output_cell($showcaseTotalEntries, ['class' => 'align_center']);
 
             $formContainer->output_cell($showcaseTotalComments, ['class' => 'align_center']);
@@ -2139,10 +2115,6 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                 get_friendly_size($showcaseTotalFilesSize),
                 ['class' => 'align_center']
             );
-
-            $formContainer->output_cell($showcaseData['script_name'], ['class' => 'align_center']);
-
-            $formContainer->output_cell($showcaseData['attachments_uploads_path'], ['class' => 'align_center']);
 
             $formContainer->output_cell(
                 fieldsetGet(
