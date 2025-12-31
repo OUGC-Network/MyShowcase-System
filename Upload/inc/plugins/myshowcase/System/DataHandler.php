@@ -193,7 +193,7 @@ class DataHandler extends CoreDataHandler
             }
 
             if ($fieldDefinition['is_required'] && empty($entryData[$field_key])) {
-                $this->set_error('missing_field', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
+                $this->set_error('missing_field', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]);
             }
             /*
              * array(1) {
@@ -234,16 +234,21 @@ class DataHandler extends CoreDataHandler
                 if (is_array($entryData[$field_key])) {
                     foreach ($entryData[$field_key] as $fieldValue) {
                         if (!is_numeric($fieldValue)) {
-                            $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
+                            $this->set_error(
+                                'invalid_type',
+                                [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                            );
                         }
                     }
                 } elseif (!is_numeric($entryData[$field_key])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
+                    $this->set_error('invalid_type', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                    );
                 }
             } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
                 fieldTypeMatchText($fieldDefinition['field_type'])) {
                 if (!is_scalar($entryData[$field_key])) {
-                    $this->set_error('invalid_type', [$lang->{'myshowcase_field_' . $field_key} ?? $field_key]);
+                    $this->set_error('invalid_type', [$lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key]
+                    );
                 }
                 /*if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
                     $fieldValueLength = my_strlen($entryData[$field_key]);
@@ -253,7 +258,7 @@ class DataHandler extends CoreDataHandler
                         $this->set_error(
                             'invalid_length',
                             [
-                                $lang->{'myshowcase_field_' . $field_key} ?? $field_key,
+                                $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key,
                                 $fieldValueLength,
                                 $fieldDefinition['minimum_length'] . '-' . $fieldDefinition['maximum_length']
                             ]
@@ -264,7 +269,7 @@ class DataHandler extends CoreDataHandler
                             $this->set_error(
                                 'message_too_long',
                                 [
-                                    $lang->{'myshowcase_field_' . $field_key} ?? $field_key,
+                                    $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key,
                                     $fieldValueLength,
                                     $this->showcaseObject->config['maximum_text_field_length']
                                 ]

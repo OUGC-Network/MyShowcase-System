@@ -26,7 +26,6 @@ use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
 use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\SimpleRouter\url;
 
 use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
@@ -171,7 +170,7 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_redirect_end', $hookArguments);
 
-        \MyShowcase\SimpleRouter\redirect($commentUrl, HTTP_CODE_PERMANENT_REDIRECT);
+        \redirect($commentUrl, HTTP_CODE_PERMANENT_REDIRECT);
 
         exit;
     }
@@ -219,16 +218,16 @@ class Comments extends Base
         )['total_comments'] ?? 0);
 
         if (($totalCommentsBeforeMainComment % $this->showcaseObject->config['comments_per_page']) == 0) {
-            $currentPage = $totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page'];
+            $this->renderObject->current_page = $totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page'];
         } else {
-            $currentPage = (int)($totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page']) + 1;
+            $this->renderObject->current_page = (int)($totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page']) + 1;
         }
 
         $hookArguments = hooksRun('controller_comments_view_end', $hookArguments);
 
         require_once ROOT . '/Controllers/Entries.php';
 
-        (new Entries())->viewEntry($entrySlug, $entrySlugCustom, $currentPage);
+        (new Entries())->viewEntry($entrySlug, $entrySlugCustom, $this->renderObject->current_page);
     }
 
     public function updateEntryCommentsCount(): void

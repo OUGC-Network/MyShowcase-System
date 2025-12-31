@@ -39,9 +39,9 @@ use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\moderatorGet;
-use function MyShowcase\Plugin\Functions\urlHandlerBuild;
-use function MyShowcase\SimpleRouter\url;
+use function MyShowcase\Plugin\Functions\postParser;
 
+use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
 use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
@@ -145,24 +145,9 @@ class Entries extends Base
 
         $entryUrl = $this->showcaseObject->urlGetEntry($entrySlug);
 
-        \MyShowcase\SimpleRouter\redirect($entryUrl, HTTP_CODE_PERMANENT_REDIRECT);
+        \redirect($entryUrl, HTTP_CODE_PERMANENT_REDIRECT);
 
         exit;
-    }
-
-    #[NoReturn] public function mainPage(
-        int $currentPage = 1,
-        int $userID = 0,
-        int $limit = 0,
-        int $limitStart = 0,
-        string $groupBy = '',
-        string $orderBy = 'user_id',
-        string $orderDirection = ORDER_DIRECTION_ASCENDING,
-        string $filterField = '',
-        mixed $filterValue = '',
-        array $whereClauses = []
-    ): void {
-        $this->mainView(userID: $userID, currentPage: $currentPage);
     }
 
     /**
@@ -180,9 +165,34 @@ class Entries extends Base
         string $filterField = '',
         mixed $filterValue = '',
         array $whereClauses = [],
-        int $currentPage = 1,
     ): string {
         global $lang, $mybb, $db;
+
+        if ($mybb->get_input('action') === 'inline_moderation') {
+            switch ($mybb->get_input('moderate')) {
+                case 'open':
+                    _dump($mybb->input);
+                    break;
+                case 'close':
+                    break;
+                case 'stick':
+                    break;
+                case 'unstick':
+                    break;
+                case 'approve':
+                    break;
+                case 'unapprove':
+                    break;
+                case 'soft_delete':
+                    break;
+                case 'restore':
+                    break;
+                case 'delete':
+                    break;
+            }
+        }
+
+        $this->renderObject->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
 
         $currentUserID = (int)$mybb->user['uid'];
 
@@ -190,23 +200,53 @@ class Entries extends Base
             $this->showcaseObject->config['entries_per_page'] = 1;
         }
 
+        if ($userID) {
+            $this->showcaseObject->urlParamsAppend(['user_id' => $userID]);
+        }
+
+        if ($mybb->get_input('sort')) {
+            $this->showcaseObject->urlParamsAppend(['sort' => $mybb->get_input('sort')]);
+        }
+
+        if ($mybb->get_input('direction')) {
+            $this->showcaseObject->urlParamsAppend(['direction' => $mybb->get_input('direction')]);
+        }
+
+        if ($mybb->get_input('days')) {
+            $this->showcaseObject->urlParamsAppend(['days' => $mybb->get_input('days')]);
+        }
+
+        // First, the date cut for the entries.
+        if (empty($mybb->input['days']) && !empty($mybb->user['daysprune'])) {
+            $days_cut = $mybb->user['daysprune'];
+        } else {
+            $days_cut = $mybb->get_input('days', MyBB::INPUT_INT);
+        }
+
+        if ($days_cut > 0) {
+            $this->showcaseObject->urlParamsAppend(['days' => $days_cut]);
+
+            $whereClauses[] = "(entryData.dateline>='" . (TIME_NOW - ($days_cut * 86400)) . "' OR entryData.is_sticky='1') ";
+            // todo, add setting to force showing featured entries regardless of date filter
+        }
+
         $templatesContext = [
-            'showcase' => $this->showcaseObject->config,
+            'showcase' => $this->showcaseObject,
             'url_main' => $this->showcaseObject->urlGenerate(RouterUrls::Main, $this->showcaseObject->urlParams),
-            'sort_by_field' => $this->showcaseObject->sort_by_field,
-            'orderBy' => $this->showcaseObject->orderBy,
-            'pageCurrent' => $this->renderObject->pageCurrent,
-            'searchField' => $this->showcaseObject->searchField,
-            'searchKeyWords' => $this->renderObject->searchKeyWords,
-            'searchExactMatch' => $this->renderObject->searchExactMatch,
-            'page_meta' => [
-                [
-                    'property' => 'og:description',
-                    'content' => $this->showcaseObject->config['description'],
-                ],
-                [
-                    'property' => 'og:title',
-                    'content' => $this->showcaseObject->config['name'],
+            'current_page' => $this->renderObject->current_page,
+            'keywords' => $this->renderObject->keywords,
+            'search_exact' => $this->renderObject->search_exact,
+            'meta' => [
+                'canonical' => $this->showcaseObject->urlGenerate(RouterUrls::Main),
+                'page' => [
+                    [
+                        'property' => 'og:description',
+                        'content' => $this->showcaseObject->config['description'],
+                    ],
+                    [
+                        'property' => 'og:title',
+                        'content' => $this->showcaseObject->config['name'],
+                    ],
                 ],
             ],
             'moderators' => [],
@@ -216,8 +256,56 @@ class Entries extends Base
                 'members' => 0,
                 'invisible' => 0,
             ],
-            'url_base' => $this->showcaseObject->url_base,
+            'sorting' => [
+                'field' => $this->showcaseObject->sort_field,
+                'direction' => $this->showcaseObject->sort_direction,
+            ],
+            'sorting_url' => '',
+            'inline_selected_count' => 0,
+            'permissions' => [
+                'can_manage_entries' => $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]
+            ],
+            'pagination' => '',
+            'url' => [
+                'sort' =>
+                    [
+                        'subject' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::Main,
+                            array_merge(
+                                $this->showcaseObject->urlParams,
+                                [
+                                    'sort' => 'subject',
+                                    'direction' => $this->showcaseObject->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
+                                ]
+                            )
+                        ),
+                        'username' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::Main,
+                            array_merge($this->showcaseObject->urlParams, [
+                                'sort' => 'username',
+                                'direction' => $this->showcaseObject->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
+                            ])
+                        ),
+                        'comments' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::Main,
+                            array_merge($this->showcaseObject->urlParams, [
+                                'sort' => 'comments',
+                                'direction' => $this->showcaseObject->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
+                            ])
+                        ),
+                        'last_comment' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::Main,
+                            array_merge($this->showcaseObject->urlParams, [
+                                'sort' => 'dateline',
+                                'direction' => $this->showcaseObject->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
+                            ])
+                        ),
+                    ]
+            ],
+            'entry_normal_objects' => [],
+            'entry_sticky_objects' => [],
         ];
+
 
         // Fetch each moderator from the cache and format it, appending it to the list
         foreach (
@@ -226,6 +314,7 @@ class Entries extends Base
             if ($moderator['is_group'] && $group_data = $mybb->cache->read('usergroups')[$moderator['user_id']]) {
                 $templatesContext['moderators']['groups'][$moderator['user_id']] = [
                     'title' => $group_data['title'],
+                    'group_id' => $moderator['user_id'],
                 ];
             } elseif ($user_data = get_user($moderator['user_id'])) {
                 $templatesContext['moderators']['users'][$moderator['user_id']] = [
@@ -287,8 +376,6 @@ class Entries extends Base
 
         $hookArguments = hooksRun('output_main_start', $hookArguments);
 
-        $templatesContext['user_permissions'] = $this->showcaseObject->user_permissions;
-
         /*
                 switch ($this->showcaseObject->config['filter_force_field']) {
                     case FILTER_TYPE_USER_ID:
@@ -329,74 +416,21 @@ class Entries extends Base
         if ($this->showcaseObject->user_permissions[UserPermissions::CanCreateEntries]) {
             $templatesContext['url_entry_create'] = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryCreate,
-                $this->showcaseObject->urlParams
-            );
-        }
-
-        $templatesContext['orderBy'] = $this->showcaseObject->orderBy;
-
-        switch ($this->showcaseObject->orderBy) {
-            case ORDER_DIRECTION_ASCENDING:
-                $inputOrderText = $lang->myshowcase_desc;
-                break;
-            default:
-                $inputOrderText = $lang->myshowcase_asc;
-                break;
-        }
-
-        //build sort_by option list
-        $templatesContext['sort_by_field'] = $this->showcaseObject->sort_by_field;
-
-        $templatesContext['fieldset_fields_display_fields'] = $this->showcaseObject->fieldset_fields_display_fields;
-
-        $templatesContext['selectOptionsSearchField'] = '';
-
-        foreach ($this->renderObject->fieldSetFieldsSearchFields as $field_key => $field_display_name) {
-            $optionSelectedElement = '';
-
-            if ($this->showcaseObject->searchField === $field_key) {
-                $optionSelectedElement = 'selected="selected"';
-            }
-
-            $templatesContext['selectOptionsSearchField'] .= $this->renderObject->templateGet(
-                'pageMainSelectOption',
-                [
-                    'field_key' => $field_key,
-                    'selectedElement' => $selectedElement,
-                    'field_display_name' => $field_display_name,
-                ]
-            );
-        }
-
-        $templatesContext['inputElementExactMatch'] = '';
-
-        if ($this->renderObject->searchExactMatch) {
-            $templatesContext['inputElementExactMatch'] = 'checked="checked"';
-        }
-
-        $urlSortRow = urlHandlerBuild(
-            array_merge($this->renderObject->urlParams, ['order_by' => $this->showcaseObject->orderBy])
-        );
-
-        $templatesContext['orderInputs'] = array_map(function (string $value): string {
-            return '';
-        }, $this->showcaseObject->fieldset_fields_display_fields);
-
-        if ($inputOrderText) {
-            $templatesContext['orderInputs'][$this->showcaseObject->sort_by_field] = $this->renderObject->templateGet(
-                'pageMainTableHeadFieldSort',
-                [
-                    'url_base' => $this->showcaseObject->url_base,
-                    'urlSortRow' => $urlSortRow,
-                    'inputOrderText' => $inputOrderText,
-                ]
             );
         }
 
         $templatesContext['fieldSetFieldsOrder'] = $this->showcaseObject->fieldSetFieldsOrder;
 
         $templatesContext['fieldSetCache'] = array_map(
-            function (array &$fieldDefinition) use (&$alternativeBackground, &$fieldTabIndex): array {
+            function (array &$fieldDefinition) use (&$templatesContext): array {
+                $templatesContext['url']['sort'][$fieldDefinition['field_key']] = $this->showcaseObject->urlGenerate(
+                    RouterUrls::Main,
+                    array_merge($this->showcaseObject->urlParams, [
+                        'sort' => $fieldDefinition['field_key'],
+                        'direction' => $this->showcaseObject->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
+                    ])
+                );
+
                 return $fieldDefinition;
             },
             array_filter($this->showcaseObject->fieldSetCache, function ($fieldDefinition): bool {
@@ -408,8 +442,8 @@ class Entries extends Base
         foreach ($this->showcaseObject->fieldSetFieldsOrder as $renderOrder => $fieldID) {
             $field_key = $this->showcaseObject->fieldSetCache[$fieldID]['field_key'];
 
-            if (!isset($lang->{"myshowcase_field_{$field_key}"})) {
-                $lang->{"myshowcase_field_{$field_key}"} = ucfirst($field_key);
+            if (!isset($lang->{"myshowcase_fieldset_field_{$field_key}"})) {
+                $lang->{"myshowcase_fieldset_field_{$field_key}"} = $field_key;
             }
         }
 
@@ -429,7 +463,7 @@ class Entries extends Base
 
         $allowedStatuses = [ENTRY_STATUS_VISIBLE];
 
-        if ($this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
+        if ($templatesContext['permissions']['can_manage_entries']) {
             $allowedStatuses[] = ENTRY_STATUS_SOFT_DELETED;
         }
 
@@ -447,7 +481,7 @@ class Entries extends Base
 
         $whereClauses = array_merge($whereClauses, $this->showcaseObject->whereClauses);
 
-        $keywords = explode(' ', $this->renderObject->searchKeyWords);
+        $keywords = explode(' ', $this->renderObject->keywords);
 
         foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
             $field_key = $fieldDefinition['field_key'];
@@ -459,11 +493,11 @@ class Entries extends Base
 
                 $queryFields[] = "table_{$field_key}.display_style AS {$field_key}";
 
-                if ($this->renderObject->searchKeyWords && $this->showcaseObject->searchField === $field_key) {
-                    if ($this->renderObject->searchExactMatch) {
-                        $whereClauses[] = "table_{$field_key}.value='{$db->escape_string($this->renderObject->searchKeyWords)}'";
+                if ($this->renderObject->keywords && $this->showcaseObject->searchField === $field_key) {
+                    if ($this->renderObject->search_exact) {
+                        $whereClauses[] = "table_{$field_key}.value='{$db->escape_string($this->renderObject->keywords)}'";
                     } else {
-                        $whereClauses[] = "table_{$field_key}.value LIKE '%{$db->escape_string($this->renderObject->searchKeyWords)}%'";
+                        $whereClauses[] = "table_{$field_key}.value LIKE '%{$db->escape_string($this->renderObject->keywords)}%'";
                     }
 
                     $whereClauses[] = "table_{$field_key}.set_id='{$this->showcaseObject->config['field_set_id']}'";
@@ -473,11 +507,11 @@ class Entries extends Base
 
                 $queryFields[] = $field_key;
 
-                if ($this->renderObject->searchKeyWords) {
-                    if ($this->renderObject->searchExactMatch) {
-                        $whereClauses[] = "us.username='{$db->escape_string($this->renderObject->searchKeyWords)}'";
+                if ($this->renderObject->keywords) {
+                    if ($this->renderObject->search_exact) {
+                        $whereClauses[] = "us.username='{$db->escape_string($this->renderObject->keywords)}'";
                     } else {
-                        $whereClauses[] = "us.username LIKE '%{$db->escape_string($this->renderObject->searchKeyWords)}%'";
+                        $whereClauses[] = "us.username LIKE '%{$db->escape_string($this->renderObject->keywords)}%'";
                     }
                 }
 
@@ -485,68 +519,73 @@ class Entries extends Base
             } else {
                 $queryFields[] = $field_key;
 
-                if ($this->renderObject->searchKeyWords && $this->showcaseObject->searchField === $field_key) {
-                    if ($this->renderObject->searchExactMatch) {
-                        $whereClauses[] = "entryData.{$field_key}='{$db->escape_string($this->renderObject->searchKeyWords)}'";
+                if ($this->renderObject->keywords && $this->showcaseObject->searchField === $field_key) {
+                    if ($this->renderObject->search_exact) {
+                        $whereClauses[] = "entryData.{$field_key}='{$db->escape_string($this->renderObject->keywords)}'";
                     } else {
-                        $whereClauses[] = "entryData.{$field_key} LIKE '%{$db->escape_string($this->renderObject->searchKeyWords)}%'";
+                        $whereClauses[] = "entryData.{$field_key} LIKE '%{$db->escape_string($this->renderObject->keywords)}%'";
+                    }
+                }
+            }
+
+            if ($this->renderObject->keywords &&
+                isset($this->showcaseObject->fieldSetSearchableFields[$fieldDefinition['field_key']])) {
+                foreach ($keywords as $keyword) {
+                    if ($this->renderObject->search_exact) {
+                        $whereClauses[] = "entryData.{$field_key}='{$db->escape_string($keyword)}'";
+                    } else {
+                        $whereClauses[] = "entryData.{$field_key} LIKE '%{$db->escape_string($keyword)}%'";
                     }
                 }
             }
         }
 
         $queryOptions = [
-            'order_by' => 'entry_id',
-            'order_dir' => $this->showcaseObject->orderBy,
+            'order_by' => "is_sticky {$this->showcaseObject->sort_direction}, entry_id",
+            'order_dir' => $this->showcaseObject->sort_direction,
         ];
 
-        if ($this->showcaseObject->sort_by_field !== 'dateline') {
-            $queryOptions['order_by'] = "{$db->escape_string($this->showcaseObject->sort_by_field)} {$this->showcaseObject->orderBy}, entry_id";
+        if ($this->showcaseObject->sort_field !== 'dateline') {
+            $queryOptions['order_by'] = "{$db->escape_string($this->showcaseObject->sort_field)} {$this->showcaseObject->sort_direction}, is_sticky {$this->showcaseObject->sort_direction}, entry_id";
 
-            $queryOptions['order_dir'] = $this->showcaseObject->orderBy;
+            $queryOptions['order_dir'] = $this->showcaseObject->sort_direction;
         }
 
-        $totalEntries = (int)(entryGet(
+        $templatesContext['entries_count'] = (int)(entryGet(
             $this->showcaseObject->showcase_id,
             $whereClauses,
             ['COUNT(entryData.entry_id) AS total_entries'],
-            array_merge(['limit' => 1, 'group_by' => 'entryData.entry_id'], $queryOptions),
+            array_merge(['limit' => 1], $queryOptions),
             $queryTables
         )['total_entries'] ?? 0);
 
-        $templatesContext['pagination'] = '';
-
-        $templatesContextEntry = ['alternativeBackground' => alt_trow(true)];
-
         $hookArguments = hooksRun('output_main_intermediate', $hookArguments);
 
-        $templatesContext['totalEntries'] = $totalEntries;
-
-        if ($totalEntries) {
+        if ($templatesContext['entries_count']) {
             $entriesPerPage = $this->showcaseObject->config['entries_per_page'];
 
-            if ($currentPage > 0) {
-                $pageStart = ($currentPage - 1) * $entriesPerPage;
+            if ($this->renderObject->current_page > 0) {
+                $pageStart = ($this->renderObject->current_page - 1) * $entriesPerPage;
 
-                $pageTotal = $totalEntries / $entriesPerPage;
+                $pageTotal = $templatesContext['entries_count'] / $entriesPerPage;
 
                 $pageTotal = ceil($pageTotal);
 
-                if ($currentPage > $pageTotal) {
+                if ($this->renderObject->current_page > $pageTotal) {
                     $pageStart = 0;
 
-                    $currentPage = 1;
+                    $this->renderObject->current_page = 1;
                 }
             } else {
                 $pageStart = 0;
 
-                $currentPage = 1;
+                $this->renderObject->current_page = 1;
             }
 
             $upper = $pageStart + $entriesPerPage;
 
-            if ($upper > $totalEntries) {
-                $upper = $totalEntries;
+            if ($upper > $templatesContext['entries_count']) {
+                $upper = $templatesContext['entries_count'];
             }
 
             $queryOptions['limit'] = $entriesPerPage;
@@ -554,19 +593,16 @@ class Entries extends Base
             $queryOptions['limit_start'] = $pageStart;
 
             $templatesContext['pagination'] = multipage(
-                $totalEntries,
+                $templatesContext['entries_count'],
                 $this->showcaseObject->config['entries_per_page'],
-                $currentPage,
+                $this->renderObject->current_page,
                 $this->showcaseObject->urlGenerate(
-                    RouterUrls::MainPage,
-                    [
-                        'user_id' => $userID,
-                        'page_id' => '{page}'
-                    ],
-                )
+                    RouterUrls::Main,
+                    array_merge($this->showcaseObject->urlParams, ['page' => '_PAGE_'])
+                ),
             );
 
-            $entriesObjects = entryGet(
+            $entry_objects = entryGet(
                 $this->showcaseObject->showcase_id,
                 $whereClauses,
                 $queryFields,
@@ -578,33 +614,52 @@ class Entries extends Base
             $entryAttachmentsCache = [];
 
             if ($this->showcaseObject->config['attachments_main_render_first']) {
-                $entryIDs = implode("','", array_column($entriesObjects, 'entry_id'));
+                $entryIDs = implode("','", array_column($entry_objects, 'entry_id'));
 
                 $attachmentObjects = attachmentGet(
                     ["showcase_id='{$this->showcaseObject->showcase_id}'", "entry_id IN ('{$entryIDs}')", "status='1'"],
                     [
                         'entry_id',
-                        'MIN(attachment_id) as attachment_id',
                         'mime_type',
+                        'file_size',
                         'file_name',
                         'attachment_name',
+                        'downloads',
+                        'dateline',
                         'thumbnail_name',
                         'attachment_hash',
-                        'thumbnail_dimensions',
                     ],
                     // todo, seems like MIN(attachment_id) as attachment_id is unnecessary
                     ['group_by' => 'entry_id']
                 );
 
                 foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-                    $entryAttachmentsCache[$attachmentData['entry_id']] = [
-                        'attachment_id' => $attachmentID,
-                        'mime_type' => $attachmentData['mime_type'],
+                    $entryAttachmentsCache[$attachmentData['entry_id']][$attachmentID] = [
                         'file_name' => $attachmentData['file_name'],
+                        'file_size' => get_friendly_size($attachmentData['file_size']),
                         'attachment_name' => $attachmentData['attachment_name'],
+                        'downloads' => (int)$attachmentData['downloads'],
+                        'dateline' => (int)$attachmentData['dateline'],
                         'thumbnail_name' => $attachmentData['thumbnail_name'],
-                        'attachment_hash' => $attachmentData['attachment_hash'],
-                        'thumbnail_dimensions' => $attachmentData['thumbnail_dimensions'],
+                        'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
+                        'icon' => get_attachment_icon($attachmentData['attachment_name']),
+                        'is_thumbnail' => !empty($attachmentData['thumbnail_name']),
+                        'url' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::AttachmentView,
+                            [
+                                'entry_slug' => $entry_objects[$attachmentData['entry_id']]['entry_slug'],
+                                'entry_slug_custom' => $entry_objects[$attachmentData['entry_id']]['entry_slug_custom'],
+                                'attachment_hash' => $attachmentData['attachment_hash']
+                            ]
+                        ),
+                        'url_thumbnail' => $this->showcaseObject->urlGenerate(
+                            RouterUrls::ThumbnailView,
+                            [
+                                'entry_slug' => $entry_objects[$attachmentData['entry_id']]['entry_slug'],
+                                'entry_slug_custom' => $entry_objects[$attachmentData['entry_id']]['entry_slug_custom'],
+                                'attachment_hash' => $attachmentData['attachment_hash']
+                            ]
+                        ),
                     ];
                 }
             }
@@ -612,266 +667,277 @@ class Entries extends Base
             $inlineModerationCount = 0;
 
             if ($this->showcaseObject->config['entries_per_page'] === 1) {
-                $entriesObjects = [$entriesObjects];
+                $entry_objects = [$entry_objects];
             }
 
-            $templatesContext['entriesObjects'] = &$entriesObjects;
+            $inlinecookie = 'inlinemod_forum' . $this->showcaseObject->showcase_id;
 
-            foreach ($entriesObjects as &$entryFieldData) {
-                $templatesContextEntry['entrySlug'] = $entrySlug = $entryFieldData['entry_slug'];
+            $entry_objects = array_map(
+                function (array $entryData) use (
+                    &$templatesContext,
+                    $inlinecookie,
+                    $lang,
+                    $entryAttachmentsCache
+                ): array {
+                    $entryData['unread_commets'] = false;
 
-                $this->showcaseObject->entryDataSet($entryFieldData);
+                    $entryData['modChecked'] = false;
 
-                $entryStatus = (int)$entryFieldData['status'];
+                    if ($templatesContext['permissions']['can_manage_entries'] &&
+                        isset($mybb->cookies[$inlinecookie]) &&
+                        my_strpos($mybb->cookies[$inlinecookie], "|{$entryData['entry_slug']}|") !== false) {
+                        $entryData['modChecked'] = true;
 
-                $templatesContextEntry['styleClass'] = '';
+                        ++$templatesContext['inline_selected_count'];
+                    }
 
-                switch ($entryStatus) {
-                    case ENTRY_STATUS_PENDING_APPROVAL:
-                        $templatesContextEntry['styleClass'] = 'trow_shaded';
-                        break;
-                    case ENTRY_STATUS_SOFT_DELETED:
-                        $templatesContextEntry['styleClass'] = 'trow_shaded trow_deleted';
-                        break;
-                }
+                    $templatesContextEntry['entrySlug'] = $entrySlug = $entryData['entry_slug'];
 
-                //change style is unapproved
-                if (empty($entryFieldData['approved'])) {
-                    //$templatesContextEntry['alternativeBackground'] .= ' trow_shaded';
-                }
+                    $this->showcaseObject->entryDataSet($entryData);
 
-                $entryID = (int)$entryFieldData['entry_id'];
+                    $entryStatus = (int)$entryData['status'];
 
-                $entryFieldData['username'] ??= $lang->guest;
+                    $templatesContextEntry['styleClass'] = '';
 
-                $entryUsername = $templatesContextEntry['entryUsernameFormatted'] = htmlspecialchars_uni(
-                    $entryFieldData['username']
-                );
+                    switch ($entryStatus) {
+                        case ENTRY_STATUS_PENDING_APPROVAL:
+                            $templatesContextEntry['styleClass'] = 'trow_shaded';
+                            break;
+                        case ENTRY_STATUS_SOFT_DELETED:
+                            $templatesContextEntry['styleClass'] = 'trow_shaded trow_deleted';
+                            break;
+                    }
 
-                $templatesContextEntry['entryUnapproved'] = ''; // todo, show ({Unapproved}) in the list view
+                    $entryID = (int)$entryData['entry_id'];
 
-                $templatesContextEntry['entryPagination'] = ''; // todo, show pagination in the list view
+                    $entryData['username'] ??= $lang->guest;
 
-                $templatesContextEntry['viewAttachmentsCount'] = ''; // todo, show attachment count in the list view
-
-                if (!empty($entryFieldData['user_id'])) {
-                    $templatesContextEntry['entryUsernameFormatted'] = build_profile_link(
-                        format_name(
-                            $entryFieldData['username'],
-                            $entryFieldData['usergroup'],
-                            $entryFieldData['displaygroup']
-                        ),
-                        $entryFieldData['user_id']
-                    );
-                }
-
-                $templatesContextEntry['viewLastCommenter'] = $templatesContextEntry['entryUsernameFormatted']; // todo, show last commenter in the list view
-
-                $entryFieldData['entryUrl'] = $this->showcaseObject->urlGenerate(
-                    RouterUrls::EntryView,
-                    [
-                        'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
-                    ],
-                    $this->showcaseObject->urlParams
-                );
-
-                $viewLastCommentID = 0; // todo, show last comment ID in the list view
-
-                $entryFieldData['entryUrlLastComment'] = str_replace(
-                    '{entry_id}',
-                    (string)$entryID,
-                    $this->showcaseObject->urlViewComment
-                );
-
-                //add bits for search_field highlighting
-                /*if ($this->renderObject->searchKeyWords) {
-                    $urlBackup = urlHandlerGet();
-
-                    urlHandlerSet($entryUrl);
-
-                    $entryUrl = urlHandlerBuild([
-                        //'search_field' => $this->showcaseObject->searchField,
-                        'highlight' => urlencode($this->renderObject->searchKeyWords)
-                    ]);
-
-                    urlHandlerSet($urlBackup);
-                }*/
-
-                //build a link for the list view, starting with basic text
-
-                $entryImageText = str_replace('{username}', $entryUsername, $lang->myshowcase_view_user);
-
-                $templatesContextEntry['entryImage'] = '';
-
-                //use showcase attachment if one exists, scaled of course
-                if ($this->showcaseObject->config['attachments_main_render_first'] &&
-                    !empty($entryAttachmentsCache[$entryFieldData['entry_id']])) {
-                    $attachmentUrl = $this->showcaseObject->urlGenerate(
-                        RouterUrls::AttachmentView,
-                        [
-                            'entry_slug' => $entrySlug,
-                            'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
-                            'attachment_hash' => $entryAttachmentsCache[$entryFieldData['entry_id']]['attachment_hash']
-                        ]
+                    $entryUsername = $templatesContextEntry['entryUsernameFormatted'] = htmlspecialchars_uni(
+                        $entryData['username']
                     );
 
-                    $thumbnailUrl = $this->showcaseObject->urlGenerate(
-                        RouterUrls::ThumbnailView,
-                        [
-                            'entry_slug' => $entrySlug,
-                            'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom'],
-                            'attachment_hash' => $entryAttachmentsCache[$entryFieldData['entry_id']]['attachment_hash']
-                        ]
-                    );
+                    $templatesContextEntry['entryUnapproved'] = ''; // todo, show ({Unapproved}) in the list view
 
-                    if (stristr(
-                            $entryAttachmentsCache[$entryFieldData['entry_id']]['mime_type'] ?? '',
-                            'image/'
-                        ) && $entryAttachmentsCache[$entryFieldData['entry_id']]['attachment_id']) {
-                        if ((int)$entryAttachmentsCache[$entryFieldData['entry_id']]['thumbnail_dimensions'] === ATTACHMENT_THUMBNAIL_SMALL) {
-                            $urlImage = $attachmentUrl;
-                        } else {
-                            $urlImage = $thumbnailUrl;
-                        }
+                    $templatesContextEntry['entryPagination'] = ''; // todo, show pagination in the list view
 
-                        $templatesContextEntry['entryImage'] = $this->renderObject->templateGet(
-                            'pageMainTableRowsImage',
-                            [
-                                'urlImage' => $urlImage,
-                                'entryImageText' => $entryImageText,
-                            ]
+                    $templatesContextEntry['viewAttachmentsCount'] = ''; // todo, show attachment count in the list view
+
+                    if (!empty($entryData['user_id'])) {
+                        $templatesContextEntry['entryUsernameFormatted'] = build_profile_link(
+                            format_name(
+                                $entryData['username'],
+                                $entryData['usergroup'],
+                                $entryData['displaygroup']
+                            ),
+                            $entryData['user_id']
                         );
                     }
-                }
 
-                //build custom list items based on field settings
-                $showcaseTableRowExtra = [];
+                    $templatesContextEntry['viewLastCommenter'] = $templatesContextEntry['entryUsernameFormatted']; // todo, show last commenter in the list view
 
-                $entrySubject = $entryFieldData['fieldCache'] = [];
-
-                foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
-                    $field_key = $fieldDefinition['field_key'];
-
-                    $htmlType = $fieldDefinition['html_type'];
-
-                    $entryFieldText = $entryFieldData[$field_key] ?? '';
-
-                    if (!$fieldDefinition['parse']) {
-                        // todo, remove this legacy updating the database and updating the format field to TINYINT
-                        formatField((int)$fieldDefinition['format'], $entryFieldText);
-                        /*if ($htmlType === FieldHtmlTypes::Date) {
-                            if ((int)$entryFieldText === 0 || (string)$entryFieldText === '') {
-                                $entryFieldText = '';
-                            } else {
-                                $entryFieldDateValue = explode('|', $entryFieldText);
-
-                                $entryFieldDateValue = array_map('intval', $entryFieldDateValue);
-
-                                if ($entryFieldDateValue[0] > 0 && $entryFieldDateValue[1] > 0 && $entryFieldDateValue[2] > 0) {
-                                    $entryFieldText = my_date(
-                                        $mybb->settings['dateformat'],
-                                        mktime(
-                                            0,
-                                            0,
-                                            0,
-                                            $entryFieldDateValue[0],
-                                            $entryFieldDateValue[1],
-                                            $entryFieldDateValue[2]
-                                        )
-                                    );
-                                } else {
-                                    $entryFieldText = [];
-
-                                    if (!empty($entryFieldDateValue[0])) {
-                                        $entryFieldText[] = $entryFieldDateValue[0];
-                                    }
-
-                                    if (!empty($entryFieldDateValue[1])) {
-                                        $entryFieldText[] = $entryFieldDateValue[1];
-                                    }
-
-                                    if (!empty($entryFieldDateValue[2])) {
-                                        $entryFieldText[] = $entryFieldDateValue[2];
-                                    }
-
-                                    $entryFieldText = implode('-', $entryFieldText);
-                                }
-                            }
-                        }*/
-                    } else {
-                        $entryFieldText = $this->showcaseObject->parseMessage($entryFieldText);
-                    }
-
-                    $entryFieldData['fieldCache'][$fieldID] = $entryFieldText;
-
-                    if ($fieldDefinition['enable_subject'] && !empty($entryFieldText)) {
-                        $entrySubject[] = $entryFieldText;
-                    }
-                }
-
-                $entryFieldData['entrySubject'] = trim(
-                    implode(' ', $entrySubject)
-                ) ?? $lang->myShowcaseMainTableHeadView;
-
-                if ($this->showcaseObject->config['attachments_allow_entries'] &&
-                    $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]) {
-                    $this->renderObject->entryBuildAttachments(
-                        $showcaseTableRowExtra,
-                        $this->renderObject::POST_TYPE_ENTRY
+                    $entryData['url'] = $this->showcaseObject->urlGenerate(
+                        RouterUrls::EntryView,
+                        [
+                            'entry_slug' => $this->showcaseObject->entryData['entry_slug'],
+                            'entry_slug_custom' => $this->showcaseObject->entryData['entry_slug_custom']
+                        ],
+                        $this->showcaseObject->urlParams
                     );
+
+                    $viewLastCommentID = 0; // todo, show last comment ID in the list view
+
+                    $entryData['entryUrlLastComment'] = str_replace(
+                        '{entry_id}',
+                        (string)$entryID,
+                        $this->showcaseObject->urlViewComment
+                    );
+
+                    //add bits for search_field highlighting
+                    /*if ($this->renderObject->searchKeyWords) {
+                        $urlBackup = urlHandlerGet();
+
+                        urlHandlerSet($entryUrl);
+
+                        $entryUrl = urlHandlerBuild([
+                            //'search_field' => $this->showcaseObject->searchField,
+                            'highlight' => urlencode($this->renderObject->searchKeyWords)
+                        ]);
+
+                        urlHandlerSet($urlBackup);
+                    }*/
+
+                    //build a link for the list view, starting with basic text
+
+                    $entryData['attachments'] = [];
+
+                    // todo, maybe render all attachments instead of first image only?
+                    //use showcase attachment if one exists, scaled of course
+                    if ($this->showcaseObject->config['attachments_main_render_first'] &&
+                        !empty($entryAttachmentsCache[$entryData['entry_id']])) {
+                        $entryData['attachments'] = $entryAttachmentsCache[$entryData['entry_id']];
+                    }
+
+                    //build custom list items based on field settings
+                    $showcaseTableRowExtra = [];
+
+                    $entrySubject = $entryData['fieldCache'] = [];
+
+                    foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+                        $field_key = $fieldDefinition['field_key'];
+
+                        $htmlType = $fieldDefinition['html_type'];
+
+                        $entryFieldText = $entryData[$field_key] ?? '';
+
+                        if (!$fieldDefinition['parse']) {
+                            // todo, remove this legacy updating the database and updating the format field to TINYINT
+                            formatField((int)$fieldDefinition['format'], $entryFieldText);
+                            /*if ($htmlType === FieldHtmlTypes::Date) {
+                                if ((int)$entryFieldText === 0 || (string)$entryFieldText === '') {
+                                    $entryFieldText = '';
+                                } else {
+                                    $entryFieldDateValue = explode('|', $entryFieldText);
+
+                                    $entryFieldDateValue = array_map('intval', $entryFieldDateValue);
+
+                                    if ($entryFieldDateValue[0] > 0 && $entryFieldDateValue[1] > 0 && $entryFieldDateValue[2] > 0) {
+                                        $entryFieldText = my_date(
+                                            $mybb->settings['dateformat'],
+                                            mktime(
+                                                0,
+                                                0,
+                                                0,
+                                                $entryFieldDateValue[0],
+                                                $entryFieldDateValue[1],
+                                                $entryFieldDateValue[2]
+                                            )
+                                        );
+                                    } else {
+                                        $entryFieldText = [];
+
+                                        if (!empty($entryFieldDateValue[0])) {
+                                            $entryFieldText[] = $entryFieldDateValue[0];
+                                        }
+
+                                        if (!empty($entryFieldDateValue[1])) {
+                                            $entryFieldText[] = $entryFieldDateValue[1];
+                                        }
+
+                                        if (!empty($entryFieldDateValue[2])) {
+                                            $entryFieldText[] = $entryFieldDateValue[2];
+                                        }
+
+                                        $entryFieldText = implode('-', $entryFieldText);
+                                    }
+                                }
+                            }*/
+                        } else {
+                            $entryFieldText = $this->showcaseObject->parseMessage($entryFieldText);
+                        }
+
+                        $entryData['fieldCache'][$fieldID] = $entryFieldText;
+
+                        if ($fieldDefinition['enable_subject'] && !empty($entryFieldText)) {
+                            $entrySubject[] = $entryFieldText;
+                        }
+                    }
+
+                    $entryData['entrySubject'] = trim(
+                        implode(' ', $entrySubject)
+                    ) ?? $lang->myShowcaseMainTableHeadView;
+
+                    if ($this->renderObject->keywords) {
+                        $entryData['entrySubject'] = postParser()->highlight_message(
+                            $entryData['entrySubject'],
+                            ['highlight' => $this->renderObject->keywords]
+                        );
+                    }
+
+                    if ($this->showcaseObject->config['attachments_allow_entries'] &&
+                        $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]) {
+                        $this->renderObject->entryBuildAttachments(
+                            $showcaseTableRowExtra,
+                            $this->renderObject::POST_TYPE_ENTRY
+                        );
+                    }
+
+                    $templatesContextEntry['tableRowExtra'] = implode('', $showcaseTableRowExtra);
+
+                    $entryData['moderator_check'] = false;
+
+                    if ($templatesContext['permissions']['can_manage_entries'] &&
+                        isset($mybb->cookies['inlinemod_showcase' . $this->showcaseObject->showcase_id]) &&
+                        my_strpos(
+                            $mybb->cookies['inlinemod_showcase' . $this->showcaseObject->showcase_id],
+                            "|{$entryData['entry_id']}|"
+                        ) !== false) {
+                        $entryData['moderator_check'] = true;
+                    }
+
+                    if ($entryData['visible'] == ENTRY_STATUS_PENDING_APPROVAL) {
+                        $entryData['alternativeBackground'] = 'trow_shaded';
+                    } elseif ($entryData['visible'] == ENTRY_STATUS_SOFT_DELETED && $templatesContext['permissions']['can_manage_entries]']) {
+                        $entryData['alternativeBackground'] = 'trow_shaded trow_deleted';
+                    } else {
+                        $entryData['alternativeBackground'] = alt_trow();
+                    }
+
+                    $comment_data = $this->showcaseObject->commentGet(
+                        ["entry_id={$entryID}"],
+                        ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline',],
+                        [
+                            'limit' => 1,
+                            'order_by' => 'dateline',
+                            'order_dir' => ORDER_DIRECTION_DESCENDING
+                        ]
+                    );
+
+                    $entryData['last_commenter_user_data'] = get_user($comment_data['user_id']);
+
+                    $entryData['last_comment_url'] = $comment_data['comment_slug'] ? $this->showcaseObject->urlGenerate(
+                        RouterUrls::Comment,
+                        ['comment_slug' => $comment_data['comment_slug']]
+                    ) : '';
+
+                    $entryData['last_comment_date'] = $comment_data['dateline'] ?? 0;
+
+                    $entryData['attachments_count'] = attachmentGet(
+                        [
+                            "entry_id='{$this->showcaseObject->entryID}'",
+                            "showcase_id='{$this->showcaseObject->showcase_id}'"
+                        ],
+                        [
+                            'COUNT(attachment_id) AS attachment_count'
+                        ],
+                        ['limit' => 1],
+                    )['attachment_count'] ?? 0;
+
+                    $entryData['comments_by_you'] = $this->showcaseObject->commentGet(
+                        [
+                            "entry_id='{$this->showcaseObject->entryID}'",
+                            "user_id='{$currentUserID}'",
+                        ],
+                        [
+                            'COUNT(comment_id) AS comments_count'
+                        ],
+                        ['limit' => 1],
+                    )['comments_count'] ?? 0;
+
+                    return $entryData;
+                },
+                $entry_objects
+            );
+
+            foreach ($entry_objects as $entry_id => $entryFieldData) {
+                if (empty($entryFieldData['is_sticky'])) {
+                    $templatesContext['entry_normal_objects'][$entry_id] = $entryFieldData;
+                } else {
+                    $templatesContext['entry_sticky_objects'][$entry_id] = $entryFieldData;
                 }
-
-                $templatesContextEntry['tableRowExtra'] = implode('', $showcaseTableRowExtra);
-
-                /*$templatesContext['showcaseEntriesList'] .= $this->renderObject->templateGet(
-                    'pageMainTableRows',
-                    $templatesContextEntry
-                );*/
-
-                if ($this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries] &&
-                    isset($mybb->cookies['inlinemod_showcase' . $this->showcaseObject->showcase_id]) &&
-                    my_strpos(
-                        $mybb->cookies['inlinemod_showcase' . $this->showcaseObject->showcase_id],
-                        "|{$entryFieldData['entry_id']}|"
-                    ) !== false) {
-                    $entryFieldData['moderator_check'] = true;
-                }
-
-                $templatesContextEntry['alternativeBackground'] = alt_trow();
-
-                $comment_data = commentsGet(
-                    ["showcase_id={$this->showcaseObject->showcase_id}", "entry_id={$entryID}"],
-                    ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline',],
-                );
-
-                $entryFieldData['last_commenter_user_data'] = get_user($comment_data['user_id']);
             }
-        } else {
-            $templatesContext['searchKeyWords'] = $this->renderObject->searchKeyWords;
         }
 
         $page_title = $this->showcaseObject->config['name'];
-
-        $templatesContext['sortByUsernameUrl'] = urlHandlerBuild(
-            array_merge($this->renderObject->urlParams, ['sort_by' => 'username'])
-        );
-
-        $templatesContext['sortByCommentsUrl'] = urlHandlerBuild(
-            array_merge($this->renderObject->urlParams, ['sort_by' => 'comments'])
-        );
-
-        $templatesContext['sortByViewsUrl'] = urlHandlerBuild(
-            array_merge($this->renderObject->urlParams, ['sort_by' => 'views'])
-        );
-
-        $templatesContext['sortByDatelineUrl'] = urlHandlerBuild(
-            array_merge($this->renderObject->urlParams, ['sort_by' => 'dateline'])
-        );
-
-        $templatesContext['inlineModeration'] = '';
-
-        $templatesContext['can_manage_entries'] = $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries];
 
         return template(
             '@ext.myshowcase/pageMain.twig',
@@ -1322,7 +1388,7 @@ class Entries extends Base
 
             $fieldKeyEscaped = $db->escape_string($field_key);
 
-            $fieldTitle = $lang->{'myshowcase_field_' . $field_key} ?? $field_key;
+            $fieldTitle = $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key;
 
             $fieldElementRequired = '';
 
@@ -1638,13 +1704,14 @@ class Entries extends Base
      * @throws SyntaxError
      */
     #[NoReturn] public function viewEntry(
-        string $entrySlug,
-        string $entrySlugCustom,
-        int $currentPage = 1,
-    ): void {
-        $this->showcaseObject->setEntry($entrySlug, true);
+        string $entry_slug,
+        string $entry_slug_custom,
+    ): string {
+        $this->showcaseObject->setEntry($entry_slug, true);
 
         global $mybb, $lang, $db, $theme;
+
+        $this->renderObject->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
 
         //$lang->load('showthread');
 
@@ -1659,7 +1726,7 @@ class Entries extends Base
         $currentUserID = (int)$mybb->user['uid'];
 
         if (empty($this->showcaseObject->entryID)) {
-            $this->showcaseObject->setEntry($entrySlug, true);
+            $this->showcaseObject->setEntry($entry_slug, true);
         }
 
         if (!$this->showcaseObject->entryID || empty($this->showcaseObject->entryData)) {
@@ -1814,37 +1881,35 @@ class Entries extends Base
                 ['limit' => 1, 'group_by' => 'comment_id']
             )['total_comments'] ?? 0);
 
-            //$currentPage = $mybb->get_input('page', MyBB::INPUT_INT);
+            //$this->renderObject->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
 
             $totalPages = $totalComments / $this->showcaseObject->config['comments_per_page'];
 
             $totalPages = ceil($totalPages);
 
-            if ($currentPage > $totalPages || $currentPage <= 0) {
-                $currentPage = 1;
+            if ($this->renderObject->current_page > $totalPages || $this->renderObject->current_page <= 0) {
+                $this->renderObject->current_page = 1;
             }
 
-            if ($currentPage) {
-                $queryOptions['limit_start'] = ($currentPage - 1) * $this->showcaseObject->config['comments_per_page'];
+            if ($this->renderObject->current_page) {
+                $queryOptions['limit_start'] = ($this->renderObject->current_page - 1) * $this->showcaseObject->config['comments_per_page'];
             } else {
                 $queryOptions['limit_start'] = 0;
 
-                $currentPage = 1;
+                $this->renderObject->current_page = 1;
             }
 
             $commentsCounter = 0;
 
-            if ($currentPage > 1) {
-                $url_params['page'] = $currentPage;
+            if ($this->renderObject->current_page > 1) {
+                $url_params['page'] = $this->renderObject->current_page;
 
-                $commentsCounter += ($currentPage - 1) * $this->showcaseObject->config['comments_per_page'];
+                $commentsCounter += ($this->renderObject->current_page - 1) * $this->showcaseObject->config['comments_per_page'];
             }
 
             $urlParams = [
                 //'page' => '{page}'
             ];
-
-            //SimpleRouter::get('/product-view/{id}', 'ProductsController@show', ['as' => 'product']);
 
             $entryUrl = $this->showcaseObject->urlGenerate(
                 RouterUrls::EntryView,
@@ -1864,7 +1929,7 @@ class Entries extends Base
             $templatesContext['pagination'] = multipage(
                 $totalComments,
                 $this->showcaseObject->config['comments_per_page'],
-                $currentPage,
+                $this->renderObject->current_page,
                 $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryViewPage,
                     [
@@ -1972,7 +2037,7 @@ class Entries extends Base
 
         $templatesContext['canSearch'] = $this->showcaseObject->user_permissions[UserPermissions::CanSearch];
 
-        output_page($this->renderObject->templateGet('pageView', $templatesContext));
+        return $this->renderObject->templateGet('pageView', $templatesContext);
     }
 
     #[NoReturn] public function approveEntry(

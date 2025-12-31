@@ -1567,7 +1567,7 @@ const TABLES_DATA = [
             'size' => 120,
             'default' => 0,
             'formType' => FormTypes::Text,
-        ],
+        ],// todo, drop this redundant field
         'value' => [
             'type' => 'VARCHAR',
             'size' => 120,
@@ -1632,6 +1632,26 @@ const TABLES_DATA = [
         'log_data' => [ // comments old message, etc
             'type' => 'TEXT',
             'null' => true
+        ],
+    ],
+    'myshowcase_reads' => [
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'entry_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'user_id' => [
+            'type' => 'INT',
+            'unsigned' => true
+        ],
+        'dateline' => [
+            'type' => 'INT',
+            'unsigned' => true
         ],
     ],
 ];
@@ -1808,24 +1828,42 @@ const DATA_TABLE_STRUCTURE = [
             'type' => 'INT',
             'unsigned' => true,
             'auto_increment' => true,
-            'primary_key' => true
+            'primary_key' => true,
+            'enable_search' => true,
         ],
         'entry_slug' => [
             'type' => 'VARCHAR',
             'size' => SETTINGS['slugLength'] * 2,
-            'unique_key' => true
+            'unique_key' => true,
         ],
         'entry_slug_custom' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
+            'enable_search' => true,
         ],
         'subject' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
+            'enable_search' => true,
         ],
-        /*'category_primary' => [
+        'prefix' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'icon' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        /*'poll_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'category_primary' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
@@ -1838,12 +1876,12 @@ const DATA_TABLE_STRUCTURE = [
         'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],
         'dateline' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],
         'views' => [
             'type' => 'INT',
@@ -1858,44 +1896,44 @@ const DATA_TABLE_STRUCTURE = [
         'is_closed' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],
-        'is_featured' => [
+        'is_sticky' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1
+            'default' => 0,
         ],
         /*
         notes text NOT NULL,*/
         'status' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1
+            'default' => 1,
         ],
         'edit_user_id' => [ // todo, should be entry_history_id
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],
         /*'approved' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],
         'approved_by' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
         ],*/
         'post_hash' => [
             'type' => 'VARCHAR',
             'size' => 36,
-            'default' => ''
+            'default' => '',
         ],
         'ipaddress' => [
             'type' => 'VARBINARY',
             'size' => 16,
-            'default' => ''
+            'default' => '',
         ],
         //'unique_keys' => ['entry_slug_custom' => 'entry_slug_custom']
     ],
@@ -1936,7 +1974,7 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0
         ],
-        'is_featured' => [
+        'is_sticky' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1

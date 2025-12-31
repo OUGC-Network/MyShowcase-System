@@ -41,18 +41,18 @@ use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 class Attachments extends Base
 {
     #[NoReturn] public function downloadAttachment(
-        string $entrySlug,
-        string $entrySlugCustom,
-        string $attachmentHash
+        string $entry_slug,
+        string $entry_slug_custom,
+        string $attachment_hash
     ): void {
-        $this->viewThumbnail($entrySlug, $entrySlugCustom, $attachmentHash, false);
+        $this->viewThumbnail($entry_slug, $entry_slug_custom, $attachment_hash, false);
     }
 
     #[NoReturn] public function viewThumbnail(
-        string $entrySlug,
-        string $entrySlugCustom,
-        string $attachmentHash,
-        bool $isThumbnail = true,
+        string $entry_slug,
+        string $entry_slug_custom,
+        string $attachment_hash,
+        bool $is_thumbnail = true,
     ): void {
         global $mybb, $db;
         global $lang;
@@ -62,7 +62,7 @@ class Attachments extends Base
         $currentUserID = (int)$mybb->user['uid'];
 
         $entryData = $this->showcaseObject->dataGet(
-            ["entry_slug='{$db->escape_string($entrySlug)}'"],
+            ["entry_slug='{$db->escape_string($entry_slug)}'"],
             ['user_id', 'post_hash', 'status'],
             queryOptions: ['limit' => 1]
         );
@@ -74,10 +74,10 @@ class Attachments extends Base
         $whereClauses = [
             "showcase_id='{$this->showcaseObject->showcase_id}'",
             "entry_id='{$this->showcaseObject->entryID}'",
-            "attachment_hash='{$db->escape_string($attachmentHash)}'",
+            "attachment_hash='{$db->escape_string($attachment_hash)}'",
         ];
 
-        if ($isThumbnail) {
+        if ($is_thumbnail) {
             $whereClauses[] = "thumbnail_name!=''";
         }
 
@@ -86,7 +86,7 @@ class Attachments extends Base
         $hookArguments = [
             'attachmentsController' => &$this,
             'attachmentData' => &$attachmentData,
-            'isThumbnail' => $isThumbnail,
+            'isThumbnail' => $is_thumbnail,
             'tableData' => &$tablesData,
             'whereClauses' => &$whereClauses,
             'incrementDownloadCount' => &$incrementDownloadCount,
@@ -146,7 +146,7 @@ class Attachments extends Base
 
         // Don't check the permissions on preview
         if ($currentUserID !== $attachmentUserID) {
-            if (!$this->showcaseObject->user_permissions[UserPermissions::CanDownloadAttachments] && !$isThumbnail) {
+            if (!$this->showcaseObject->user_permissions[UserPermissions::CanDownloadAttachments] && !$is_thumbnail) {
                 $this->errorNoPermission();
             }
 
@@ -162,7 +162,7 @@ class Attachments extends Base
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($incrementDownloadCount && !$isThumbnail && $currentUserID !== $attachmentUserID) {
+        if ($incrementDownloadCount && !$is_thumbnail && $currentUserID !== $attachmentUserID) {
             if (!is_member($attachmentTypeData['allowed_groups'])) {
                 $this->errorNoPermission();
             }
@@ -177,7 +177,7 @@ class Attachments extends Base
 
         $hookArguments = hooksRun('controller_attachments_download_intermediate', $hookArguments);
 
-        if ($isThumbnail) {
+        if ($is_thumbnail) {
             if (!file_exists($absoluteUploadsPath . '/' . $attachmentData['thumbnail_name'])) {
                 $this->error($lang->error_invalidattachment);
             }

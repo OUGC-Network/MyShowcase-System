@@ -54,13 +54,13 @@ class Render
     public function __construct(
         public Showcase &$showcaseObject,
         public string $highlightTerms = '',
-        public string $searchKeyWords = '',
-        public int $searchExactMatch = 0,
+        public string $keywords = '',
+        public int $search_exact = 0,
         public array $parserOptions = [],
         public array $fieldSetFieldsSearchFields = [],
         public array $urlParams = [],
         public int $page = 0,
-        public int $pageCurrent = 0,
+        public int $current_page = 0,
     ) {
         global $mybb;
 
@@ -71,18 +71,18 @@ class Render
         }
 
         if (isset($mybb->input['keywords'])) {
-            $this->searchKeyWords = $mybb->get_input('keywords');
+            $this->keywords = $mybb->get_input('keywords');
         }
 
         if (!empty($mybb->input['exact_match'])) {
-            $this->searchExactMatch = 1;
+            $this->search_exact = 1;
         }
 
         global $lang;
 
         loadLanguage();
 
-        foreach ($this->showcaseObject->fieldset_fields_display_fields as $field_key => &$field_display_name) {
+        foreach ($this->showcaseObject->fieldset_display_fields as $field_key => &$field_display_name) {
             $field_display_name = $lang->{"myShowcaseMainSort{$field_key}"} ?? ucfirst($field_key);
         }
 
@@ -95,7 +95,7 @@ class Render
 
             $fieldKeyUpper = ucfirst($field_key);
 
-            $this->fieldSetFieldsSearchFields[$field_key] = $lang->{"myShowcaseMainSort{$fieldKeyUpper}"} ?? $lang->{"myshowcase_field_{$field_key}"} ?? $fieldKeyUpper;
+            $this->fieldSetFieldsSearchFields[$field_key] = $lang->{"myShowcaseMainSort{$fieldKeyUpper}"} ?? $lang->{"myshowcase_fieldset_field_{$field_key}"} ?? $fieldKeyUpper;
         }
 
         global $mybb;
@@ -107,34 +107,34 @@ class Render
         }
 
         if (array_key_exists(
-            $this->showcaseObject->sort_by_field,
-            $this->showcaseObject->fieldset_fields_display_fields
+            $this->showcaseObject->sort_field,
+            $this->showcaseObject->fieldset_display_fields
         )) {
-            $this->urlParams['sort_by'] = $this->showcaseObject->sort_by_field;
+            $this->urlParams['sort_by'] = $this->showcaseObject->sort_field;
         }
 
-        if ($this->searchExactMatch) {
-            $this->urlParams['exact_match'] = $this->searchExactMatch;
+        if ($this->search_exact) {
+            $this->urlParams['exact_match'] = $this->search_exact;
         }
 
-        if ($this->searchKeyWords) {
-            $this->urlParams['keywords'] = $this->searchKeyWords;
+        if ($this->keywords) {
+            $this->urlParams['keywords'] = $this->keywords;
         }
 
         if (in_array($this->showcaseObject->searchField, array_keys($this->showcaseObject->fieldSetSearchableFields))) {
             $this->urlParams['search_field'] = $this->showcaseObject->searchField;
         }
 
-        if ($this->showcaseObject->orderBy) {
-            $this->urlParams['order_by'] = $this->showcaseObject->orderBy;
+        if ($this->showcaseObject->sort_direction) {
+            $this->urlParams['order_by'] = $this->showcaseObject->sort_direction;
         }
 
         if ($mybb->get_input('page', MyBB::INPUT_INT) > 0) {
-            $this->pageCurrent = $mybb->get_input('page', MyBB::INPUT_INT);
+            $this->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
         }
 
-        if ($this->pageCurrent) {
-            $this->urlParams['page'] = $this->pageCurrent;
+        if ($this->current_page) {
+            $this->urlParams['page'] = $this->current_page;
         }
 
         $hookArguments = [
@@ -238,7 +238,7 @@ class Render
 
         $templatesContext['entrySlug'] = $this->showcaseObject->entryData['entry_slug'];
 
-        $templatesContext['entryUrl'] = $this->showcaseObject->urlGenerate(
+        $templatesContext['url'] = $this->showcaseObject->urlGenerate(
             RouterUrls::EntryView,
             [
                 'entry_slug' => $templatesContext['entrySlug'],
@@ -295,7 +295,7 @@ class Render
                             if (!is_member($fieldDefinition['allowed_groups_view'])) {
                                 unset($templatesContext['fields_objects'][$fieldID]);
                             }
-                            _dump($field_data_id, $field_data_data);
+                            //_dump(111, $field_data_id, $field_data_data);
                         }
 
                         break;
@@ -800,7 +800,7 @@ class Render
 
             /*$templatesContext['ignoredBit'] = $this->templateGet($templatePrefix . 'IgnoredBit', [
                 'url_base' => $this->showcaseObject->url_base,
-                'entryUrl' => $entryUrl,
+                'url' => $entryUrl,
                 'commentSlug' => $commentSlug,
                 'ignoredMessage' => $ignoredMessage,
             ]);*/
@@ -870,7 +870,7 @@ class Render
 
                         $htmlType = $fieldDefinition['html_type'];
 
-                        $fieldHeader = $lang->{'myshowcase_field_' . $field_key} ?? $field_key;
+                        $fieldHeader = $lang->{'myshowcase_fieldset_field_' . $field_key} ?? $field_key;
 
                         //set parser options for current field
 
@@ -1050,7 +1050,9 @@ class Render
 
         $attachedFiles = $attachedThumbnails = $attachedImages = '';
 
-        $templatesContextAttachment = [];
+        $templatesContextAttachment = [
+            'commentSlug' => $commentSlug
+        ];
 
         foreach ($attachmentObjects as $attachmentID => $attachmentData) {
             $templatesContextAttachment['attachmentUrl'] = $this->showcaseObject->urlGenerate(
@@ -1160,7 +1162,10 @@ class Render
                         $this->showcaseObject->attachmentsDisplayFullSizeImage) &&
                     $isImageAttachment) {
                     if ($this->showcaseObject->user_permissions[UserPermissions::CanDownloadAttachments]) {
-                        $attachedImages .= $this->templateGet('pageViewEntryAttachmentsImagesItem');
+                        $attachedImages .= $this->templateGet(
+                            'pageViewEntryAttachmentsImagesItem',
+                            $templatesContextAttachment
+                        );
                     } else {
                         $attachedThumbnails .= $this->templateGet(
                             'pageViewEntryAttachmentsThumbnailsItem',
@@ -1203,7 +1208,10 @@ class Render
             $attachedFiles .= $this->templateGet('pageViewEntryAttachmentsFilesItemUnapproved');
         }
 
-        $templatesContext = [];
+        $templatesContext = [
+            'entry' => $this->showcaseObject->entryData,
+            'has_attachments' => $attachedFiles || $attachedThumbnails || $attachedImages,
+        ];
 
         if ($attachedFiles) {
             $attachedFiles = $this->templateGet('pageViewEntryAttachmentsFiles', [
@@ -1214,13 +1222,17 @@ class Render
         }
 
         if ($attachedThumbnails) {
-            $attachedThumbnails = $this->templateGet('pageViewEntryAttachmentsThumbnails');
+            $templatesContextAttachment['attachedThumbnails'] = $attachedThumbnails;
+
+            $attachedThumbnails = $this->templateGet('pageViewEntryAttachmentsThumbnails', $templatesContextAttachment);
 
             $templatesContext['attachedThumbnails'] = $attachedThumbnails;
         }
 
         if ($attachedImages) {
-            $attachedImages = $this->templateGet('pageViewEntryAttachmentsImages');
+            $templatesContextAttachment['attachedImages'] = $attachedImages;
+
+            $attachedImages = $this->templateGet('pageViewEntryAttachmentsImages', $templatesContextAttachment);
 
             $templatesContext['attachedImages'] = $attachedImages;
         }

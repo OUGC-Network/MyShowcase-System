@@ -2126,8 +2126,6 @@ function entryGetRandom(): string
             $entry['user_id'],
         );
 
-        $item_view_user = str_replace('{username}', $entry['username'], $lang->myshowcase_view_user);
-
         $entryUrl = str_replace('{entry_id}', $entry['entry_id'], $showcase_file);
 
         $entry['description'] = '';
@@ -2145,7 +2143,7 @@ function entryGetRandom(): string
 
         return $myshowcase->templateGet('portal_rand_showcase', [
             'showcase' => $rand_showcase,
-            'entryUrl' => $entryUrl,
+            'url' => $entryUrl,
             'entryDescription' => $entry['description'],
             'userName' => $entryUsername,
             'entryViews' => $entry['views'],

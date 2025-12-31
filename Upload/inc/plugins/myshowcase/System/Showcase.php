@@ -35,7 +35,6 @@ use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\entryUpdate;
 use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
-use function MyShowcase\SimpleRouter\url;
 
 use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
@@ -59,6 +58,8 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 class Showcase
 {
     public ?UrlGenerator $generator;
+
+    public array $fieldset_display_fields = [];
 
     /**
      * Constructor of class.
@@ -87,8 +88,8 @@ class Showcase
         //public string $commentHash = '',
         public array $fieldset_fields_display_fields = [],
         public string $searchField = '',
-        public string $sort_by_field = '',
-        public string $orderBy = '',
+        public string $sort_field = '',
+        public string $sort_direction = '',
         public array $errorMessages = [],
         #Config
         public int $showcase_id = 0,
@@ -247,33 +248,33 @@ class Showcase
             }
         }
 
-        $this->fieldset_fields_display_fields = [
+        $this->fieldset_display_fields = [
             'dateline' => '',
             //'edit_stamp' => '',
             'username' => '',
-            'user' => '',
+            //'user' => '',
             'views' => '',
             'comments' => ''
         ];
 
-        foreach ($this->fieldSetFieldsOrder as $renderOrder => $fieldID) {
-            $field_key = $this->fieldSetCache[$fieldID]['field_key'];
-
-            $this->fieldset_fields_display_fields[$field_key] = '';
+        foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+            if ($fieldDefinition['display_in_main_page']) {
+                $this->fieldset_display_fields[$fieldDefinition['field_key']] = '';
+            }
         }
 
         $this->searchField = $mybb->get_input('search_field');
 
-        $this->sort_by_field = $mybb->get_input('sort_by');
+        $this->sort_field = $mybb->get_input('sort');
 
-        if ($mybb->get_input('order_by') === ORDER_DIRECTION_ASCENDING) {
-            $this->orderBy = ORDER_DIRECTION_ASCENDING;
-        } elseif ($mybb->get_input('order_by') === ORDER_DIRECTION_DESCENDING) {
-            $this->orderBy = ORDER_DIRECTION_DESCENDING;
+        if ($mybb->get_input('direction') === ORDER_DIRECTION_DESCENDING) {
+            $this->sort_direction = ORDER_DIRECTION_DESCENDING;
+        } else {
+            $this->sort_direction = ORDER_DIRECTION_ASCENDING;
         }
 
-        if (!array_key_exists($this->sort_by_field, $this->fieldset_fields_display_fields)) {
-            $this->sort_by_field = 'dateline';
+        if (!array_key_exists($this->sort_field, $this->fieldset_display_fields)) {
+            $this->sort_field = 'dateline';
         }
 
         $this->url_base = !empty($mybb->settings['homeurl']) ? $mybb->settings['homeurl'] : $mybb->settings['bburl'];
@@ -287,6 +288,8 @@ class Showcase
         } else {
             $this->selfPhpScript = $_SERVER['PHP_SELF'];
         }
+
+        $this->selfPhpScript = '/showcase'; // todo, temporary fix for router
 
         if (str_ends_with($this->selfPhpScript, '/')) {
             $this->selfPhpScript = rtrim($this->selfPhpScript, '/');
@@ -387,9 +390,11 @@ class Showcase
         int $attachmentID = 0,
         int|string $currentPage = 0
     ): string {
+        $this->renderObject->current_page = $currentPage;
+
         return 'showcase.php?route=/' . str_replace(
                 ['{entry_slug_custom}', '{comment_id}', '{current_page}'],
-                [$entrySlug, $commentID, $currentPage],
+                [$entrySlug, $commentID, $this->renderObject->current_page],
                 $url
             );
     }
@@ -1001,5 +1006,10 @@ class Showcase
     public function urlParamsSet(array $urlParams): void
     {
         $this->urlParams = $urlParams;
+    }
+
+    public function urlParamsAppend(array $urlParams): void
+    {
+        $this->urlParams = array_merge($this->urlParams, $urlParams);
     }
 }

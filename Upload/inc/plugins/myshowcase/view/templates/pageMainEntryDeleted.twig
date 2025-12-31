@@ -1,34 +1,31 @@
-{% set class %}{{ thread.bgcolor }} {{ thread.classType }}{% endset %}
-<div class="row row--thread thread {{ class }} inline_row {% if thread.unreadpost and moved != true %}thread--unread{% endif %} {% if modpermissions.ismod %}thread--moderator{% endif %}">
+{% set class %}{{ entry.alternativeBackground }}{% endset %}
+<div class="row row--thread thread {{ class }} inline_row {% if entry.unreadpost %}thread--unread{% endif %} {% if permissions.can_manage_entries %}thread--moderator{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
-            <span class="tag">{{ lang.deleted_thread }}</span>
+            <span class="tag">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
 
             {# Thread status icons #}
             <span class="thread__icons">
                 {# Closed #}
-                {% if thread.closed and moved != true %}
-                    {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.closed}, with_context = false) }}
+                {% if entry.is_closed %}
+                    {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
                 {% endif %}
 
                 {# Sticky #}
-                {% if thread.sticky %}
-                    {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.sticky}, with_context = false) }}
-                {% endif %}
-
-                {# Moved #}
-                {% if moved %}
-                    {{ include('partials/icon.twig', {icon: 'arrow-right', class: 'thread__icon fa-fw', title: lang.moved_prefix}, with_context = false) }}
-                {% endif %}
-
-                {# Poll #}
-                {% if thread.poll %}
-                    {{ include('partials/icon.twig', {icon: 'check-square', class: 'thread__icon fa-fw', title: lang.poll_prefix}, with_context = false) }}
+                {% if entry.is_sticky %}
+                    {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.myshowcase_main_table_row_sticky_entry}, with_context = false) }}
                 {% endif %}
             </span>
         </h3>
     </div>
     <div class="thread__column thread__column--replies">&nbsp;</div>
     <div class="thread__column thread__column--latest">&nbsp;</div>
-    {% include 'forumdisplay/thread_modbit.twig' %}
+    {% if permissions.can_manage_entries %}
+        <div class="thread__column thread__column--checkbox">
+            <input type="checkbox" class="checkbox" name="inlinemod_{{ entry.entry_slug }}"
+                   id="inlinemod_{{ entry.entry_slug }}"
+                   value="1"{% if entry.modChecked %} checked{% endif %} />
+        </div>
+    {% endif %}
+
 </div>

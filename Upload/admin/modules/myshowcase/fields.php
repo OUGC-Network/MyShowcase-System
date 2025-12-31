@@ -404,9 +404,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
                 languageModify(
                     'myshowcase_fs' . $fieldsetID,
                     [
-                        'myshowcase_field_' . ($insertData['field_key'] ?? $fieldDefinition['field_key']) => ucfirst(
+                        'myshowcase_fieldset_field_' . ($insertData['field_key'] ?? $fieldDefinition['field_key']) =>
                             $mybb->get_input('label') ?? $mybb->get_input('field_key')
-                        )
                     ]
                 );
             }
@@ -810,7 +809,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             );
 
             if (empty($fieldDefinition['field_label'])) {
-                $fieldDefinition['field_label'] = $l['myshowcase_field_' . $fieldDefinition['field_key']] ?? '';
+                $fieldDefinition['field_label'] = $l['myshowcase_fieldset_field_' . $fieldDefinition['field_key']] ?? '';
             }
 
             $formContainer->output_cell(
@@ -1468,7 +1467,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         languageModify(
             'myshowcase_fs' . $fieldsetID,
             [],
-            ['myshowcase_field_' . $field_key => '']
+            ['myshowcase_fieldset_field_' . $field_key => '']
         );
 
         if ($fieldIsInUse) {

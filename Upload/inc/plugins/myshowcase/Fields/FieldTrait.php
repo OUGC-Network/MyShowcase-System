@@ -38,14 +38,14 @@ trait FieldTrait
     {
         global $lang;
 
-        return $this->fieldDefinition['field_label'] ?? ($lang->{'myshowcase_field_' . $this->fieldDefinition['field_key']} ?? '');
+        return $this->fieldDefinition['field_label'] ?? ($lang->{'myshowcase_fieldset_field_' . $this->fieldDefinition['field_key']} ?? '');
     }
 
     public function getFieldDescription(): string
     {
         global $lang;
 
-        $fieldDescription = $this->fieldDefinition['description'] ?? ($lang->{'myshowcase_field_' . $this->fieldDefinition['field_key'] . 'Description'} ?? '');
+        $fieldDescription = $this->fieldDefinition['description'] ?? ($lang->{'myshowcase_fieldset_field_' . $this->fieldDefinition['field_key'] . '_description'} ?? '');
 
         if ($fieldDescription) {
             if ($this->fieldDefinition['allow_multiple_values']) {

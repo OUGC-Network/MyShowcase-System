@@ -25,9 +25,6 @@ $l['myshowcase_showcase'] = 'Showcase';
 //basic headers for index table
 $l['myShowcaseMainTableHeadView'] = 'View';
 $l['myShowcaseMainTableHeadAuthor'] = 'Author';
-$l['myShowcaseMainTableHeadComments'] = 'Comments';
-$l['myShowcaseMainTableHeadViews'] = 'Views';
-$l['myShowcaseMainTableHeadLastEdit'] = 'Last Updated';
 
 $l['myShowcaseMainTableRowLastComment'] = 'Last comment';
 
@@ -40,12 +37,6 @@ $l['myshowcase_feature_disabled'] = 'This feature is disabled.';
 $l['myshowcase_comment_empty'] = 'The data submitted contains no text.';
 
 //moderation words
-$l['myshowcase_inline_moderation'] = 'Inline Moderation';
-$l['myshowcase_mod_approve'] = 'Approve Entry';
-$l['myshowcase_mod_unapprove'] = 'Unapprove Entry';
-$l['myshowcase_mod_delete'] = 'Delete Entry';
-$l['myshowcase_inline_go'] = 'Go';
-$l['myshowcase_clear'] = 'Clear';
 $l['myshowcase_no_myshowcaseselected'] = 'There are no selected entries';
 $l['myshowcase_nav_multidelete'] = 'Inline Deletion';
 $l['myshowcase_edit'] = 'Edit';
@@ -58,21 +49,9 @@ $l['myshowcase_unapproved_exist_title'] = 'Unapproved Entries';
 $l['myshowcase_unapproved_link'] = 'Click to view unapproved.';
 
 //sorting words
-$l['myShowcaseMainSelectSortBy'] = 'Sort By:';
-$l['myShowcaseMainSortDateline'] = 'Date';
-$l['myShowcaseMainSortEditDate'] = 'Edited Date';
-$l['myShowcaseMainSortUsername'] = 'Username';
-$l['myShowcaseMainSortUser'] = 'User';
-$l['myShowcaseMainSortUid'] = 'User ID';
-$l['myShowcaseMainSortViews'] = 'Views';
-$l['myShowcaseMainSortComments'] = 'Comments';
-$l['myShowcaseMainSelectAsc'] = 'Ascending';
-$l['myShowcaseMainSelectDesc'] = 'Descending';
 $l['myshowcase_order'] = 'Order By:';
 $l['myShowcaseMainSearch'] = 'Search:';
 $l['myShowcaseMainSearchFor'] = 'for:';
-$l['myShowcaseMainSelectOrderDirection'] = 'Order:';
-$l['myShowcaseMainButtonSortEntries'] = 'Sort Entries';
 
 $l['myshowcase_asc'] = 'asc';
 $l['myshowcase_desc'] = 'desc';
@@ -80,22 +59,16 @@ $l['myshowcase_desc'] = 'desc';
 $l['myShowcaseMainSearchMatch'] = 'exact match';
 
 //query results
-$l['myShowcaseMainTableHeadEntry'] = 'Entry';
-$l['myShowcaseMainTableHeadAuthor'] = 'Author';
-$l['myShowcaseMainTableEmpty'] = 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.';
-$l['myShowcaseMainTableEmptySearch'] = 'The search returned no results. Please try another search term.';
 $l['myshowcase_invalid_id'] = 'The specified Entry ID is invalid.';
 $l['myshowcase_invalid_comment_id'] = 'The specified Comment ID is invalid.';
 $l['myshowcase_invalid_aid'] = 'The specified Attachment ID is invalid.';
 $l['myshowcase_not_specified'] = 'Not Specified';
 
 //view options
-$l['myshowcase_view_user'] = 'View this entry of &quot;{username}&quot;';
 $l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{username}&quot;';
 $l['myshowcase_viewing_attachment'] = 'Viewing Attachment of &quot;{username}&quot;';
 
 //new/edit myshowcase
-$l['myShowcaseButtonEntryCreate'] = 'Post Entry';
 $l['myShowcaseButtonEntryUpdate'] = 'Update Entry';
 $l['myShowcaseButtonCommentCreate'] = 'Post Comment';
 $l['myShowcaseButtonCommentUpdate'] = 'Update Comment';
@@ -195,9 +168,79 @@ $l['viewing_myshowcase_edit'] = 'Editing a {1} entry';
 $l['viewing_myshowcase_attach'] = "Viewing <a href=\"../{1}\">Attachment</a> in a <a href=\"../{2}\">{3} entry</a> of <a href=\"{4}\">{5}</a>";
 
 $l = array_merge($l, [
-    'myShowcaseMainConfirmDeleteEntries' => 'Are you sure you want to remove the selected entry and all of its comments and attachments?',
-    'myShowcaseMainConfirmDeleteComment' => 'Are you sure you want to remove the selected comment from this entry?',
-    'myShowcaseMainConfirmDeleteAttachments' => 'Are you sure you want to remove the selected attachment from this entry?',
+    'myshowcase_main_moderated_by' => 'Moderated by',
+
+    'myshowcase_main_users_browsing' => 'Users browsing this showcase',
+    'myshowcase_main_users_browsing_guests' => '{1} Guest(s)',
+
+    'myshowcase_main_search' => 'Search Entries',
+    'myshowcase_main_search_keywords' => 'Enter Keywords...',
+
+    'myshowcase_main_inline_moderation' => 'Inline Moderation',
+    'myshowcase_main_inline_moderation_go' => 'Go',
+    'myshowcase_main_inline_moderation_standard_tool' => 'Standard Tools',
+    'myshowcase_main_inline_moderation_open' => 'Open Entries',
+    'myshowcase_main_inline_moderation_close' => 'Close Entries',
+    'myshowcase_main_inline_moderation_stick' => 'Stick Entries',
+    'myshowcase_main_inline_moderation_unstick' => 'Unstick Entries',
+    'myshowcase_main_inline_moderation_approve' => 'Approve Entries',
+    'myshowcase_main_inline_moderation_unapprove' => 'Unapprove Entries',
+    'myshowcase_main_inline_moderation_soft_delete' => 'Soft Delete Entries',
+    'myshowcase_main_inline_moderation_restore' => 'Restore Entries',
+    'myshowcase_main_inline_moderation_delete' => 'Delete Entries',
+    'myshowcase_main_inline_moderation_clear' => 'Clear',
+    'myshowcase_main_inline_moderation_no_tool_selected' => 'Please select a tool to perform moderation action.',
+    'myshowcase_main_inline_moderation_no_entry_selected' => 'You need to select one or more entries to perform the moderation action on.',
+
+    'myshowcase_main_button_entry_create' => 'Post Entry',
+    'myshowcase_main_button_sort_entries' => 'Sort Entries',
+    'myshowcase_main_button_search' => 'Search Entries',
+
+    'myshowcase_main_table_head_entry' => 'Entry',
+    'myshowcase_main_table_head_author' => 'Author',
+    'myshowcase_main_table_head_comments' => 'Comments',
+    'myshowcase_main_table_head_last_comment' => 'Last Comment',
+
+    'myshowcase_main_table_separator_sticky' => 'Important Threads',
+    'myshowcase_main_table_separator_normal' => 'Normal Threads',
+    'myshowcase_main_table_separator_selected_page' => 'All <strong>{1}</strong> entries on this page are selected.',
+    'myshowcase_main_table_separator_selected_pall' => 'All <strong>{1}</strong> entries in this forum are selected.',
+    'myshowcase_main_table_separator_selected_pall_clear' => 'Clear Selection',
+
+    'myshowcase_main_table_row_comments' => 'Comments',
+    'myshowcase_main_table_row_views' => 'Views',
+    'myshowcase_main_table_row_closed_entry' => 'Cosed Entry',
+    'myshowcase_main_table_row_sticky_entry' => 'Important Entry',
+    'myshowcase_main_table_row_deleted_entry' => 'Deleted Entry',
+    'myshowcase_main_table_row_awaiting_approval' => 'Awaiting Approval',
+    'myshowcase_main_table_row_go_to_first_unread' => 'Go to first unread comment',
+    'myshowcase_main_table_row_contains_comments_by_you' => 'Contains comments by you.',
+    'myshowcase_main_table_row_by' => 'by',
+    'myshowcase_main_table_row_last_comment_by' => 'Last post by',
+
+    'myshowcase_main_table_row_attachment_file_name' => 'Filename',
+    'myshowcase_main_table_row_attachment_size' => 'Size',
+    'myshowcase_main_table_row_attachment_downloads' => 'Downloads',
+    'myshowcase_main_table_row_attachments_count_single' => 'This thread contains 1 attachment.',
+    'myshowcase_main_table_row_attachments_count_plural' => 'This thread contains {1} attachments.',
+
+    'myshowcase_main_table_empty' => 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.',
+    'myshowcase_main_table_empty_search' => 'The search returned no results. Please try another search term.',
+
+    'myshowcase_main_sort_entries' => 'Sort Entries',
+    'myshowcase_main_sort_field' => 'Sort By',
+    'myshowcase_main_sort_field_dateline' => 'Dateline',
+    'myshowcase_main_sort_field_username' => 'Username',
+    'myshowcase_main_sort_field_views' => 'Views',
+    'myshowcase_main_sort_field_comments' => 'Comments',
+    'myshowcase_main_sort_direction' => 'Direction',
+    'myshowcase_main_sort_direction_asc' => 'Ascending',
+    'myshowcase_main_sort_direction_desc' => 'Descending',
+
+    'myshowcase_main_sort_days_1' => 'From: Today',
+    'myshowcase_main_sort_days_5' => 'From: 5 Days Ago',
+    'myshowcase_main_sort_days_25' => 'From: 25 Days Ago',
+    'myshowcase_main_sort_days_100' => 'From: 100 Days Ago',
 
     'myShowcaseNewEditFormTitle' => 'New Entry',
     'myShowcaseNewEditFormField' => 'Field',

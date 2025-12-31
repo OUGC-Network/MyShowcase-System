@@ -178,13 +178,6 @@ foreach (
         )
     );
 }
-/*
-SimpleRouter::all($showcaseObject->selfPhpScript . $requestBaseUriExtra . '/abc/123', function ($param1, $param2) {
-    // param1 = abc
-    // param2 = 123
-    _dump($param1, $param2);
-})->setMatch('/\/([\w]+)\/?([0-9]+)?\/?/is');
-*/
 
 $routes->add(
     RouterUrls::MainUnapproved,
@@ -239,21 +232,6 @@ $routes->add(
         ],
         [
             'id' => '[0-9]+',
-            '_method' => 'GET',
-        ]
-    )
-);
-
-$routes->add(
-    RouterUrls::MainPage,
-    new Route(
-        $showcaseObject->selfPhpScript . $requestBaseUriExtra . '/page/{page_id}',
-        [
-            '_controller' => function (): string {
-                return (new MyShowcase\Controllers\Entries())->mainPage();
-            },
-        ],
-        [
             '_method' => 'GET',
         ]
     )
@@ -351,8 +329,8 @@ $routes->add(
     new Route(
         $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
         [
-            '_controller' => function (): string {
-                return (new MyShowcase\Controllers\Entries())->viewEntry();
+            '_controller' => function (array $parameters): string {
+                return (new MyShowcase\Controllers\Entries())->viewEntry(...$parameters);
             },
         ],
         [
@@ -490,6 +468,9 @@ $routes->add(
                 return (new MyShowcase\Controllers\Comments())->redirect();
             },
         ],
+        [
+            'comment_slug' => '[a-z0-9-]+',
+        ]
     )
 );
 
@@ -522,6 +503,7 @@ $routes->add(
             '_method' => 'GET',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -538,6 +520,7 @@ $routes->add(
         [
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -555,6 +538,7 @@ $routes->add(
             '_method' => 'POST',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -572,6 +556,7 @@ $routes->add(
             '_method' => 'POST',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -589,6 +574,7 @@ $routes->add(
             '_method' => 'POST',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -606,6 +592,7 @@ $routes->add(
             '_method' => 'POST',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -623,6 +610,7 @@ $routes->add(
             '_method' => 'POST',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'comment_slug' => '[a-z0-9-]+',
         ]
     )
 );
@@ -632,14 +620,15 @@ $routes->add(
     new Route(
         $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
         [
-            '_controller' => function (): string {
-                return (new MyShowcase\Controllers\Attachments())->downloadAttachment();
+            '_controller' => function (array $parameters): string {
+                return (new MyShowcase\Controllers\Attachments())->downloadAttachment(...$parameters);
             },
         ],
         [
             '_method' => 'GET',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'attachment_hash' => '[a-z0-9-]+',
         ]
     )
 );
@@ -649,14 +638,17 @@ $routes->add(
     new Route(
         $showcaseObject->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
         [
-            '_controller' => function (): string {
-                return (new MyShowcase\Controllers\Attachments())->viewThumbnail();
+            '_controller' => function (array $parameters): string {
+                $parameters['is_thumbnail'] = true;
+
+                return (new MyShowcase\Controllers\Attachments())->viewThumbnail(...$parameters);
             },
         ],
         [
             '_method' => 'GET',
             'entry_slug' => '[a-z0-9-]+',
             'entry_slug_custom' => '[a-z0-9-]*',
+            'attachment_hash' => '[a-z0-9-]+',
         ]
     )
 );
@@ -688,7 +680,7 @@ try {
 
     $showcaseObject->urlParamsSet($parameters);
 
-    output_page($controller());
+    output_page($controller($parameters));
 } catch (Exception $e) {
     error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : '');
 }
