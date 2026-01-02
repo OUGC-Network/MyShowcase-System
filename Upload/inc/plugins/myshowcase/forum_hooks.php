@@ -18,6 +18,10 @@ namespace MyShowcase\Hooks\Forum;
 use MyBB;
 use MyShowcase\System\ModeratorPermissions;
 
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
+
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\commentsGet;
@@ -556,8 +560,101 @@ function showthread_start(): bool
 }
 
 //add myshowcase links/counts
+/**
+ * @throws SyntaxError
+ * @throws RuntimeError
+ * @throws LoaderError
+ */
 function postbit(array &$post): array
 {
+    if (str_contains($post['message'], '[attachment=')) {
+        preg_match_all(
+            '#\[attachment=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})]#si',
+            $post['message'],
+            $matches
+        );
+
+        if (!empty($matches[1])) {
+            global $db;
+
+            $attachment_hashes = [];
+
+            foreach ($matches[1] as $attachment_hash) {
+                $attachment_hashes[] = $db->escape_string($attachment_hash);
+            }
+
+            $attachment_hashes = implode("','", array_map([$db, 'escape_string'], $attachment_hashes));
+
+            $attachment_objects = \MyShowcase\Plugin\Functions\attachmentGet(
+                ["attachment_hash IN ('{$attachment_hashes}')"],
+                [
+                    'showcase_id',
+                    'entry_id',
+                    'attachment_hash',
+                    'file_name',
+                    'mime_type',
+                    'file_size',
+                    'attachment_name',
+                    'downloads',
+                    'dateline',
+                    'status',
+                    'thumbnail_name',
+                    'thumbnail_dimensions',
+                ],
+            );
+
+            foreach (array_unique(array_column($attachment_objects, 'showcase_id')) as $showcase_id) {
+                $showcase = showcaseGetObject((int)$showcase_id);
+
+                foreach ($attachment_objects as $attachment_id => $attachment_data) {
+                    $entryData = entryGet(
+                        $showcase->showcase_id,
+                        ["entry_id='{$db->escape_string($attachment_data['entry_id'])}'"],
+                        ['entry_id', 'user_id', 'post_hash', 'status', 'entry_slug', 'entry_slug_custom'],
+                        ['limit' => 1]
+                    );
+
+                    $showcase->entryDataSet($entryData);
+
+                    $attachment_data = $showcase->attachmentsParseObjects(
+                        [$attachment_id => $attachment_data],
+                        true
+                    )[$attachment_id];
+
+
+                    $attachment_data['url'] = str_replace(
+                        'showthread.php/',
+                        '',
+                        $attachment_data['url']
+                    );
+
+                    $attachment_data['url_thumbnail'] = str_replace(
+                        'showthread.php/',
+                        '',
+                        $attachment_data['url_thumbnail']
+                    );
+
+                    $attachedThumbnail = $showcase->renderObject->templateGet(
+                        'postBitAttachmentThumbnail',
+                        [
+                            'thumbnail' => $attachment_data,
+                        ]
+                    );
+
+                    $post['message'] = str_replace(
+                        "[attachment={$attachment_data['attachment_hash']}]",
+                        $attachedThumbnail,
+                        $post['message']
+                    );
+                }
+            }
+        }
+    }
+    // todo, maybe integrate with link tools instead
+    // todo, add setting for image attachments to use mybb->asset_url() method for urls
+
+    return $post;
+
     global $mybb, $_SERVER, $lang, $myshowcase_uids;
 
     if (count($myshowcase_uids) > 0) {

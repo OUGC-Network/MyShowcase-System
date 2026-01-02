@@ -710,7 +710,7 @@ class RouterUrls
             self::$showcase = $showcase;
         }
 
-        RouterUrls::buildRoutes($showcase);
+        RouterUrls::buildRoutes();
 
         RouterUrls::buildContext();
 

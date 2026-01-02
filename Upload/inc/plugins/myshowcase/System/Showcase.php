@@ -652,40 +652,8 @@ class Showcase
         );
     }
 
-    public function attachmentsGetFromEntry(?int $field_id = null, bool $existing_entry = false): array
+    public function attachmentsParseObjects(array $attachmentObjects, bool $existing_entry = false): array
     {
-        $where_clauses = ["showcase_id='{$this->showcase_id}'"];
-
-        if ($this->entry_id) {
-            $where_clauses[] = "entry_id='{$this->entry_id}'";
-        } else {
-            $where_clauses[] = "post_hash='{$this->entry_data['post_hash']}'";
-        }
-
-        if ($field_id !== null) {
-            $where_clauses[] = "field_id='{$field_id}'";
-        }
-
-        $attachmentObjects = attachmentGet(
-            $where_clauses,
-            [
-                'attachment_hash',
-                'file_name',
-                'mime_type',
-                'file_size',
-                'attachment_name',
-                'downloads',
-                'dateline',
-                'status',
-                'thumbnail_name',
-                'thumbnail_dimensions',
-            ]
-        );
-
-        if (!$attachmentObjects) {
-            return [];
-        }
-
         return array_map(function ($attachmentData) use ($existing_entry): array {
             $attachmentData = array_merge(
                 $attachmentData,
@@ -732,10 +700,45 @@ class Showcase
                         'attachment_hash' => $attachmentData['attachment_hash']
                     ]
                 );
+            } else {
+                $attachmentData['url_thumbnail'] = $attachmentData['url'];
             }
 
             return $attachmentData;
         }, $attachmentObjects);
+    }
+
+    public function attachmentsGetFromEntry(?int $field_id = null, bool $existing_entry = false): array
+    {
+        $where_clauses = ["showcase_id='{$this->showcase_id}'"];
+
+        if ($this->entry_id) {
+            $where_clauses[] = "entry_id='{$this->entry_id}'";
+        } else {
+            $where_clauses[] = "post_hash='{$this->entry_data['post_hash']}'";
+        }
+
+        if ($field_id !== null) {
+            $where_clauses[] = "field_id='{$field_id}'";
+        }
+
+        $attachmentObjects = attachmentGet(
+            $where_clauses,
+            [
+                'attachment_hash',
+                'file_name',
+                'mime_type',
+                'file_size',
+                'attachment_name',
+                'downloads',
+                'dateline',
+                'status',
+                'thumbnail_name',
+                'thumbnail_dimensions',
+            ]
+        );
+
+        return $this->attachmentsParseObjects($attachmentObjects, $existing_entry);
     }
 
     public function attachmentsGetFromField(int $field_id): array

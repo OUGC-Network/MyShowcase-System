@@ -632,7 +632,7 @@ class Entries extends Base
                         'thumbnail_name' => $attachmentData['thumbnail_name'],
                         'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
                         'icon' => get_attachment_icon($attachmentData['attachment_name']),
-                        'has_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
+                        'is_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
                         'url' => $this->showcaseObject->urlGenerate(
                             RouterUrls::AttachmentView,
                             [
