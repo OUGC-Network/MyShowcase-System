@@ -15,6 +15,7 @@
 namespace MyShowcase\Fields;
 
 use MyShowcase\System\FieldHtmlTypes;
+use MyShowcase\System\Render;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -27,6 +28,7 @@ trait FieldTrait
     private string $user_value = '';
 
     private string $user_value_display = '';
+    private array $attachments = [];
 
     public function isViewableInEntry(): bool
     {
@@ -130,6 +132,8 @@ trait FieldTrait
             $this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
+        $this->attachments = $this->showcaseObject->attachmentsGetFromField($this->fieldDefinition['field_id']);
+
         return $this;
     }
 
@@ -141,6 +145,20 @@ trait FieldTrait
     public function getUserValueDisplay(): string
     {
         return $this->user_value_display;
+    }
+
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
+    public function getAttachments(array &$entryFields): string
+    {
+        return $this->showcaseObject->renderObject->entryBuildAttachments(
+            $this->attachments,
+            $entryFields,
+            Render::POST_TYPE_ENTRY_FIELD
+        );
     }
 
     public function getFieldHeader(): string

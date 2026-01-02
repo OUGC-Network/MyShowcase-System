@@ -245,14 +245,14 @@ $l = array_merge($l, [
 
     'myshowcase_view_entry_button_create_comment' => 'Post Comment',
     'myshowcase_view_entry_button_entry_closed' => 'Closed',
-    'myShowcaseCommentCreateUpdateFormButtonCreate' => 'Post Comment',
-    'myShowcaseCommentCreateUpdateFormButtonPreview' => 'Preview Comment',
 
     'myshowcase_view_entry_comments_none' => 'There are no comments at this time.',
     'myshowcase_view_entry_go_to_my_profile' => 'Go to My Profile',
-    'myShowcaseCommentCreateTitle' => 'Quick Comment',
     'myshowcase_view_entry_quick_comment_message' => 'Compose your message...',
     'myshowcase_view_entry_comments_not_logged_in' => 'You must be logged in to add a comment.',
+
+    'myshowcase_view_entry_comment_form_title' => 'Quick Comment',
+    'myshowcase_view_entry_comment_form_preview' => 'Preview Comment',
 
     'myshowcase_view_entry_search' => 'Search Entry',
     'myshowcase_view_entry_search_keywords' => 'Enter Keywords',
@@ -292,6 +292,9 @@ $l = array_merge($l, [
     'myshowcase_view_attachments_unapproved_plural' => '{1} unapproved attachments.',
     'myshowcase_view_attachments_unapproved_single' => '1 unapproved attachment.',
 
+    'myshowcase_create_update_attachment_error_missing_file' => 'You did not select a file to upload.',
+    'myshowcase_create_update_attachment_error_size_too_low' => 'The file {1} is too small. The minimum file size allowed is {2}.',
+    'myshowcase_create_update_attachment_error_size_too_large' => 'The file {1} is too large. The maximum file size allowed is {2}.',
     ///
     ///
     ///

@@ -34,4 +34,6 @@ interface FieldsInterface
     public function renderEntry(): string;
 
     public function renderCreateUpdate(string $alternativeBackground, int $fieldTabIndex);
+
+    public function getAttachments(array &$entryFields): string;
 }

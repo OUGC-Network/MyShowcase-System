@@ -1,4 +1,4 @@
-{% if attachment_data.is_thumbnail and display_thumbnail %}
+{% if attachment_data.has_thumbnail and display_thumbnail %}
     <a href="{{ attachment_data.url }}" target="_blank">
         <img
                 src="{{ attachment_data.url_thumbnail }}"

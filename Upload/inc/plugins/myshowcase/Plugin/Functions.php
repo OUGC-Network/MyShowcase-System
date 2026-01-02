@@ -88,6 +88,18 @@ use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_RIGHT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_LEFT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_RIGHT;
 
+const UPLOAD_ERROR_INI_SIZE = 1;
+
+const UPLOAD_ERROR_FORM_SIZE = 2;
+
+const UPLOAD_ERROR_PARTIAL = 3;
+
+const UPLOAD_ERROR_NO_FILE = 4;
+
+const UPLOAD_ERROR_NO_TMP_DIR = 6;
+
+const UPLOAD_ERROR_CANT_WRITE = 7;
+
 function loadLanguage(
     string $languageFileName = 'myshowcase',
     bool $forceUserArea = false,
@@ -1459,6 +1471,8 @@ function attachmentRemove(
  *
  * @param Showcase $showcase Attachment data (as fed by PHPs $_FILE)
  * @param array $attachmentData
+ * @param int $field_id
+ * @param string|null $post_hash
  * @param bool $isUpdate
  * @param bool $watermarkImage
  * @return array Array of attachment data if successful, otherwise array of error data
@@ -1466,39 +1480,27 @@ function attachmentRemove(
 function attachmentUpload(
     Showcase $showcase,
     array $attachmentData,
+    int $field_id = 0,
+    ?string $post_hash = null,
     bool $isUpdate = false,
     bool $watermarkImage = false
 ): array {
-    global $db, $mybb, $lang, $cache;
+    global $db, $lang;
 
     $returnData = [];
 
     if (isset($attachmentData['error']) && $attachmentData['error'] !== 0) {
         $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail;
 
-        switch ($attachmentData['error']) {
-            case 1: // UPLOAD_ERR_INI_SIZE
-                $returnData['error'] .= $lang->error_uploadfailed_php1;
-                break;
-            case 2: // UPLOAD_ERR_FORM_SIZE
-                $returnData['error'] .= $lang->error_uploadfailed_php2;
-                break;
-            case 3: // UPLOAD_ERR_PARTIAL
-                $returnData['error'] .= $lang->error_uploadfailed_php3;
-                break;
-            case 4: // UPLOAD_ERR_NO_FILE
-                $returnData['error'] .= $lang->error_uploadfailed_php4;
-                break;
-            case 6: // UPLOAD_ERR_NO_TMP_DIR
-                $returnData['error'] .= $lang->error_uploadfailed_php6;
-                break;
-            case 7: // UPLOAD_ERR_CANT_WRITE
-                $returnData['error'] .= $lang->error_uploadfailed_php7;
-                break;
-            default:
-                $returnData['error'] .= $lang->sprintf($lang->error_uploadfailed_phpx, $attachmentData['error']);
-                break;
-        }
+        $returnData['error'] .= match ($attachmentData['error']) {
+            UPLOAD_ERROR_INI_SIZE => $lang->error_uploadfailed_php1,
+            UPLOAD_ERROR_FORM_SIZE => $lang->error_uploadfailed_php2,
+            UPLOAD_ERROR_PARTIAL => $lang->error_uploadfailed_php3,
+            UPLOAD_ERROR_NO_FILE => $lang->error_uploadfailed_php4,
+            UPLOAD_ERROR_NO_TMP_DIR => $lang->error_uploadfailed_php6,
+            UPLOAD_ERROR_CANT_WRITE => $lang->error_uploadfailed_php7,
+            default => $lang->sprintf($lang->error_uploadfailed_phpx, $attachmentData['error']),
+        };
 
         return $returnData;
     }
@@ -1532,6 +1534,36 @@ function attachmentUpload(
         return $returnData;
     }
 
+    if ($field_id) {
+        $field_definition = $showcase->fieldSetCache[$field_id];
+
+        if (empty($field_definition)) {
+            $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed; // todo, update lang
+
+            return $returnData;
+        }
+
+        if ($attachmentData['size'] < $field_definition['minimum_size'] * 1024 && !empty($field_definition['minimum_size'])) {
+            $returnData['error'] = $lang->sprintf(
+                $lang->myshowcase_create_update_attachment_error_size_too_low,
+                htmlspecialchars_uni($attachmentData['name']),
+                get_friendly_size($field_definition['minimum_size'] * 1024)
+            );
+
+            return $returnData;
+        }
+
+        if ($attachmentData['size'] > $field_definition['maximum_size'] * 1024 && !empty($field_definition['maximum_size'])) {
+            $returnData['error'] = $lang->sprintf(
+                $lang->myshowcase_create_update_attachment_error_size_too_large,
+                htmlspecialchars_uni($attachmentData['name']),
+                get_friendly_size($field_definition['maximum_size'] * 1024)
+            );
+
+            return $returnData;
+        }
+    }
+
     if ($attachmentData['size'] > $attachmentType['maximum_size'] * 1024 && !empty($attachmentType['maximum_size'])) {
         $returnData['error'] = $lang->sprintf(
             $lang->error_attachsize,
@@ -1561,12 +1593,17 @@ function attachmentUpload(
         }
     }
 
-    _dump(4);
+    $where_clause = "entry_id='{$showcase->entry_id}' AND entry_id!='0')";
+
+    if ($post_hash !== null) {
+        $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
+    }
+
     $existingAttachment = attachmentGet(
         [
             "file_name='{$db->escape_string($attachmentData['name'])}'",
             "showcase_id='{$showcase->showcase_id}'",
-            "(post_hash='{$db->escape_string($showcase->post_hash)}' OR (entry_id='{$showcase->entry_id}' AND entry_id!='0'))"
+            $where_clause
         ],
         queryOptions: ['limit' => 1]
     );
@@ -1632,7 +1669,7 @@ function attachmentUpload(
         return $returnData;
     }
 
-    // Lets just double check that it exists
+    // Let's just double-check that it exists
     if (!file_exists($showcase->config['attachments_uploads_path'] . '/' . $fileName)) {
         $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail . $lang->error_uploadfailed_lost;
 
@@ -1643,8 +1680,6 @@ function attachmentUpload(
         'showcase_id' => $showcase->showcase_id,
         'entry_id' => $showcase->entry_id,
         'attachment_hash' => generateUUIDv4(),
-        'post_hash' => $showcase->post_hash,
-        //'post_hash' => $showcase->commentHash,
         'user_id' => $showcase->entryUserID,
         'file_name' => $fileName,
         'mime_type' => my_strtolower($fileDataResult['type']),
@@ -1652,9 +1687,20 @@ function attachmentUpload(
         'attachment_name' => $fileDataResult['original_filename'],
         'dateline' => TIME_NOW,
         'status' => ATTACHMENT_STATUS_VISIBLE,
+        'field_id' => $field_id,
         /*'cdn_file' => 0,*/
 
     ];
+
+    $returnData['attachment_hash'] = $insertData['attachment_hash'];
+
+    $returnData['file_name'] = $insertData['file_name'];
+
+    $returnData['file_size'] = $insertData['file_size'];
+
+    if ($post_hash !== null) {
+        $insertData['post_hash'] = $post_hash;
+    }
 
     if ($isUpdate) {
         $insertData['edit_stamp'] = TIME_NOW;

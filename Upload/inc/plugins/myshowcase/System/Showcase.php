@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\System;
 
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
 
@@ -26,6 +27,7 @@ use function MyShowcase\Plugin\Functions\commentsDelete;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\entryDelete;
 use function MyShowcase\Plugin\Functions\entryInsert;
+use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -82,8 +84,6 @@ class Showcase
         public array $entry_data = [],
         public int $entry_id = 0,
         public int $entryUserID = 0,
-        //public string $entryHash = '',
-        //public string $commentHash = '',
         public array $fieldset_fields_display_fields = [],
         public string $searchField = '',
         public string $sort_field = '',
@@ -650,6 +650,97 @@ class Showcase
             $message,
             array_merge($this->parserOptions, $parserOptions)
         );
+    }
+
+    public function attachmentsGetFromEntry(?int $field_id = null, bool $existing_entry = false): array
+    {
+        $where_clauses = ["showcase_id='{$this->showcase_id}'"];
+
+        if ($this->entry_id) {
+            $where_clauses[] = "entry_id='{$this->entry_id}'";
+        } else {
+            $where_clauses[] = "post_hash='{$this->entry_data['post_hash']}'";
+        }
+
+        if ($field_id !== null) {
+            $where_clauses[] = "field_id='{$field_id}'";
+        }
+
+        $attachmentObjects = attachmentGet(
+            $where_clauses,
+            [
+                'attachment_hash',
+                'file_name',
+                'mime_type',
+                'file_size',
+                'attachment_name',
+                'downloads',
+                'dateline',
+                'status',
+                'thumbnail_name',
+                'thumbnail_dimensions',
+            ]
+        );
+
+        if (!$attachmentObjects) {
+            return [];
+        }
+
+        return array_map(function ($attachmentData) use ($existing_entry): array {
+            $attachmentData = array_merge(
+                $attachmentData,
+                [
+                    'file_name' => $attachmentData['file_name'],
+                    'file_size' => get_friendly_size($attachmentData['file_size']),
+                    'attachment_name' => $attachmentData['attachment_name'],
+                    'downloads' => (int)$attachmentData['downloads'],
+                    'dateline' => (int)$attachmentData['dateline'],
+                    'thumbnail_name' => $attachmentData['thumbnail_name'],
+                    'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
+                    'icon' => get_attachment_icon($attachmentData['attachment_name']),
+                    'has_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
+                    'url' => $existing_entry ? $this->urlGenerate(
+                        RouterUrls::AttachmentView,
+                        [
+                            'entry_slug' => $this->entry_data['entry_slug'],
+                            'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
+                            'attachment_hash' => $attachmentData['attachment_hash'],
+                        ],
+                    ) : $this->urlGenerate(
+                        RouterUrls::AttachmentViewFromPostHash,
+                        [
+                            'post_hash' => $this->entry_data['post_hash'],
+                            'attachment_hash' => $attachmentData['attachment_hash']
+                        ],
+                    ),
+                ]
+            );
+
+            if ($attachmentData['has_thumbnail']) {
+                $attachmentData['url_thumbnail'] = $existing_entry ? $this->urlGenerate(
+                    RouterUrls::ThumbnailView,
+                    [
+                        'entry_slug' => $this->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
+                        'attachment_hash' => $attachmentData['attachment_hash']
+                    ]
+                ) : $this->urlGenerate(
+                    RouterUrls::ThumbnailView,
+                    [
+                        'entry_slug' => $this->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
+                        'attachment_hash' => $attachmentData['attachment_hash']
+                    ]
+                );
+            }
+
+            return $attachmentData;
+        }, $attachmentObjects);
+    }
+
+    public function attachmentsGetFromField(int $field_id): array
+    {
+        return $this->attachmentsGetFromEntry($field_id, existing_entry: true);
     }
 
     public function attachmentsRemove(array $whereClauses): void

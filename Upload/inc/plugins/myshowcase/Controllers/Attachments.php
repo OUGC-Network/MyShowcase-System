@@ -17,6 +17,8 @@ namespace MyShowcase\Controllers;
 
 use MyBB;
 use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Plugin\RouterUrls;
+use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\UserPermissions;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\ExceptionInvalidRangeHeader;
@@ -29,6 +31,7 @@ use MyShowcase\System\RangeHeader;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentLogInsert;
 use function MyShowcase\Plugin\Functions\attachmentUpdate;
+use function MyShowcase\Plugin\Functions\attachmentUpload;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
@@ -40,18 +43,255 @@ use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 
 class Attachments extends Base
 {
-    #[NoReturn] public function downloadAttachment(
-        string $entry_slug,
-        string $entry_slug_custom,
-        string $attachment_hash
+    #[NoReturn] public function uploadAttachment(
+        ?string $post_hash = null
     ): void {
-        $this->viewThumbnail($entry_slug, $entry_slug_custom, $attachment_hash, false);
+        global $mybb, $lang;
+
+        if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
+            $this->error($lang->invalid_post_code);
+        }
+
+        if (!$this->showcaseObject->config['attachments_allow_entries'] ||
+            !$this->showcaseObject->user_permissions[UserPermissions::CanUploadAttachments]) {
+            $this->errorNoPermission();
+        }
+
+        $field_key = $mybb->get_input('field_key');
+
+        $field_id = $this->showcaseObject->fieldSetFieldsIDs[$field_key] ?? 0;
+
+        if (!$field_key || empty($field_id)) {
+            $this->errorNoPermission();
+        }
+
+        if (empty($_FILES[$field_key])) {
+            $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
+        }
+
+        $field_definition = $this->showcaseObject->fieldSetCache[$field_id];
+
+        if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
+            !is_member($field_definition['allowed_groups_fill'])) {
+            $this->errorNoPermission();
+        }
+
+        if ($mybb->request_method === 'post') {
+            require_once MYBB_ROOT . 'inc/functions_upload.php';
+
+            $fileObject = attachmentUpload(
+                $this->showcaseObject,
+                $_FILES[$field_key],
+                field_id: $field_id,
+                post_hash: $post_hash,
+                watermarkImage: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
+            );
+
+            if (isset($fileObject['error'])) {
+                $this->error($fileObject['error']);
+            } else {
+                $this->success([
+                    'id' => $fileObject['attachment_id'],
+                    'path' => $fileObject['file_name'],
+                    'url' => $this->showcaseObject->urlGenerate(
+                        RouterUrls::AttachmentViewFromPostHash,
+                        [
+                            'post_hash' => $post_hash,
+                            'attachment_hash' => $fileObject['attachment_hash']
+                        ],
+                    ),
+                    'filename' => basename($_FILES[$field_key]['name']),
+                    'size' => $fileObject['file_size'],
+                    'type' => $fileObject['mime_type'],
+                    'status' => 'success', // error, pending
+                    'message' => 'File uploaded successfully',
+                    'key' => $fileObject['attachment_id'],
+                    'metadata' => [
+                        'width' => empty($fileObject['dimensions']) ? '' : explode('x', $fileObject['dimensions'])[0],
+                        'height' => empty($fileObject['dimensions']) ? '' : explode('x', $fileObject['dimensions'])[1],
+                        'author' => $mybb->user['username'] ?? '',
+                    ],
+                ]);
+            }
+        }
+
+        /*
+    ["field_type"]=>
+    string(7) "varchar"
+    ["file_capture"]=>
+    int(0)
+    ["allow_multiple_values"]=>
+    int(0)
+    ["default_value"]=>
+    string(0) ""
+    ["default_type"]=>
+    int(0)
+    ["filter_on_save"]=>
+    int(0)
+    ["enabled"]=>
+    int(1)
+    ["is_required"]=>
+    int(0)
+    ["read_only"]=>
+    int(0)
+  }
+}
+
+
+
+
+    ["gallery_files"]=>
+    array(6) {
+      ["name"]=>
+      string(12) "Sonic005.png"
+      ["full_path"]=>
+      string(12) "Sonic005.png"
+      ["type"]=>
+      string(9) "image/png"
+      ["tmp_name"]=>
+      string(27) "/tmp/phpkas1nfmrpbov0hTFgbX"
+      ["error"]=>
+      int(0)
+      ["size"]=>
+      int(20407)
+    }
+         */
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Handle chunked uploads (FilePond sends chunks as separate requests)
+            $chunkIndex = isset($_SERVER['HTTP_UPLOAD_OFFSET']) ? (int)$_SERVER['HTTP_UPLOAD_OFFSET'] : 0;
+            $fileName = isset($_SERVER['HTTP_UPLOAD_FILENAME']) ? $_SERVER['HTTP_UPLOAD_FILENAME'] : 'unknown';
+            $tempFileName = $uploadDir . 'temp_' . $fileName;
+
+            // Append chunk to temporary file
+            file_put_contents($tempFileName, file_get_contents('php://input'), FILE_APPEND);
+
+            // If this is the last chunk, rename the file
+            if (isset($_SERVER['HTTP_UPLOAD_LENGTH']) && $chunkIndex + strlen(
+                    file_get_contents('php://input')
+                ) >= (int)$_SERVER['HTTP_UPLOAD_LENGTH']) {
+                $finalFileName = $uploadDir . $fileName;
+                rename($tempFileName, $finalFileName);
+                echo json_encode(['fileId' => uniqid()]);
+            } else {
+                echo json_encode(['offset' => $chunkIndex + strlen(file_get_contents('php://input'))]);
+            }
+            exit;
+        }
+
+        // Handle file deletion
+        if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && isset($_GET['delete'])) {
+            $filePath = __DIR__ . '/uploads/' . $_GET['delete'];
+
+            if (file_exists($filePath)) {
+                if (unlink($filePath)) {
+                    $this->success([
+                        'success' => true,
+                    ]);
+                } else {
+                    $this->error('Unable to delete file.');
+                }
+            } else {
+                $this->error('File not found.', 404);
+            }
+        }
+
+        // Handle file restore (resume)
+        if ($mybb->request_method === 'get' && isset($_GET['restore'])) {
+            $filePath = __DIR__ . '/uploads/' . $_GET['restore'];
+
+            if (file_exists($filePath)) {
+                header('Content-Type: application/octet-stream');
+
+                readfile($filePath);
+
+                exit;
+            } else {
+                $this->error('File not found.', 404);
+            }
+        }
+    }
+
+    #[NoReturn] public function getAttachments(
+        ?string $post_hash = null,
+        ?string $entry_slug = null,
+        ?string $entry_slug_custom = null,
+    ): void {
+        global $db;
+
+        $where_clauses = ["showcase_id='{$this->showcaseObject->showcase_id}'"];
+
+        if ($post_hash === null) {
+            $where_clauses[] = "entry_slug='{$db->escape_string($entry_slug ?? '')}'";
+        } else {
+            $where_clauses[] = "post_hash='{$db->escape_string($post_hash)}'";
+        }
+
+        global $mybb;
+
+        $field_key = $mybb->get_input('field_key');
+
+        if ($field_key) {
+            $field_id = $this->showcaseObject->fieldSetFieldsIDs[$field_key] ?? 0;
+
+            if (empty($field_id)) {
+                $this->errorNoPermission();
+            }
+
+            $field_definition = $this->showcaseObject->fieldSetCache[$field_id];
+
+            if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
+                !is_member($field_definition['allowed_groups_fill'])) {
+                $this->errorNoPermission();
+            }
+            //$where_clauses[] = "field_id='{$field_id}'";
+        }
+
+        $attachmentObjects = attachmentGet(
+            $where_clauses,
+            [
+                'attachment_name',
+                'mime_type',
+                'file_size',
+                //'field_id',
+                'attachment_hash',
+            ]
+        );
+
+        foreach ($attachmentObjects as $attachmentID => $attachmentData) {
+            $attachmentObjects[$attachmentID]['url'] = $post_hash === null ? $this->showcaseObject->urlGenerate(
+                RouterUrls::AttachmentViewFromPostHash,
+                [
+                    'post_hash' => $post_hash,
+                    'attachment_hash' => $attachmentData['attachment_hash']
+                ],
+            ) : $this->showcaseObject->urlGenerate(
+                RouterUrls::AttachmentViewFromPostHash,
+                [
+                    'post_hash' => $post_hash,
+                    'attachment_hash' => $attachmentData['attachment_hash']
+                ],
+            );
+            //$attachmentObjects[$attachmentID]['url'] = 'https://static.wikia.nocookie.net/sonic/images/1/10/SRCSonic.png/revision/latest?cb=20251202132714';
+        }
+
+        $this->success(array_values($attachmentObjects));
+    }
+
+    #[NoReturn] public function downloadAttachment(
+        string $attachment_hash,
+        ?string $post_hash = null,
+        ?string $entry_slug = null,
+        ?string $entry_slug_custom = null,
+    ): void {
+        $this->viewThumbnail($attachment_hash, $post_hash, $entry_slug, $entry_slug_custom, false);
     }
 
     #[NoReturn] public function viewThumbnail(
-        string $entry_slug,
-        string $entry_slug_custom,
         string $attachment_hash,
+        ?string $post_hash = null,
+        ?string $entry_slug = null,
+        ?string $entry_slug_custom = null,
         bool $is_thumbnail = true,
     ): void {
         global $mybb, $db;
@@ -61,19 +301,29 @@ class Attachments extends Base
 
         $current_user_id = (int)$mybb->user['uid'];
 
+        $where_clause = "entry_slug='{$db->escape_string($entry_slug ?? '')}'";
+
+        if ($post_hash !== null) {
+            $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
+        }
+
         $entryData = $this->showcaseObject->dataGet(
-            ["entry_slug='{$db->escape_string($entry_slug)}'"],
+            [$where_clause],
             ['user_id', 'post_hash', 'status'],
             queryOptions: ['limit' => 1]
         );
 
         $this->showcaseObject->entryDataSet($entryData);
 
+        if ($this->showcaseObject->entry_id) {
+            $where_clause = "entry_id='{$this->showcaseObject->entry_id}'";
+        }
+
         $tablesData = TABLES_DATA['myshowcase_attachments'];
 
         $whereClauses = [
             "showcase_id='{$this->showcaseObject->showcase_id}'",
-            "entry_id='{$this->showcaseObject->entry_id}'",
+            $where_clause,
             "attachment_hash='{$db->escape_string($attachment_hash)}'",
         ];
 
@@ -99,6 +349,10 @@ class Attachments extends Base
             array_keys($tablesData),
             queryOptions: ['limit' => 1]
         );
+
+        if ($attachmentData['field_id'] !== 0) {
+            // todo, check field permissions
+        }
 
         if (empty($attachmentData['attachment_name'])) {
             $this->error($lang->error_invalidattachment);
@@ -236,7 +490,7 @@ class Attachments extends Base
                     $disposition = 'attachment';
             }
 
-            ini_set('display_errors', 0);
+            //ini_set('display_errors', 0);
 
             require_once ROOT . '/System/ExceptionInvalidRangeHeader.php';
             require_once ROOT . '/System/ExceptionNonExistentFile.php';
@@ -278,37 +532,36 @@ class Attachments extends Base
         }
     }
 
-    #[NoReturn] public function error(string $error = ''): void
+    #[NoReturn] public function success(array $params = [], int $status_code = 200): void
     {
-        global $mybb, $lang;
+        global $lang;
 
-        $error ??= $lang->unknown_error;
+        header("Content-type: application/json; charset={$lang->settings['charset']}");
 
-        if ($mybb->get_input('ajax', MyBB::INPUT_INT)) {
-            header("Content-type: application/json; charset={$lang->settings['charset']}");
+        http_response_code($status_code);
 
-            echo json_encode(['errors' => [$error]]);
-
-            exit;
-        }
-
-        echo $error;
+        echo json_encode($params);
 
         exit;
     }
 
-    #[NoReturn] public function errorNoPermission(): void
+    #[NoReturn] public function error(string $error = '', int $status_code = 500): void
     {
-        global $mybb, $lang;
+        global $lang;
 
-        if ($mybb->get_input('ajax', MyBB::INPUT_INT)) {
-            header("Content-type: application/json; charset={$lang->settings['charset']}");
+        header("Content-type: application/json; charset={$lang->settings['charset']}");
 
-            echo json_encode(['errors' => [$lang->error_nopermission_user_ajax]]);
+        http_response_code($status_code);
 
-            exit;
-        }
+        echo json_encode(['error' => empty($error) ? $lang->unknown_error : $error]);
 
-        $this->error($lang->error_nopermission_guest_1);
+        exit;
+    }
+
+    #[NoReturn] public function errorNoPermission(int $status_code = 401): void
+    {
+        global $lang;
+
+        $this->error($lang->error_nopermission_guest_1, $status_code);
     }
 }

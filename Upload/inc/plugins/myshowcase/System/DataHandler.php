@@ -204,10 +204,21 @@ class DataHandler extends CoreDataHandler
             }
 
             if ($fieldDefinition['is_required'] && empty($entry_data[$fieldDefinition['field_key']])) {
-                $this->set_error(
-                    'required_field',
-                    [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
-                );
+                if ($fieldDefinition['html_type'] === FieldHtmlTypes::File) {
+                    $entry_attachments = $this->showcaseObject->attachmentsGetFromField($fieldID);
+
+                    if (empty($entry_attachments)) {
+                        $this->set_error(
+                            'required_field',
+                            [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                        );
+                    }
+                } else {
+                    $this->set_error(
+                        'required_field',
+                        [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                    );
+                }
             }
 
             if (empty($entry_data[$fieldDefinition['field_key']]) && $fieldDefinition['default_value'] !== '') {
@@ -364,10 +375,6 @@ class DataHandler extends CoreDataHandler
             $this->insertData[$key] = $value;
         }
 
-        if (!$isUpdate && empty($this->insertData['post_hash'])) {
-            $this->insertData['post_hash'] = generateUUIDv4();
-        }
-
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
 
         if (!isset($this->insertData['entry_slug']) && $this->method === 'insert') {
@@ -376,29 +383,21 @@ class DataHandler extends CoreDataHandler
 
         if ($isUpdate) {
             $this->entry_id = $this->showcaseObject->dataUpdate($this->insertData);
-
-            if (!isset($this->insertData['post_hash'])) {
-                $commentData = entryGet(
-                    $this->showcaseObject->showcase_id,
-                    ["entry_id='{$this->entry_id}'"],
-                    ['post_hash']
-                );
-
-                $this->returnData['post_hash'] = $commentData['post_hash'];
-            }
         } else {
             $this->entry_id = $this->showcaseObject->dataInsert($this->insertData);
-
-            $this->returnData['post_hash'] = $this->insertData['post_hash'];
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
-        foreach (
-            attachmentGet(
-                ["post_hash='{$db->escape_string($this->returnData['post_hash'])}'"]
-            ) as $attachmentID => $attachmentData
-        ) {
-            attachmentUpdate(['entry_id' => $this->entry_id, 'post_hash' => ''], $attachmentID);
+        if (!empty($this->insertData['post_hash'])) {
+            foreach (
+                attachmentGet(
+                    ["post_hash='{$db->escape_string($this->insertData['post_hash'])}'"]
+                ) as $attachmentID => $attachmentData
+            ) {
+                attachmentUpdate(['entry_id' => $this->entry_id], $attachmentID);
+            }
+
+            $this->returnData['post_hash'] = $this->insertData['post_hash'];
         }
 
         $this->returnData['entry_id'] = $this->entry_id;

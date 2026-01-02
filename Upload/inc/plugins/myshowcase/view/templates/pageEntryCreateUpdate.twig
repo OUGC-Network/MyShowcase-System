@@ -9,6 +9,27 @@
     <link rel="stylesheet" href="{{ mybb.asset_url }}/jscripts/select2/select2.css?ver=1807"/>
     <script type="text/javascript"
             src="{{ mybb.asset_url }}/jscripts/select2/select2.min.js?ver=1806"></script>
+
+    <!-- Include FilePond and plugins -->
+    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-file-encode/dist/filepond-plugin-file-encode.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-file-metadata/dist/filepond-plugin-file-metadata.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-file-poster/dist/filepond-plugin-file-poster.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-file-validate-size/dist/filepond-plugin-file-validate-size.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-crop/dist/filepond-plugin-image-crop.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-exif-orientation/dist/filepond-plugin-image-exif-orientation.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-resize/dist/filepond-plugin-image-resize.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-transform/dist/filepond-plugin-image-transform.js"></script>
+    <script src="https://unpkg.com/filepond-plugin-image-validate-size/dist/filepond-plugin-image-validate-size.js"></script>
+
+    <link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+    <link
+            href="https://unpkg.com/filepond-plugin-file-poster/dist/filepond-plugin-file-poster.css"
+            rel="stylesheet"
+    />
+    <link href="https://unpkg.com/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css"
+          rel="stylesheet">
 {% endblock jscripts %}
 
 {% block body %}
@@ -69,7 +90,7 @@
 
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
         <input type="hidden" name="post_hash"
-               value="{% if mybb.input.post_hash is defined %}{{ mybb.input.post_hash }}{% endif %}"
+               value="{{ entry_data.post_hash }}"
                form="contentForm"/>
     </div>
     {{ attachmentsUpload|raw }}

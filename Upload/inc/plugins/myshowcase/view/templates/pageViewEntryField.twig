@@ -12,6 +12,8 @@
         {{ field_data.value|raw }}
     {% elseif field_data.html_type == 'file' %}
         {{ field_data.value|raw }}
+        {# Attachments #}
+        {{ field_data.field_attachments|raw }}
     {% elseif field_data.html_type == 'month' %}
         {{ field_data.value|raw }}
     {% elseif field_data.html_type == 'number' %}

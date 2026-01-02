@@ -19,9 +19,11 @@ use captcha;
 use MyBB;
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
+use MyShowcase\System\FieldDefaultTypes;
 use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
+use Symfony\Component\Routing\Route;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -29,12 +31,14 @@ use Twig\Error\SyntaxError;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentUpload;
 use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\cleanSlug;
 use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldGetObject;
 use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
 use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\formatField;
+use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\moderatorGet;
@@ -628,7 +632,7 @@ class Entries extends Base
                         'thumbnail_name' => $attachmentData['thumbnail_name'],
                         'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
                         'icon' => get_attachment_icon($attachmentData['attachment_name']),
-                        'is_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
+                        'has_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
                         'url' => $this->showcaseObject->urlGenerate(
                             RouterUrls::AttachmentView,
                             [
@@ -929,7 +933,7 @@ class Entries extends Base
         bool $isEditPage = false,
         string $entry_slug = '',
     ): string {
-        global $lang, $mybb;
+        global $lang, $mybb, $db;
 
         $hookArguments = [
             'this' => &$this,
@@ -1003,34 +1007,89 @@ class Entries extends Base
             'entry_slug' => $this->showcaseObject->entry_data['entry_slug']
         ]);
 
+        if (!$isEditPage && empty($this->showcaseObject->entry_data['post_hash'])) {
+            if ($mybb->get_input('post_hash')) {
+                $this->showcaseObject->entryDataSet(['post_hash' => $mybb->get_input('post_hash')]);
+            } else {
+                $this->showcaseObject->entryDataSet(['post_hash' => generateUUIDv4()]);
+            }
+        }
+
         $templatesContext = [
             'url' => [
                 'crate_update' => $isEditPage ? $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryUpdate,
-                    $this->showcaseObject->urlParams
+                    array_merge($this->showcaseObject->urlParams, [
+                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                    ])
                 ) : $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryCreate,
                     $this->showcaseObject->urlParams
+                ),
+                'upload' => $isEditPage ? $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryUpdateUpload,
+                    array_merge($this->showcaseObject->urlParams, [
+                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'my_post_key' => $mybb->post_code,
+                    ])
+                ) : $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryCreateUpload,
+                    array_merge($this->showcaseObject->urlParams, [
+                        'post_hash' => $this->showcaseObject->entry_data['post_hash'],
+                        'my_post_key' => $mybb->post_code,
+                    ])
+                ),
+                'files' => $isEditPage ? $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryCreateFiles,
+                    array_merge($this->showcaseObject->urlParams, [
+                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'my_post_key' => $mybb->post_code,
+                    ])
+                ) : $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryCreateFiles,
+                    array_merge($this->showcaseObject->urlParams, [
+                        'post_hash' => $this->showcaseObject->entry_data['post_hash'],
+                        'my_post_key' => $mybb->post_code,
+                    ])
                 ),
             ],
             'is_update_page' => $isEditPage,
             'is_preview_page' => false,
             'entry_preview' => '',
+            'entry_data' => array_merge(
+                array_map(
+                    function ($field_definition) {
+                        return $field_definition['default'] ?? '';
+                    },
+                    DATA_TABLE_STRUCTURE['myshowcase_data']
+                ),
+                (function () use ($db): array {
+                    $default_fields = [];
+
+                    foreach ($this->showcaseObject->fieldSetCache as $fied_id => $field_definition) {
+                        $default_fields[$field_definition['field_key']] = match ($field_definition['default_type']) {
+                            FieldDefaultTypes::AsDefined => $field_definition['default_value'],
+                            FieldDefaultTypes::CurrentTimestamp => date('Y-m-d H:i:s', TIME_NOW),
+                            FieldDefaultTypes::UUID => generateUUIDv4(),
+                            default => '',
+                        };
+                    }
+
+                    return $default_fields;
+                })(),
+                $this->showcaseObject->entry_data,
+                $mybb->input
+            ),
+            'attachment_objects' => $this->showcaseObject->attachmentsGetFromEntry(),
         ];
 
         if ($mybb->request_method === 'post') {
             verify_post_check($mybb->get_input('my_post_key'));
 
             //$this->showcaseObject->post_hash = $mybb->get_input('post_hash');
-
-            if ($this->showcaseObject->config['attachments_allow_entries'] and false) {
-                _dump(965);
-                global $mybb;
-
-                echo json_encode([$mybb->input]);
-                exit;
-                $this->uploadAttachment();
-            }
 
             $isPreview = isset($mybb->input['preview']);
 
@@ -1045,8 +1104,8 @@ class Entries extends Base
 
                 $insertData['dateline'] = TIME_NOW;
 
-                if ($this->showcaseObject->post_hash) {
-                    $insertData['post_hash'] = $this->showcaseObject->post_hash;
+                if ($this->showcaseObject->entry_data['post_hash']) {
+                    $insertData['post_hash'] = $this->showcaseObject->entry_data['post_hash'];
                 }
             }
 
@@ -1163,8 +1222,6 @@ class Entries extends Base
 
                 $templatesContext['is_preview_page'] = true;
             }
-        } elseif ($isEditPage) {
-            $mybb->input = array_merge($this->showcaseObject->entry_data, $mybb->input);
         }
 
         if ($isEditPage && !$this->showcaseObject->user_permissions[UserPermissions::CanUpdateEntries]) {
@@ -1280,6 +1337,11 @@ class Entries extends Base
         );
     }
 
+    /**
+     * @throws RuntimeError
+     * @throws SyntaxError
+     * @throws LoaderError
+     */
     #[NoReturn] public function updateEntry(
         string $entrySlug,
     ): void {
@@ -1817,6 +1879,32 @@ class Entries extends Base
 
     #[NoReturn] private function uploadAttachment(): void
     {
+        return;
+        if (!$this->showcaseObject->config['attachments_allow_entries']) {
+            return;
+        }
+
+        global $mybb;
+
+        $is_upload_request =
+            isset($_SERVER['HTTP_UPLOAD_LENGTH']) ||
+            isset($_SERVER['HTTP_UPLOAD_OFFSET']) ||
+            isset($_SERVER['HTTP_UPLOAD_FILENAME']);
+
+        if (!$is_upload_request) {
+            _dump($mybb->input);
+            return;
+        }
+
+        _dump($mybb->request_method);
+
+        verify_post_check($mybb->get_input('my_post_key'));
+
+        _dump($mybb->request_method);
+
+        echo json_encode([$mybb->input]);
+        exit;
+
         $process_file = (
             !empty($_FILES['attachment']) &&
             !empty($_FILES['attachment']['name'])
@@ -1833,8 +1921,6 @@ class Entries extends Base
         global $mybb, $lang;
 
         $mybb->input['preview'] = true;
-
-        $current_user_id = (int)$mybb->user['uid'];
 
         require_once MYBB_ROOT . 'inc/functions_upload.php';
 

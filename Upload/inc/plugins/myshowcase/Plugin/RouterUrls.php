@@ -40,9 +40,12 @@ class RouterUrls
     public const MainRestore = 'main_restore';
     public const MainDelete = 'main_delete';
     public const EntryCreate = 'entry_create';
+    public const EntryCreateUpload = 'entry_create_upload';
+    public const EntryCreateFiles = 'entry_create_file';
     public const EntryView = 'entry_view';
     public const EntryViewPage = 'entry_page';
     public const EntryUpdate = 'entry_update';
+    public const EntryUpdateUpload = 'entry_update_upload';
     public const EntryApprove = 'entry_approve';
     public const EntryUnapprove = 'entry_unapprove';
     public const EntrySoftDelete = 'entry_soft_delete';
@@ -57,6 +60,7 @@ class RouterUrls
     public const CommentSoftDelete = 'comment_soft_delete';
     public const CommentRestore = 'comment_restore';
     public const CommentDelete = 'comment_delete';
+    public const AttachmentViewFromPostHash = 'attachment_view_from_post_hash';
     public const AttachmentView = 'attachment_view';
     public const ThumbnailView = 'thumbnail_view';
     private static ?Showcase $showcase = null;
@@ -249,6 +253,38 @@ class RouterUrls
         );
 
         self::$routes->add(
+            self::EntryCreateUpload,
+            new Route(
+                self::$showcase->selfPhpScript . '/create/{post_hash}/upload',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Attachments())->uploadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'post_hash' => '[a-z0-9-]+',
+                ]
+            ),
+        );
+
+        self::$routes->add(
+            self::EntryCreateFiles,
+            new Route(
+                self::$showcase->selfPhpScript . '/create/{post_hash}/files',
+                [
+                    '_controller' => function (array $parameters): string {
+                        return (new Attachments())->getAttachments(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'post_hash' => '[a-z0-9-]+',
+                ]
+            ),
+        );
+
+        self::$routes->add(
             self::EntryView,
             new Route(
                 self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
@@ -272,6 +308,22 @@ class RouterUrls
                 [
                     '_controller' => function (): string {
                         return (new Entries())->updateEntry();
+                    },
+                ],
+                [
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        self::$routes->add(
+            self::EntryUpdateUpload,
+            new Route(
+                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update/attachment',
+                [
+                    '_controller' => function (): string {
+                        return (new Attachments())->uploadAttachment();
                     },
                 ],
                 [
@@ -537,6 +589,24 @@ class RouterUrls
                     'comment_slug' => '[a-z0-9-]+',
                 ]
             )
+        );
+
+        self::$routes->add(
+            self::AttachmentViewFromPostHash,
+            new Route(
+                self::$showcase->selfPhpScript . '/create/{post_hash}/attachment/{attachment_hash}',
+                [
+                    '_controller' => function (array $parameters): string {
+                        // todo, maybe check that only the current user is trying to view ?
+                        return (new Attachments())->downloadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'post_hash' => '[a-z0-9-]+',
+                    'attachment_hash' => '[a-z0-9-]+',
+                ]
+            ),
         );
 
         self::$routes->add(

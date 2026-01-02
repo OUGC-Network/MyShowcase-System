@@ -21,7 +21,7 @@
                                        form="contentForm"
                                        {% if field_data.read_only %}readonly="readonly"{% endif %}
                                         {% if field_data.is_required %}required="required"{% endif %}
-                                        {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                        {% if entry_data[field_data.field_key] is defined and entry_data[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
@@ -31,7 +31,7 @@
                 {% elseif field_data.html_type == 'color' %}
             <input type="color"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="color"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -44,7 +44,7 @@
                 {% elseif field_data.html_type == 'date' %}
             <input type="date"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="date"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -60,7 +60,7 @@
                 {% elseif field_data.html_type == 'datetime-local' %}
             <input type="datetime-local"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="datetime-local"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -76,7 +76,7 @@
                 {% elseif field_data.html_type == 'email' %}
             <input type="email"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="email"
                    inputmode="email"
@@ -95,7 +95,7 @@
                 {% elseif field_data.html_type == 'file' %}
             <input type="file"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    class="textbox"
                    id="{{ field_data.field_key }}"
@@ -106,10 +106,352 @@
                     {% if field_data.is_required %}required="required"{% endif %}
                     {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
             />
+                {#
+                <fieldset id="{{ field_data.field_key }}_fieldset">
+                    <legend>Files</legend>
+
+                    {% if attachment_objects is not empty %}
+                        <!-- a list of already uploaded files -->
+                        <ul style="display: none">
+                            {% for attachment_id,attachment_data in attachment_objects %}
+                                <li>
+                                    <label>
+                                        <input value="{{ attachment_data.attachment_name }}" data-type="local"
+                                               checked="checked" type="checkbox"/>
+                                        {{ attachment_data.attachment_name }}
+                                    </label>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <!-- our filepond input -->
+                    <input type="file"
+                           name="{{ field_data.field_key }}"
+                           value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
+                           tabindex="{{ loop.index + 10 }}"
+                           class="textbox"
+                           id="{{ field_data.field_key }}"
+                           form="contentForm"
+                           {% if field_data.read_only %}readonly="readonly"{% endif %}
+                            {% if field_data.acceptElement %}accept="{{ field_data.acceptElement }}"{% endif %}
+                            {% if field_data.file_capture %}capture="{{ field_data.file_capture }}"{% endif %}
+                            {% if field_data.is_required %}required="required"{% endif %}
+                            {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
+                    />
+                </fieldset> #}
+                <script>
+                    // Register FilePond plugins
+                    FilePond.registerPlugin(
+                        FilePondPluginFileEncode,
+                        FilePondPluginFileMetadata,
+                        FilePondPluginFilePoster,
+                        FilePondPluginFileValidateSize,
+                        //FilePondPluginFileValidateType,
+                        FilePondPluginImageCrop,
+                        FilePondPluginImageExifOrientation,
+                        FilePondPluginImagePreview,
+                        FilePondPluginImageResize,
+                        FilePondPluginImageTransform,
+                        FilePondPluginImageValidateSize,
+                    );
+
+                    // Create a FilePond instance
+                    const pond = FilePond.create(document.querySelector('#{{ field_data.field_key }}'), {
+                        // Core properties
+                        className: 'filepond--my-custom-class',
+                        {% if field_data.is_required %}
+                        required: true,
+                        {% endif %}
+                        {% if field_data.read_only %}
+                        disabled: true,
+                        captureMethod: null,
+                        {% endif %}
+                        {% if false %}
+                        files: [
+                            {% for attachment_id,attachment_data in attachment_objects %}
+                            {
+                                source: '{{ attachment_data.url }}',
+                                options: {
+                                    type: 'local',
+                                    file: {
+                                        name: '{{ attachment_data.attachment_name }}',
+                                        size: {{ attachment_data.file_size }},
+                                        type: '{{ attachment_data.mime_type }}',
+                                        url: '{{ attachment_data.url }}',
+                                        id: {{ attachment_data.attachment_id }},
+                                        fileId: {{ attachment_data.attachment_id }},
+                                    },
+                                    metadata: {
+                                        id: {{ attachment_data.attachment_id }},
+                                        fileId: {{ attachment_data.attachment_id }},
+                                        poster: '{{ attachment_data.url }}',
+                                        url: '{{ attachment_data.url }}',
+                                    }
+                                }
+                            },
+                            {% endfor %}
+                        ],
+                        {% endif %}
+                        allowDrop: true,
+                        allowBrowse: true,
+                        allowPaste: false,
+                        allowMultiple: true,
+                        allowReplace: true,
+                        allowRevert: true,
+                        allowRemove: true,
+                        allowProcess: true,
+                        allowReorder: false,
+                        storeAsFile: false,
+                        forceRevert: false,
+                        maxFiles: null,
+                        maxParallelUploads: 1,
+                        checkValidity: true,
+                        itemInsertLocation: 'after',
+                        itemInsertInterval: 75,
+                        fileSizeBase: 1000,
+                        // Drag n' Drop
+                        dropOnPage: false,
+                        dropOnElement: true,
+                        dropValidation: false,
+                        ignoredFiles: ['.ds_store', 'thumbs.db', 'desktop.ini'],
+                        // Server
+                        server: {
+                            process: {
+                                url: '{{ url.upload }}&field_key={{ field_data.field_key }}',
+                                method: 'POST',
+                                withCredentials: false,
+                                onerror: (response) => {
+                                    console.error('Upload error:', response);
+                                },
+                                onload: (response) => {
+                                    // todo, refresh attachment list or mark attachment
+                                    console.log(response);
+
+                                    return response; // Return the server response
+                                },
+                                ondata: (formData) => {
+                                    formData.append('my_post_key', '{{ mybb.post_code }}');
+
+                                    return formData;
+                                },
+                            },
+                        },
+                        onprocessfile: (error, fileItem) => {
+                            if (error) {
+                                console.error('Error processing file:', error);
+                                return;
+                            }
+
+                            console.log('File processed successfully:', fileItem);
+
+                            setTimeout(() => {
+                                pond.removeFile(fileItem);
+                            }, 1000);
+                        },
+                        instantUpload: true,
+                        chunkUploads: true,
+                        chunkForce: false,
+                        chunkSize: 5000000,
+                        chunkRetryDelays: [500, 1000, 3000],
+                        // Labels
+                        labelDecimalSeparator: undefined,
+                        labelThousandsSeparator: undefined,
+                        labelIdle: 'Drag & Drop your files or <span class="filepond--label-action"> Browse </span>',
+                        labelInvalidField: 'Field contains invalid files',
+                        labelFileWaitingForSize: 'Waiting for size',
+                        labelFileSizeNotAvailable: 'Size not available',
+                        labelFileLoading: 'Uploading',
+                        labelFileLoadError: 'Error during load',
+                        labelFileProcessing: 'Uploading',
+                        labelFileProcessingComplete: 'Upload complete',
+                        labelFileProcessingAborted: 'Error cancelled',
+                        labelFileProcessingError: 'Error during upload',
+                        labelFileProcessingRevertError: 'Error during revert',
+                        labelFileRemoveError: 'Error during remove',
+                        labelTapToCancel: 'tap to cancel',
+                        labelTapToRetry: 'tap to retry',
+                        labelTapToUndo: 'tap to undo',
+                        labelButtonRemoveItem: 'Remove',
+                        labelButtonAbortItemLoad: 'Abort',
+                        labelButtonRetryItemLoad: 'Retry',
+                        labelButtonAbortItemProcessing: 'Cancel',
+                        labelButtonUndoItemProcessing: 'Undo',
+                        labelButtonRetryItemProcessing: 'Retry',
+                        labelButtonProcessItem: 'Upload',
+                        // SVG Icons
+                        //iconRemove: '',
+                        //iconProcess: '',
+                        //iconRetry: '',
+                        //iconUndo: '',
+                        // Style
+                        //stylePanelLayout: 'integrated',
+                        stylePanelAspectRatio: '1:0.5',
+                        styleItemPanelAspectRatio: '1:1',
+
+                        {% if false %}
+                        // File encode
+                        allowFileEncode: true,
+                        // File metadata
+                        allowFileMetadata: true,
+                        fileMetadataObject: {
+                            markup: [
+                                [
+                                    'rect',
+                                    {
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        height: '60px',
+                                        backgroundColor: 'rgba(0,0,0,.5)',
+                                    },
+                                ],
+                                [
+                                    'image',
+                                    {
+                                        right: '10px',
+                                        bottom: '10px',
+                                        width: '128px',
+                                        height: '34px',
+                                        src: './filepond-logo.svg',
+                                        fit: 'contain',
+                                    },
+                                ],
+                            ],
+                        },
+                        onpreparefile: (file, output) => {
+                            const img = new Image();
+                            img.src = URL.createObjectURL(output);
+                            document.body.appendChild(img);
+                        },
+                        // File poster
+                        allowFilePoster: true,
+                        filePosterMinHeight: null,
+                        filePosterMaxHeight: null,
+                        filePosterHeight: null,
+                        filePosterFilterItem: () => true,
+                        filePosterItemOverlayShadowColor: null,
+                        filePosterItemOverlayErrorColor: null,
+                        filePosterItemOverlaySuccessColor: null,
+                        // File size validation
+                        allowFileSizeValidation: true,
+                        minFileSize: null,
+                        maxFileSize: null,
+                        labelMaxFileSizeExceeded: 'File is too large',
+                        labelMaxFileSize: 'Maximum file size is {filesize}',
+                        labelMaxTotalFileSizeExceeded: 'Maximum total size exceeded',
+                        labelMaxTotalFileSize: 'Maximum total file size is {filesize}',
+                        //File type validation
+                        allowFileTypeValidation: true,
+                        acceptedFileTypes: ['*'],
+                        labelFileTypeNotAllowed: 'File of invalid type',
+                        fileValidateTypeLabelExpectedTypes: 'Expects {allButLastType} or {lastType}',
+                        fileValidateTypeLabelExpectedTypesMap: {},
+                        fileValidateTypeDetectType: (source, type) =>
+                            new Promise((resolve, reject) => {
+                                // Do custom type detection here and return with promise
+
+                                resolve(type);
+                            }),
+                        // Image crop
+                        allowImageCrop: true,
+                        imageCropAspectRatio: null,
+                        // Image EXIF orientation
+                        allowImageExifOrientation: true,
+                        // Image preview
+                        allowImagePreview: true,
+                        imagePreviewMinHeight: 44,
+                        imagePreviewMaxHeight: 256,
+                        imagePreviewHeight: null,
+                        imagePreviewMaxFileSize: '1MB',
+                        imagePreviewTransparencyIndicator: null,
+                        imagePreviewMaxInstantPreviewFileSize: 1000000,
+                        imagePreviewMarkupShow: true,
+                        // Image resize
+                        allowImageResize: true,
+                        imageResizeTargetWidth: null,
+                        imageResizeTargetHeight: null,
+                        imageResizeMode: 'cover',
+                        imageResizeUpscale: true,
+                        // Image transform
+                        allowImageTransform: true,
+                        imageTransformOutputMimeType: null,
+                        imageTransformOutputQuality: null,
+                        imageTransformOutputQualityMode: 'always',
+                        imageTransformOutputStripImageHead: true,
+                        imageTransformClientTransforms: null,
+                        imageTransformVariants: {
+                            thumb_medium_: (transforms) => {
+                                transforms.resize = {
+                                    size: {
+                                        width: 384,
+                                        height: 384,
+                                    },
+                                };
+
+                                return transforms;
+                            },
+                            thumb_small_: (transforms) => {
+                                transforms.resize = {
+                                    size: {
+                                        width: 128,
+                                        height: 128,
+                                    },
+                                };
+
+                                return transforms;
+                            },
+                        },
+                        imageTransformVariantsIncludeDefault: true,
+                        imageTransformVariantsDefaultName: null,
+                        imageTransformVariantsIncludeOriginal: false,
+                        imageTransformVariantsOriginalName: null,
+                        imageTransformBeforeCreateBlob: (canvas) =>
+                            new Promise((resolve) => {
+                                // Do something with the canvas, like drawing some text on it
+                                const ctx = canvas.getContext('2d');
+                                ctx.font = '48px serif';
+                                ctx.fillText('Hello world', 10, 50);
+
+                                // return canvas to the plugin for further processing
+                                resolve(canvas);
+                            }),
+                        imageTransformAfterCreateBlob: (blob) =>
+                            new Promise((resolve) => {
+                                // do something with the blob, for instance send it to a custom compression alogrithm
+
+                                // return the blob to the plugin for further processing
+                                resolve(blob);
+                            }),
+                        imageTransformCanvasMemoryLimit: 4096,
+                        // Image validate size
+                        allowImageValidateSize: true,
+                        imageValidateSizeMinWidth: 1,
+                        imageValidateSizeMaxWidth: 65535,
+                        imageValidateSizeMinHeight: 1,
+                        imageValidateSizeMaxHeight: 65535,
+                        imageValidateSizeLabelFormatError: 'Image type not supported',
+                        imageValidateSizeLabelImageSizeTooSmall: 'Image is too small',
+                        imageValidateSizeLabelImageSizeTooBig: 'Image is too big',
+                        imageValidateSizeLabelExpectedMinSize: 'Minimum size is {minWidth} × {minHeight}',
+                        imageValidateSizeLabelExpectedMaxSize: 'Maximum size is {maxWidth} × {maxHeight}',
+                        imageValidateSizeMinResolution: null,
+                        imageValidateSizeMaxResolution: null,
+                        imageValidateSizeLabelImageResolutionTooLow: 'Resolution is too low',
+                        imageValidateSizeLabelImageResolutionTooHigh: 'Resolution is too high',
+                        imageValidateSizeLabelExpectedMinResolution: 'Minimum resolution is {minResolution}',
+                        imageValidateSizeLabelExpectedMaxResolution: 'Maximum resolution is {maxResolution}',
+                        imageValidateSizeMeasure: null,
+                        {% endif %}
+                    });
+
+                </script>
+
+
                 {% elseif field_data.html_type == 'month' %}
             <input type="month"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="month"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -125,7 +467,7 @@
                 {% elseif field_data.html_type == 'number' %}
             <input type="number"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="number"
                    inputmode="numeric"
@@ -143,7 +485,7 @@
                 {% elseif field_data.html_type == 'password' %}
             <input type="password"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="password"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -169,7 +511,7 @@
                                        form="contentForm"
                                        {% if field_data.read_only %}readonly="readonly"{% endif %}
                                         {% if field_data.is_required %}required="required"{% endif %}
-                                        {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
+                                        {% if entry_data[field_data.field_key] is defined and entry_data[field_data.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
@@ -179,7 +521,7 @@
                 {% elseif field_data.html_type == 'range' %}
             <input type="range"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="range"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -192,7 +534,7 @@
                 {% elseif field_data.html_type == 'search' %}
             <input type="search"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="search"
                    inputmode="search"
@@ -210,7 +552,7 @@
                 {% elseif field_data.html_type == 'tel' %}
             <input type="tel"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="tel"
                    inputmode="tel"
@@ -228,7 +570,7 @@
                 {% elseif field_data.html_type == 'text' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="text"
                    inputmode="text"
@@ -246,7 +588,7 @@
                 {% elseif field_data.html_type == 'time' %}
             <input type="time"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="time"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -262,7 +604,7 @@
                 {% elseif field_data.html_type == 'url' %}
             <input type="url"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="url"
                    inputmode="url"
@@ -280,7 +622,7 @@
                 {% elseif field_data.html_type == 'week' %}
             <input type="week"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="week"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -303,7 +645,7 @@
                           {% if field_data.is_required %}required="required"{% endif %}
                         {% if field_data.minimum_length %}minlength="{{ field_data.minimum_length }}"{% endif %}
                         {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
-                >{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}</textarea>
+                >{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}</textarea>
                 {% elseif field_data.html_type == 'select' %}
                 <select name="{{ field_data.field_key }}"
                         tabindex="{{ loop.index + 10 }}"
@@ -314,13 +656,13 @@
                 >
                     {% for field_data_id, field_data_data in field_data.fieldDataObjects %}
                         <option value="{{ field_data_id }}"
-                                {% if mybb.input[field_data.field_key] is defined and mybb.input[field_data.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
+                                {% if entry_data[field_data.field_key] is defined and entry_data[field_data.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
                     {% endfor %}
                 </select>
                 {% elseif field_data.html_type == 'select2_users' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -336,40 +678,50 @@
                     if (use_xmlhttprequest == "1") {
                         MyBB.select2();
                         $("#{{ field_data.field_key }}").select2({
-                            placeholder: "{{ lang.search_user }}",
-                            minimumInputLength: 2,
-                            multiple: false,
-                            allowClear: true,
-                            ajax: { // instead of writing the function to execute the request, we use Select2's convenient helper
-                                url: "{{ mybb.settings.bburl }}/xmlhttp.php?action=get_users",
-                                dataType: 'json',
-                                data: function (term, page) {
-                                    return {
-                                        query: term, // search term
-                                    };
-                                },
-                                results: function (data, page) { // parse the results into the format expected by Select2.
-                                    // since we are using custom formatting functions, we do not need to alter remote JSON data
-                                    return {results: data};
-                                }
+                                placeholder: "{{ lang.search_user }}",
+                                minimumInputLength: 2,
+                                multiple: false,
+                                allowClear: true,
+                                ajax: { // instead of writing the function to execute the request, we use Select2's convenient helper
+                                        url: "{{ mybb.settings.bburl }}/xmlhttp.php?action=get_users",
+                                        dataType: 'json',
+                                        data: function (term, page) {
+                                            return {
+                                                query: term, // search term
+                                            };
+                                        },
+                                        results: function (data, page) { // parse the results into the format expected by Select2.
+                                            // since we are using custom formatting functions, we do not need to alter remote JSON data
+                                            return {results: data};
+                                        }
+                                    }
+                                    %
+                                    %
                             },
-                            initSelection: function (element, callback) {
-                                var value = $(element).val();
-                                if (value !== "") {
-                                    callback({
-                                        id: value,
-                                        text: value
-                                    });
-                                }
-                            },
-                        });
+                            initSelection;
+                    :
+
+                        function (element, callback) {
+                            var value = $(element).val();
+                            if (value !== "") {
+                                callback({
+                                    id: value,
+                                    text: value
+                                });
+                            }
+                        }
+
+                    ,
+                    }
+                    )
+
                     }
                     // -->
                 </script>
                 {% elseif field_data.html_type == 'select2_entries' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -419,7 +771,7 @@
                 {% elseif field_data.html_type == 'select2_threads' %}
             <input type="text"
                    name="{{ field_data.field_key }}"
-                   value="{% if mybb.input[field_data.field_key] is defined %}{{ mybb.input[field_data.field_key] }}{% endif %}"
+                   value="{% if entry_data[field_data.field_key] is defined %}{{ entry_data[field_data.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
@@ -478,3 +830,16 @@
         {{ field_data.editorCodeButtons|raw }}
     {% endif %}
 </div>
+{% if field_data.html_type == 'file' %}
+    <div class="row row--form field smalltext" style="overflow: auto; max-height: 20em;">
+        <h2 class="field__name visually-hidden">
+            {{ lang.attachments }}
+        </h2>
+
+        {% if attachment_objects is not empty %}
+            {% for attachment_id,attachment_data in attachment_objects %}
+                {% include '@ext.myshowcase/pageEntryCreateUpdateFieldAttachment.twig' %}
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endif %}

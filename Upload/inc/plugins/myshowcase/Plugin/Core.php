@@ -136,6 +136,11 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
         ],
+        'field_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
         'post_hash' => [
             'type' => 'VARCHAR',
             'size' => 36,
@@ -190,7 +195,7 @@ const TABLES_DATA = [
         'status' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 1
         ],
         'thumbnail_name' => [
             'type' => 'VARCHAR',
@@ -263,7 +268,7 @@ const TABLES_DATA = [
         'status' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 1
         ],
         'thumbnail_name' => [
             'type' => 'VARCHAR',
@@ -1438,6 +1443,18 @@ const TABLES_DATA = [
             'formType' => FormTypes::Number,
         ],
         'maximum_length' => [
+            'type' => 'MEDIUMINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::Number,
+        ],
+        'minimum_size' => [
+            'type' => 'MEDIUMINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::Number,
+        ],
+        'maximum_size' => [
             'type' => 'MEDIUMINT',
             'unsigned' => true,
             'default' => 0,

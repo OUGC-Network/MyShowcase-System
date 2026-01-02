@@ -1,0 +1,42 @@
+<div class="row row--form field uploaded-attachment" id="attachment_{{ attachment_id }}">
+    <div class="uploaded-attachment__details">
+        <span class="uploaded-attachment__icon">{{ attachment_data.icon|raw }}</span>
+        <span class="uploaded-attachment__file-name">
+            {% if attachment_data.status == 1 %}
+                {{ attachment_data.attachment_name }}
+            {% else %}
+                <a href="attachment.php?attachment_id={{ attachment_id }}"
+                   target="_blank">{{ attachment_data.attachment_name }}</a>
+            {% endif %}
+        </span>
+        <span class="uploaded-attachment__file-size">({{ attachment_data.file_size }})</span>
+    </div>
+    <div class="uploaded-attachment__buttons">
+        {% if permissions.can_manage_entries %}
+            {% if attachment_data.status == 1 %}
+                <input type="submit" class="button button--danger"
+                       name="unapproveattach_{{ attachment_id }}"
+                       value="{{ lang.unapprove_attachment }}"
+                       onclick="return Post.attachmentAction({{ attachment_id }},'unapprove');"/>
+            {% else %}
+                <input type="submit" class="button button--success"
+                       name="approveattach_{{ attachment_id }}"
+                       value="{{ lang.approve_attachment }}"
+                       onclick="return Post.attachmentAction({{ attachment_id }},'approve');"/>
+            {% endif %}
+        {% endif %}
+        <button type="submit" class="button button--secondary" name="rem_{{ attachment_id }}"
+                value="rem"
+                onclick="return Post.removeAttachment({{ attachment_id }});">
+            {{ include('partials/icon.twig', {icon: 'trash', class: 'button__icon'}, with_context = false) }}
+            <span class="button__text">{{ lang.remove_attachment }}</span>
+        </button>
+        {% if true %}
+            <button type="button" class="button" name="insert" value="insert"
+                    onclick="$('#message').sceditor('instance').insertText('[attachment={{ attachment_id }}]'); return false;">
+                {{ include('partials/icon.twig', {icon: 'long-arrow-alt-up', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.insert_attachment_post }}</span>
+            </button>
+        {% endif %}
+    </div>
+</div>

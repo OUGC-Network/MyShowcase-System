@@ -489,12 +489,15 @@ class Comments extends Base
 
         $this->renderObject->buildCommentsFormEditor($editorCodeButtons, $editorSmilesInserter);
 
-        $attachmentsUpload = $this->renderObject->buildAttachmentsUpload($isUpdate);
+        $attachmentsUpload = $this->renderObject->buildAttachmentsUpload(
+            $isUpdate,
+            $this->renderObject::POST_TYPE_COMMENT
+        );
 
         if ($isUpdate) {
             $buttonText = $lang->myShowcaseCommentCreateUpdateFormButtonUpdate;
         } else {
-            $buttonText = $lang->myShowcaseCommentCreateUpdateFormButtonCreate;
+            $buttonText = $lang->myshowcase_view_entry_button_create_comment;
         }
 
         $hookArguments = hooksRun('controller_comments_create_update_end', $hookArguments);
@@ -502,14 +505,14 @@ class Comments extends Base
         extract($hookArguments['extractVariables']);
 
         if ($commentPreview) {
-            $commentPreview = $this->renderObject->templateGet('pageEntryCommentCreateUpdateContentsPreview', [
+            $commentPreview = $this->renderObject->templateGet('pageCommentCreateUpdateContentsPreview', [
                 'commentPreview' => $commentPreview,
             ]);
         }
 
         $postHash = htmlspecialchars_uni($mybb->get_input('post_hash'));
 
-        $this->outputSuccess($this->renderObject->templateGet('pageEntryCommentCreateUpdateContents', [
+        $this->outputSuccess($this->renderObject->templateGet('pageCommentCreateUpdateContents', [
             'url_base' => $this->showcaseObject->url_base,
             'commentPreview' => $commentPreview,
             'commentMessage' => $commentMessage,

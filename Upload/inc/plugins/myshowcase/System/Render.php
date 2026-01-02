@@ -48,8 +48,9 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 class Render
 {
     public const POST_TYPE_ENTRY = 1;
+    public const POST_TYPE_ENTRY_FIELD = 2;
 
-    public const POST_TYPE_COMMENT = 2;
+    public const POST_TYPE_COMMENT = 3;
 
     public function __construct(
         public Showcase &$showcaseObject,
@@ -179,6 +180,11 @@ class Render
         );
     }
 
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
     private function buildPost(
         string $alternativeBackground,
         bool $isPreview = false,
@@ -226,7 +232,7 @@ class Render
             'ignored_message' => '',
             'style_visibility' => '',
             'fields_objects' => $this->showcaseObject->fieldSetCache,
-            'entryAttachments' => '',
+            'entry_attachments' => '',
             'commentAttachments' => '',
             'class' => '',
         ];
@@ -265,13 +271,16 @@ class Render
             $templatePrefix = 'pageViewEntry';
         }
 
-        $templatesContext['url']['entry'] = $this->showcaseObject->urlGenerate(
-            RouterUrls::EntryView,
-            [
-                'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
-            ]
-        );
+        // todo, will be empty when preview a new entry/comment
+        if (!empty($this->showcaseObject->entry_data['entry_slug'])) {
+            $templatesContext['url']['entry'] = $this->showcaseObject->urlGenerate(
+                RouterUrls::EntryView,
+                [
+                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
+                ]
+            );
+        }
 
         if ($postType === self::POST_TYPE_COMMENT) {
             $templatesContext['comment_data.comment_slug'] = $commentData['comment_slug'];
@@ -309,20 +318,29 @@ class Render
                 $fieldDefinition['value_display'] = $fieldObject->getUserValueDisplay();
             }
 
+            foreach ($templatesContext['fields_objects'] as $fieldID => &$fieldDefinition) {
+                $fieldObject = fieldGetObject($this->showcaseObject, $this->showcaseObject->fieldSetCache[$fieldID]);
+
+                $fieldDefinition['field_attachments'] = $fieldObject->getAttachments(
+                    $templatesContext['fields_objects']
+                );
+            }
+
             if ($this->showcaseObject->config['attachments_allow_entries'] &&
                 $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]) {
-                $templatesContext['entryAttachments'] = $this->entryBuildAttachments(
+                $templatesContext['entry_attachments'] = $this->entryBuildAttachments(
+                    $this->showcaseObject->attachmentsGetFromEntry(),
                     $templatesContext['fields_objects'],
                     $postType,
                     $commentSlug ?? ''
                 );
             }
             /*
-                        $templatesContext['entryAttachments'] = '';
+                        $templatesContext['entry_attachments'] = '';
 
                         if ($this->showcaseObject->config['attachments_allow_entries'] &&
                             $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]) {
-                            $templatesContext['entryAttachments'] = $this->entryBuildAttachments(
+                            $templatesContext['entry_attachments'] = $this->entryBuildAttachments(
                                 $templatesContext['fields_objects'],
                                 $postType,
                                 $commentSlug ?? ''
@@ -999,39 +1017,18 @@ class Render
      * @throws SyntaxError
      */
     public function entryBuildAttachments(
+        array $attachmentObjects,
         array &$entryFields,
         int $postType = self::POST_TYPE_ENTRY,
         string $commentSlug = ''
     ): string {
-        $attachmentObjects = attachmentGet(
-            ["entry_id='{$this->showcaseObject->entry_id}'", "showcase_id='{$this->showcaseObject->showcase_id}'"],
-            [
-                'status',
-                'attachment_name',
-                'file_name',
-                'mime_type',
-                'file_size',
-                'downloads',
-                'dateline',
-                'thumbnail_name',
-                'thumbnail_dimensions',
-                'attachment_hash'
-            ]
-        );
-
         if (!$attachmentObjects) {
             return '';
         }
 
-        $entrySlug = $this->showcaseObject->entry_data['entry_slug'];
-
-        $entryID = $this->showcaseObject->entry_id;
-
         global $lang;
 
         $unapprovedCount = 0;
-
-        $attachedThumbnails = $attachedImages = $attachedFiles = '';
 
         $templatesContext = [
             'attachedThumbnails' => [],
@@ -1039,25 +1036,25 @@ class Render
             'attachedFiles' => [],
         ];
 
-        $templatesContextAttachment = [
-            'comment_data.comment_slug' => $commentSlug
-        ];
-
         $template_prefix = 'Entry';
 
-        if ($postType = self::POST_TYPE_COMMENT) {
+        if ($postType === self::POST_TYPE_COMMENT) {
             $template_prefix = 'Comment';
         }
 
+        if ($postType === self::POST_TYPE_ENTRY_FIELD) {
+            $template_prefix .= 'Field';
+        }
+
         foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-            $attachmentData = array_merge(
+            /*$attachmentData = array_merge(
                 $attachmentData,
                 [
                     'file_size' => get_friendly_size($attachmentData['file_size']),
                     'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
                     'icon' => get_attachment_icon($attachmentData['attachment_name']),
-                    'is_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
-                    'url' => $this->showcaseObject->urlGenerate(
+                    'has_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
+                    'url' => empty($this->showcaseObject->entry_data['entry_slug']) ? '' : $this->showcaseObject->urlGenerate(
                         RouterUrls::AttachmentView,
                         [
                             'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
@@ -1065,7 +1062,7 @@ class Render
                             'attachment_hash' => $attachmentData['attachment_hash']
                         ]
                     ),
-                    'url_thumbnail' => $this->showcaseObject->urlGenerate(
+                    'url_thumbnail' => empty($this->showcaseObject->entry_data['entry_slug']) ? '' : $this->showcaseObject->urlGenerate(
                         RouterUrls::ThumbnailView,
                         [
                             'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
@@ -1074,50 +1071,16 @@ class Render
                         ]
                     ),
                 ]
-            );
+            );*/
 
-            $templatesContextAttachment['attachmentUrl'] = $this->showcaseObject->urlGenerate(
-                RouterUrls::AttachmentView,
-                [
-                    'entry_slug' => $entrySlug,
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
-                    'attachment_hash' => $attachmentData['attachment_hash']
-                ]
-            );
-
-            if (empty($attachmentData['thumbnail_name'])) {
-                $templatesContextAttachment['attachmentThumbnailUrl'] = $templatesContextAttachment['attachmentUrl'];
-            } else {
-                $templatesContextAttachment['attachmentThumbnailUrl'] = $this->showcaseObject->urlGenerate(
-                    RouterUrls::ThumbnailView,
-                    [
-                        'entry_slug' => $entrySlug,
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
-                        'attachment_hash' => $attachmentData['attachment_hash']
-                    ]
-                );
-            }
-
-            if ($attachmentData['status']) { // There is an attachment thats status!
-                $templatesContextAttachment['attachmentFileName'] = htmlspecialchars_uni(
-                    $attachmentData['attachment_name']
-                );
-
-                $templatesContextAttachment['attachmentFileSize'] = get_friendly_size($attachmentData['file_size']);
-
+            if ($attachmentData['status'] or true) {
                 $attachmentExtension = get_extension($attachmentData['attachment_name']);
 
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
 
-                $templatesContextAttachment['attachmentIcon'] = get_attachment_icon($attachmentExtension);
-
-                $templatesContextAttachment['attachmentDownloads'] = my_number_format($attachmentData['downloads']);
-
                 if (!$attachmentData['dateline']) {
                     $attachmentData['dateline'] = $this->showcaseObject->entry_data['dateline'];
                 }
-
-                $templatesContextAttachment['attachmentDate'] = my_date('normal', $attachmentData['dateline']);
 
                 // Support for [attachment=attachment_hash] code
                 $attachmentInField = false;
@@ -1167,9 +1130,9 @@ class Render
                     continue;
                 }
 
-                if ($attachmentData['is_thumbnail'] && $this->showcaseObject->attachmentsDisplayThumbnails) {
+                if ($attachmentData['has_thumbnail'] && $this->showcaseObject->attachmentsDisplayThumbnails) {
                     $templatesContext['attachedThumbnails'][$attachmentID] = $attachmentData;
-                } elseif (!$attachmentData['is_thumbnail'] && $this->showcaseObject->attachmentsDisplayFullSizeImage) {
+                } elseif (!$attachmentData['has_thumbnail'] && $this->showcaseObject->attachmentsDisplayFullSizeImage) {
                     $templatesContext['attachedImages'][$attachmentID] = $attachmentData;
                 } else {
                     $templatesContext['attachedFiles'][$attachmentID] = $attachmentData;
@@ -1192,7 +1155,7 @@ class Render
             }
         }
 
-        if ($templatesContext['attachedThumbnails'] || $templatesContext['attachedImages'] || $templatesContext['attachedFiles']) {
+        if ($templatesContext) {
             return $this->templateGet('pageView' . $template_prefix . 'Attachments', $templatesContext);
         }
 
@@ -1218,7 +1181,7 @@ class Render
         return $titlesCache;
     }
 
-    public function buildAttachmentsUpload(bool $isEditPage): string
+    public function buildAttachmentsUpload(bool $isEditPage, int $post_type = self::POST_TYPE_ENTRY): string
     {
         global $mybb, $lang, $theme;
 
@@ -1297,22 +1260,30 @@ class Render
 
         $usageDetails = $viewMyAttachmentsLink = '';
 
+        $template_prefix = 'Entry';
+
+        if ($post_type === self::POST_TYPE_COMMENT) {
+            $template_prefix = 'Comment';
+        }
+
         if ($totalUserUsage > 0) {
             $usageDetails = $lang->sprintf(
                 $lang->myShowcaseAttachmentsUsageDetails,
                 get_friendly_size($totalUserUsage)
             );
 
-            $viewMyAttachmentsLink = $this->templateGet('pageEntryCommentCreateUpdateAttachmentsBoxViewLink');
+            $viewMyAttachmentsLink = $this->templateGet(
+                'page' . $template_prefix . 'CreateUpdateAttachmentsBoxViewLink'
+            );
         }
 
-        return $this->templateGet('pageEntryCommentCreateUpdateAttachmentsBox', [
+        return $this->templateGet('page' . $template_prefix . 'CreateUpdateAttachmentsBox', [
             'createUpdateUrl' => $createUpdateUrl,
             'myDropzoneSettingMaximumFileSize' => $myDropzoneSettingMaximumFileSize,
             'myDropzoneSettingAllowedMimeFileTypes' => $myDropzoneSettingAllowedMimeFileTypes,
             'usageQuoteNote' => $usageQuoteNote,
             'usageDetails' => $usageDetails,
-            'viewMyAttachmentsLink' => $viewMyAttachmentsLink,
+            'totalUserUsage' => $totalUserUsage,
             'watermarkSelectedElement' => $watermarkSelectedElement,
         ]);
     }

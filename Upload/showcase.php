@@ -56,8 +56,13 @@ $forumDirectoryPathTrailing = ($forumDirectoryPath === '' ? '' : $forumDirectory
 
 $templatelist = '';
 
-if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
-    str_contains($_SERVER['REQUEST_URI'] ?? '', '/thumbnail/')) {
+$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+
+if (str_contains($request_uri, '/attachment/') ||
+    str_contains($request_uri, '/thumbnail/') ||
+    str_contains($request_uri, '/attachment?') ||
+    str_contains($request_uri, '/files?') ||
+    str_contains($request_uri, '/upload?')) {
     define('NO_ONLINE', 1);
 
     global $mybb, $lang, $db, $cache, $templates;
@@ -87,6 +92,7 @@ if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
     if (isset($mybb->user['language']) && $lang->language_exists($mybb->user['language'])) {
         $mybb->settings['bblanguage'] = $mybb->user['language'];
     }
+
     $lang->set_language($mybb->settings['bblanguage']);
 
     if (function_exists('mb_internal_encoding') && !empty($lang->settings['charset'])) {
@@ -106,6 +112,8 @@ if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/attachment/') ||
     }
 
     $lang->load('global');
+
+    $lang->load('messages');
 
     $closed_bypass = ['refresh_captcha', 'validate_captcha'];
 } else {
