@@ -152,25 +152,23 @@ class Render
      */
     public function templateGet(string $templateName = '', array $templatesContext = []): string
     {
+        global $mybb;
+
         return templateGet(
             $templateName,
             array_merge_recursive([
                 'showcase' => [
-                    'name' => $this->showcaseObject->config['name'],
-                    'version' => $this->showcaseObject->config['version'],
-                    'description' => $this->showcaseObject->config['description'],
-                    'entries_per_page' => $this->showcaseObject->config['entries_per_page'],
                     'fieldset_display_fields' => $this->showcaseObject->fieldset_display_fields,
                 ],
+                'config' => $this->showcaseObject->config,
                 'meta' => [],
                 'current_page' => $this->current_page,
                 'keywords' => $this->keywords,
                 'search_exact' => $this->search_exact,
                 'url' => [
-                    'main' => $this->showcaseObject->urlGenerate(RouterUrls::Main, $this->showcaseObject->urlParams),
+                    'main' => $this->showcaseObject->urlGenerate(RouterUrls::Main),
                 ],
                 'permissions' => $this->showcaseObject->user_permissions,
-                'pagination' => '',
                 'errors' => empty($this->showcaseObject->errorMessages) ? '' : inline_error(
                     $this->showcaseObject->errorMessages
                 ),
@@ -216,7 +214,6 @@ class Render
 
         $templatesContext = [
             'entry_data' => array_merge($this->showcaseObject->entry_data, [
-                'is_ignored' => false,
                 'is_deleted' => false,
                 'moderator_check' => false,
             ]),
@@ -235,14 +232,12 @@ class Render
             'entry_attachments' => '',
             'commentAttachments' => '',
             'class' => '',
+            'show_report_button' => false,
+            'show_warn_button' => false,
+            'user_data' => get_user($userID) ?? [],
         ];
 
-        $templatesContext['userData'] = $userData = get_user($userID);
-
-        // user may be deleted/etc
-        if (empty($userData)) {
-            $templatesContext['userData'] = $userData = [];
-        }
+        $userData = &$templatesContext['user_data'];
 
         $hookArguments = [
             'renderObject' => &$this,
@@ -250,7 +245,7 @@ class Render
             'alternativeBackground' => $alternativeBackground,
             'postType' => $postType,
             'userID' => &$userID,
-            'userData' => &$userData,
+            'user_data' => &$userData,
         ];
 
         $extractVariables = [];
@@ -349,10 +344,10 @@ class Render
         }
 
         // todo, this should probably account for additional groups, but I just took it from post bit logic for now
-        if (!empty($userData['usergroup'])) {
-            $groupPermissions = usergroup_permissions($userData['usergroup']);
+        if (!empty($userData['uid'])) {
+            $templatesContext['user_permissions'] = user_permissions($userData['uid']);
         } else {
-            $groupPermissions = usergroup_permissions(1);
+            $templatesContext['user_permissions'] = usergroup_permissions(1);
         }
 
         $templatesContext['userProfileLinkPlain'] = get_profile_link($userID);
@@ -455,7 +450,7 @@ class Render
                 ]
             );
         } elseif (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanUpdateComments)) {
-            $templatesContext['url_comment_edit'] = $this->showcaseObject->urlGenerate(
+            $templatesContext['url']['update'] = $this->showcaseObject->urlGenerate(
                 RouterUrls::CommentUpdate,
                 [
                     'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
@@ -592,13 +587,11 @@ class Render
 
         $userPermissions = user_permissions($userID);
 
-        $templatesContext['buttonReport'] = '';
+        if (!in_array($current_user_id, $reportUserIDs) && !empty($userPermissions['canbereported'])) {
+            $templatesContext['show_report_button'] = true;
+        }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            if (!in_array($current_user_id, $reportUserIDs) && !empty($userPermissions['canbereported'])) {
-                $templatesContext['show_report_button'] = true;
-            }
-
             $postStatus = (int)$this->showcaseObject->entry_data['status'];
         } else {
             $postStatus = (int)$commentData['status'];
@@ -788,7 +781,7 @@ class Render
                 ))) {
             $templatesContext['is_ignored'] = true;
 
-            $templatesContext['ignored_message'] = $lang->postbit_post_under_moderation;
+            $templatesContext['ignored_message'] = $lang->myshowcase_view_entry_under_moderation;
 
             $templatesContext['style_visibility'] = 'display: none;';
         }
@@ -801,13 +794,32 @@ class Render
             $templatesContext['is_ignored'] = true;
 
             $templatesContext['ignored_message'] = $lang->sprintf(
-                $lang->myShowcaseEntryIgnoredUserMessage,
+                $lang->myshowcase_view_entry_currently_ignoring_user,
                 $userName,
                 $mybb->settings['bburl']
             );
 
             $templatesContext['style_visibility'] = 'display: none;';
         }
+
+        // todo, the entry query should fetch this from the reports table
+        if (isset($this->showcaseObject->entry_data['reporters'])) {
+            $templatesContext['skip_report'] = my_unserialize($this->showcaseObject->entry_data['reporters']);
+
+            if (is_array($templatesContext['skip_report'])) {
+                $templatesContext['skip_report'][] = 0;
+            } else {
+                $templatesContext['skip_report'] = [];
+            }
+        } else {
+            $templatesContext['skip_report'] = [];
+        }
+
+        $templatesContext['show_purge_spammer_button'] = purgespammer_show(
+            $userData['postnum'],
+            $userData['usergroup'],
+            $userData['uid']
+        );
 
         return $this->templateGet(
             $templatePrefix,
@@ -1149,7 +1161,7 @@ class Render
                 $templatesContext['unapproved_message'] = $lang->myshowcase_view_attachments_unapproved_single;
             } else {
                 $templatesContext['unapproved_message'] = $lang->sprintf(
-                    $lang->myshowcase_view_attachments_unapproved_plural,
+                    $lang->myshowcase_view_entry_button_deleted_show,
                     $unapprovedCount
                 );
             }

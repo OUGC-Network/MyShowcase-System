@@ -28,6 +28,7 @@ trait FieldTrait
     private string $user_value = '';
 
     private string $user_value_display = '';
+
     private array $attachments = [];
 
     public function isViewableInEntry(): bool
@@ -132,9 +133,21 @@ trait FieldTrait
             $this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
+        $this->attachmentsBuild();
+
+        return $this;
+    }
+
+    public function attachmentsBuild(): self
+    {
         $this->attachments = $this->showcaseObject->attachmentsGetFromField($this->fieldDefinition['field_id']);
 
         return $this;
+    }
+
+    public function attachmentsGet(): array
+    {
+        return $this->attachments;
     }
 
     public function getUserValue(): string

@@ -289,7 +289,7 @@ $l = array_merge($l, [
     'myshowcase_view_attachments' => 'Attached Files',
     'myshowcase_view_attachments_thumbnails' => 'Thumbnail(s)',
     'myshowcase_view_attachments_images' => 'Image(s)',
-    'myshowcase_view_attachments_unapproved_plural' => '{1} unapproved attachments.',
+    'myshowcase_view_entry_button_deleted_show' => '{1} unapproved attachments.',
     'myshowcase_view_attachments_unapproved_single' => '1 unapproved attachment.',
 
     'myshowcase_create_update_attachment_error_missing_file' => 'You did not select a file to upload.',
@@ -306,6 +306,73 @@ $l = array_merge($l, [
     ///
     ///
     ///
+    'myshowcase_view_entry_button_ignored_deleted_show' => 'Show this Entry',
+
+    'myshowcase_view_entry_status_online' => 'Online',
+    'myshowcase_view_entry_status_offline' => 'Offline',
+    'myshowcase_view_entry_status_away' => 'Away',
+
+    'myshowcase_view_entry_currently_ignoring_user' => 'The contents of this message are hidden because {1} is on your <a href=\"{2}/usercp.php?action=editlists\">ignore list</a>.',
+    'myshowcase_view_entry_under_moderation' => 'The entry made by you is under moderation and currently not visible publicly. The entry will be visible to everyone once a moderator approves it.',
+    'myshowcase_view_entry_deleted_user' => 'This entry by {1} has been deleted',
+    'myshowcase_view_entry_action_quick_restore' => 'Restore',
+    'myshowcase_view_entry_action_quick_restore_title' => 'Restore this entry',
+    'myshowcase_view_entry_action_quote' => 'Reply',
+    'myshowcase_view_entry_action_quote_title' => 'Quote this message in a reply',
+    'myshowcase_view_entry_action_multi_quote' => 'Quote',
+    'myshowcase_view_entry_action_multi_quote_title' => 'Quote this entry',
+    'myshowcase_view_entry_action_rate' => 'Rate',
+    'myshowcase_view_entry_action_rate_title' => 'Give Reputation to this user',
+    'myshowcase_view_entry_options' => 'Entry Options',
+    'myshowcase_view_entry_options_full_edit' => 'Full Edit',
+    'myshowcase_view_entry_options_quick_delete' => 'Delete',
+    'myshowcase_view_entry_options_quick_delete_title' => 'Delete this thread',
+    'myshowcase_view_entry_options_report' => 'Report',
+    'myshowcase_view_entry_options_report_title' => 'Report this entry to a moderator',
+    'myshowcase_view_entry_options_warn' => 'Warn',
+    'myshowcase_view_entry_options_warn_title' => 'Warn the author for this entry',
+    'myshowcase_view_entry_options_purge_spammer' => 'Purge Spammer',
+    'myshowcase_view_entry_options_purge_spammer_title' => 'Purge Spammer',
+
+    'myshowcase_view_comment_button_ignored_deleted_show' => 'Show this Comment',
+
+    'myshowcase_view_comment_status_online' => 'Online',
+    'myshowcase_view_comment_status_offline' => 'Offline',
+    'myshowcase_view_comment_status_away' => 'Away',
+
+    'myshowcase_view_comment_currently_ignoring_user' => 'The contents of this message are hidden because {1} is on your <a href=\"{2}/usercp.php?action=editlists\">ignore list</a>.',
+    'myshowcase_view_comment_under_moderation' => 'The comment made by you is under moderation and currently not visible publicly. The comment will be visible to everyone once a moderator approves it.',
+    'myshowcase_view_comment_deleted_user' => 'This comment by {1} has been deleted',
+    'myshowcase_view_comment_action_quick_restore' => 'Restore',
+    'myshowcase_view_comment_action_quick_restore_title' => 'Restore this comment',
+    'myshowcase_view_comment_action_quote' => 'Reply',
+    'myshowcase_view_comment_action_quote_title' => 'Quote this message in a reply',
+    'myshowcase_view_comment_action_multi_quote' => 'Quote',
+    'myshowcase_view_comment_action_multi_quote_title' => 'Quote this comment',
+    'myshowcase_view_comment_action_rate' => 'Rate',
+    'myshowcase_view_comment_action_rate_title' => 'Give Reputation to this user',
+    'myshowcase_view_comment_options' => 'Comment Options',
+    'myshowcase_view_comment_options_full_edit' => 'Full Edit',
+    'myshowcase_view_comment_options_quick_delete' => 'Delete',
+    'myshowcase_view_comment_options_quick_delete_title' => 'Delete this thread',
+    'myshowcase_view_comment_options_report' => 'Report',
+    'myshowcase_view_comment_options_report_title' => 'Report this comment to a moderator',
+    'myshowcase_view_comment_options_warn' => 'Warn',
+    'myshowcase_view_comment_options_warn_title' => 'Warn the author for this comment',
+    'myshowcase_view_comment_options_purge_spammer' => 'Purge Spammer',
+    'myshowcase_view_comment_options_purge_spammer_title' => 'Purge Spammer',
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+    ///
+
     'myShowcaseNewEditFormTitle' => 'New Entry',
     'myShowcaseNewEditFormField' => 'Field',
     'myShowcaseNewEditFormValue' => 'Value',
@@ -330,11 +397,8 @@ $l = array_merge($l, [
     'myShowcaseEntryNextOldest' => 'Next Oldest',
     'myShowcaseEntryNextNewest' => 'Next Newest',
 
-    'myShowcaseEntryIgnoredUserMessage' => 'The contents of this message are hidden because {1} is on your <a href="{2}/usercp.php?action=editlists">ignore list</a>.',
-
     'myShowcaseEntryEditedBy' => 'This entry was last modified: {1} by',
     'myShowcaseEntryDeletedMessage' => 'This entry by {1} has been deleted.',
-    'myShowcaseEntryDeletedSButtonShow' => 'Show this Comment',
 
     'myShowcaseEntryAttachmentsFiles' => 'Attached Files',
     'myShowcaseEntryAttachmentsImages' => 'Image(s)',
@@ -364,9 +428,6 @@ $l = array_merge($l, [
     'myShowcaseEntryButtonDeleteDescription' => 'Delete entry',
     'myShowcaseEntryButtonDeleteConfirm' => 'Are you sure you want to delete this entry?',
 
-    'myShowcaseCommentOnlineStatusOnline' => 'Online',
-    'myShowcaseCommentOnlineStatusOffline' => 'Offline',
-    'myShowcaseCommentOnlineStatusAway' => 'Away',
     'myShowcaseCommentDetailsPosts' => 'Posts',
     'myShowcaseCommentDetailsThreads' => 'Threads',
     'myShowcaseCommentDetailsJoined' => 'Joined',

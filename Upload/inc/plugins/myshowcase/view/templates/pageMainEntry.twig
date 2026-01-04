@@ -6,7 +6,7 @@
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
             {# Entry attachments #}
-            {% if entry_data.attachments is not empty %}
+            {% if config.attachments_allow_entries and config.attachments_main_render_first and permissions.can_view_attachments and entry_data.attachments is not empty %}
                 {% for attachment_id,attachment_data in entry_data.attachments %}
                     {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
                 {% endfor %}

@@ -577,16 +577,9 @@ function postbit(array &$post): array
         if (!empty($matches[1])) {
             global $db;
 
-            $attachment_hashes = [];
-
-            foreach ($matches[1] as $attachment_hash) {
-                $attachment_hashes[] = $db->escape_string($attachment_hash);
-            }
-
-            $attachment_hashes = implode("','", array_map([$db, 'escape_string'], $attachment_hashes));
-
+            // todo, cache attachment objects per showcase to reduce queries
             $attachment_objects = \MyShowcase\Plugin\Functions\attachmentGet(
-                ["attachment_hash IN ('{$attachment_hashes}')"],
+                ["attachment_hash IN ('" . implode("','", array_map([$db, 'escape_string'], $matches[1])) . "')"],
                 [
                     'showcase_id',
                     'entry_id',
@@ -603,49 +596,52 @@ function postbit(array &$post): array
                 ],
             );
 
+            $attachment_entry_ids = array_column($attachment_objects, 'entry_id');
+
+            $attachment_entry_ids = implode("','", $attachment_entry_ids);
+
+            static $showcase_objects = [];
+
             foreach (array_unique(array_column($attachment_objects, 'showcase_id')) as $showcase_id) {
-                $showcase = showcaseGetObject((int)$showcase_id);
+                if (!isset($showcase_objects[$showcase_id])) {
+                    $showcase_objects[$showcase_id] = showcaseGetObject((int)$showcase_id);
+                }
 
-                foreach ($attachment_objects as $attachment_id => $attachment_data) {
-                    $entryData = entryGet(
-                        $showcase->showcase_id,
-                        ["entry_id='{$db->escape_string($attachment_data['entry_id'])}'"],
+                $showcase_objects[$showcase_id]->entriesAppend(
+                    entryGet(
+                        $showcase_objects[$showcase_id]->showcase_id,
+                        ["entry_id IN ('{$attachment_entry_ids}')"],
                         ['entry_id', 'user_id', 'post_hash', 'status', 'entry_slug', 'entry_slug_custom'],
-                        ['limit' => 1]
-                    );
+                    )
+                )
+                    ->attachmentsAppend(
+                        array_filter(
+                            $attachment_objects,
+                            function ($attachment_data) use ($showcase_id): bool {
+                                return ($attachment_data['showcase_id'] === $showcase_id);
+                            }
+                        )
+                    )
+                    ->attachmentsParseObjects();
+            }
 
-                    $showcase->entryDataSet($entryData);
+            foreach ($showcase_objects as $showcase_id => $showcase) {
+                foreach ($matches[1] as $attachment_hash) {
+                    $attachment_data = $showcase->attachmentGetByHash($attachment_hash);
+                    if ($attachment_data) {
+                        $attachedThumbnail = $showcase->renderObject->templateGet(
+                            'postBitAttachmentThumbnail',
+                            [
+                                'thumbnail' => $attachment_data,
+                            ]
+                        );
 
-                    $attachment_data = $showcase->attachmentsParseObjects(
-                        [$attachment_id => $attachment_data],
-                        true
-                    )[$attachment_id];
-
-
-                    $attachment_data['url'] = str_replace(
-                        'showthread.php/',
-                        '',
-                        $attachment_data['url']
-                    );
-
-                    $attachment_data['url_thumbnail'] = str_replace(
-                        'showthread.php/',
-                        '',
-                        $attachment_data['url_thumbnail']
-                    );
-
-                    $attachedThumbnail = $showcase->renderObject->templateGet(
-                        'postBitAttachmentThumbnail',
-                        [
-                            'thumbnail' => $attachment_data,
-                        ]
-                    );
-
-                    $post['message'] = str_replace(
-                        "[attachment={$attachment_data['attachment_hash']}]",
-                        $attachedThumbnail,
-                        $post['message']
-                    );
+                        $post['message'] = str_replace(
+                            "[attachment={$attachment_data['attachment_hash']}]",
+                            $attachedThumbnail,
+                            $post['message']
+                        );
+                    }
                 }
             }
         }

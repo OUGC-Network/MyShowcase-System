@@ -60,6 +60,8 @@ class Showcase
 {
     public array $fieldset_display_fields = [];
     public readonly array $user_permissions;
+    private array $entry_objects = [];
+    private array $attachment_objects = [];
 
     /**
      * Constructor of class.
@@ -283,79 +285,16 @@ class Showcase
         }
 
         if ($this->config['enable_friendly_urls']) {
-            $this->selfPhpScript = str_replace('.php', '/', $_SERVER['PHP_SELF']);
+            $this->selfPhpScript = 'showcase';
         } else {
-            $this->selfPhpScript = $_SERVER['PHP_SELF'];
+            $this->selfPhpScript = 'showcase.php';
         }
-
-        $this->selfPhpScript = '/showcase'; // todo, temporary fix for router
 
         if (str_ends_with($this->selfPhpScript, '/')) {
             $this->selfPhpScript = rtrim($this->selfPhpScript, '/');
         }
 
-        if ($this->config['enable_friendly_urls']) {
-            //$showcase_name = strtolower($showcaseObject->config['name']);
-            $this->urlMain = $this->cleanName . '.html';
-
-            $this->urlPaged = $this->cleanName . '-page-{page}.html';
-
-            $this->urlViewEntry = $this->cleanName . '-view-{entry_id}.html';
-
-            $this->urlViewComment = $this->cleanName . '-view-{entry_id}-last-comment.html';
-
-            $this->urlCreateEntry = $this->cleanName . '-new.html';
-
-            $this->urlViewAttachment = $this->cleanName . '-attachment-{attachment_id}.html';
-
-            $this->urlViewAttachmentItem = $this->cleanName . '-item-{attachment_id}.php';
-        } else {
-            $this->urlMain = $this->selfPhpScript;
-
-            $this->urlMainUnapproved = $this->selfPhpScript . '/unapproved';
-
-            $this->urlPaged = $this->prefix . '.php?page={page}';
-
-            $this->urlViewEntry = $this->selfPhpScript . '/view/{entry_slug_custom}';
-
-            $this->urlViewEntryPage = $this->selfPhpScript . '/view/{entry_slug_custom}/page/{current_page}';
-
-            $this->urlViewComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}';
-
-            $this->urlCreateEntry = $this->selfPhpScript . '/create';
-
-            $this->urlUpdateEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/update';
-
-            $this->urlApproveEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/approve';
-
-            $this->urlUnapproveEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/unapprove';
-
-            $this->urlSoftDeleteEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/soft_delete';
-
-            $this->urlRestoreEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/restore';
-
-            $this->urlDeleteEntry = $this->selfPhpScript . '/view/{entry_slug_custom}/delete';
-
-            $this->urlCreateComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment';
-
-            $this->urlUpdateComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/update';
-
-            $this->urlApproveComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/approve';
-
-            $this->urlUnapproveComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/unapprove';
-
-            $this->urlRestoreComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/restore';
-
-            $this->urlSoftDeleteComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/soft_delete';
-
-            $this->urlDeleteComment = $this->selfPhpScript . '/view/{entry_slug_custom}/comment/{comment_id}/delete';
-
-            $this->urlViewAttachment = $this->selfPhpScript . '/view/{entry_slug_custom}/attachment/{attachment_id}';
-
-            //$this->urlViewAttachmentThumbnail = $this->showcaseSlug . '/view/{entry_slug_custom}/attachment/{thumbnail_id}/thumbnail';
-
-            $this->urlViewAttachmentItem = $this->prefix . '.php?action=item&attachment_id={attachment_id}';
-        }
+        $this->contextPath = 'showcase/';
 
         $mybb->binary_fields[$this->dataTableName]['ipaddress'] = true;
 
@@ -366,6 +305,12 @@ class Showcase
         $hookArguments = [
             'showcaseObject' => &$this,
         ];
+
+        $this->config['url_root'] = $mybb->settings['bburl'];
+
+        $this->config['url_showcase'] = $this->config['url_root'] . '/' . $this->selfPhpScript;
+
+        $this->config['url_showcase_attachments'] = $mybb->get_asset_url($this->config['url_showcase']);
 
         RouterUrls::init($this);
 
@@ -652,98 +597,136 @@ class Showcase
         );
     }
 
-    public function attachmentsParseObjects(array $attachmentObjects, bool $existing_entry = false): array
+    public function attachmentsParseObjects(): Showcase
     {
-        return array_map(function ($attachmentData) use ($existing_entry): array {
-            $attachmentData = array_merge(
-                $attachmentData,
-                [
-                    'file_name' => $attachmentData['file_name'],
-                    'file_size' => get_friendly_size($attachmentData['file_size']),
-                    'attachment_name' => $attachmentData['attachment_name'],
-                    'downloads' => (int)$attachmentData['downloads'],
-                    'dateline' => (int)$attachmentData['dateline'],
-                    'thumbnail_name' => $attachmentData['thumbnail_name'],
-                    'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
-                    'icon' => get_attachment_icon($attachmentData['attachment_name']),
-                    'has_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
-                    'url' => $existing_entry ? $this->urlGenerate(
-                        RouterUrls::AttachmentView,
-                        [
-                            'entry_slug' => $this->entry_data['entry_slug'],
-                            'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
-                            'attachment_hash' => $attachmentData['attachment_hash'],
-                        ],
-                    ) : $this->urlGenerate(
-                        RouterUrls::AttachmentViewFromPostHash,
-                        [
-                            'post_hash' => $this->entry_data['post_hash'],
-                            'attachment_hash' => $attachmentData['attachment_hash']
-                        ],
-                    ),
-                ]
-            );
+        foreach ($this->attachment_objects as $entry_id_hash => &$attachmentObjects) {
+            foreach ($attachmentObjects as $attachment_id => &$attachment_data) {
+                $entry_exist = !empty($entry_id_hash) && isset($this->entry_objects[$entry_id_hash]);
 
-            if ($attachmentData['has_thumbnail']) {
-                $attachmentData['url_thumbnail'] = $existing_entry ? $this->urlGenerate(
-                    RouterUrls::ThumbnailView,
+                $attachment_data = array_merge(
+                    $attachment_data,
                     [
-                        'entry_slug' => $this->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
-                        'attachment_hash' => $attachmentData['attachment_hash']
-                    ]
-                ) : $this->urlGenerate(
-                    RouterUrls::ThumbnailView,
-                    [
-                        'entry_slug' => $this->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->entry_data['entry_slug_custom'],
-                        'attachment_hash' => $attachmentData['attachment_hash']
+                        'file_name' => $attachment_data['file_name'],
+                        'file_size' => get_friendly_size($attachment_data['file_size']),
+                        'attachment_name' => $attachment_data['attachment_name'],
+                        'downloads' => (int)$attachment_data['downloads'],
+                        'dateline' => (int)$attachment_data['dateline'],
+                        'thumbnail_name' => $attachment_data['thumbnail_name'],
+                        'is_image' => str_starts_with($attachment_data['mime_type'], 'image/'),
+                        'icon' => get_attachment_icon($attachment_data['attachment_name']),
+                        'has_thumbnail' => !empty($attachment_data['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
+                        'url' => $entry_exist ? (empty($this->entry_objects[$attachment_data['entry_id']]['entry_slug']) ? _dump(
+                                $entry_exist,
+                                $this->entry_objects[$attachment_data['entry_id']]
+                            ) : '') . $this->urlGenerate(
+                                RouterUrls::AttachmentView,
+                                [
+                                    'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
+                                    'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                                    'attachment_hash' => $attachment_data['attachment_hash'],
+                                ],
+                            ) : $this->urlGenerate(
+                            RouterUrls::AttachmentViewFromPostHash,
+                            [
+                                'post_hash' => $this->entry_objects[$attachment_data['entry_id']]['post_hash'],
+                                'attachment_hash' => $attachment_data['attachment_hash']
+                            ],
+                        ),
                     ]
                 );
-            } else {
-                $attachmentData['url_thumbnail'] = $attachmentData['url'];
-            }
 
-            return $attachmentData;
-        }, $attachmentObjects);
+                if ($attachment_data['has_thumbnail']) {
+                    $attachment_data['url_thumbnail'] = $entry_exist ? $this->urlGenerate(
+                        RouterUrls::ThumbnailView,
+                        [
+                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
+                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                            'attachment_hash' => $attachment_data['attachment_hash']
+                        ]
+                    ) : $this->urlGenerate(
+                        RouterUrls::ThumbnailView,
+                        [
+                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
+                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                            'attachment_hash' => $attachment_data['attachment_hash']
+                        ]
+                    );
+                } else {
+                    $attachment_data['url_thumbnail'] = $attachment_data['url'];
+                }
+            }
+        }
+
+        return $this;
     }
 
-    public function attachmentsGetFromEntry(?int $field_id = null, bool $existing_entry = false): array
+    public function attachmentsGetFromObject(?int $field_id = null): array
     {
         $where_clauses = ["showcase_id='{$this->showcase_id}'"];
 
-        if ($this->entry_id) {
-            $where_clauses[] = "entry_id='{$this->entry_id}'";
+        if ($this->entry_data['entry_id']) {
+            $where_clauses[] = "entry_id='{$this->entry_data['entry_id']}'";
         } else {
             $where_clauses[] = "post_hash='{$this->entry_data['post_hash']}'";
         }
 
-        if ($field_id !== null) {
+        if (!empty($field_id)) {
             $where_clauses[] = "field_id='{$field_id}'";
         }
 
-        $attachmentObjects = attachmentGet(
-            $where_clauses,
-            [
-                'attachment_hash',
-                'file_name',
-                'mime_type',
-                'file_size',
-                'attachment_name',
-                'downloads',
-                'dateline',
-                'status',
-                'thumbnail_name',
-                'thumbnail_dimensions',
-            ]
-        );
+        $this->attachmentsAppend(
+            attachmentGet(
+                $where_clauses,
+                [
+                    'entry_id',
+                    'post_hash',
+                    'attachment_hash',
+                    'file_name',
+                    'mime_type',
+                    'file_size',
+                    'attachment_name',
+                    'downloads',
+                    'dateline',
+                    'status',
+                    'thumbnail_name',
+                    'thumbnail_dimensions',
+                    'field_id',
+                ]
+            )
+        )
+            ->attachmentsParseObjects();
 
-        return $this->attachmentsParseObjects($attachmentObjects, $existing_entry);
+        if ($this->entry_data['entry_id']) {
+            return $this->attachmentsGetByEntryID($this->entry_data['entry_id']);
+        } else {
+            return $this->attachmentsGetByPostHash($this->entry_data['post_hash']);
+        }
+    }
+
+    public function attachmentsGetFromEntry(): array
+    {
+        $attachment_objects = [];
+
+        foreach ($this->attachmentsGetFromObject() as $attachment_id => $attachment_data) {
+            if (($attachment_data['entry_id'] === $this->entry_data['entry_id'] || $attachment_data['post_hash'] === $this->entry_data['post_hash']) && empty($attachment_data['field_id'])) {
+                $attachment_objects[$attachment_data['attachment_id']] = $attachment_data;
+            }
+        }
+
+        return $attachment_objects;
     }
 
     public function attachmentsGetFromField(int $field_id): array
     {
-        return $this->attachmentsGetFromEntry($field_id, existing_entry: true);
+        $attachment_objects = [];
+
+        foreach ($this->attachmentsGetFromObject($field_id) as $entry_id_hash => $attachment_data) {
+            if ($attachment_data['field_id'] === $field_id) {
+                $attachment_objects[$attachment_data['attachment_id']] = $attachment_data;
+            }
+        }
+
+        return $attachment_objects;
     }
 
     public function attachmentsRemove(array $whereClauses): void
@@ -855,7 +838,7 @@ class Showcase
         );
     }
 
-    public function entryDataSet(array $entryData): void
+    public function entryDataSet(array $entryData): Showcase
     {
         $this->entry_data = $entryData;
 
@@ -870,6 +853,8 @@ class Showcase
         if (isset($this->entry_data['post_hash'])) {
             //$this->post_hash = (string)$this->entryData['post_hash'];
         }
+
+        return $this;
     }
 
     public function urlSet(string $showcaseUrl): void
@@ -974,6 +959,65 @@ class Showcase
         return "({$whereClausesStatus})";
     }
 
+    public function entriesAppend(array $entries_objects): Showcase
+    {
+        foreach ($entries_objects as $entry_data) {
+            $entry_id = !empty($entry_data['entry_id']) ? $entry_data['entry_id'] : $entry_data['post_hah'];
+
+            if ($entry_id) {
+                $this->entry_objects[$entry_id] = $entry_data;
+            }
+        }
+
+        return $this;
+    }
+
+    public function entriesGetIDs(): array
+    {
+        return array_keys($this->entry_objects);
+    }
+
+    public function entriesGetObjects(): array
+    {
+        return $this->entry_objects;
+    }
+
+    public function attachmentsAppend(array $attachment_objects): Showcase
+    {
+        foreach ($attachment_objects as $attachment_id => $attachment_data) {
+            $entry_id = !empty($attachment_data['entry_id']) ? $attachment_data['entry_id'] : $attachment_data['post_hash'];
+
+            if ($entry_id) {
+                $this->attachment_objects[$entry_id][$attachment_id] = $attachment_data;
+            }
+        }
+
+        return $this;
+    }
+
+    public function attachmentsGetByEntryID(int $entry_id): array
+    {
+        return $this->attachment_objects[$entry_id] ?? [];
+    }
+
+    public function attachmentsGetByPostHash(string $post_hash): array
+    {
+        return $this->attachment_objects[$post_hash] ?? [];
+    }
+
+    public function attachmentGetByHash(string $attachment_hash): array|bool
+    {
+        foreach ($this->attachment_objects as $entry_id => $attachment_objects) {
+            foreach ($attachment_objects as $attachment_id => $attachment_data) {
+                if ($attachment_data['attachment_hash'] === $attachment_hash) {
+                    return $attachment_data;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public function setEntry(
         string $entrySlug,
         bool $loadFields = false
@@ -989,11 +1033,11 @@ class Showcase
                 return 'entryData.' . $fieldName;
             }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
             [
-                'userData.username',
+                'user_data.username',
             ]
         );
 
-        $queryTables = ['users userData ON (userData.uid=entryData.user_id)'];
+        $queryTables = ['users user_data ON (user_data.uid=entryData.user_id)'];
 
         if ($loadFields) {
             foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
@@ -1019,9 +1063,10 @@ class Showcase
             }
         }
 
-        $this->entryDataSet(
-            $this->dataGet($whereClauses, $queryFields, ['limit' => 1], $queryTables)
-        );
+        $entry_data = $this->dataGet($whereClauses, $queryFields, ['limit' => 1], $queryTables);
+
+        $this->entryDataSet($entry_data)
+            ->entriesAppend([$entry_data['entry_id'] => $entry_data]);
     }
 
     public function urlGenerate(string $name, array $parameters = []): string

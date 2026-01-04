@@ -41,7 +41,6 @@ class RouterUrls
     public const MainDelete = 'main_delete';
     public const EntryCreate = 'entry_create';
     public const EntryCreateUpload = 'entry_create_upload';
-    public const EntryCreateFiles = 'entry_create_file';
     public const EntryView = 'entry_view';
     public const EntryViewPage = 'entry_page';
     public const EntryUpdate = 'entry_update';
@@ -81,36 +80,25 @@ class RouterUrls
         // Create a RouteCollection and add routes
         self::$routes = new RouteCollection();
 
-        foreach (
-            [
-                //self::$showcase->selfPhpScript .  '/',
-                //self::$showcase->selfPhpScript .  '/limit/{limit}',
-                //self::$showcase->selfPhpScript .  '/limit/{limit}/start/{start}',
+        self::$routes->add(
+            self::Main,
+            new Route(
                 '/',
-                //'/limit/{limit}',
-                //'/limit/{limit}/start/{start}',
-            ] as $route
-        ) {
-            self::$routes->add(
-                self::Main,
-                new Route(
-                    self::$showcase->selfPhpScript . '/',
-                    [
-                        '_controller' => function (): string {
-                            return (new Entries())->mainView();
-                        },
-                    ],
-                    [
-                        '_method' => 'GET',
-                    ]
-                )
-            );
-        }
+                [
+                    '_controller' => function (): string {
+                        output_page((new Entries())->mainView());
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                ]
+            )
+        );
 
         self::$routes->add(
             self::MainUnapproved,
             new Route(
-                self::$showcase->selfPhpScript . '/unapproved',
+                '/unapproved',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->mainUnapproved();
@@ -125,7 +113,7 @@ class RouterUrls
         self::$routes->add(
             self::Search,
             new Route(
-                self::$showcase->selfPhpScript . '/search',
+                '/search',
                 [
                     '_controller' => function (): string {
                         return (new Search())->mainSearch();
@@ -137,7 +125,7 @@ class RouterUrls
         self::$routes->add(
             self::Search,
             new Route(
-                self::$showcase->selfPhpScript . '/search/{search_hash}',
+                '/search/{search_hash}',
                 [
                     '_controller' => function (): string {
                         return (new Search())->mainSearch();
@@ -152,7 +140,7 @@ class RouterUrls
         self::$routes->add(
             self::MainUser,
             new Route(
-                self::$showcase->selfPhpScript . '/user/{user_id}',
+                '/user/{user_id}',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->mainUser();
@@ -168,7 +156,7 @@ class RouterUrls
         self::$routes->add(
             self::MainApprove,
             new Route(
-                self::$showcase->selfPhpScript . '/approve',
+                '/approve',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->approveEntries();
@@ -183,7 +171,7 @@ class RouterUrls
         self::$routes->add(
             self::MainUnapprove,
             new Route(
-                self::$showcase->selfPhpScript . '/unapprove',
+                '/unapprove',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->unapproveEntries();
@@ -198,7 +186,7 @@ class RouterUrls
         self::$routes->add(
             self::MainSoftDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/soft_delete',
+                '/soft_delete',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->softDeleteEntries();
@@ -213,7 +201,7 @@ class RouterUrls
         self::$routes->add(
             self::MainRestore,
             new Route(
-                self::$showcase->selfPhpScript . '/restore',
+                '/restore',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->restoreEntries();
@@ -228,7 +216,7 @@ class RouterUrls
         self::$routes->add(
             self::MainDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/delete',
+                '/delete',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->deleteEntries();
@@ -243,10 +231,10 @@ class RouterUrls
         self::$routes->add(
             self::EntryCreate,
             new Route(
-                self::$showcase->selfPhpScript . '/create',
+                '/create',
                 [
-                    '_controller' => function (): string {
-                        return (new Entries())->createEntry();
+                    '_controller' => function (): void {
+                        output_page((new Entries())->createEntry());
                     },
                 ],
             )
@@ -255,26 +243,10 @@ class RouterUrls
         self::$routes->add(
             self::EntryCreateUpload,
             new Route(
-                self::$showcase->selfPhpScript . '/create/{post_hash}/upload',
+                '/create/{post_hash}/upload',
                 [
                     '_controller' => function (array $parameters): string {
-                        return (new Attachments())->uploadAttachment(...$parameters);
-                    },
-                ],
-                [
-                    '_method' => 'POST',
-                    'post_hash' => '[a-z0-9-]+',
-                ]
-            ),
-        );
-
-        self::$routes->add(
-            self::EntryCreateFiles,
-            new Route(
-                self::$showcase->selfPhpScript . '/create/{post_hash}/files',
-                [
-                    '_controller' => function (array $parameters): string {
-                        return (new Attachments())->getAttachments(...$parameters);
+                        (new Attachments())->uploadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -287,10 +259,10 @@ class RouterUrls
         self::$routes->add(
             self::EntryView,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}',
+                '/view/{entry_slug}/{entry_slug_custom}',
                 [
-                    '_controller' => function (array $parameters): string {
-                        return (new Entries())->viewEntry(...$parameters);
+                    '_controller' => function (array $parameters): void {
+                        output_page((new Entries())->viewEntry(...$parameters));
                     },
                 ],
                 [
@@ -304,10 +276,10 @@ class RouterUrls
         self::$routes->add(
             self::EntryUpdate,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update',
+                '/view/{entry_slug}/{entry_slug_custom}/update',
                 [
-                    '_controller' => function (): string {
-                        return (new Entries())->updateEntry();
+                    '_controller' => function (array $parameters): void {
+                        output_page((new Entries())->updateEntry(...$parameters));
                     },
                 ],
                 [
@@ -320,10 +292,10 @@ class RouterUrls
         self::$routes->add(
             self::EntryUpdateUpload,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/update/attachment',
+                '/view/{entry_slug}/{entry_slug_custom}/update/attachment',
                 [
-                    '_controller' => function (): string {
-                        return (new Attachments())->uploadAttachment();
+                    '_controller' => function (array $parameters): string {
+                        (new Attachments())->uploadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -336,7 +308,7 @@ class RouterUrls
         self::$routes->add(
             self::EntryViewPage,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
+                '/view/{entry_slug}/{entry_slug_custom}/page/{page_id}',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->viewEntry();
@@ -353,7 +325,7 @@ class RouterUrls
         self::$routes->add(
             self::EntryApprove,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/approve',
+                '/view/{entry_slug}/{entry_slug_custom}/approve',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->approveEntry();
@@ -370,7 +342,7 @@ class RouterUrls
         self::$routes->add(
             self::EntryUnapprove,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/unapprove',
+                '/view/{entry_slug}/{entry_slug_custom}/unapprove',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->unapproveEntry();
@@ -387,7 +359,7 @@ class RouterUrls
         self::$routes->add(
             self::EntrySoftDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
+                '/view/{entry_slug}/{entry_slug_custom}/soft_delete',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->softDeleteEntry();
@@ -404,7 +376,7 @@ class RouterUrls
         self::$routes->add(
             self::EntryRestore,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/restore',
+                '/view/{entry_slug}/{entry_slug_custom}/restore',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->restoreEntry();
@@ -421,7 +393,7 @@ class RouterUrls
         self::$routes->add(
             self::EntryDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/delete',
+                '/view/{entry_slug}/{entry_slug_custom}/delete',
                 [
                     '_controller' => function (): string {
                         return (new Entries())->deleteEntry();
@@ -438,7 +410,7 @@ class RouterUrls
         self::$routes->add(
             self::Comment,
             new Route(
-                self::$showcase->selfPhpScript . '/comment/{comment_slug}',
+                '/comment/{comment_slug}',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->redirect();
@@ -453,7 +425,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentCreate,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment',
+                '/view/{entry_slug}/{entry_slug_custom}/comment',
                 [
                     '_controller' => function (array $parameters): string {
                         return (new Comments())->create(...$parameters);
@@ -469,7 +441,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentView,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->view();
@@ -487,7 +459,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentUpdate,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
                 [
                     '_controller' => function (array $parameters): string {
                         return (new Comments())->update(...$parameters);
@@ -504,7 +476,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentApprove,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/approve',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->approve();
@@ -522,7 +494,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentUnapprove,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/unapprove',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->unapprove();
@@ -540,7 +512,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentSoftDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/soft_delete',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->softDelete();
@@ -558,7 +530,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentRestore,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/restore',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->restore();
@@ -576,7 +548,7 @@ class RouterUrls
         self::$routes->add(
             self::CommentDelete,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
+                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/delete',
                 [
                     '_controller' => function (): string {
                         return (new Comments())->delete();
@@ -594,11 +566,11 @@ class RouterUrls
         self::$routes->add(
             self::AttachmentViewFromPostHash,
             new Route(
-                self::$showcase->selfPhpScript . '/create/{post_hash}/attachment/{attachment_hash}',
+                '/create/{post_hash}/attachment/{attachment_hash}',
                 [
                     '_controller' => function (array $parameters): string {
                         // todo, maybe check that only the current user is trying to view ?
-                        return (new Attachments())->downloadAttachment(...$parameters);
+                        (new Attachments())->downloadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -612,10 +584,10 @@ class RouterUrls
         self::$routes->add(
             self::AttachmentView,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
+                '/view/{entry_slug}/{entry_slug_custom}/attachment/{attachment_hash}',
                 [
                     '_controller' => function (array $parameters): string {
-                        return (new Attachments())->downloadAttachment(...$parameters);
+                        (new Attachments())->downloadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -630,12 +602,12 @@ class RouterUrls
         self::$routes->add(
             self::ThumbnailView,
             new Route(
-                self::$showcase->selfPhpScript . '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
+                '/view/{entry_slug}/{entry_slug_custom}/thumbnail/{attachment_hash}',
                 [
                     '_controller' => function (array $parameters): string {
                         $parameters['is_thumbnail'] = true;
 
-                        return (new Attachments())->viewThumbnail(...$parameters);
+                        (new Attachments())->viewThumbnail(...$parameters);
                     },
                 ],
                 [
@@ -656,12 +628,10 @@ class RouterUrls
             return self::$context;
         }
 
-        global $mybb;
-
         // Match the current request
-        self::$context = new RequestContext('/'); // Base URL
+        self::$context = new RequestContext('/' . self::$showcase->contextPath); // Base URL
 
-        self::$context->setBaseUrl($mybb->settings['bburl']);
+        self::$context->setBaseUrl(self::$showcase->config['url_root']);
 
         return self::$context;
     }
@@ -701,7 +671,9 @@ class RouterUrls
 
     public static function getMatch(): array
     {
-        return self::buildMatcher()->match(self::$request->getPathInfo());
+        $pathInfo = str_replace(self::$showcase->contextPath, '', self::$request->getPathInfo());
+
+        return self::buildMatcher()->match($pathInfo);
     }
 
     public static function init(Showcase $showcase): void
@@ -725,6 +697,10 @@ class RouterUrls
 
     public static function generateUrl(string $name, array $parameters): string
     {
-        return self::$generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_URL);
+        return str_replace(
+            '../',
+            '',
+            self::$generator->generate($name, $parameters, UrlGenerator::RELATIVE_PATH)
+        );
     }
 }

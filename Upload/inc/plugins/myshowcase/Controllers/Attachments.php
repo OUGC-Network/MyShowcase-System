@@ -33,6 +33,7 @@ use function MyShowcase\Plugin\Functions\attachmentLogInsert;
 use function MyShowcase\Plugin\Functions\attachmentUpdate;
 use function MyShowcase\Plugin\Functions\attachmentUpload;
 use function MyShowcase\Plugin\Functions\cacheGet;
+use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
 use const MyShowcase\ROOT;
@@ -44,7 +45,9 @@ use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 class Attachments extends Base
 {
     #[NoReturn] public function uploadAttachment(
-        ?string $post_hash = null
+        ?string $post_hash = null,
+        ?string $entry_slug = null,
+        ?string $entry_slug_custom = null
     ): void {
         global $mybb, $lang;
 
@@ -58,6 +61,8 @@ class Attachments extends Base
         }
 
         $field_key = $mybb->get_input('field_key');
+
+        $field_id = null;
 
         $field_id = $this->showcaseObject->fieldSetFieldsIDs[$field_key] ?? 0;
 
@@ -76,6 +81,25 @@ class Attachments extends Base
             $this->errorNoPermission();
         }
 
+        $entry_id = null;
+
+        if ($post_hash === null) {
+            $entryData = entryGet(
+                $this->showcaseObject->showcase_id,
+                ["entry_slug='{$entry_slug}'"],
+                ['entry_id', 'entry_slug_custom', 'status', 'user_id'],
+                ['limit' => 1]
+            );
+
+            if (!$entryData) {
+                $this->errorNoPermission();
+            }
+
+            $this->showcaseObject->entryDataSet($entryData);
+
+            $entry_id = $entryData['entry_id'];
+        }
+
         if ($mybb->request_method === 'post') {
             require_once MYBB_ROOT . 'inc/functions_upload.php';
 
@@ -83,6 +107,7 @@ class Attachments extends Base
                 $this->showcaseObject,
                 $_FILES[$field_key],
                 field_id: $field_id,
+                entry_id: $entry_id,
                 post_hash: $post_hash,
                 watermarkImage: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
             );
@@ -93,13 +118,21 @@ class Attachments extends Base
                 $this->success([
                     'id' => $fileObject['attachment_id'],
                     'path' => $fileObject['file_name'],
-                    'url' => $this->showcaseObject->urlGenerate(
-                        RouterUrls::AttachmentViewFromPostHash,
-                        [
-                            'post_hash' => $post_hash,
-                            'attachment_hash' => $fileObject['attachment_hash']
-                        ],
-                    ),
+                    'url' => isset($entryData) ? $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
+                            RouterUrls::AttachmentView,
+                            [
+                                'entry_slug' => $entry_slug,
+                                'entry_slug_custom' => $entryData['entry_slug_custom'],
+                                'attachment_hash' => $fileObject['attachment_hash'],
+                                'post_hash' => $post_hash,
+                            ],
+                        ) : $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
+                            RouterUrls::AttachmentViewFromPostHash,
+                            [
+                                'post_hash' => $post_hash,
+                                'attachment_hash' => $fileObject['attachment_hash'],
+                            ],
+                        ),
                     'filename' => basename($_FILES[$field_key]['name']),
                     'size' => $fileObject['file_size'],
                     'type' => $fileObject['mime_type'],

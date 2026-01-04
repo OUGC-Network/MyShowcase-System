@@ -154,7 +154,7 @@ try {
 
     $showcaseObject->urlParamsSet($parameters);
 
-    output_page($controller($parameters));
+    $controller($parameters);
 } catch (Exception $e) {
     error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : '');
 }

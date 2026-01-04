@@ -973,6 +973,7 @@ const TABLES_DATA = [
             'formType' => FormTypes::Number,
             'formClass' => 'field150',
         ],
+        // todo, maybe render all attachments instead of first image only?
         'attachments_main_render_first' => [
             'type' => 'TINYINT',
             'unsigned' => true,

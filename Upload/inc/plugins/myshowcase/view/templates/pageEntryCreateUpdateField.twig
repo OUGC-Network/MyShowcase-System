@@ -218,7 +218,7 @@
                         // Server
                         server: {
                             process: {
-                                url: '{{ url.upload }}&field_key={{ field_data.field_key }}',
+                                url: '{{ config.url_showcase }}/{{ url.upload }}&field_key={{ field_data.field_key }}',
                                 method: 'POST',
                                 withCredentials: false,
                                 onerror: (response) => {
@@ -836,8 +836,8 @@
             {{ lang.attachments }}
         </h2>
 
-        {% if attachment_objects is not empty %}
-            {% for attachment_id,attachment_data in attachment_objects %}
+        {% if field_data.attachment_objects is not empty %}
+            {% for attachment_id,attachment_data in field_data.attachment_objects %}
                 {% include '@ext.myshowcase/pageEntryCreateUpdateFieldAttachment.twig' %}
             {% endfor %}
         {% endif %}

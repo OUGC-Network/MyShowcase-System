@@ -438,14 +438,14 @@ class Entries extends Base
 
         //setup joins for query and build where clause based on search_field terms
 
-        $queryTables = ['users userData ON (userData.uid = entryData.user_id)'];
+        $queryTables = ['users user_data ON (user_data.uid = entryData.user_id)'];
 
         $queryFields = array_merge(array_map(function (string $fieldName): string {
             return 'entryData.' . $fieldName;
         }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])), [
-            'userData.username',
-            'userData.usergroup',
-            'userData.displaygroup'
+            'user_data.username',
+            'user_data.usergroup',
+            'user_data.displaygroup'
         ]);
 
         $searchDone = false;
@@ -585,88 +585,60 @@ class Entries extends Base
                 $templatesContext['entries_count'],
                 $this->showcaseObject->config['entries_per_page'],
                 $this->renderObject->current_page,
-                $this->showcaseObject->urlGenerate(
+                $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
                     RouterUrls::Main,
-                    array_merge($this->showcaseObject->urlParams, ['page' => '_PAGE_'])
+                    $this->showcaseObject->urlParams
                 ),
             );
 
-            $entry_objects = entryGet(
-                $this->showcaseObject->showcase_id,
-                $whereClauses,
-                $queryFields,
-                $queryOptions,
-                $queryTables
+            $this->showcaseObject->entriesAppend(
+                entryGet(
+                    $this->showcaseObject->showcase_id,
+                    $whereClauses,
+                    $queryFields,
+                    $queryOptions,
+                    $queryTables
+                )
             );
 
             // get first attachment for each showcase on this page
-            $entryAttachmentsCache = [];
-
             if ($this->showcaseObject->config['attachments_main_render_first']) {
-                $entryIDs = implode("','", array_column($entry_objects, 'entry_id'));
-
-                $attachmentObjects = attachmentGet(
-                    ["showcase_id='{$this->showcaseObject->showcase_id}'", "entry_id IN ('{$entryIDs}')", "status='1'"],
-                    [
-                        'entry_id',
-                        'mime_type',
-                        'file_size',
-                        'file_name',
-                        'attachment_name',
-                        'downloads',
-                        'dateline',
-                        'thumbnail_name',
-                        'attachment_hash',
-                    ],
-                    // todo, seems like MIN(attachment_id) as attachment_id is unnecessary
-                    ['group_by' => 'entry_id']
-                );
-
-                foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-                    $entryAttachmentsCache[$attachmentData['entry_id']][$attachmentID] = [
-                        'file_name' => $attachmentData['file_name'],
-                        'file_size' => get_friendly_size($attachmentData['file_size']),
-                        'attachment_name' => $attachmentData['attachment_name'],
-                        'downloads' => (int)$attachmentData['downloads'],
-                        'dateline' => (int)$attachmentData['dateline'],
-                        'thumbnail_name' => $attachmentData['thumbnail_name'],
-                        'is_image' => str_starts_with($attachmentData['mime_type'], 'image/'),
-                        'icon' => get_attachment_icon($attachmentData['attachment_name']),
-                        'is_thumbnail' => !empty($attachmentData['thumbnail_name']) && $this->showcaseObject->attachmentsDisplayThumbnails,
-                        'url' => $this->showcaseObject->urlGenerate(
-                            RouterUrls::AttachmentView,
-                            [
-                                'entry_slug' => $entry_objects[$attachmentData['entry_id']]['entry_slug'],
-                                'entry_slug_custom' => $entry_objects[$attachmentData['entry_id']]['entry_slug_custom'],
-                                'attachment_hash' => $attachmentData['attachment_hash']
-                            ]
-                        ),
-                        'url_thumbnail' => $this->showcaseObject->urlGenerate(
-                            RouterUrls::ThumbnailView,
-                            [
-                                'entry_slug' => $entry_objects[$attachmentData['entry_id']]['entry_slug'],
-                                'entry_slug_custom' => $entry_objects[$attachmentData['entry_id']]['entry_slug_custom'],
-                                'attachment_hash' => $attachmentData['attachment_hash']
-                            ]
-                        ),
-                    ];
-                }
+                $this->showcaseObject->attachmentsAppend(
+                    attachmentGet(
+                        [
+                            "showcase_id='{$this->showcaseObject->showcase_id}'",
+                            "entry_id IN ('" . implode("','", $this->showcaseObject->entriesGetIDs()) . "')",
+                            "status='1'"
+                        ],
+                        [
+                            'entry_id',
+                            'mime_type',
+                            'file_size',
+                            'file_name',
+                            'attachment_name',
+                            'downloads',
+                            'dateline',
+                            'thumbnail_name',
+                            'attachment_hash',
+                        ],
+                        // todo, seems like MIN(attachment_id) as attachment_id is unnecessary
+                        ['group_by' => 'entry_id']
+                    )
+                )
+                    ->attachmentsParseObjects();
             }
 
             $inlineModerationCount = 0;
 
-            if ($this->showcaseObject->config['entries_per_page'] === 1) {
-                $entry_objects = [$entry_objects];
-            }
-
             $inlinecookie = 'inlinemod_forum' . $this->showcaseObject->showcase_id;
+
+            $entry_objects = $this->showcaseObject->entriesGetObjects();
 
             $entry_objects = array_map(
                 function (array $entryData) use (
                     &$templatesContext,
                     $inlinecookie,
                     $lang,
-                    $entryAttachmentsCache
                 ): array {
                     $entryData['unread_comments'] = false;
 
@@ -721,16 +693,7 @@ class Entries extends Base
 
                     //build a link for the list view, starting with basic text
 
-                    $entryData['attachments'] = [];
-
-                    // todo, maybe render all attachments instead of first image only?
-                    //use showcase attachment if one exists, scaled of course
-                    if ($this->showcaseObject->config['attachments_allow_entries'] &&
-                        $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments] &&
-                        //$this->showcaseObject->config['attachments_main_render_first'] &&
-                        !empty($entryAttachmentsCache[$entryData['entry_id']])) {
-                        $entryData['attachments'] = $entryAttachmentsCache[$entryData['entry_id']];
-                    }
+                    $entryData['attachments'] = $this->showcaseObject->attachmentsGetByEntryID($entryID);
 
                     $entrySubject = $entryData['fieldCache'] = [];
 
@@ -875,8 +838,6 @@ class Entries extends Base
             }
         }
 
-        $page_title = $this->showcaseObject->config['name'];
-
         return $this->renderObject->templateGet(
             'pageMain',
             $templatesContext
@@ -930,8 +891,9 @@ class Entries extends Base
      * @throws LoaderError
      */
     #[NoReturn] public function createEntry(
-        bool $isEditPage = false,
         string $entry_slug = '',
+        string $entry_slug_custom = '',
+        bool $isEditPage = false,
     ): string {
         global $lang, $mybb, $db;
 
@@ -1029,31 +991,17 @@ class Entries extends Base
                 ),
                 'upload' => $isEditPage ? $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryUpdateUpload,
-                    array_merge($this->showcaseObject->urlParams, [
+                    [
                         'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
                         'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
                         'my_post_key' => $mybb->post_code,
-                    ])
+                    ]
                 ) : $this->showcaseObject->urlGenerate(
                     RouterUrls::EntryCreateUpload,
-                    array_merge($this->showcaseObject->urlParams, [
+                    [
                         'post_hash' => $this->showcaseObject->entry_data['post_hash'],
                         'my_post_key' => $mybb->post_code,
-                    ])
-                ),
-                'files' => $isEditPage ? $this->showcaseObject->urlGenerate(
-                    RouterUrls::EntryCreateFiles,
-                    array_merge($this->showcaseObject->urlParams, [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
-                        'my_post_key' => $mybb->post_code,
-                    ])
-                ) : $this->showcaseObject->urlGenerate(
-                    RouterUrls::EntryCreateFiles,
-                    array_merge($this->showcaseObject->urlParams, [
-                        'post_hash' => $this->showcaseObject->entry_data['post_hash'],
-                        'my_post_key' => $mybb->post_code,
-                    ])
+                    ]
                 ),
             ],
             'is_update_page' => $isEditPage,
@@ -1240,7 +1188,10 @@ class Entries extends Base
             function (array &$fieldDefinition) use (&$alternativeBackground, &$fieldTabIndex): array {
                 $field_id = (int)$fieldDefinition['field_id'];
 
-                $fieldObject = fieldGetObject($this->showcaseObject, $fieldDefinition);
+                $fieldObject = fieldGetObject(
+                    $this->showcaseObject,
+                    $fieldDefinition,
+                );
 
                 $fieldDefinition['description'] = $fieldObject->getFieldDescription();
 
@@ -1306,10 +1257,8 @@ class Entries extends Base
                         }
                 }
 
-
-                $fieldDefinition['entryField'] .= $fieldObject->valueSet(
-                    $this->showcaseObject->entry_data[$fieldDefinition['field_key']] ?? ''
-                )->renderCreateUpdate($alternativeBackground, $fieldTabIndex);
+                $fieldDefinition['attachment_objects'] = $fieldObject->attachmentsBuild()
+                    ->attachmentsGet();
 
                 ++$fieldTabIndex;
 
@@ -1343,9 +1292,10 @@ class Entries extends Base
      * @throws LoaderError
      */
     #[NoReturn] public function updateEntry(
-        string $entrySlug,
-    ): void {
-        $this->createEntry(true, $entrySlug);
+        string $entry_slug,
+        string $entry_slug_custom,
+    ): string {
+        return $this->createEntry($entry_slug, $entry_slug_custom, true);
     }
 
     /**

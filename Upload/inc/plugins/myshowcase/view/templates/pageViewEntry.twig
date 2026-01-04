@@ -1,15 +1,18 @@
 <a name="{{ entry_data.entry_slug }}" id="{{ entry_data.entry_slug }}"></a>
 {# Ignored post #}
-{% if entry_data.is_ignored %}
-    <div class="ignored_post" id="ignored_entry_{{ entry_data.entry_slug }}">
-        <div class="ignored_post_author"><strong><span class="largetext">{{ userProfileLink|raw }}</span></strong></div>
-        <div class="ignored_post_message">
-            <div class="show_ignored_post float_right" style="vertical-align: top;"
-                 id="show_ignored_link_{{ entry_data.entry_slug }}">
+{% if is_ignored %}
+    <div class="post post--message ignored_post" id="ignored_post_{{ entry_data.entry_slug }}">
+        <div class="post__meta">
+            <h3 class="post__author">{{ post.profilelink|raw }}</h3>
+        </div>
+        <div class="post__body post__body--message post_body">
+            {{ ignored_message }}
+            <div class="post--message__button" id="show_ignored_link_{{ entry_data.entry_slug }}">
                 <a href="javascript:void(0)"
-                   onclick="Showcase.showIgnoredEntry('{{ entry_data.entry_slug }}'); return false;"
-                   class="button small_button">
-                    <span>{{ lang.myShowcaseEntryDeletedSButtonShow }}</span>
+                   onclick="Thread.showIgnoredPost({{ entry_data.entry_slug }}); return false;"
+                   class="button">
+                    {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">{{ lang.myshowcase_view_entry_button_ignored_deleted_show }}</span>
                 </a>
             </div>
             <script type="text/javascript">
@@ -17,7 +20,31 @@
                 $('#show_ignored_link_{{ entry_data.entry_slug }}').show();
                 // -->
             </script>
-            {{ ignored_message|raw }}
+        </div>
+    </div>
+{% endif %}
+
+{# Deleted post #}
+{% if entry_data.status == 2 and permissions.can_manage_entries %}
+    <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ entry_data.entry_slug }}">
+        <div class="post__meta">
+            <h3 class="post__author">{{ userProfileLink|raw }}</h3>
+        </div>
+        <div class="post__body post__body--message post_body" id="deleted_post{{ entry_data.entry_slug }}">
+            {{ trans(lang.myshowcase_view_entry_deleted_user, user_data.username) }}
+            <div class="post--message__button" id="show_deleted_link_{{ entry_data.entry_slug }}">
+                <a href="javascript:void(0)"
+                   onclick="Thread.showDeletedPost({{ entry_data.entry_slug }}); return false;"
+                   class="button">
+                    {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">{{ lang.myshowcase_view_entry_button_ignored_deleted_show }}</span>
+                </a>
+            </div>
+            <script type="text/javascript">
+                <!--
+                $('#show_deleted_link_{{ entry_data.entry_slug }}').show();
+                // -->
+            </script>
         </div>
     </div>
 {% endif %}
@@ -35,7 +62,7 @@
                    onclick="Showcase.showDeletedEntry('{{ entry_data.entry_slug }}'); return false;"
                    class="button">
                     {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
-                    <span class="button__text">{{ lang.myShowcaseEntryDeletedSButtonShow }}</span>
+                    <span class="button__text">{{ lang.myshowcase_view_entry_button_ignored_deleted_show }}</span>
                 </a>
             </div>
             <script type="text/javascript">
@@ -53,7 +80,7 @@
         {# Author avatar #}
         {% if mybb.user.showavatars is defined and mybb.user.showavatars is not empty %}
             <a href="{{ userProfileLinkPlain|raw }}" class="avatar-profile-link">
-                {% if userData.avatar %}
+                {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
                 {% else %}
                     {% include 'partials/default_avatar.twig' %}
@@ -67,21 +94,21 @@
             {# Online status #}
             {% if userOnlineStatus == 'online' %}
                 <span class="user-status user-status--online">
-    <a href="online.php" title="{{ lang.myShowcaseCommentOnlineStatusOnline }}"
+    <a href="{{ mybb.settings.bburl }}/online.php" title="{{ lang.myshowcase_view_entry_status_online }}"
        class="user-status__link">
-        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myShowcaseCommentOnlineStatusOnline}, with_context = false) }}
+        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_online}, with_context = false) }}
     </a>
 </span>
             {% elseif userOnlineStatus == 'away' %}
                 <span class="user-status user-status--away">
-    <a href="{{ userProfileLinkPlain|raw }}" title="{{ lang.myShowcaseCommentOnlineStatusAway }}"
+    <a href="{{ userProfileLinkPlain|raw }}" title="{{ lang.myshowcase_view_entry_status_away }}"
        class="user-status__link">
-        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myShowcaseCommentOnlineStatusAway}, with_context = false) }}
+        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_away}, with_context = false) }}
     </a>
 </span>
             {% else %}
                 <span class="user-status user-status--offline">
-    {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myShowcaseCommentOnlineStatusOffline}, with_context = false) }}
+    {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_offline}, with_context = false) }}
 </span>
             {% endif %}
         </h3>
@@ -140,29 +167,39 @@
     <div class="post__foot post__foot--controls">
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
-            {% if false and entry_data.quick_restore %}
-                <a href="editentry_data.php?pid={{ entry_data.entry_slug }}"
+            {% if (permissions.can_delete_entries or permissions.can_manage_entries) %}
+                <a href="editpost.php?pid={{ entry_data.entry_slug }}"
                    onclick="Thread.restorePost({{ entry_data.entry_slug }}); return false;"
-                   id="quick_restore_{{ entry_data.entry_slug }}" title="{{ lang.postbit_quick_restore }}"
+                   style="display: none;" id="quick_restore_{{ entry_data.entry_slug }}"
+                   title="{{ lang.myshowcase_view_entry_action_quick_restore_title }}"
                    class="post-control post-control--restore">
                     {{ include('partials/icon.twig', {icon: 'circle', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.postbit_button_qrestore }}</span>
+                    <span class="post-control__text">{{ lang.myshowcase_view_entry_action_quick_restore }}</span>
                 </a>
                 <script type="text/javascript">
                     // <!--
-                    $('#quick_restore_{{ entry_data.entry_slug }}').css('display', '{{ entry_data.quick_restore_display }}');
+                    $('#quick_restore_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status != 2 %}none{% endif %}');
                     // -->
                 </script>
             {% endif %}
 
+            {# Reply to post button #}
+            {% if entry_data.status == 1 and (permissions.can_create_comments or permissions.can_manage_comments) %}
+                <a href="newreply.php?tid={{ entry_data.entry_slug }}&amp;replyto={{ entry_data.entry_slug }}"
+                   title="{{ lang.myshowcase_view_entry_action_quote_title }}"
+                   class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
+                            class="post-control__text">{{ lang.myshowcase_view_entry_action_quote }}</span></a>
+            {% endif %}
+
             {# Multiquote button #}
-            {% if false and entry_data.button_multiquote %}
+            {% if entry_data.status == 1 and (permissions.can_create_comments or permissions.can_manage_comments) %}
                 <a href="javascript:void(0)" onclick="Thread.multiQuote({{ entry_data.entry_slug }}); return false;"
-                   id="multiquote_link_{{ entry_data.entry_slug }}" title="{{ lang.postbit_multiquote }}"
+                   style="display: none;" id="multiquote_link_{{ entry_data.entry_slug }}"
+                   title="{{ lang.myshowcase_view_entry_action_multi_quote_title }}"
                    class="postbit_multiquote post-control post-control--quote">
                     {{ include('partials/icon.twig', {icon: 'quote-left', class: 'post-control__icon fa-fw'}, with_context = false) }}
                     <span id="multiquote_{{ entry_data.entry_slug }}"
-                          class="post-control__text">{{ lang.postbit_button_multiquote }}</span>
+                          class="post-control__text">{{ lang.myshowcase_view_entry_action_multi_quote }}</span>
                 </a>
                 <script type="text/javascript">
                     //<!--
@@ -172,135 +209,83 @@
             {% endif %}
 
             {# Reputation button #}
-            {% if false and entry_data.button_rep %}
+            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and entry_data.user_id != mybb.user.uid and entry_data.status == 1 %}
                 <a href="javascript:void(0)"
-                   onclick="MyBB.reputation({{ entry_data.uid }}, {{ entry_data.entry_slug }}); return false;"
-                   title="{{ lang.postbit_reputation_add }}" class="post-control post-control--rate">
+                   onclick="MyBB.reputation({{ entry_data.user_id }}, {{ entry_data.entry_slug }}); return false;"
+                   title="{{ lang.myshowcase_view_entry_action_rate_title }}" class="post-control post-control--rate">
                     {{ include('partials/icon.twig', {icon: 'thumbs-up', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.postbit_button_reputation_add }}</span>
+                    <span class="post-control__text">{{ lang.myshowcase_view_entry_action_rate }}</span>
                 </a>
             {% endif %}
         </div>
         <div class="post-controls post-controls--secondary post-options">
-            {% if url.update %}
-                <a href="{{ url.update }}" class="post-control post-control--quick-edit quick_edit_button"
-                   id="quick_edit_entry_{{ entry_data.entry_slug }}"
-                   title="{{ lang.myShowcaseCommentButtonEditDescription }}">
-                    {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.myShowcaseCommentButtonEdit }}</span>
-                </a>
-            {% endif %}
-            {% if false and (buttonWarn or buttonPurgeSpammer or buttonReport or buttonApprove or buttonUnpprove or buttonRestore or buttonSoftDelete or buttonDelete) %}
+            {% if (permissions.can_update_entries or permissions.can_manage_entries) or (permissions.can_delete_entries or permissions.can_manage_entries) %}
                 <input type="checkbox" class="post-options__checkbox" id="post_options_{{ entry_data.entry_slug }}">
                 <label for="post_options_{{ entry_data.entry_slug }}"
                        class="post-control post-control--options post-options__control"
-                       title="{{ lang.postbit_post_options }}">
+                       title="{{ lang.myshowcase_view_entry_options }}">
                     {{ include('partials/icon.twig', {icon: 'ellipsis-v', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="visually-hidden">{{ lang.postbit_post_options }}</span>
+                    <span class="visually-hidden">{{ lang.myshowcase_view_entry_options }}</span>
                 </label>
                 <span class="post-options__list" id="post_options2_{{ entry_data.entry_slug }}">
-                {# Edit button #}
-                    {% if url_comment_approve %}
-                        <form id="approveEntry{{ entry_data.entry_slug }}" action="{{ approveUrl }}" method="post"
-                              style="display:none;">
-                            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-                        </form>
-                        <a href="javascript:void(0)"
-                           onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonApproveConfirm }}', 'approveEntry{{ entry_data.entry_slug }}');"
-                           title="{{ lang.myShowcaseEntryButtonApproveDescription }}"
-                           class="post-control post-control--delete">
-    {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                            <span class="post-control__text">{{ lang.myShowcaseEntryButtonApprove }}</span>
+                    {# Edit button #}
+                    {% if permissions.can_update_entries or permissions.can_manage_entries %}
+                        <a href="{{ config.url_showcase }}/{{ url.update }}"
+                           class="post-control post-control--full-edit">
+                            {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_full_edit }}</span>
                         </a>
-                    {% elseif url_comment_unapprove %}
-                        <form id="unapproveEntry{{ entry_data.entry_slug }}" action="{{ unapproveUrl }}" method="post"
-                              style="display:none;">
-                            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-                        </form>
-                        <a href="javascript:void(0)" title="{{ lang.myShowcaseEntryButtonUnapproveDescription }}"
-                           class="postbit_qdelete"
-                           onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonUnapproveConfirm }}', 'unapproveEntry{{ entry_data.entry_slug }}');">
-                            <span>{{ lang.myShowcaseEntryButtonUnapprove }}</span>
-                        </a>
-                    {% endif %}
-
-                    {% if url_comment_delete %}
-                        <form id="deleteEntry{{ entry_data.entry_slug }}" action="{{ deleteUrl }}" method="post"
-                              style="display:none;">
-                            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-                        </form>
-                        <a href="javascript:void(0)"
-                           onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonDeleteConfirm }}', 'deleteEntry{{ entry_data.entry_slug }}');"
-                           id="quick_delete_{{ entry_data.entry_slug }}"
-                           title="{{ lang.myShowcaseEntryButtonDeleteDescription }}"
-                           class="post-control post-control--delete">
-                            {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                            <span class="post-control__text">{{ lang.myShowcaseEntryButtonDelete }}</span>
-                        </a>
-                        <script type="text/javascript">
-                            // <!--
-                            $('#quick_delete_{{ entry_data.entry_slug }}').css('display', '{{ entry_data.quick_delete_display }}');
-                            // -->
-                        </script>
                     {% endif %}
 
                     {# Delete button #}
-                    {% if url_comment_restore %}
-                        <form id="restoreEntryForm{{ entry_data.entry_slug }}" action="{{ restoreUrl }}" method="post"
-                              style="display:none;">
-                            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-                        </form>
-                        <a href="javascript:void(0)" title="{{ lang.myShowcaseEntryButtonRestoreDescription }}"
-                           class="postbit_qrestore"
-                           onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonRestoreConfirm }}', 'restoreEntryForm{{ entry_data.entry_slug }}');"
-                           style="display: inline;">
-                            <span>{{ lang.myShowcaseEntryButtonRestore }}</span>
+                    {% if (permissions.can_delete_entries or permissions.can_manage_entries) %}
+                        <a href="editpost.php?pid={{ entry_data.entry_slug }}"
+                           onclick="Thread.deletePost({{ entry_data.entry_slug }}); return false;"
+                           style="display: none;"
+                           id="quick_delete_{{ entry_data.entry_slug }}"
+                           title="{{ lang.myshowcase_view_entry_options_quick_delete_title }}"
+                           class="post-control post-control--delete">
+                            {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_quick_delete }}</span>
                         </a>
-                    {% elseif url_comment_soft_delete %}
-                        <form id="softDeleteEntryForm{{ entry_data.entry_slug }}" action="{{ softDeleteUrl }}"
-                              method="post"
-                              style="display:none;">
-                            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-                        </form>
-                        <a href="javascript:void(0)" title="{{ lang.myShowcaseEntryButtonSoftDeleteDescription }}"
-                           class="postbit_qdelete"
-                           onclick="Showcase.confirmSubmit('{{ lang.myShowcaseEntryButtonSoftDeleteConfirm }}', 'softDeleteEntryForm{{ entry_data.entry_slug }}');">
-                            <span>{{ lang.myShowcaseEntryButtonSoftDelete }}</span>
-                        </a>
+                        <script type="text/javascript">
+    // <!--
+    $('#quick_delete_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status ==2 %}none{% endif %}');
+    // -->
+    </script>
                     {% endif %}
 
                     {# Report button #}
-                    {% if show_report_button %}
+                    {% if mybb.user.uid not in skip_report and user_permissions.canbereported %}
                         <a href="javascript:void(0)"
-                           onclick="Showcase.reportComment('{{ entry_data.entry_slug }}', {{ showcaseID }}); return false;"
-                           title="{{ lang.myShowcaseEntryButtonReportDescription }}"
+                           onclick="Report.reportPost({{ entry_data.entry_slug }}); return false;"
+                           title="{{ lang.myshowcase_view_entry_options_report_title }}"
                            class="post-control post-control--report">
-    {{ include('partials/icon.twig', {icon: 'flag', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                            <span class="post-control__text">{{ lang.myShowcaseEntryButtonReport }}</span>
+                            {{ include('partials/icon.twig', {icon: 'flag', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_report }}</span>
                         </a>
                     {% endif %}
 
                     {# Warn user button #}
-                    {% if show_warn_button %}
-                        <a href="warnings.php?action=warn&amp;uid={{ userID }}&amp;showcase_id={{ showcaseID }}&amp;entry_slug={{ entry_data.entry_slug }}"
-                           title="{{ lang.myShowcaseEntryButtonWarnDescription }}"
+                    {% if mybb.usergroup.canwarnusers and entry_data.user_id != mybb.user.uid %}
+                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ entry_data.user_id }}&amp;pid={{ entry_data.entry_slug }}"
+                           title="{{ lang.myshowcase_view_entry_options_warn_title }}"
                            class="post-control post-control--warn">
-                            {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context =
-                                false) }}
-                            <span class="post-control__text">{{ lang.myShowcaseEntryButtonWarn }}</span>
+                            {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_warn }}</span>
                         </a>
                     {% endif %}
 
                     {# Purge spammer button #}
                     {% if show_purge_spammer_button %}
-                        <a href="moderation.php?action=purgespammer&amp;uid={{ userID }}"
-                           title="{{ lang.myShowcaseCommentButtonPurseSpammerDescription }}"
+                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ entry_data.user_id }}"
+                           title="{{ lang.myshowcase_view_entry_options_purge_spammer_title }}"
                            class="post-control post-control--purge-spammer">
-    {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}
-    <span class="post-control__text">{{ lang.myShowcaseCommentButtonPurseSpammer }}</span>
-</a>
+                            {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_purge_spammer }}</span>
+                        </a>
                     {% endif %}
-            </span>
+                </span>
             {% endif %}
         </div>
     </div>

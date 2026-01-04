@@ -1,7 +1,7 @@
 {% extends 'layouts/master.twig' %}
 
 {% block head %}
-    <title>{{ showcase.name }} - {{ mybb.settings.bbname }}</title>
+    <title>{{ config.name }} - {{ mybb.settings.bbname }}</title>
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
     {% if meta.canonical %}
@@ -17,17 +17,17 @@
 
 {% block jscripts %}
     <script type="text/javascript"
-            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
+            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ config.version }}"></script>
 {% endblock jscripts %}
 
 {% block body %}
     <div class="page-content">
     <header class="page-header">
         <h1 class="title title--page">
-            {{ showcase.name }}
+            {{ config.name }}
         </h1>
-        {% if showcase.description %}
-            <p class="page-description">{{ showcase.description }}</p>
+        {% if config.description %}
+            <p class="page-description">{{ config.description }}</p>
         {% endif %}
     </header>
 
@@ -112,7 +112,7 @@
         </div>
 
         {# Select all #}
-        {% if true or permissions.can_manage_entries and entries_count > showcase.entries_per_page %}
+        {% if true or permissions.can_manage_entries and entries_count > config.entries_per_page %}
             <div class="thread-list__select-all" id="selectAllrow">
                 {{ trans('myshowcase_main_table_separator_selected_page', entries_count) }} <a href="javascript:void(0)"
                                                                                                onclick='inlineModeration.selectAll(); return false;'>{{ trans('select_all', entries_count) }}</a>

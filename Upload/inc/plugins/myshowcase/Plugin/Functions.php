@@ -1472,6 +1472,7 @@ function attachmentRemove(
  * @param Showcase $showcase Attachment data (as fed by PHPs $_FILE)
  * @param array $attachmentData
  * @param int $field_id
+ * @param int|null $entry_id
  * @param string|null $post_hash
  * @param bool $isUpdate
  * @param bool $watermarkImage
@@ -1480,7 +1481,8 @@ function attachmentRemove(
 function attachmentUpload(
     Showcase $showcase,
     array $attachmentData,
-    int $field_id = 0,
+    ?int $field_id = null,
+    ?int $entry_id = null,
     ?string $post_hash = null,
     bool $isUpdate = false,
     bool $watermarkImage = false
@@ -1534,7 +1536,7 @@ function attachmentUpload(
         return $returnData;
     }
 
-    if ($field_id) {
+    if (!empty($field_id)) {
         $field_definition = $showcase->fieldSetCache[$field_id];
 
         if (empty($field_definition)) {
@@ -1593,9 +1595,9 @@ function attachmentUpload(
         }
     }
 
-    $where_clause = "entry_id='{$showcase->entry_id}' AND entry_id!='0')";
-
-    if ($post_hash !== null) {
+    if (!empty($entry_id)) {
+        $where_clause = "entry_id='{$entry_id}'";
+    } else {
         $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
     }
 
@@ -1637,7 +1639,7 @@ function attachmentUpload(
 
     $attachmentHas = generateUUIDv4();
 
-    $fileName = "attachment_{$showcase->entryUserID}_{$showcase->entry_id}_{$timeNow}_{$attachmentHas}.attach";
+    $fileName = "attachment_{$showcase->entryUserID}_{$entry_id}_{$timeNow}_{$attachmentHas}.attach";
 
     $fileDataResult = fileUpload(
         $attachmentData,
@@ -1678,7 +1680,6 @@ function attachmentUpload(
 
     $insertData = [
         'showcase_id' => $showcase->showcase_id,
-        'entry_id' => $showcase->entry_id,
         'attachment_hash' => generateUUIDv4(),
         'user_id' => $showcase->entryUserID,
         'file_name' => $fileName,
@@ -1689,7 +1690,6 @@ function attachmentUpload(
         'status' => ATTACHMENT_STATUS_VISIBLE,
         'field_id' => $field_id,
         /*'cdn_file' => 0,*/
-
     ];
 
     $returnData['attachment_hash'] = $insertData['attachment_hash'];
@@ -1698,7 +1698,9 @@ function attachmentUpload(
 
     $returnData['file_size'] = $insertData['file_size'];
 
-    if ($post_hash !== null) {
+    if (!empty($entry_id)) {
+        $insertData['entry_id'] = $entry_id;
+    } else {
         $insertData['post_hash'] = $post_hash;
     }
 

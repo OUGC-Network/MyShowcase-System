@@ -21,6 +21,10 @@ interface FieldsInterface
 
     public function valuesBuild(): FieldsInterface;
 
+    public function attachmentsBuild(): self;
+
+    public function attachmentsGet(): array;
+
     public function getUserValue(): string;
 
     public function getUserValueDisplay(): string;
