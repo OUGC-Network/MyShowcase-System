@@ -57,6 +57,8 @@ require_once ROOT . '/System/FormatTypes.php';
 require_once ROOT . '/Plugin/Core.php';
 require_once ROOT . '/Plugin/Functions.php';
 require_once ROOT . '/Plugin/RouterUrls.php';
+require_once ROOT . '/src/Entity/Comment.php';
+require_once ROOT . '/src/Service/CommentManager.php';
 
 defined('PLUGINLIBRARY') || define('PLUGINLIBRARY', MYBB_ROOT . 'inc/plugins/pluginlibrary.php');
 

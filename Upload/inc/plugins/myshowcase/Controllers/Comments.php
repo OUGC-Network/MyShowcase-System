@@ -17,11 +17,10 @@ namespace MyShowcase\Controllers;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
+use myshowcase\src\Service\CommentManager;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
 
-use function MyShowcase\Plugin\Functions\commentsGet;
-use function MyShowcase\Plugin\Functions\commentUpdate;
 use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
 use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
@@ -84,10 +83,11 @@ class Comments extends Base
 
         $current_user_id = (int)$mybb->user['uid'];
 
-        $commentData = commentsGet(
-            ["comment_slug='{$db->escape_string($commentSlug)}'", "showcase_id='{$this->showcaseObject->showcase_id}'"],
-            array_merge(['entry_id', 'status', 'user_id'], $commentFields),
-            ['limit' => 1]
+        $comments_manager = new CommentManager($this->showcaseObject);
+
+        $commentData = $comments_manager->queryComment(
+            ["comment_slug='{$db->escape_string($commentSlug)}'"],
+            array_merge(['entry_id', 'status', 'user_id'], $commentFields)
         );
 
         if (empty($commentData)) {
@@ -214,11 +214,11 @@ class Comments extends Base
 
         $commentTimeStamp = (int)$this->commentData['dateline'];
 
-        $totalCommentsBeforeMainComment = (int)(commentsGet(
-            array_merge($whereClauses, ["dateline<='{$commentTimeStamp}'"]),
-            ['COUNT(comment_id) AS total_comments'],
-            ['limit' => 1, 'group_by' => 'comment_id']
-        )['total_comments'] ?? 0);
+        $comments_manager = new CommentManager($this->showcaseObject);
+
+        $totalCommentsBeforeMainComment = $comments_manager->queryCommentCount(
+            array_merge($whereClauses, ["dateline<='{$commentTimeStamp}'"])
+        );
 
         if (($totalCommentsBeforeMainComment % $this->showcaseObject->config['comments_per_page']) == 0) {
             $this->renderObject->current_page = $totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page'];
@@ -246,13 +246,9 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_update_entry_comments_count_start', $hookArguments);
 
-        $totalComments = $this->showcaseObject->commentGet(
-            $whereClauses,
-            ['COUNT(comment_id) AS total_comments'],
-            ['group_by' => 'entry_id, comment_id', 'limit' => 1]
-        )['total_comments'] ?? 0;
+        $comments_manager = new CommentManager($this->showcaseObject);
 
-        $this->showcaseObject->dataUpdate(['comments' => $totalComments]);
+        $this->showcaseObject->dataUpdate(['comments' => $comments_manager->queryCommentCount($whereClauses)]);
     }
 
     #[NoReturn] public function create(
@@ -564,7 +560,9 @@ class Comments extends Base
         if ($status === self::STATUS_DELETE) {
             $this->showcaseObject->commentDelete($this->commentID);
         } else {
-            commentUpdate(['status' => $status], $this->commentID);
+            $comments_manager = new CommentManager($this->showcaseObject);
+
+            $comments_manager->updateComment(['status' => $status], $this->commentID);
         }
 
         $this->updateEntryCommentsCount();

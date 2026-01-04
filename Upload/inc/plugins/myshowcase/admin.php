@@ -19,9 +19,11 @@ use Form;
 use MyBB;
 use MyShowcase\Plugin\FormTypes;
 
+use myshowcase\src\Service\CommentManager;
+
+use Random\RandomException;
+
 use function MyShowcase\Plugin\Functions\cacheUpdate;
-use function MyShowcase\Plugin\Functions\commentsGet;
-use function MyShowcase\Plugin\Functions\commentUpdate;
 use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\entryUpdate;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -35,7 +37,7 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseGet;
-use function MyShowcase\Plugin\Functions\slugGenerateComment;
+use function MyShowcase\Plugin\Functions\showcaseGetObject;
 use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
 use const MyShowcase\ROOT;
@@ -81,6 +83,9 @@ function pluginInformation(): array
     ];
 }
 
+/**
+ * @throws RandomException
+ */
 function pluginActivation(): bool
 {
     global $PL, $mybb;
@@ -298,8 +303,14 @@ function pluginActivation(): bool
         'attachments_watermark_location NOT IN (1,2,3,4,5)'
     );
 
-    foreach (commentsGet(["comment_slug=''"]) as $commentID => $commentData) {
-        commentUpdate(['comment_slug' => slugGenerateComment()], $commentID);
+    foreach (showcaseGet() as $showcaseID => $showcaseData) {
+        $showcase = showcaseGetObject($showcaseID);
+
+        $comments_manager = new CommentManager($showcase);
+
+        foreach ($comments_manager->queryComments(["comment_slug=''"], 'comment_id') as $commentID => $commentData) {
+            $comments_manager->updateComment(['comment_slug' => $comments_manager->generateSlug()], $commentID);
+        }
     }
 
     /*~*~* RUN UPDATES END *~*~*/

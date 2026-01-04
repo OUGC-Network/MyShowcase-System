@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase\Hooks\Forum;
 
 use MyBB;
+use myshowcase\src\Service\CommentManager;
 use MyShowcase\System\ModeratorPermissions;
 
 use Twig\Error\LoaderError;
@@ -24,7 +25,6 @@ use Twig\Error\SyntaxError;
 
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\entryGetRandom;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\renderGetObject;
@@ -754,11 +754,11 @@ function report_type(): void
 
         $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $commentData = commentsGet(
-            ["comment_id='{$commentID}'"],
-            ['entry_id', 'user_id'],
-            ['limit' => 1]
-        );
+        $showcase = showcaseGetObject($showcaseID);
+
+        $comments_manager = new CommentManager($showcase);
+
+        $commentData = $comments_manager->queryComment(["comment_id='{$commentID}'"], ['entry_id', 'user_id']);
 
         $entryData = entryGet(
             $showcaseID,
@@ -827,15 +827,20 @@ function modcp_reports_report(): void
     if ($report['type'] === 'showcase_comments') {
         loadLanguage();
 
-        $commentID = (int)$report['id'];
+        $showcaseID = (int)$report['id'];
 
-        $commentData = commentsGet(
-            ["comment_id='{$commentID}'"],
-            ['showcase_id', 'entry_id', 'user_id', 'comment_slug'],
-            ['limit' => 1]
+        $commentID = (int)$report['id2'];
+
+        $showcaseObject = showcaseGetObject($showcaseID);
+
+        $comments_manager = new CommentManager(
+            $showcaseObject,
         );
 
-        $showcaseID = (int)$commentData['showcase_id'];
+        $commentData = $comments_manager->queryComment(
+            ["comment_id='{$commentID}'"],
+            ['showcase_id', 'entry_id', 'user_id', 'comment_slug'],
+        );
 
         $entryID = (int)$commentData['entry_id'];
 
@@ -845,8 +850,6 @@ function modcp_reports_report(): void
             ['user_id', 'entry_slug', 'entry_slug_custom'],
             ['limit' => 1]
         );
-
-        $showcaseObject = showcaseGetObject($showcaseID);
 
         $report_data['content'] = $lang->sprintf(
             $lang->myShowcaseReportCommentContent,

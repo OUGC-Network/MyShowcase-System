@@ -140,6 +140,7 @@
                             {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
                     />
                 </fieldset> #}
+                ---{{ config.url_showcase }}/{{ url.upload }}---
                 <script>
                     // Register FilePond plugins
                     FilePond.registerPlugin(
@@ -210,6 +211,7 @@
                         itemInsertLocation: 'after',
                         itemInsertInterval: 75,
                         fileSizeBase: 1000,
+                        credits: [], //https://pqina.nl/filepond/docs/api/instance/properties/#disabling-credits
                         // Drag n' Drop
                         dropOnPage: false,
                         dropOnElement: true,

@@ -14,6 +14,7 @@
 declare(strict_types=1);
 
 use MyShowcase\Plugin\FormTypes;
+use myshowcase\src\Service\CommentManager;
 use MyShowcase\System\ModeratorPermissions;
 
 use function MyShowcase\Admin\buildPermissionsRow;
@@ -22,7 +23,6 @@ use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\cacheUpdate;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
-use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldsetGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -2001,6 +2001,8 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
         $formContainer->construct_row();
     } else {
         foreach ($showcaseObjects as $showcaseID => $showcaseData) {
+            $showcaseObject = \MyShowcase\Plugin\Functions\showcaseGetObject($showcaseID);
+
             $showcaseTotalEntries = $showcaseTotalAttachments = $showcaseTotalFilesSize = $showcaseTotalComments = 0;
 
             $fieldsetID = (int)$showcaseData['field_set_id'];
@@ -2026,11 +2028,11 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                     ['group_by' => 'showcase_id, attachment_id, file_size']
                 )['showcaseTotalFilesSize'] ?? 0;
 
-                $showcaseTotalComments = commentsGet(
-                    ["showcase_id='{$showcaseID}'"],
-                    ['COUNT(comment_id) AS showcaseTotalComments'],
-                    ['group_by' => 'showcase_id, comment_id']
-                )['showcaseTotalComments'] ?? 0;
+                $comments_manager = new CommentManager(
+                    $showcaseObject,
+                );
+
+                $showcaseTotalComments = $comments_manager->queryCommentCount();
             }
 
             // Build popup menu

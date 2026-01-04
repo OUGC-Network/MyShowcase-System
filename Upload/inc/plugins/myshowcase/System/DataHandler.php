@@ -17,22 +17,21 @@ namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
 
+use myshowcase\src\Service\CommentManager;
+
+use Random\RandomException;
+
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentUpdate;
 use function MyShowcase\Plugin\Functions\cleanSlug;
-use function MyShowcase\Plugin\Functions\commentInsert;
-use function MyShowcase\Plugin\Functions\commentsGet;
-use function MyShowcase\Plugin\Functions\commentUpdate;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
-use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
-use function MyShowcase\Plugin\Functions\slugGenerateComment;
 use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
 use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
@@ -504,6 +503,9 @@ class DataHandler extends CoreDataHandler
         return true;
     }
 
+    /**
+     * @throws RandomException
+     */
     public function commentInsert(bool $isUpdate = false, int $commentID = 0): array
     {
         global $db;
@@ -523,14 +525,15 @@ class DataHandler extends CoreDataHandler
             'isUpdate' => &$isUpdate,
         ];
 
+        $comments_manager = new CommentManager($this->showcaseObject);
+
         if ($isUpdate && !isset($this->returnData['comment_slug'])) {
-            $this->returnData['comment_slug'] = commentsGet(
+            $this->returnData['comment_slug'] = $comments_manager->queryComment(
                 ["comment_id='{$this->comment_id}'"],
                 ['comment_slug'],
-                ['limit' => 1]
             )['comment_slug'];
         } elseif (!$isUpdate) {
-            $this->returnData['comment_slug'] = $this->data['comment_slug'] = slugGenerateComment();
+            $this->returnData['comment_slug'] = $this->data['comment_slug'] = $comments_manager->generateSlug();
         }
 
         foreach ($this->data as $key => $value) {
@@ -540,11 +543,10 @@ class DataHandler extends CoreDataHandler
         $hookArguments = hooksRun('data_handler_comment_insert_update_start', $hookArguments);
 
         if ($isUpdate) {
-            commentUpdate($this->insertData, $this->comment_id);
+            $comments_manager->updateComment($this->insertData, $this->comment_id);
         } else {
-            $this->comment_id = commentInsert(
+            $this->comment_id = $comments_manager->insertComment(
                 array_merge($this->insertData, [
-                    'showcase_id' => $this->showcaseObject->showcase_id,
                     'entry_id' => $this->showcaseObject->entry_id
                 ])
             );
@@ -572,6 +574,9 @@ class DataHandler extends CoreDataHandler
         return $this->returnData;
     }
 
+    /**
+     * @throws RandomException
+     */
     public function commentUpdate(int $commentID): array
     {
         return $this->commentInsert(true, $commentID);

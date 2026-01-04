@@ -15,8 +15,10 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
+use myshowcase\src\Service\CommentManager;
 use Postparser;
 use DirectoryIterator;
+use Random\RandomException;
 use ReflectionClass;
 use MyShowcase\System\FilterTypes;
 use MyShowcase\System\FieldDefaultTypes;
@@ -144,7 +146,7 @@ function hooksAdd(string $namespace): bool
     return true;
 }
 
-function hooksRun(string $hookName, array &$hookArguments = []): array
+function hooksRun(string $hookName, CommentManager|array &$hookArguments = []): CommentManager|array
 {
     global $plugins;
 
@@ -601,8 +603,12 @@ function showcaseDelete(int $showcaseID): bool
         moderatorsDelete($moderatorID);
     }
 
-    foreach (commentsGet(["showcase_id='{$showcaseID}'"]) as $commentID => $commentData) {
-        commentsDelete($commentID);
+    $showcase = showcaseGetObject($showcaseID);
+
+    $comments_manager = new CommentManager($showcase, ['comment_id']);
+
+    foreach ($comments_manager->queryComments() as $commentID => $commentData) {
+        $comments_manager->deleteeComment($commentID);
     }
 
     foreach (attachmentGet(["showcase_id='{$showcaseID}'"]) as $attachmentID => $attachmentData) {
@@ -1252,8 +1258,12 @@ function entryDelete(int $showcaseID, int $entryID): bool
 
     $hookArguments = hooksRun('entry_delete_start', $hookArguments);
 
-    foreach (commentsGet(["entry_id='{$entryID}'"]) as $commentID => $commentData) {
-        commentsDelete($commentID);
+    $showcase = showcaseGetObject($showcaseID);
+
+    $comments_manager = new CommentManager($showcase);
+
+    foreach ($comments_manager->queryComments(["entry_id='{$entryID}'"], 'comment_id') as $commentID => $commentData) {
+        $comments_manager->deleteeComment($commentID);
     }
 
     foreach (attachmentGet(["entry_id='{$entryID}'"]) as $attachmentID => $attachmentData) {
@@ -1338,83 +1348,6 @@ function attachmentDelete(int $attachmentID): bool
     $hookArguments = hooksRun('attachment_delete_start', $hookArguments);
 
     $db->delete_query('myshowcase_attachments', "attachment_id='{$attachmentID}'");
-
-    return true;
-}
-
-function commentInsert(array $commentData, bool $isUpdate = false, int $commentID = 0): int
-{
-    global $db;
-
-    $tablesData = TABLES_DATA['myshowcase_comments'];
-
-    $insertData = [];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'commentData' => &$commentData,
-        'isUpdate' => $isUpdate,
-        'commentID' => &$commentID,
-        'tableData' => &$tablesData,
-    ];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($commentData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($commentData[$fieldName], $fieldDefinition['type']);
-        }
-    }
-
-    $hookArguments = hooksRun('comment_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_comments', $insertData, "comment_id='{$commentID}'");
-    } else {
-        $commentID = (int)$db->insert_query('myshowcase_comments', $insertData);
-    }
-
-    return $commentID;
-}
-
-function commentUpdate(array $commentData, int $commentID = 0): int
-{
-    return commentInsert($commentData, true, $commentID);
-}
-
-function commentsGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
-{
-    global $db;
-
-    $query = $db->simple_select(
-        'myshowcase_comments',
-        implode(', ', array_merge(['comment_id'], $queryFields)),
-        implode(' AND ', $whereClauses),
-        $queryOptions
-    );
-
-    if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
-    }
-
-    $commentObjects = [];
-
-    while ($comment = $db->fetch_array($query)) {
-        $commentObjects[(int)$comment['comment_id']] = $comment;
-    }
-
-    return $commentObjects;
-}
-
-function commentsDelete(int $commentID): bool
-{
-    global $db;
-
-    $hookArguments = [
-        'commentID' => &$commentID,
-    ];
-
-    $hookArguments = hooksRun('comment_delete_start', $hookArguments);
-
-    $db->delete_query('myshowcase_comments', "comment_id='{$commentID}'");
 
     return true;
 }
@@ -2730,27 +2663,6 @@ function slugGenerateEntry(int $showcaseID, ?int $length = null): string
         $generatedSlug = my_strtolower(bin2hex(random_bytes($length)));
 
         $uniqueFound = !entryGet($showcaseID, ["entry_slug='{$db->escape_string($generatedSlug)}'"]);
-    }
-
-    return $generatedSlug;
-}
-
-function slugGenerateComment(?int $length = null): string
-{
-    if (empty($length)) {
-        $length = getSetting('slugLength');
-    }
-
-    global $db;
-
-    $generatedSlug = '';
-
-    $uniqueFound = false;
-
-    while (!$uniqueFound) {
-        $generatedSlug = my_strtolower(bin2hex(random_bytes($length)));
-
-        $uniqueFound = !commentsGet(["comment_slug='{$db->escape_string($generatedSlug)}'"]);
     }
 
     return $generatedSlug;

@@ -184,11 +184,10 @@ class Render
      * @throws LoaderError
      */
     private function buildPost(
-        string $alternativeBackground,
         bool $isPreview = false,
         int $postType = self::POST_TYPE_COMMENT,
         int $commentsCounter = 0,
-        array $commentData = [],
+        ?\MyShowcase\Entity\Comment $comment_object = null,
     ): string {
         global $mybb, $lang, $theme;
 
@@ -207,9 +206,9 @@ class Render
         if ($postType === self::POST_TYPE_ENTRY) {
             $userID = $this->showcaseObject->entryUserID;
         } else {
-            $userID = (int)$commentData['user_id'];
+            $userID = $comment_object->user_id;
 
-            $commentSlug = $commentData['comment_slug'];
+            $commentSlug = $comment_object->comment_slug;
         }
 
         $templatesContext = [
@@ -217,7 +216,7 @@ class Render
                 'is_deleted' => false,
                 'moderator_check' => false,
             ]),
-            'comment_data' => $commentData,
+            'comment_data' => $comment_object,
             'entrySubject' => $this->buildEntrySubject(),
             'url' => [
                 'entry' => '',
@@ -241,8 +240,7 @@ class Render
 
         $hookArguments = [
             'renderObject' => &$this,
-            'commentData' => &$commentData,
-            'alternativeBackground' => $alternativeBackground,
+            'commentData' => &$comment_object,
             'postType' => $postType,
             'userID' => &$userID,
             'user_data' => &$userData,
@@ -278,14 +276,14 @@ class Render
         }
 
         if ($postType === self::POST_TYPE_COMMENT) {
-            $templatesContext['comment_data.comment_slug'] = $commentData['comment_slug'];
+            $templatesContext['comment_data.comment_slug'] = $comment_object->comment_slug;
 
             $templatesContext['commentMessage'] = $this->showcaseObject->parseMessage(
-                $commentData['comment'],
+                $comment_object->comment,
                 $this->parserOptions
             );
 
-            $templatesContext['commentID'] = $commentID = (int)$commentData['comment_id'];
+            $templatesContext['commentID'] = $commentID = $comment_object->comment_id;
 
             if (!$isPreview) {
                 $templatesContext['commentNumber'] = my_number_format($commentsCounter);
@@ -527,15 +525,15 @@ class Render
         if ($postType === self::POST_TYPE_ENTRY) {
             $templatesContext['date'] = $this->showcaseObject->entry_data['dateline'];
         } else {
-            $templatesContext['date'] = $commentData['dateline'];
+            $templatesContext['date'] = $comment_object->dateline;
         }
 
         if ($moderatorCanManageEntries && (
                 $postType === self::POST_TYPE_ENTRY && !empty($this->showcaseObject->entry_data['edit_user_id']) ||
-                $postType === self::POST_TYPE_COMMENT && !empty($commentData['edit_user_id'])
+                $postType === self::POST_TYPE_COMMENT && !empty($comment_object->edit_user_id)
             )) {
             $editUserData = get_user(
-                $postType === self::POST_TYPE_ENTRY ? $this->showcaseObject->entry_data['edit_user_id'] : $commentData['edit_user_id']
+                $postType === self::POST_TYPE_ENTRY ? $this->showcaseObject->entry_data['edit_user_id'] : $comment_object->edit_user_id
             );
         }
 
@@ -594,7 +592,7 @@ class Render
         if ($postType === self::POST_TYPE_ENTRY) {
             $postStatus = (int)$this->showcaseObject->entry_data['status'];
         } else {
-            $postStatus = (int)$commentData['status'];
+            $postStatus = $comment_object->status;
         }
 
         $templatesContext['buttonApprove'] = $templatesContext['buttonUnpprove'] = $templatesContext['buttonRestore'] = $templatesContext['buttonSoftDelete'] = $templatesContext['buttonDelete'] = '';
@@ -671,11 +669,16 @@ class Render
 
         if (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
             if ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_PENDING_APPROVAL) {
-                $templatesContext['url_comment_approve'] = $this->showcaseObject->urlGetCommentApprove(
-                    $this->showcaseObject->entry_data['entry_slug'],
-                    $this->showcaseObject->entry_data['entry_slug_custom'],
-                    $commentSlug
-                );
+                $templatesContext['url_comment_approve'] =
+                    $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
+                        RouterUrls::CommentView,
+                        array_merge($this->showcaseObject->urlParams, [
+                            'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
+                            'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                            'comment_slug' => $commentSlug,
+                            'approve' => 1
+                        ])
+                    );
             } elseif ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_VISIBLE) {
                 $templatesContext['url_comment_unapprove'] = $this->showcaseObject->urlGenerate(
                     RouterUrls::CommentUnapprove,
@@ -830,15 +833,18 @@ class Render
     public function buildEntry(bool $isPreview = false): string
     {
         return $this->buildPost(
-            alt_trow(true),
             $isPreview,
             self::POST_TYPE_ENTRY,
         );
     }
 
+    /**
+     * @throws RuntimeError
+     * @throws SyntaxError
+     * @throws LoaderError
+     */
     public function buildComment(
-        array $commentData,
-        string $alternativeBackground,
+        \MyShowcase\Entity\Comment $comment_object,
         int $commentsCounter = 0,
         bool $isPreview = false,
         bool $isCreatePage = false
@@ -847,21 +853,12 @@ class Render
             global $mybb;
 
             $current_user_id = (int)$mybb->user['uid'];
-
-            $commentData = array_merge([
-                'user_id' => $current_user_id,
-                'comment_slug' => '',
-                'comment_id' => 0,
-                'dateline' => TIME_NOW,
-                'status' => COMMENT_STATUS_VISIBLE,
-            ], $commentData);
         }
 
         return $this->buildPost(
-            $alternativeBackground,
             isPreview: $isPreview,
             commentsCounter: $commentsCounter,
-            commentData: $commentData,
+            comment_object: $comment_object,
         );
     }
 

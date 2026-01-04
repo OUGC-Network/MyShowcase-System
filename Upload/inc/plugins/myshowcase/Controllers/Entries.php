@@ -19,11 +19,11 @@ use captcha;
 use MyBB;
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
+use myshowcase\src\Service\CommentManager;
 use MyShowcase\System\FieldDefaultTypes;
 use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
-use Symfony\Component\Routing\Route;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -31,8 +31,6 @@ use Twig\Error\SyntaxError;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentUpload;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\cleanSlug;
-use function MyShowcase\Plugin\Functions\commentsGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldGetObject;
 use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
@@ -44,14 +42,9 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\moderatorGet;
 use function MyShowcase\Plugin\Functions\postParser;
 
-use function redirect;
-
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
@@ -780,14 +773,14 @@ class Entries extends Base
                     } elseif ($entryData['visible'] == ENTRY_STATUS_SOFT_DELETED && $templatesContext['permissions']['can_manage_entries]']) {
                         $entryData['alternativeBackground'] = 'trow_shaded trow_deleted';
                     } else {
-                        $entryData['alternativeBackground'] = alt_trow();
                     }
 
-                    $comment_data = $this->showcaseObject->commentGet(
+                    $comments_manager = new CommentManager($this->showcaseObject);
+
+                    $comment_data = $comments_manager->queryComment(
                         ["entry_id={$entryID}"],
-                        ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline',],
+                        ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline'],
                         [
-                            'limit' => 1,
                             'order_by' => 'dateline',
                             'order_dir' => ORDER_DIRECTION_DESCENDING
                         ]
@@ -813,16 +806,12 @@ class Entries extends Base
                         ['limit' => 1],
                     )['attachment_count'] ?? 0;
 
-                    $entryData['comments_by_you'] = $this->showcaseObject->commentGet(
+                    $entryData['comments_by_you'] = $comments_manager->queryCommentCount(
                         [
                             "entry_id='{$this->showcaseObject->entry_id}'",
                             "user_id='{$current_user_id}'",
-                        ],
-                        [
-                            'COUNT(comment_id) AS comments_count'
-                        ],
-                        ['limit' => 1],
-                    )['comments_count'] ?? 0;
+                        ]
+                    );
 
                     return $entryData;
                 },
@@ -1473,130 +1462,51 @@ class Entries extends Base
         $templatesContext['commentsForm'] = '';
 
         if ($this->showcaseObject->config['comments_allow'] && $this->showcaseObject->user_permissions[UserPermissions::CanViewComments]) {
-            $whereClauses = [
-                "entry_id='{$this->showcaseObject->entry_id}'",
-                "showcase_id='{$this->showcaseObject->showcase_id}'"
-            ];
+            $url_params['page'] = $this->renderObject->current_page;
 
-            $statusVisible = COMMENT_STATUS_VISIBLE;
+            $comments_manager = new CommentManager(
+                $this->showcaseObject,
+                current_page: $mybb->get_input('page', MyBB::INPUT_INT)
+            );
 
-            $statusPendingApproval = COMMENT_STATUS_PENDING_APPROVAL;
+            $comments_manager->fetchComments();
 
-            $statusSoftDeleted = COMMENT_STATUS_SOFT_DELETED;
-
-            $whereClausesClauses = [
-                "status='{$statusVisible}'",
-                "user_id='{$current_user_id}' AND status='{$statusPendingApproval}'",
-            ];
-
-            if (ModeratorPermissions::CanManageEntries) {
-                $whereClausesClauses[] = "status='{$statusPendingApproval}'";
-
-                $whereClausesClauses[] = "status='{$statusSoftDeleted}'";
-            }
-
-            $whereClausesClauses = implode(' OR ', $whereClausesClauses);
-
-            $whereClauses[] = "({$whereClausesClauses})";
-
-            $queryOptions = ['order_by' => 'dateline', 'order_dir' => 'asc'];
-
-            $queryOptions['limit'] = $this->showcaseObject->config['comments_per_page'];
-
-            $hookArguments = hooksRun('entry_view_comment_form_start', $hookArguments);
-
-            $totalComments = (int)(commentsGet(
-                $whereClauses,
-                ['COUNT(comment_id) AS total_comments'],
-                ['limit' => 1, 'group_by' => 'comment_id']
-            )['total_comments'] ?? 0);
-
-            //$this->renderObject->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
-
-            $totalPages = $totalComments / $this->showcaseObject->config['comments_per_page'];
-
-            $totalPages = ceil($totalPages);
-
-            if ($this->renderObject->current_page > $totalPages || $this->renderObject->current_page <= 0) {
-                $this->renderObject->current_page = 1;
-            }
-
-            if ($this->renderObject->current_page) {
-                $queryOptions['limit_start'] = ($this->renderObject->current_page - 1) * $this->showcaseObject->config['comments_per_page'];
-            } else {
-                $queryOptions['limit_start'] = 0;
-
-                $this->renderObject->current_page = 1;
-            }
+            $templatesContext['commentObjects'] = [];
 
             $commentsCounter = 0;
 
-            if ($this->renderObject->current_page > 1) {
-                $url_params['page'] = $this->renderObject->current_page;
-
-                $commentsCounter += ($this->renderObject->current_page - 1) * $this->showcaseObject->config['comments_per_page'];
+            if ($comments_manager->getCurrentPage()) {
+                $commentsCounter += ($comments_manager->getCurrentPage() - 1) *
+                    $this->showcaseObject->config['comments_per_page'];
             }
 
-            $urlParams = [
-                //'page' => '{page}'
-            ];
-
-            $entryUrl = $this->showcaseObject->urlGenerate(
-                RouterUrls::EntryView,
-                [
-                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
-                ],
-                ['category' => 'shoes']
-            );
-            /*
-
-                \MyShowcase\SimpleRouter123\$this->showcaseObject->urlGenerate('product', ['id' => 22], ['category' => 'shoes'])->getParam('category'),
-
-                \MyShowcase\SimpleRouter123\$this->showcaseObject->urlGenerate('product', ['id' => 22], ['category' => 'shoes'])->getParams(),
-            */
+            $templatesContext['rendered_comments'] = [];
 
             $templatesContext['pagination'] = multipage(
-                $totalComments,
+                $comments_manager->getTotalComments(),
                 $this->showcaseObject->config['comments_per_page'],
-                $this->renderObject->current_page,
-                $this->showcaseObject->urlGenerate(
-                    RouterUrls::EntryViewPage,
-                    [
+                $comments_manager->getCurrentPage(),
+                $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
+                    RouterUrls::EntryView,
+                    array_merge($this->showcaseObject->urlParams, [
                         'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
                         'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
                         'page_id' => '{page}'
-                    ],
-                    $urlParams
+                    ])
                 )
             );
 
-            extract($hookArguments['extractVariables']);
-
-            $extractVariables = [];
-
-            $hookArguments = hooksRun('entry_view_comment_form_intermediate', $hookArguments);
-
-            $commentObjects = commentsGet(
-                $whereClauses,
-                ['user_id', 'comment', 'dateline', 'ipaddress', 'status', 'edit_user_id', 'comment_slug'],
-                $queryOptions
-            );
-
-            $templatesContext['alternativeBackground'] = alt_trow(true);
-
-            $templatesContext['commentObjects'] = &$commentObjects;
-
-            foreach ($commentObjects as $commentID => &$commentData) {
+            foreach ($comments_manager->getTopLevelComments() as $commentData) {
                 ++$commentsCounter;
 
-                $commentData['comment_formatted'] .= $this->renderObject->buildComment(
-                    $commentData,
-                    $templatesContext['alternativeBackground'],
-                    $commentsCounter,
+                $commentData->setRenderComment(
+                    $this->renderObject->buildComment(
+                        $commentData,
+                        $commentsCounter,
+                    )
                 );
 
-                $templatesContext['alternativeBackground'] = alt_trow();
+                $templatesContext['commentObjects'][$commentData->comment_id] = $commentData;
             }
 
             $hookArguments = hooksRun('entry_view_comment_form_end', $hookArguments);
@@ -1623,8 +1533,6 @@ class Entries extends Base
                     my_number_format($this->showcaseObject->config['comments_minimum_length']),
                     my_number_format($this->showcaseObject->config['comments_maximum_length'])
                 );
-
-                $templatesContext['alternativeBackground'] = alt_trow(true);
 
                 $templatesContext['createUpdateUrl'] = $this->showcaseObject->urlGenerate(
                     RouterUrls::CommentCreate,

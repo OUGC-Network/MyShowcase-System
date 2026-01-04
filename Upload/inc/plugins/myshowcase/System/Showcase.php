@@ -15,19 +15,16 @@ declare(strict_types=1);
 
 namespace MyShowcase\System;
 
-use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
+use myshowcase\src\Service\CommentManager;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\commentsGet;
-use function MyShowcase\Plugin\Functions\commentsDelete;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\entryDelete;
 use function MyShowcase\Plugin\Functions\entryInsert;
-use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -58,6 +55,8 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 class Showcase
 {
+    public readonly int $current_user_id;
+
     public array $fieldset_display_fields = [];
     public readonly array $user_permissions;
     private array $entry_objects = [];
@@ -131,9 +130,10 @@ class Showcase
         public array $whereClauses = [],
         // ***/
         public array $fields = [],
-        public int $current_user_id = 0,
     ) {
         global $db, $mybb, $cache;
+
+        $this->current_user_id = (int)$mybb->user['uid'];
 
         //make sure the plugin is installed and active
         $plugin_cache = $cache->read('plugins');
@@ -207,9 +207,7 @@ class Showcase
         //Get the basename of the calling file. This is used later for SEO support
         $this->prefix = explode('.', $this->config['script_name'])[0];
 
-        $current_user_id = (int)$mybb->user['uid'];
-
-        $this->user_permissions = $this->userPermissionsGet($current_user_id);
+        $this->user_permissions = $this->userPermissionsGet($this->current_user_id);
 
         $this->parserOptions = array_merge($this->parserOptions, [
             'allow_html' => $this->config['parser_allow_html'],
@@ -218,7 +216,7 @@ class Showcase
             'allow_smilies' => $this->config['parser_allow_smiles']
         ]);
 
-        $this->entryUserID = $current_user_id;
+        $this->entryUserID = $this->current_user_id;
 
         // todo, probably unnecessary since entryDataSet() already sets the entryUserID
         // probably also ignores moderator permissions
@@ -556,12 +554,12 @@ class Showcase
     /**
      * delete a comment
      */
-    public function commentsDelete(int $entryID): void
+    public function commentsDelete(array $where_clauses): void
     {
-        foreach (
-            commentsGet(["showcase_id='{$this->showcase_id}'", "entry_id='{$entryID}'"]) as $commentID => $commentData
-        ) {
-            commentsDelete($commentID);
+        $comments_manager = new CommentManager($this);
+
+        foreach ($comments_manager->queryComments($where_clauses, 'comment_id') as $commentID => $commentData) {
+            $comments_manager->deleteeComment($commentID);
         }
     }
 
@@ -824,20 +822,6 @@ class Showcase
         );
     }
 
-    public function commentGet(
-        array $whereClauses,
-        array $queryFields = [],
-        array $queryOptions = [],
-    ): array {
-        $whereClauses[] = "showcase_id='{$this->showcase_id}'";
-
-        return commentsGet(
-            $whereClauses,
-            $queryFields,
-            $queryOptions
-        );
-    }
-
     public function entryDataSet(array $entryData): Showcase
     {
         $this->entry_data = $entryData;
@@ -866,14 +850,16 @@ class Showcase
     {
         $this->attachmentsDelete($this->entry_id);
 
-        $this->commentsDelete($this->entry_id);
+        $this->commentsDelete(["entry_id='{$this->entry_id}'"]);
 
         $this->showcaseDataDelete($this->entry_id);
     }
 
     public function commentDelete(int $commentID): void
     {
-        commentsDelete($commentID);
+        $comments_manager = new CommentManager($this);
+
+        $comments_manager->deleteeComment($commentID);
     }
 
     public function getBasicUrl(): string
@@ -920,14 +906,6 @@ class Showcase
                 RouterUrls::CommentView,
                 ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
             )->getRelativeUrl() . ($addAnchor ? '#' . $commentSlug : '');
-    }
-
-    public function urlGetCommentApprove(string $entrySlug, string $entrySlugCustom, string $commentSlug): string
-    {
-        return url(
-            RouterUrls::CommentApprove,
-            ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
-        )->getRelativeUrl();
     }
 
     public function whereClauseStatusComment(): string

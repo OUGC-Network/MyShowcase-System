@@ -67,7 +67,7 @@
         <section class="post-list" id="comments">
             {% if commentObjects|length > 0 %}
                 {% for comment_id, comment_data in commentObjects %}
-                    {{ comment_data.comment_formatted|raw }}
+                    {{ comment_data.rendered_comment|raw }}
                 {% endfor %}
             {% else %}
                 <div class="alert alert--warning">
