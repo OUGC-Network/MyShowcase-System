@@ -1,19 +1,19 @@
 <div class="row row--thread thread inline_row
-    {% if entry_data.unread_comments %} thread--unread{% endif %}
+    {% if entry_data.extra_data.unread_comments %} thread--unread{% endif %}
     {% if permissions.can_manage_entries %} thread--moderator{% endif %}
     {% if entry_data.status == 2 and permissions.can_manage_entries %} thread--deleted{% endif %}
     {% if entry_data.status == 0 %} thread--awaiting-approval{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
             {# Entry attachments #}
-            {% if config.attachments_allow_entries and config.attachments_main_render_first and permissions.can_view_attachments and entry_data.attachments is not empty %}
-                {% for attachment_id,attachment_data in entry_data.attachments %}
+            {% if config.attachments_allow_entries and config.attachments_main_render_first and permissions.can_view_attachments and entry_data.extra_data.attachments is not empty %}
+                {% for attachment_id,attachment_data in entry_data.extra_data.attachments %}
                     {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
                 {% endfor %}
             {% endif %}
 
             {# Entry title #}
-            <a href="{{ entry_data.url }}">{{ entry_data.entrySubject|raw }}</a>
+            <a href="{{ entry_data.extra_data.url }}">{{ entry_data.extra_data.subject|raw }}</a>
 
             {# Deleted thread #}
             {% if entry_data.status == 2 %}
@@ -25,7 +25,7 @@
             {% endif %}
 
             {# Go to unread link #}
-            {% if entry_data.unread_comments %}
+            {% if entry_data.extra_data.unread_comments %}
                 <a href="{{ entry_data.newpostlink }}" class="thread__status">
                     {{ include('partials/icon.twig', {icon: 'circle', class: 'fa-fw', title: lang.myshowcase_main_table_row_go_to_first_unread}, with_context = false) }}
                 </a>
@@ -36,13 +36,13 @@
                 {# Entry icon #}
 
                 {# Contains posts by you #}
-                {% if entry_data.comments_by_you %}
+                {% if entry_data.extra_data.comments_by_you %}
                     {{ include('partials/icon.twig', {icon: 'user-circle', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_contains_comments_by_you}, with_context = false) }}
                 {% endif %}
 
                 {# Attachment paperclip #}
-                {% if mybb.settings.enableattachments and entry_data.attachments_count %}
-                    {% set attachment_title = (entry_data.attachments_count > 1) ? trans('myshowcase_main_table_row_attachments_count_plural', entry_data.attachments_count) : lang.myshowcase_main_table_row_attachments_count_single %}
+                {% if mybb.settings.enableattachments and entry_data.extra_data.attachments_count %}
+                    {% set attachment_title = (entry_data.extra_data.attachments_count > 1) ? trans('myshowcase_main_table_row_attachments_count_plural', entry_data.extra_data.attachments_count) : lang.myshowcase_main_table_row_attachments_count_single %}
                     {{ include('partials/icon.twig', {icon: 'paperclip', class: 'thread__icon fa-fw', title: attachment_title}, with_context = false) }}
                 {% endif %}
 
@@ -60,7 +60,7 @@
         {% if fieldSetCache[field_id].display_in_main_page %}
             <div class="thread__column thread__column--replies">
                 <p class="thread__replies">
-                    {{ entry_data.fieldCache[field_id]|raw }}
+                    {{ entry_data.extra_data.fields_cache[field_id]|raw }}
                 </p>
             </div>
         {% endif %}
@@ -76,20 +76,20 @@
     </div>
     <div class="thread__column thread__column--latest">
         <p class="thread__latest-post">
-            {% if entry_data.last_commenter_user_data %}
+            {% if entry_data.extra_data.last_commenter_user_data %}
                 <span class="thread__latest-post__text">{{ lang.myshowcase_main_table_row_last_comment_by }}</span>
-                <a href="{{ entry_data.entryUrlLastComment }}" class="avatar-profile-link">
-                    {{ render_avatar(url=entry_data.last_commenter_user_data.avatar, alt=entry_data.last_commenter_user_data.username, class='avatar--smallest') }}
+                <a href="{{ entry_data.extra_data.entryUrlLastComment }}" class="avatar-profile-link">
+                    {{ render_avatar(url=entry_data.extra_data.last_commenter_user_data.avatar, alt=entry_data.extra_data.last_commenter_user_data.username, class='avatar--smallest') }}
                 </a>
                 <span class="thread__latest-post__author">
-                    {% if entry_data.last_commenter_user_data.uid > 0 %}
-                        <a href="{{ get_profile_link(entry_data.last_commenter_user_data.uid) }}">{{ entry_data.last_commenter_user_data.uid|format_name }}</a>
+                    {% if entry_data.extra_data.last_commenter_user_data.uid > 0 %}
+                        <a href="{{ get_profile_link(entry_data.extra_data.last_commenter_user_data.uid) }}">{{ entry_data.extra_data.last_commenter_user_data.uid|format_name }}</a>
                     {% else %}
                         {{ lang.guest }}
                     {% endif %}
                 </span>
-                <a href="{{ entry_data.last_comment_url }}"
-                   class="thread__latest-post__date">{{ entry_data.last_comment_date|my_date }}</a>
+                <a href="{{ entry_data.extra_data.last_comment_url }}"
+                   class="thread__latest-post__date">{{ entry_data.extra_data.last_comment_date|my_date }}</a>
             {% else %}
                 {{ lang.na }}
             {% endif %}
@@ -100,7 +100,7 @@
             <label for="inlinemod_{{ entry_data.entry_slug }}"></label>
             <input type="checkbox" class="checkbox" name="inlinemod_{{ entry_data.entry_slug }}"
                    id="inlinemod_{{ entry_data.entry_slug }}"
-                   value="1"{% if entry_data.moderator_check %} checked{% endif %} />
+                   value="1"{% if entry_data.extra_data.moderator_check %} checked{% endif %} />
         </div>
     {% endif %}
 </div>

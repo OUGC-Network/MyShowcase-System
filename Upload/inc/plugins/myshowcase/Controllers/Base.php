@@ -33,7 +33,7 @@ use const MyShowcase\Plugin\Core\VERSION_CODE;
 abstract class Base
 {
     public function __construct(
-        public ?Showcase &$showcaseObject = null,
+        public ?Showcase &$showcase = null,
         public ?Render &$renderObject = null,
     ) {
 //make sure this file is current
@@ -57,12 +57,12 @@ abstract class Base
 
         //\MyShowcase\Plugin\Core\cacheUpdate(\MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG);
 //start by constructing the showcase
-        $this->showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+        $this->showcase = showcaseGetObjectByScriptName(THIS_SCRIPT);
 
-        $this->renderObject = renderGetObject($this->showcaseObject);
+        $this->renderObject = renderGetObject($this->showcase);
 
-        if (!$this->showcaseObject->config['enabled']) {
-            match ($this->showcaseObject->errorType) {
+        if (!$this->showcase->config['enabled']) {
+            match ($this->showcase->errorType) {
                 ERROR_TYPE_NOT_INSTALLED => error(
                     'The MyShowcase System has not been installed and activated yet.'
                 ),
@@ -76,7 +76,7 @@ abstract class Base
 //try to load showcase specific language file
         loadLanguage();
 
-        loadLanguage('myshowcase' . $showcaseObject->showcase_id, false, true);
+        loadLanguage('myshowcase' . $showcase->showcase_id, false, true);
 
         ini_set('display_errors', 1);
 
@@ -97,10 +97,10 @@ abstract class Base
             'templatesContext' => &$templatesContext,
         ];
 
-        $templatesContext['page_title'] = $this->showcaseObject->config['name'];
+        $templatesContext['page_title'] = $this->showcase->config['name'];
 
-        $templatesContext['errorMessages'] = empty($this->showcaseObject->errorMessages) ? '' : inline_error(
-            $this->showcaseObject->errorMessages
+        $templatesContext['errorMessages'] = empty($this->showcase->errorMessages) ? '' : inline_error(
+            $this->showcase->errorMessages
         );
 
         $templatesContext['version'] = VERSION_CODE;
@@ -109,14 +109,14 @@ abstract class Base
             $templatesContext['version'] = TIME_NOW;
         }
 
-        $showcaseDescription = htmlspecialchars_uni($this->showcaseObject->config['description']);
+        $showcaseDescription = htmlspecialchars_uni($this->showcase->config['description']);
 
-        if ($this->showcaseObject->entry_id) {
-            $entryUrl = $this->showcaseObject->urlGenerate(
+        if ($this->showcase->entry_id) {
+            $entryUrl = $this->showcase->urlGenerate(
                 RouterUrls::EntryView,
                 [
-                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
+                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
                 ]
             );
         }

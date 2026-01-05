@@ -58,7 +58,9 @@ require_once ROOT . '/Plugin/Core.php';
 require_once ROOT . '/Plugin/Functions.php';
 require_once ROOT . '/Plugin/RouterUrls.php';
 require_once ROOT . '/src/Entity/Comment.php';
+require_once ROOT . '/src/Entity/Entry.php';
 require_once ROOT . '/src/Service/CommentManager.php';
+require_once ROOT . '/src/Service/EntryManager.php';
 
 defined('PLUGINLIBRARY') || define('PLUGINLIBRARY', MYBB_ROOT . 'inc/plugins/pluginlibrary.php');
 

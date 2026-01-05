@@ -1,7 +1,7 @@
 {% extends 'layouts/master.twig' %}
 
 {% block head %}
-    <title>{{ entrySubject|striptags }} - {{ mybb.settings.bbname }}</title>
+    <title>{{ subject|striptags }} - {{ mybb.settings.bbname }}</title>
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
     {% if page_canonical %}
@@ -23,10 +23,10 @@
 {% block body %}
     <div class="page-content">
         <header class="page-header">
-            {% if entry_data.prefix %}
-                <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix }}">{{ entry_data.displayprefix|raw }}</span>
+            {% if entry_data.prefix_id %}
+                <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix_id }}">{{ entry_data.displayprefix|raw }}</span>
             {% endif %}
-            <h1 class="title title--page">{{ entrySubject|raw }}</h1>
+            <h1 class="title title--page">{{ subject|raw }}</h1>
         </header>
 
         <div class="page-controls page-controls--top">

@@ -13,6 +13,7 @@ class Comment
         public readonly string $comment_slug,
         public readonly int $showcase_id,
         public readonly int $entry_id,
+        public readonly int $parent_comment_id,
         public readonly int $user_id,
         public readonly string $post_hash,
         public readonly string $ipaddress,

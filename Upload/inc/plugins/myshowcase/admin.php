@@ -18,14 +18,11 @@ namespace MyShowcase\Admin;
 use Form;
 use MyBB;
 use MyShowcase\Plugin\FormTypes;
-
-use myshowcase\src\Service\CommentManager;
-
+use MyShowcase\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\cacheUpdate;
-use function MyShowcase\Plugin\Functions\entryGet;
-use function MyShowcase\Plugin\Functions\entryUpdate;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
@@ -316,12 +313,16 @@ function pluginActivation(): bool
     /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
+        $showcase = showcaseGetObject($showcaseID);
+
         $dataTableStructure = dataTableStructureGet($showcaseID);
+
+        $entries_manager = new EntryManager($showcase);
 
         dbVerifyTables(["myshowcase_data{$showcaseID}" => $dataTableStructure]);
 
-        foreach (entryGet($showcaseID, ["entry_slug=''"]) as $entryID => $entryData) {
-            entryUpdate($showcaseID, ['entry_slug' => slugGenerateEntry($showcaseID)], $entryID);
+        foreach ($entries_manager->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData) {
+            $entries_manager->updateEntry(['entry_slug' => slugGenerateEntry($showcaseID)], $entryID);
         }
     }
 

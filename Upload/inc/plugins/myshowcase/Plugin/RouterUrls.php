@@ -85,7 +85,7 @@ class RouterUrls
             new Route(
                 '/',
                 [
-                    '_controller' => function (): string {
+                    '_controller' => function (): void {
                         output_page((new Entries())->mainView());
                     },
                 ],

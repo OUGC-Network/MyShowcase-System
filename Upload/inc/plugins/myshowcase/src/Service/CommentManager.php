@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace myshowcase\src\Service;
+namespace MyShowcase\Service;
 
 use MyShowcase\System\Showcase;
 use MyShowcase\System\ModeratorPermissions;
@@ -13,33 +13,50 @@ use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class CommentManager
 {
+    public const STATUS_PENDING = 0;
+
+    public const STATUS_VISIBLE = 1;
+
+    public const STATUS_DELETED = 2;
+
     private const  FIRST_PAGE = 1;
 
     private int $total_comments = 0;
 
     private int $total_pages = 1;
 
+    private array $where_clauses = [];
+
+    private array $query_fields = [
+        'comment_id',
+        'comment_slug',
+        'showcase_id',
+        'entry_id',
+        'parent_comment_id',
+        'user_id',
+        'post_hash',
+        'ipaddress',
+        'comment',
+        'dateline',
+        'status',
+        'edit_user_id',
+    ];
+
     private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0, 'limit' => 10];
 
     private array $comments = [];
 
-    public readonly ?int $comment_id;
+    private readonly ?int $comment_id;
 
-    public array $where_clauses = [];
+    private array $insert_data = [];
 
-    public array $table_fields = TABLES_DATA['myshowcase_comments'];
+    private array $comment_data = [];
 
-    public array $insert_data = [];
-
-    public array $comment_data = [];
-
-    public readonly bool $is_update;
+    private readonly bool $is_update;
 
     public function __construct(
         private readonly Showcase $showcase,
@@ -71,7 +88,9 @@ class CommentManager
     public function getTopLevelComments(): iterable
     {
         foreach ($this->comments as $comment_i => $comment_data) {
-            yield $comment_data;
+            if (empty($comment_data->parent_comment_id)) {
+                yield $comment_data;
+            }
         }
     }
 
@@ -127,8 +146,8 @@ class CommentManager
             $query_options
         );
 
-        while ($comment = $db->fetch_array($query)) {
-            yield $comment;
+        while ($comment_data = $db->fetch_array($query)) {
+            yield $comment_data;
         }
     }
 
@@ -168,8 +187,9 @@ class CommentManager
             "entry_id='{$this->showcase->entry_id}'",
         ];
 
-        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) {
-            $this->where_clauses[] = "(status='" . COMMENT_STATUS_VISIBLE . "' OR (user_id='{$this->showcase->current_user_id}' AND status='" . COMMENT_STATUS_PENDING_APPROVAL . "}'))";
+        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries] &&
+            !$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
+            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->showcase->current_user_id}' AND status='" . self::STATUS_PENDING . "'))";
         }
 
         $this->query_options['limit'] = $this->showcase->config['comments_per_page'];
@@ -195,24 +215,14 @@ class CommentManager
         foreach (
             $this->queryComments(
                 $this->where_clauses,
-                [
-                    'comment_id',
-                    'comment_slug',
-                    'showcase_id',
-                    'entry_id',
-                    'user_id',
-                    'post_hash',
-                    'ipaddress',
-                    'comment',
-                    'dateline',
-                    'status',
-                    'edit_user_id'
-                ],
+                $this->query_fields,
                 $this->query_options
             ) as $comment_data
         ) {
             $this->setComment($comment_data);
         }
+
+        hooksRun('comment_fetch_end', $this);
 
         return $this;
     }
@@ -229,7 +239,9 @@ class CommentManager
             'showcase_id' => $this->showcase->showcase_id,
         ];
 
-        foreach ($this->table_fields as $fieldName => $fieldDefinition) {
+        $this->is_update = $is_update;
+
+        foreach (TABLES_DATA['myshowcase_comments'] as $fieldName => $fieldDefinition) {
             if (isset($this->comment_data[$fieldName])) {
                 $this->insert_data[$fieldName] = sanitizeTableFieldValue(
                     $this->comment_data[$fieldName],
@@ -249,12 +261,12 @@ class CommentManager
         }
     }
 
-    public function updateComment(array $comment_data, int $comment_id = 0): int
+    public function updateComment(array $comment_data, int $comment_id): int
     {
         return $this->insertComment($comment_data, true, $comment_id);
     }
 
-    public function deleteeComment(int $comment_id): bool
+    public function deleteComment(int $comment_id): void
     {
         global $db;
 
@@ -266,7 +278,5 @@ class CommentManager
             'myshowcase_comments',
             "showcase_id='{$this->showcase->showcase_id}' AND comment_id='{$comment_id}'"
         );
-
-        return true;
     }
 }

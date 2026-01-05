@@ -17,21 +17,18 @@ namespace MyShowcase\System;
 
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
-use function MyShowcase\Plugin\Functions\entryDelete;
-use function MyShowcase\Plugin\Functions\entryInsert;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
-use function MyShowcase\Plugin\Functions\entryUpdate;
 use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
 
 use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
@@ -39,12 +36,8 @@ use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\DEBUG;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
 use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
@@ -74,25 +67,21 @@ class Showcase
         public string $dataTableName = '',
         public string $prefix = '',
         public string $cleanName = '',
-        public array $userPermissions = [],
         public array $parserOptions = [
             'filter_badwords' => true,
             'highlight' => '',
             'nl2br' => true
         ],
         public int $errorType = 0,
-        public string $showcaseUrl = '',
         public array $entry_data = [],
         public int $entry_id = 0,
         public int $entryUserID = 0,
-        public array $fieldset_fields_display_fields = [],
         public string $searchField = '',
         public string $sort_field = '',
         public string $sort_direction = '',
         public array $errorMessages = [],
         #Config
         public int $showcase_id = 0,
-        public string $name = '',
         public array $fieldSetCache = [],
         public array $fieldSetFieldsIDs = [],
         public array $fieldSetEnabledFields = [],
@@ -102,34 +91,13 @@ class Showcase
         public bool $attachmentsDisplayFullSizeImage = false,
         public string $maximumAvatarSize = '55x55',
         #urls
-        public string $urlBase = '',
-        public string $urlMain = '',
-        public string $urlMainUnapproved = '',
-        public string $urlPaged = '',
         public string $urlViewEntry = '',
-        public string $urlViewEntryPage = '',
         public string $urlViewComment = '',
-        public string $urlCreateEntry = '',
-        public string $urlUpdateEntry = '',
-        public string $urlApproveEntry = '',
-        public string $urlUnapproveEntry = '',
-        public string $urlSoftDeleteEntry = '',
-        public string $urlRestoreEntry = '',
-        public string $urlDeleteEntry = '',
-        public string $urlCreateComment = '',
-        public string $urlUpdateComment = '',
-        public string $urlApproveComment = '',
-        public string $urlUnapproveComment = '',
-        public string $urlRestoreComment = '',
-        public string $urlSoftDeleteComment = '',
-        public string $urlDeleteComment = '',
-        public string $urlViewAttachment = '',
-        public string $urlViewAttachmentItem = '',
         public array $config = [],
         public array $urlParams = [],
-        public array $whereClauses = [],
         // ***/
-        public array $fields = [],
+        public string $search_keywords = '',
+        public int $search_exact = 0,
     ) {
         global $db, $mybb, $cache;
 
@@ -310,27 +278,19 @@ class Showcase
 
         $this->config['url_showcase_attachments'] = $mybb->get_asset_url($this->config['url_showcase']);
 
+        if (isset($mybb->input['keywords'])) {
+            $this->search_keywords = $mybb->get_input('keywords');
+        }
+
+        if (!empty($mybb->input['exact_match'])) {
+            $this->search_exact = 1;
+        }
+
         RouterUrls::init($this);
 
         $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
 
         return $this;
-    }
-
-    public function urlBuild(
-        string $url,
-        $entrySlug = 0,
-        int $commentID = 0,
-        int $attachmentID = 0,
-        int|string $currentPage = 0
-    ): string {
-        $this->renderObject->current_page = $currentPage;
-
-        return 'showcase.php?route=/' . str_replace(
-                ['{entry_slug_custom}', '{comment_id}', '{current_page}'],
-                [$entrySlug, $commentID, $this->renderObject->current_page],
-                $url
-            );
     }
 
     /**
@@ -530,39 +490,6 @@ class Showcase
         return $newIDs;
     }
 
-    public function showcaseDataDelete(int $entryID): void
-    {
-        entryDelete($this->showcase_id, $entryID);
-    }
-
-    /**
-     * delete attachments from a showcase
-     */
-    public function attachmentsDelete(int $entryID): bool
-    {
-        foreach (
-            attachmentGet(
-                ["entry_id='{$entryID}'", "showcase_id='{$this->showcase_id}'"]
-            ) as $attachmentID => $attachmentData
-        ) {
-            attachmentDelete($attachmentID);
-        }
-
-        return true;
-    }
-
-    /**
-     * delete a comment
-     */
-    public function commentsDelete(array $where_clauses): void
-    {
-        $comments_manager = new CommentManager($this);
-
-        foreach ($comments_manager->queryComments($where_clauses, 'comment_id') as $commentID => $commentData) {
-            $comments_manager->deleteeComment($commentID);
-        }
-    }
-
     /**
      * clear cookie inline moderation
      */
@@ -613,20 +540,20 @@ class Showcase
                         'is_image' => str_starts_with($attachment_data['mime_type'], 'image/'),
                         'icon' => get_attachment_icon($attachment_data['attachment_name']),
                         'has_thumbnail' => !empty($attachment_data['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
-                        'url' => $entry_exist ? (empty($this->entry_objects[$attachment_data['entry_id']]['entry_slug']) ? _dump(
+                        'url' => $entry_exist ? (empty($this->entry_objects[$attachment_data['entry_id']]->entry_slug) ? _dump(
                                 $entry_exist,
                                 $this->entry_objects[$attachment_data['entry_id']]
                             ) : '') . $this->urlGenerate(
                                 RouterUrls::AttachmentView,
                                 [
-                                    'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
-                                    'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                                    'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
+                                    'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
                                     'attachment_hash' => $attachment_data['attachment_hash'],
                                 ],
                             ) : $this->urlGenerate(
                             RouterUrls::AttachmentViewFromPostHash,
                             [
-                                'post_hash' => $this->entry_objects[$attachment_data['entry_id']]['post_hash'],
+                                'post_hash' => $this->entry_objects[$attachment_data['entry_id']]->post_hash,
                                 'attachment_hash' => $attachment_data['attachment_hash']
                             ],
                         ),
@@ -637,15 +564,15 @@ class Showcase
                     $attachment_data['url_thumbnail'] = $entry_exist ? $this->urlGenerate(
                         RouterUrls::ThumbnailView,
                         [
-                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
-                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
+                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
                             'attachment_hash' => $attachment_data['attachment_hash']
                         ]
                     ) : $this->urlGenerate(
                         RouterUrls::ThumbnailView,
                         [
-                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug'],
-                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]['entry_slug_custom'],
+                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
+                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
                             'attachment_hash' => $attachment_data['attachment_hash']
                         ]
                     );
@@ -758,70 +685,6 @@ class Showcase
         }
     }
 
-    public function entriesGetUnapprovedCount(): int
-    {
-        global $db;
-
-        $entryStatusUnapproved = ENTRY_STATUS_PENDING_APPROVAL;
-
-        $query = $db->simple_select(
-            $this->dataTableName,
-            'COUNT(entry_id) AS totalUnapprovedEntries',
-            "approved='{$entryStatusUnapproved}'",
-            [
-                'group_by' => 'entry_id'
-            ]
-        );
-
-        return (int)$db->fetch_field($query, 'totalUnapprovedEntries');
-    }
-
-    public function dataGet(
-        array $whereClauses,
-        array $queryFields = [],
-        array $queryOptions = [],
-        array $queryTables = []
-    ): array {
-        global $db;
-
-        $queryTables = array_merge(["{$this->dataTableName} entryData"], $queryTables);
-
-        $query = $db->simple_select(
-            implode(" LEFT JOIN {$db->table_prefix}", $queryTables),
-            implode(',', array_merge(['entry_id'], $queryFields)),
-            implode(' AND ', $whereClauses),
-            $queryOptions
-        );
-
-        if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-            return (array)$db->fetch_array($query);
-        }
-
-        $entriesObjects = [];
-
-        while ($fieldValueData = $db->fetch_array($query)) {
-            $entriesObjects[(int)$fieldValueData['entry_id']] = $fieldValueData;
-        }
-
-        return $entriesObjects;
-    }
-
-    public function dataInsert(
-        array $insertData
-    ): int {
-        return entryInsert($this->showcase_id, $insertData);
-    }
-
-    public function dataUpdate(
-        array $updateData
-    ): int {
-        return entryUpdate(
-            $this->showcase_id,
-            $updateData,
-            $this->entry_id,
-        );
-    }
-
     public function entryDataSet(array $entryData): Showcase
     {
         $this->entry_data = $entryData;
@@ -839,27 +702,6 @@ class Showcase
         }
 
         return $this;
-    }
-
-    public function urlSet(string $showcaseUrl): void
-    {
-        $this->showcaseUrl = $showcaseUrl;
-    }
-
-    public function entryDelete(): void
-    {
-        $this->attachmentsDelete($this->entry_id);
-
-        $this->commentsDelete(["entry_id='{$this->entry_id}'"]);
-
-        $this->showcaseDataDelete($this->entry_id);
-    }
-
-    public function commentDelete(int $commentID): void
-    {
-        $comments_manager = new CommentManager($this);
-
-        $comments_manager->deleteeComment($commentID);
     }
 
     public function getBasicUrl(): string
@@ -908,56 +750,15 @@ class Showcase
             )->getRelativeUrl() . ($addAnchor ? '#' . $commentSlug : '');
     }
 
-    public function whereClauseStatusComment(): string
+    public function entriesAppend($entry_data): Showcase
     {
-        global $mybb;
+        $entry_id = !empty($entry_data->entry_id) ? $entry_data->entry_id : $entry_data->post_hah;
 
-        $current_user_id = (int)$mybb->user['uid'];
-
-        $statusVisible = COMMENT_STATUS_VISIBLE;
-
-        $statusPendingApproval = COMMENT_STATUS_PENDING_APPROVAL;
-
-        $statusSoftDeleted = COMMENT_STATUS_SOFT_DELETED;
-
-        $whereClausesStatus = [
-            "status='{$statusVisible}'",
-        ];
-
-        if ($this->user_permissions[ModeratorPermissions::CanManageComments]) {
-            $whereClausesStatus[] = "status='{$statusPendingApproval}'";
-
-            $whereClausesStatus[] = "status='{$statusSoftDeleted}'";
-        } else {
-            $whereClausesStatus[] = "(user_id='{$current_user_id}' AND status='{$statusPendingApproval}')";
-        }
-
-        $whereClausesStatus = implode(' OR ', $whereClausesStatus);
-
-        return "({$whereClausesStatus})";
-    }
-
-    public function entriesAppend(array $entries_objects): Showcase
-    {
-        foreach ($entries_objects as $entry_data) {
-            $entry_id = !empty($entry_data['entry_id']) ? $entry_data['entry_id'] : $entry_data['post_hah'];
-
-            if ($entry_id) {
-                $this->entry_objects[$entry_id] = $entry_data;
-            }
+        if ($entry_id) {
+            $this->entry_objects[$entry_id] = $entry_data;
         }
 
         return $this;
-    }
-
-    public function entriesGetIDs(): array
-    {
-        return array_keys($this->entry_objects);
-    }
-
-    public function entriesGetObjects(): array
-    {
-        return $this->entry_objects;
     }
 
     public function attachmentsAppend(array $attachment_objects): Showcase
@@ -1004,18 +805,18 @@ class Showcase
 
         $dataTableStructure = dataTableStructureGet($this->showcase_id);
 
-        $whereClauses = ["entryData.entry_slug='{$db->escape_string($entrySlug)}'"];
+        $whereClauses = ["entry_data.entry_slug='{$db->escape_string($entrySlug)}'"];
 
         $queryFields = array_merge(
             array_map(function (string $fieldName): string {
-                return 'entryData.' . $fieldName;
+                return 'entry_data.' . $fieldName;
             }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
             [
                 'user_data.username',
             ]
         );
 
-        $queryTables = ['users user_data ON (user_data.uid=entryData.user_id)'];
+        $queryTables = ['users user_data ON (user_data.uid=entry_data.user_id)'];
 
         if ($loadFields) {
             foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
@@ -1026,7 +827,7 @@ class Showcase
                 $fieldID = (int)$fieldDefinition['field_id'];
 
                 if (false and ($htmlType === FieldHtmlTypes::Select || $htmlType === FieldHtmlTypes::Radio)) {
-                    $queryTables[] = "myshowcase_field_data table_{$field_key} ON (table_{$field_key}.field_data_id=entryData.{$field_key} AND table_{$field_key}.field_id='{$fieldID}')";
+                    $queryTables[] = "myshowcase_field_data table_{$field_key} ON (table_{$field_key}.field_data_id=entry_data.{$field_key} AND table_{$field_key}.field_id='{$fieldID}')";
 
                     //$queryFields[] = "table_{$field_key}.value AS {$field_key}";
 
@@ -1034,14 +835,16 @@ class Showcase
 
                     // todo, I don't understand the purpose of this now
                     // the condition after OR seems to fix it for now
-                    //$whereClauses[] = "(table_{$field_key}.set_id='{$this->config['field_set_id']}' OR entryData.{$field_key}=0)";
+                    //$whereClauses[] = "(table_{$field_key}.set_id='{$this->config['field_set_id']}' OR entry_data.{$field_key}=0)";
                 } else {
                     $queryFields[] = $field_key;
                 }
             }
         }
 
-        $entry_data = $this->dataGet($whereClauses, $queryFields, ['limit' => 1], $queryTables);
+        $entries_manager = new EntryManager($this);
+
+        $entry_data = $entries_manager->queryEntry($whereClauses, $queryFields, query_tables: $queryTables);
 
         $this->entryDataSet($entry_data)
             ->entriesAppend([$entry_data['entry_id'] => $entry_data]);

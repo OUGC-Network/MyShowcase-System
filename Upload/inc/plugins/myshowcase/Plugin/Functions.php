@@ -15,7 +15,8 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 use Postparser;
 use DirectoryIterator;
 use Random\RandomException;
@@ -146,8 +147,10 @@ function hooksAdd(string $namespace): bool
     return true;
 }
 
-function hooksRun(string $hookName, CommentManager|array &$hookArguments = []): CommentManager|array
-{
+function hooksRun(
+    string $hookName,
+    EntryManager|CommentManager|array &$hookArguments = []
+): EntryManager|CommentManager|array {
     global $plugins;
 
     return $plugins->run_hooks('myshowcase_system_' . $hookName, $hookArguments);
@@ -608,7 +611,7 @@ function showcaseDelete(int $showcaseID): bool
     $comments_manager = new CommentManager($showcase, ['comment_id']);
 
     foreach ($comments_manager->queryComments() as $commentID => $commentData) {
-        $comments_manager->deleteeComment($commentID);
+        $comments_manager->deleteComment($commentID);
     }
 
     foreach (attachmentGet(["showcase_id='{$showcaseID}'"]) as $attachmentID => $attachmentData) {
@@ -702,146 +705,19 @@ function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
         'fieldName' => &$fieldName,
     ];
 
+    $showcase = showcaseGetObject($showcaseID);
+
+    $entries_manager = new EntryManager($showcase);
+
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    foreach (entryGet($showcaseID) as $entryID => $entryData) {
-        entryDelete($showcaseID, $entryID);
+    foreach ($entries_manager->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
+        $entries_manager->deleteEntry($entryID);
     }
 
     $db->drop_column('myshowcase_data' . $showcaseID, $fieldName);
 
     return true;
-}
-
-function entryInsert(int $showcaseID, array $entryData, bool $isUpdate = false, int $entryID = 0): int
-{
-    global $db;
-
-    $tablesData = DATA_TABLE_STRUCTURE['myshowcase_data'];
-
-    $insertData = [];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'entryData' => &$entryData,
-        'isUpdate' => $isUpdate,
-        'showcaseID' => &$showcaseID,
-        'entry_id' => &$entryID,
-        'tableData' => &$tablesData,
-    ];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($entryData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($entryData[$fieldName], $fieldDefinition['type']);
-        } elseif (!$isUpdate) {
-            $insertData[$fieldName] = sanitizeTableFieldValue(
-                $fieldDefinition['default'] ?? '',
-                $fieldDefinition['type']
-            );
-        }
-    }
-
-    $fieldSetID = (int)(showcaseGet(
-        ["showcase_id='{$showcaseID}'"],
-        ['field_set_id'],
-        ['limit' => 1]
-    )['field_set_id'] ?? 0);
-
-    $fieldObjects = fieldsGet(
-        ["set_id='{$fieldSetID}'"],
-        [
-            'field_id',
-            'field_key',
-            'field_type',
-            'default_value',
-            'default_type',
-            'enabled',
-        ]
-    );
-
-    $hookArguments['showcaseFieldSetID'] = &$fieldSetID;
-
-    $hookArguments['fieldObjects'] = &$fieldObjects;
-
-    foreach ($fieldObjects as $fieldID => $fieldDefinition) {
-        if (!isset($entryData[$fieldDefinition['field_key']]) && !$isUpdate) {
-            switch ($fieldDefinition['default_type']) {
-                case FieldDefaultTypes::AsDefined:
-                    $entryData[$fieldDefinition['field_key']] = $db->escape_string($fieldDefinition['default_value']);
-                    break;
-                case FieldDefaultTypes::CurrentTimestamp:
-                    $entryData[$fieldDefinition['field_key']] = $db->escape_string(date('Y-m-d H:i:s', TIME_NOW));
-                    break;
-                case FieldDefaultTypes::UUID:
-                    $entryData[$fieldDefinition['field_key']] = $db->escape_string(generateUUIDv4());
-                    break;
-            }
-        }
-
-        if (isset($entryData[$fieldDefinition['field_key']])/* && !empty($fieldDefinition['enabled'])*/) {
-            if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
-                $insertData[$fieldDefinition['field_key']] = (int)$entryData[$fieldDefinition['field_key']];
-            } elseif (fieldTypeMatchFloat($fieldDefinition['field_type'])) {
-                $insertData[$fieldDefinition['field_key']] = (float)$entryData[$fieldDefinition['field_key']];
-            } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
-                fieldTypeMatchText($fieldDefinition['field_type']) ||
-                fieldTypeMatchDateTime($fieldDefinition['field_type'])) {
-                $insertData[$fieldDefinition['field_key']] = $db->escape_string(
-                    $entryData[$fieldDefinition['field_key']]
-                );
-            } elseif (fieldTypeMatchBinary($fieldDefinition['field_type'])) {
-                $insertData[$fieldDefinition['field_key']] = $db->escape_binary(
-                    $entryData[$fieldDefinition['field_key']]
-                );
-            }
-        }
-    }
-
-    $hookArguments = hooksRun('entry_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_data' . $showcaseID, $insertData, "entry_id='{$entryID}'");
-    } else {
-        $entryID = (int)$db->insert_query('myshowcase_data' . $showcaseID, $insertData);
-    }
-
-    return $entryID;
-}
-
-function entryUpdate(int $showcaseID, array $entryData, int $entryID): int
-{
-    return entryInsert($showcaseID, $entryData, true, $entryID);
-}
-
-function entryGet(
-    int $showcaseID,
-    array $whereClauses = [],
-    array $queryFields = [],
-    array $queryOptions = [],
-    array $queryTables = []
-): array {
-    global $db;
-
-    $queryTables = array_merge(["myshowcase_data{$showcaseID} entryData"], $queryTables);
-
-    $query = $db->simple_select(
-        implode(" LEFT JOIN {$db->table_prefix}", $queryTables),
-        implode(',', array_merge(['entry_id'], $queryFields)),
-        implode(' AND ', $whereClauses),
-        $queryOptions
-    );
-
-    if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
-    }
-
-    $entriesObjects = [];
-
-    while ($fieldValueData = $db->fetch_array($query)) {
-        $entriesObjects[(int)$fieldValueData['entry_id']] = $fieldValueData;
-    }
-
-    return $entriesObjects;
 }
 
 function permissionsInsert(int $showcaseID, array $permissionData, bool $isUpdate = false, int $permissionID = 0): int
@@ -1243,34 +1119,6 @@ function fieldDataDelete(int $fieldDataID): bool
     $hookArguments = hooksRun('field_data_delete_start', $hookArguments);
 
     $db->delete_query('myshowcase_field_data', "field_data_id='{$fieldDataID}'");
-
-    return true;
-}
-
-function entryDelete(int $showcaseID, int $entryID): bool
-{
-    global $db;
-
-    $hookArguments = [
-        'entry_id' => &$entryID,
-        'showcaseID' => &$showcaseID,
-    ];
-
-    $hookArguments = hooksRun('entry_delete_start', $hookArguments);
-
-    $showcase = showcaseGetObject($showcaseID);
-
-    $comments_manager = new CommentManager($showcase);
-
-    foreach ($comments_manager->queryComments(["entry_id='{$entryID}'"], 'comment_id') as $commentID => $commentData) {
-        $comments_manager->deleteeComment($commentID);
-    }
-
-    foreach (attachmentGet(["entry_id='{$entryID}'"]) as $attachmentID => $attachmentData) {
-        attachmentDelete($attachmentID);
-    }
-
-    $db->delete_query('myshowcase_data' . $showcaseID, "entry_id='{$entryID}'");
 
     return true;
 }
@@ -1991,151 +1839,6 @@ function fileUpload(array $fileData, string $uploadsPath, string $fileName = '')
     return hooksRun('upload_file_end', $returnData);
 }
 
-function entryGetRandom(): string
-{
-    global $db, $lang, $mybb, $cache, $templates;
-
-    //get list of enabled myshowcases with random in portal turned on
-    $showcase_list = [];
-
-    $myshowcases = cacheGet(CACHE_TYPE_CONFIG);
-    foreach ($myshowcases as $id => $myshowcase) {
-        //$myshowcase['attachments_portal_build_widget'] == 1;
-        if ($myshowcase['enabled'] == 1 && $myshowcase['attachments_portal_build_widget'] == 1) {
-            $showcase_list[$id]['name'] = $myshowcase['name'];
-            $showcase_list[$id]['script_name'] = $myshowcase['script_name'];
-            $showcase_list[$id]['attachments_uploads_path'] = $myshowcase['attachments_uploads_path'];
-            $showcase_list[$id]['field_set_id'] = $myshowcase['field_set_id'];
-        }
-    }
-
-    //if no showcases set to show on portal return
-    if (count($showcase_list) == 0) {
-        return '';
-    } else {
-        //get a random showcase showcase_id of those enabled
-        $rand_id = array_rand($showcase_list, 1);
-        $rand_showcase = $showcase_list[$rand_id];
-
-        /* URL Definitions */
-        if ($mybb->settings['seourls'] == 'yes' || ($mybb->settings['seourls'] == 'auto' && $_SERVER['SEO_SUPPORT'] == 1)) {
-            $showcase_file = strtolower($rand_showcase['name']) . '-view-{entry_id}.html';
-        } else {
-            $showcase_file = $rand_showcase['script_name'] . '?action=view&entry_id={entry_id}';
-        }
-
-        //init fixed fields
-        $fields_fixed = [];
-        $fields_fixed[0]['name'] = 'g.user_id';
-        $fields_fixed[0]['type'] = 'default';
-        $fields_fixed[1]['name'] = 'dateline';
-        $fields_fixed[1]['type'] = 'default';
-
-        //get dynamic field info for the random showcase
-        $field_list = [];
-        $fields = cacheGet(CACHE_TYPE_FIELD_SETS);
-
-        //get subset specific to the showcase given assigned field set
-        $fields = $fields[$rand_showcase['field_set_id']];
-
-        //get fields that are enabled and set for list display with pad to help sorting fixed fields)
-        $description_list = [];
-        foreach ($fields as $id => $field) {
-            if (/*(int)$field['render_order'] !== \MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE && */ $field['enabled'] == 1) {
-                $field_list[$field['render_order'] + 10]['field_key'] = $field['field_key'];
-                $field_list[$field['render_order'] + 10]['type'] = $field['html_type'];
-                $description_list[$field['render_order']] = $field['field_key'];
-            }
-        }
-
-        //merge dynamic and fixed fields
-        $fields_for_search = array_merge($fields_fixed, $field_list);
-
-        //build where clause based on search_field terms
-        $addon_join = '';
-        $addon_fields = '';
-        foreach ($fields_for_search as $id => $field) {
-            if ($field['type'] == FieldHtmlTypes::Select || $field['type'] == FieldHtmlTypes::Radio) {
-                $addon_join .= ' LEFT JOIN ' . TABLE_PREFIX . 'myshowcase_field_data tbl_' . $field['field_key'] . ' ON (tbl_' . $field['field_key'] . '.value_id = g.' . $field['field_key'] . ' AND tbl_' . $field['field_key'] . ".field_id = '" . $field['field_id'] . "') ";
-                $addon_fields .= ', tbl_' . $field['field_key'] . '.value AS ' . $field['field_key'];
-            } else {
-                $addon_fields .= ', ' . $field['field_key'];
-            }
-        }
-
-
-        $rand_entry = 0;
-        while ($rand_entry == 0) {
-            $attachmentData = attachmentGet(
-                ["showcase_id='{$rand_id}'", "mime_type LIKE 'image%'", "status='1'", "entry_id!='0'"],
-                ['entry_id', 'attachment_name', 'thumbnail_name'],
-                ['limit' => 1, 'order_by' => 'RAND()']
-            );
-
-            $rand_entry = $attachmentData['entry_id'];
-            $rand_entry_img = $attachmentData['attachment_name'];
-            $rand_entry_thumb = $attachmentData['thumbnail_name'];
-
-            if ($rand_entry) {
-                $query = $db->query(
-                    '
-					SELECT entry_id, username, g.views, comments' . $addon_fields . '
-					FROM ' . TABLE_PREFIX . 'myshowcase_data' . $rand_id . ' g
-					LEFT JOIN ' . TABLE_PREFIX . 'users u ON (u.uid = g.user_id)
-					' . $addon_join . '
-					WHERE approved = 1 AND entry_id=' . $rand_entry . '
-					LIMIT 0, 1'
-                );
-
-                if ($db->num_rows($query) == 0) {
-                    $rand_entry = 0;
-                }
-            }
-        }
-
-        if (!$rand_entry || !isset($query)) {
-            return '';
-        }
-
-        $alternativeBackground = 'trow2';
-        $entry = $db->fetch_array($query);
-
-        $lasteditdate = my_date($mybb->settings['dateformat'], $entry['dateline']);
-        $lastedittime = my_date($mybb->settings['timeformat'], $entry['dateline']);
-        $item_lastedit = $lasteditdate . '<br>' . $lastedittime;
-
-        $item_member = build_profile_link(
-            $entry['username'],
-            $entry['user_id'],
-        );
-
-        $entryUrl = str_replace('{entry_id}', $entry['entry_id'], $showcase_file);
-
-        $entry['description'] = '';
-        foreach ($description_list as $order => $name) {
-            $entry['description'] .= $entry[$name] . ' ';
-        }
-
-        $alternativeBackground = ($alternativeBackground == 'trow1' ? 'trow2' : 'trow1');
-
-        if ((int)$rand_entry_thumb === ATTACHMENT_THUMBNAIL_SMALL) {
-            $rand_img = $rand_showcase['attachments_uploads_path'] . '/' . $rand_entry_img;
-        } else {
-            $rand_img = $rand_showcase['attachments_uploads_path'] . '/' . $rand_entry_thumb;
-        }
-
-        return $myshowcase->templateGet('portal_rand_showcase', [
-            'showcase' => $rand_showcase,
-            'url' => $entryUrl,
-            'entryDescription' => $entry['description'],
-            'userName' => $entryUsername,
-            'entryViews' => $entry['views'],
-            'entryComments' => $entry['comments'],
-            'entryImage' => $rand_img,
-        ]);
-    }
-}
-
 function dataTableStructureGet(int $showcaseID = 0): array
 {
     global $db;
@@ -2636,6 +2339,9 @@ function fieldDefaultTypes(): array
 }
 
 //https://stackoverflow.com/a/15875555
+/**
+ * @throws RandomException
+ */
 function generateUUIDv4(): string
 {
     $data = random_bytes(16);
@@ -2647,6 +2353,9 @@ function generateUUIDv4(): string
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
 }
 
+/**
+ * @throws RandomException
+ */
 function slugGenerateEntry(int $showcaseID, ?int $length = null): string
 {
     if (empty($length)) {
@@ -2659,10 +2368,14 @@ function slugGenerateEntry(int $showcaseID, ?int $length = null): string
 
     $uniqueFound = false;
 
+    $showcase = showcaseGetObject($showcaseID);
+
+    $entries_manager = new EntryManager($showcase,);
+
     while (!$uniqueFound) {
         $generatedSlug = my_strtolower(bin2hex(random_bytes($length)));
 
-        $uniqueFound = !entryGet($showcaseID, ["entry_slug='{$db->escape_string($generatedSlug)}'"]);
+        $uniqueFound = !$entries_manager->queryEntry(["entry_slug='{$db->escape_string($generatedSlug)}'"]);
     }
 
     return $generatedSlug;

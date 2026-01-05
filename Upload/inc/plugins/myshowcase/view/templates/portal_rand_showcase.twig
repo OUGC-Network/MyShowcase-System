@@ -4,7 +4,7 @@
     </tr>
     <tr>
         <td class="trow1">
-            <strong><a href="{{ entry_data.url }}">{{ entryDescription }}</a><br/></strong>
+            <strong><a href="{{ entry_data.extra_data.url }}">{{ entryDescription }}</a><br/></strong>
             <span
                     class="smalltext">
     <strong>&raquo; </strong>{{ userName }}<br/>
@@ -12,7 +12,8 @@
     <strong>&raquo; </strong>Comments: {{ entryComments }}<br/>
     </span>
 
-            <div style="float:right"><a href="{{ entry_data.url }}"><img src="{{ entryImage }}" border="0"></a></div>
+            <div style="float:right"><a href="{{ entry_data.extra_data.url }}"><img src="{{ entryImage }}"
+                                                                                    border="0"></a></div>
         </td>
     </tr>
 </table>

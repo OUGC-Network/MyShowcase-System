@@ -114,7 +114,7 @@
         </h3>
 
         {# Entry date & permalink #}
-        <a href="{{ url.entry }}#{{ entry_data.entry_slug }}" title="{{ entrySubject }}" class="post__date">
+        <a href="{{ url.entry }}#{{ entry_data.entry_slug }}" title="{{ subject }}" class="post__date">
             {{ date|my_date }}
         </a>
 
@@ -123,7 +123,7 @@
             <label for="inlinemod_{{ entry_data.entry_slug }}"></label>
             <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ entry_data.entry_slug }}"
                    id="inlinemod_{{ entry_data.entry_slug }}" value="1"
-                   {% if entry_data.moderator_check %}checked="checked"{% endif %}/>
+                   {% if entry_data.extra_data.moderator_check %}checked="checked"{% endif %}/>
         {% endif %}
 
         {% if entry_data.edit_user_id %}

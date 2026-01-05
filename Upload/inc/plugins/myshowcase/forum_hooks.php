@@ -16,22 +16,20 @@ declare(strict_types=1);
 namespace MyShowcase\Hooks\Forum;
 
 use MyBB;
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Plugin\RouterUrls;
+use MyShowcase\Service\CommentManager;
+use myshowcase\Service\EntryManager;
 use MyShowcase\System\ModeratorPermissions;
-
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\entryGetRandom;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\renderGetObject;
-use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\showcaseGetObject;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
-use function MyShowcase\Plugin\Functions\urlHandlerGet;
 use function MyShowcase\Plugin\Functions\urlHandlerSet;
 
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
@@ -247,6 +245,8 @@ function global_intermediate(): bool
         //$showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
         $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
 
+        $entries_manager = new EntryManager($showcaseObject,);
+
         //if showcase is enabled...
         if ($showcaseObject->config['enabled']) {
             //load language if we are going to use it
@@ -255,8 +255,6 @@ function global_intermediate(): bool
             }
 
             urlHandlerSet($showcaseObject->config['script_name']);
-
-            $showcaseObject->urlSet(urlHandlerGet());
 
             //awaiting approval
             if ($showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
@@ -268,7 +266,9 @@ function global_intermediate(): bool
                 */
                 $unapprovedEntriesUrl = '';
 
-                $totalUnapprovedEntries = $showcaseObject->entriesGetUnapprovedCount();
+                $totalUnapprovedEntries = $entries_manager->queryEntryCount(
+                    ["status='" . $entries_manager::STATUS_PENDING . "'"]
+                );
 
                 if ($totalUnapprovedEntries > 0) {
                     $unapprovedText = $lang->sprintf(
@@ -436,7 +436,11 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
                 $entryID = $plugin_array['user_activity']['entry_id'];
 
-                $showcaseObjects = entryGet($showcaseID, ["entry_id='{$entryID}'"], ['user_id']);
+                $showcase = showcaseGetObject($showcaseID);
+
+                $entries_manager = new EntryManager($showcase,);
+
+                $showcaseObjects = $entries_manager->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
 
                 foreach ($showcaseObjects as $entryID => $entryData) {
                     $uid = $entryData['user_id'];
@@ -503,24 +507,19 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 //from having to do it every post, just every page view
 function showthread_start(): bool
 {
-    global $db, $mybb, $thread, $cache, $myshowcase_uids;
+    global $db, $mybb, $thread, $cache, $showcase_objects;
 
     //get list of enabled myshowcases with postbit links turned on
-    $myshowcase_uids = [];
+    $showcase_objects = [];
 
-    $myshowcases = cacheGet(CACHE_TYPE_CONFIG);
-    foreach ($myshowcases as $id => $myshowcase) {
-        if ($myshowcase['enabled'] && $myshowcase['display_in_posts']) {
-            $myshowcase_uids[$myshowcase['showcase_id']]['name'] = $myshowcase['name'];
-            $myshowcase_uids[$myshowcase['showcase_id']]['script_name'] = $myshowcase['script_name'];
-            $myshowcase_uids[$myshowcase['showcase_id']]['relative_path'] = $myshowcase['relative_path'];
+    foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcase_id => $showcase_data) {
+        if ($showcase_data['enabled'] && $showcase_data['display_in_posts']) {
+            $showcase_objects[$showcase_data['showcase_id']] = ['uids' => []];
         }
     }
 
     //if we have any myshowcases to link....
-    if (count($myshowcase_uids) > 0) {
-        $gidlist = implode(',', array_keys($myshowcase_uids));
-
+    if (!empty($showcase_objects)) {
         $threadID = (int)$thread['tid'];
 
         //get uids for users that posted to the thread
@@ -532,28 +531,33 @@ function showthread_start(): bool
         );
 
         $uids = [];
+
         while ($result = $db->fetch_array($query)) {
             $uids[$result['uid']] = 0;
         }
+
         $userIDs = implode("','", array_keys($uids));
+
         unset($query, $result);
 
         //get myshowcase counts for users in thread
         if (count($uids)) {
-            foreach ($myshowcase_uids as $gid => $data) {
-                $entryFieldObjects = entryGet(
-                    $gid,
-                    ["user_id IN ('{$userIDs}')", "approved='1'"],
-                    ['user_id', 'COUNT(user_id) AS total'],
-                    ['group_by' => 'user_id']
-                );
+            foreach ($showcase_objects as $showcaseID) {
+                $showcase = showcaseGetObject($showcaseID);
 
-                foreach ($entryFieldObjects as $entryFieldID => $entryFieldData) {
-                    $myshowcase_uids[$gid]['uids'][$entryFieldData['user_id']] = $entryFieldData['total'];
+                $entries_manager = new EntryManager($showcase,);
+
+                foreach (
+                    $entries_manager->queryEntries(
+                        ["user_id IN ('{$userIDs}')", "status='1'"],
+                        ['user_id', 'COUNT(user_id) AS total_user_entries'],
+                        ['group_by' => 'user_id']
+                    ) as $entryFieldID => $entryFieldData
+                ) {
+                    $showcase_objects[$showcaseID]['uids'][$entryFieldData['user_id']] = $entryFieldData['total_user_entries'];
                 }
             }
         }
-        unset($query, $result);
     }
 
     return true;
@@ -578,7 +582,7 @@ function postbit(array &$post): array
             global $db;
 
             // todo, cache attachment objects per showcase to reduce queries
-            $attachment_objects = \MyShowcase\Plugin\Functions\attachmentGet(
+            $attachment_objects = attachmentGet(
                 ["attachment_hash IN ('" . implode("','", array_map([$db, 'escape_string'], $matches[1])) . "')"],
                 [
                     'showcase_id',
@@ -606,10 +610,10 @@ function postbit(array &$post): array
                 if (!isset($showcase_objects[$showcase_id])) {
                     $showcase_objects[$showcase_id] = showcaseGetObject((int)$showcase_id);
                 }
+                $entries_manager = new EntryManager($showcase_objects[$showcase_id],);
 
                 $showcase_objects[$showcase_id]->entriesAppend(
-                    entryGet(
-                        $showcase_objects[$showcase_id]->showcase_id,
+                    $entries_manager->queryEntries(
                         ["entry_id IN ('{$attachment_entry_ids}')"],
                         ['entry_id', 'user_id', 'post_hash', 'status', 'entry_slug', 'entry_slug_custom'],
                     )
@@ -651,52 +655,21 @@ function postbit(array &$post): array
 
     return $post;
 
-    global $mybb, $_SERVER, $lang, $myshowcase_uids;
+    global $mybb, $_SERVER, $lang, $showcase_objects;
 
-    if (count($myshowcase_uids) > 0) {
-        foreach ($myshowcase_uids as $myshowcase => $data) {
-            $showcase_name = $data['name'];
-            $showcase_file = $data['script_name'];
-            $showcase_fldr = $data['relative_path'];
+    if (!empty($showcase_objects)) {
+        foreach ($showcase_objects as $showcase_id => $showcase_data) {
+            $showcase_data = cacheGet(CACHE_TYPE_CONFIG)[$showcase_id] ?? [];
 
-            /* URL Definitions */
-            if ($mybb->settings['seourls'] == 'yes' || ($mybb->settings['seourls'] == 'auto' && $_SERVER['SEO_SUPPORT'] == 1)) {
-                $showcase_file = strtolower($data['name']) . '.html';
-            } else {
-                $showcase_file = $data['script_name'];
-            }
-
-            if ($data['uids'][$post['uid']] > 0) {
-                $post['user_details'] .= '<br />' . $showcase_name . ':  <a href="' . $showcase_fldr . $showcase_file . '?search_field=username&keywords=' . rawurlencode(
+            if ($showcase_data['uids'][$post['uid']] > 0) {
+                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['relative_path'] . $showcase_data['script_name'] . '?search_field=username&keywords=' . rawurlencode(
                         $post['username']
-                    ) . '&exact_match=1">' . $data['uids'][$post['uid']] . '</a>';
+                    ) . '&exact_match=1">' . $showcase_data['uids'][$post['uid']] . '</a>';
             }
         }
     }
 
     return $post;
-}
-
-//function to pull a random entry from a random showcase (if enabled)
-function portal_start(): bool
-{
-    global $db, $lang, $mybb, $cache, $templates, $portal_rand_showcase;
-
-    //if user is guest or no showcases set to show on portal output something else?
-    /*
-    if($current_user_id == 0)
-    {
-        //add code here to display something for guests
-    }
-    else
-    */
-    {
-        $portal_rand_showcase = entryGetRandom();
-        if (!$portal_rand_showcase) {
-        }
-    }
-
-    return true;
 }
 
 function report_type(): void
@@ -715,11 +688,13 @@ function report_type(): void
 
         $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $entryData = entryGet(
-            $showcaseID,
+        $showcase = showcaseGetObject($showcaseID);
+
+        $entries_manager = new EntryManager($showcase);
+
+        $entryData = $entries_manager->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id'],
-            ['limit' => 1]
         );
 
         if (empty($entryData)) {
@@ -756,15 +731,15 @@ function report_type(): void
 
         $showcase = showcaseGetObject($showcaseID);
 
+        $entries_manager = new EntryManager($showcase);
+
         $comments_manager = new CommentManager($showcase);
 
         $commentData = $comments_manager->queryComment(["comment_id='{$commentID}'"], ['entry_id', 'user_id']);
 
-        $entryData = entryGet(
-            $showcaseID,
+        $entryData = $entries_manager->queryEntry(
             ["entry_id='{$commentData['entry_id']}'"],
             ['user_id'],
-            ['limit' => 1]
         );
 
         if (empty($commentData) || empty($entryData)) {
@@ -797,25 +772,27 @@ function modcp_reports_report(): void
     if ($report['type'] === 'showcase_entries') {
         loadLanguage();
 
-        $entryID = (int)$report['id'];
+        $showcaseID = (int)$report['id'];
 
-        $entryData = entryGet(
-            $showcaseID,
-            ["entry_id='{$entryID}'"],
-            ['showcase_id', 'user_id', 'entry_slug', 'entry_slug_custom'],
-            ['limit' => 1]
-        );
-
-        $showcaseID = (int)$entryData['showcase_id'];
+        $entryID = (int)$report['id2'];
 
         $showcaseObject = showcaseGetObject($showcaseID);
 
+        $entries_manager = new EntryManager($showcaseObject);
+
+        $entryData = $entries_manager->queryEntry(
+            ["entry_id='{$entryID}'"],
+            ['user_id', 'entry_slug', 'entry_slug_custom'],
+        );
+
         $report_data['content'] = $lang->sprintf(
             $lang->myShowcaseReportEntryContent,
-            $showcaseObject->urlBuild(
-                $showcaseObject->urlViewEntry,
-                $entryData['entry_slug'],
-                $entryData['entry_slug_custom']
+            $showcaseObject->urlGenerate(
+                RouterUrls::EntryView,
+                [
+                    'entry_slug' => $entryData['entry_slug'],
+                    'entry_slug_custom' => $entryData['entry_slug_custom']
+                ]
             ) . '#entry_id' . $entryID,
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id2'])['username'] ?? ''),
@@ -833,6 +810,8 @@ function modcp_reports_report(): void
 
         $showcaseObject = showcaseGetObject($showcaseID);
 
+        $entries_manager = new EntryManager($showcaseObject);
+
         $comments_manager = new CommentManager(
             $showcaseObject,
         );
@@ -844,11 +823,9 @@ function modcp_reports_report(): void
 
         $entryID = (int)$commentData['entry_id'];
 
-        $entryData = entryGet(
-            $showcaseID,
+        $entryData = $entries_manager->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id', 'entry_slug', 'entry_slug_custom'],
-            ['limit' => 1]
         );
 
         $report_data['content'] = $lang->sprintf(

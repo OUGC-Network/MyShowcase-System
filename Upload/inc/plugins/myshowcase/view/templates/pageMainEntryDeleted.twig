@@ -1,4 +1,4 @@
-{% set class %}{{ entry.alternativeBackground }}{% endset %}
+{% set class %}{{ entry.background_class }}{% endset %}
 <div class="row row--thread thread {{ class }} inline_row {% if entry.unreadpost %}thread--unread{% endif %} {% if permissions.can_manage_entries %}thread--moderator{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">

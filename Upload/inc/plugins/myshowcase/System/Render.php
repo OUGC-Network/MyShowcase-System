@@ -16,17 +16,16 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 use MyBB;
-
+use MyShowcase\Entity\Comment;
 use MyShowcase\Plugin\RouterUrls;
-
+use MyShowcase\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
-use function MyBB\View\template;
 use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldGetObject;
 use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\templateGet;
@@ -36,13 +35,6 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
-use const MyShowcase\Plugin\Core\ATTACHMENT_THUMBNAIL_SMALL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 class Render
@@ -53,10 +45,8 @@ class Render
     public const POST_TYPE_COMMENT = 3;
 
     public function __construct(
-        public Showcase &$showcaseObject,
+        public Showcase &$showcase,
         public string $keywords_highlight = '',
-        public string $keywords = '',
-        public int $search_exact = 0,
         public array $parserOptions = [],
         public array $fieldSetFieldsSearchFields = [],
         public array $urlParams = [],
@@ -71,19 +61,11 @@ class Render
             $this->parserOptions['highlight'] = $this->keywords_highlight;
         }
 
-        if (isset($mybb->input['keywords'])) {
-            $this->keywords = $mybb->get_input('keywords');
-        }
-
-        if (!empty($mybb->input['exact_match'])) {
-            $this->search_exact = 1;
-        }
-
         global $lang;
 
         loadLanguage();
 
-        foreach ($this->showcaseObject->fieldset_display_fields as $field_key => &$field_display_name) {
+        foreach ($this->showcase->fieldset_display_fields as $field_key => &$field_display_name) {
             $field_display_name = $lang->{"myShowcaseMainSort{$field_key}"} ?? ucfirst($field_key);
         }
 
@@ -91,7 +73,7 @@ class Render
             'username' => $lang->myShowcaseMainSortUsername
         ];
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
             $field_key = $fieldDefinition['field_key'];
 
             $fieldKeyUpper = ucfirst($field_key);
@@ -108,26 +90,26 @@ class Render
         }
 
         if (array_key_exists(
-            $this->showcaseObject->sort_field,
-            $this->showcaseObject->fieldset_display_fields
+            $this->showcase->sort_field,
+            $this->showcase->fieldset_display_fields
         )) {
-            $this->urlParams['sort_by'] = $this->showcaseObject->sort_field;
+            $this->urlParams['sort_by'] = $this->showcase->sort_field;
         }
 
-        if ($this->search_exact) {
-            $this->urlParams['exact_match'] = $this->search_exact;
+        if ($this->showcase->search_exact) {
+            $this->urlParams['exact_match'] = $this->showcase->search_exact;
         }
 
-        if ($this->keywords) {
-            $this->urlParams['keywords'] = $this->keywords;
+        if ($this->showcase->search_keywords) {
+            $this->urlParams['keywords'] = $this->showcase->search_keywords;
         }
 
-        if (in_array($this->showcaseObject->searchField, array_keys($this->showcaseObject->fieldSetSearchableFields))) {
-            $this->urlParams['search_field'] = $this->showcaseObject->searchField;
+        if (in_array($this->showcase->searchField, array_keys($this->showcase->fieldSetSearchableFields))) {
+            $this->urlParams['search_field'] = $this->showcase->searchField;
         }
 
-        if ($this->showcaseObject->sort_direction) {
-            $this->urlParams['order_by'] = $this->showcaseObject->sort_direction;
+        if ($this->showcase->sort_direction) {
+            $this->urlParams['order_by'] = $this->showcase->sort_direction;
         }
 
         if ($mybb->get_input('page', MyBB::INPUT_INT) > 0) {
@@ -158,23 +140,23 @@ class Render
             $templateName,
             array_merge_recursive([
                 'showcase' => [
-                    'fieldset_display_fields' => $this->showcaseObject->fieldset_display_fields,
+                    'fieldset_display_fields' => $this->showcase->fieldset_display_fields,
                 ],
-                'config' => $this->showcaseObject->config,
+                'config' => $this->showcase->config,
                 'meta' => [],
                 'current_page' => $this->current_page,
-                'keywords' => $this->keywords,
-                'search_exact' => $this->search_exact,
+                'keywords' => $this->showcase->search_keywords,
+                'search_exact' => $this->showcase->search_exact,
                 'url' => [
-                    'main' => $this->showcaseObject->urlGenerate(RouterUrls::Main),
+                    'main' => $this->showcase->urlGenerate(RouterUrls::Main),
                 ],
-                'permissions' => $this->showcaseObject->user_permissions,
-                'errors' => empty($this->showcaseObject->errorMessages) ? '' : inline_error(
-                    $this->showcaseObject->errorMessages
+                'permissions' => $this->showcase->user_permissions,
+                'errors' => empty($this->showcase->errorMessages) ? '' : inline_error(
+                    $this->showcase->errorMessages
                 ),
                 'version' => DEBUG ? TIME_NOW : VERSION_CODE,
             ], $templatesContext),
-            $this->showcaseObject->config['custom_theme_template_prefix']
+            $this->showcase->config['custom_theme_template_prefix']
         );
     }
 
@@ -187,24 +169,22 @@ class Render
         bool $isPreview = false,
         int $postType = self::POST_TYPE_COMMENT,
         int $commentsCounter = 0,
-        ?\MyShowcase\Entity\Comment $comment_object = null,
+        ?Comment $comment_object = null,
     ): string {
         global $mybb, $lang, $theme;
-
-        $current_user_id = (int)$mybb->user['uid'];
 
         static $currentUserIgnoredUsers = null;
 
         if ($currentUserIgnoredUsers === null) {
             $currentUserIgnoredUsers = [];
 
-            if ($current_user_id > 0 && !empty($mybb->user['ignorelist'])) {
+            if ($this->showcase->current_user_id > 0 && !empty($mybb->user['ignorelist'])) {
                 $currentUserIgnoredUsers = array_flip(explode(',', $mybb->user['ignorelist']));
             }
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $userID = $this->showcaseObject->entryUserID;
+            $userID = $this->showcase->entryUserID;
         } else {
             $userID = $comment_object->user_id;
 
@@ -212,12 +192,12 @@ class Render
         }
 
         $templatesContext = [
-            'entry_data' => array_merge($this->showcaseObject->entry_data, [
+            'entry_data' => array_merge($this->showcase->entry_data, [
                 'is_deleted' => false,
                 'moderator_check' => false,
             ]),
             'comment_data' => $comment_object,
-            'entrySubject' => $this->buildEntrySubject(),
+            'subject' => $this->buildEntrySubject(),
             'url' => [
                 'entry' => '',
                 'update' => '',
@@ -227,7 +207,7 @@ class Render
             'is_ignored' => false,
             'ignored_message' => '',
             'style_visibility' => '',
-            'fields_objects' => $this->showcaseObject->fieldSetCache,
+            'fields_objects' => $this->showcase->fieldSetCache,
             'entry_attachments' => '',
             'commentAttachments' => '',
             'class' => '',
@@ -256,7 +236,7 @@ class Render
 
         $extractVariables = [];
 
-        $templatesContext['entry_id'] = $entryID = $this->showcaseObject->entry_id;
+        $templatesContext['entry_id'] = $entryID = $this->showcase->entry_id;
 
         if ($postType === self::POST_TYPE_COMMENT) {
             $templatePrefix = 'pageViewComment';
@@ -265,12 +245,12 @@ class Render
         }
 
         // todo, will be empty when preview a new entry/comment
-        if (!empty($this->showcaseObject->entry_data['entry_slug'])) {
-            $templatesContext['url']['entry'] = $this->showcaseObject->urlGenerate(
+        if (!empty($this->showcase->entry_data['entry_slug'])) {
+            $templatesContext['url']['entry'] = $this->showcase->urlGenerate(
                 RouterUrls::EntryView,
                 [
-                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
+                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
                 ]
             );
         }
@@ -278,7 +258,7 @@ class Render
         if ($postType === self::POST_TYPE_COMMENT) {
             $templatesContext['comment_data.comment_slug'] = $comment_object->comment_slug;
 
-            $templatesContext['commentMessage'] = $this->showcaseObject->parseMessage(
+            $templatesContext['commentMessage'] = $this->showcase->parseMessage(
                 $comment_object->comment,
                 $this->parserOptions
             );
@@ -288,14 +268,14 @@ class Render
             if (!$isPreview) {
                 $templatesContext['commentNumber'] = my_number_format($commentsCounter);
 
-                $templatesContext['commentUrl'] = $this->showcaseObject->urlGenerate(
+                $templatesContext['commentUrl'] = $this->showcase->urlGenerate(
                     RouterUrls::Comment,
                     ['comment_slug' => $commentSlug]
                 );
             }
         } else {
             foreach ($templatesContext['fields_objects'] as $fieldID => &$fieldDefinition) {
-                $fieldObject = fieldGetObject($this->showcaseObject, $this->showcaseObject->fieldSetCache[$fieldID]);
+                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fieldSetCache[$fieldID]);
 
                 if (!$fieldObject->isViewableInEntry()) {
                     unset($templatesContext['fields_objects'][$fieldID]);
@@ -303,7 +283,7 @@ class Render
                     continue;
                 }
 
-                $fieldObject->valueSet($this->showcaseObject->entry_data[$fieldDefinition['field_key']] ?? '')
+                $fieldObject->valueSet($this->showcase->entry_data[$fieldDefinition['field_key']] ?? '')
                     ->valuesBuild();
 
                 $fieldDefinition['value'] = $fieldObject->getUserValue();
@@ -312,17 +292,17 @@ class Render
             }
 
             foreach ($templatesContext['fields_objects'] as $fieldID => &$fieldDefinition) {
-                $fieldObject = fieldGetObject($this->showcaseObject, $this->showcaseObject->fieldSetCache[$fieldID]);
+                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fieldSetCache[$fieldID]);
 
                 $fieldDefinition['field_attachments'] = $fieldObject->getAttachments(
                     $templatesContext['fields_objects']
                 );
             }
 
-            if ($this->showcaseObject->config['attachments_allow_entries'] &&
-                $this->showcaseObject->user_permissions[UserPermissions::CanViewAttachments]) {
+            if ($this->showcase->config['attachments_allow_entries'] &&
+                $this->showcase->user_permissions[UserPermissions::CanViewAttachments]) {
                 $templatesContext['entry_attachments'] = $this->entryBuildAttachments(
-                    $this->showcaseObject->attachmentsGetFromEntry(),
+                    $this->showcase->attachmentsGetFromEntry(),
                     $templatesContext['fields_objects'],
                     $postType,
                     $commentSlug ?? ''
@@ -362,13 +342,13 @@ class Render
 
         $templatesContext['user_avatar'] = $templatesContext['userStars'] = $templatesContext['userGroupImage'] = $userDetailsReputationLink = $userDetailsWarningLevel = $templatesContext['userSignature'] = '';
 
-        if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_avatars_entries'] ||
-            $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_avatars_comments']) {
-            if (isset($userData['avatar']) && isset($mybb->user['showavatars']) && !empty($mybb->user['showavatars']) || !$current_user_id) {
+        if ($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_avatars_entries'] ||
+            $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_avatars_comments']) {
+            if (isset($userData['avatar']) && isset($mybb->user['showavatars']) && !empty($mybb->user['showavatars']) || !$this->showcase->current_user_id) {
                 $templatesContext['user_avatar'] = $userAvatar = format_avatar(
                     $userData['avatar'],
                     $userData['avatardimensions'],
-                    $this->showcaseObject->maximumAvatarSize
+                    $this->showcase->maximumAvatarSize
                 );
             }
         }
@@ -393,8 +373,8 @@ class Render
 
         $templatesContext['userTitle'] = htmlspecialchars_uni($userData['usertitle']);
 
-        if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_stars_entries'] ||
-            $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_stars_comments']) {
+        if ($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_stars_entries'] ||
+            $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_stars_comments']) {
             if (!empty($groupPermissions['starimage']) && isset($groupPermissions['stars'])) {
                 $groupStarImage = str_replace('{theme}', $theme['imgdir'], $groupPermissions['starimage']);
 
@@ -402,8 +382,8 @@ class Render
             }
         }
 
-        if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_group_image_entries'] ||
-            $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_group_image_comments']) {
+        if ($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_group_image_entries'] ||
+            $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_group_image_comments']) {
             if (!empty($groupPermissions['image'])) {
                 $groupImage = str_replace(['{lang}', '{theme}'],
                     [$mybb->user['language'] ?? $mybb->settings['language'], $theme['imgdir']],
@@ -427,32 +407,32 @@ class Render
             }
         }
 
-        $moderatorCanManageEntries = $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries];
+        $moderatorCanManageEntries = $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries];
 
-        $moderatorCanManageComments = $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments];
+        $moderatorCanManageComments = $this->showcase->user_permissions[ModeratorPermissions::CanManageComments];
 
-        $userCanUpdateEntries = $userID === $current_user_id && $this->showcaseObject->user_permissions[UserPermissions::CanUpdateEntries];
+        $userCanUpdateEntries = $userID === $this->showcase->current_user_id && $this->showcase->user_permissions[UserPermissions::CanUpdateEntries];
 
-        $userCanSoftDeleteEntries = $userID === $current_user_id && $this->showcaseObject->user_permissions[UserPermissions::CanDeleteEntries];
+        $userCanSoftDeleteEntries = $userID === $this->showcase->current_user_id && $this->showcase->user_permissions[UserPermissions::CanDeleteEntries];
 
-        $userCanUpdateComments = $userID === $current_user_id && $this->showcaseObject->user_permissions[UserPermissions::CanUpdateComments];
+        $userCanUpdateComments = $userID === $this->showcase->current_user_id && $this->showcase->user_permissions[UserPermissions::CanUpdateComments];
 
-        $userCanSoftDeleteComments = $userID === $current_user_id && $this->showcaseObject->user_permissions[UserPermissions::CanDeleteComments];
+        $userCanSoftDeleteComments = $userID === $this->showcase->current_user_id && $this->showcase->user_permissions[UserPermissions::CanDeleteComments];
 
         if (!$isPreview && $postType === self::POST_TYPE_ENTRY && ($moderatorCanManageEntries || $userCanUpdateEntries)) {
-            $templatesContext['url']['update'] = $this->showcaseObject->urlGenerate(
+            $templatesContext['url']['update'] = $this->showcase->urlGenerate(
                 RouterUrls::EntryUpdate,
                 [
-                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                 ]
             );
         } elseif (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanUpdateComments)) {
-            $templatesContext['url']['update'] = $this->showcaseObject->urlGenerate(
+            $templatesContext['url']['update'] = $this->showcase->urlGenerate(
                 RouterUrls::CommentUpdate,
                 [
-                    'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     'comment_slug' => $commentSlug
                 ]
             );
@@ -462,7 +442,7 @@ class Render
 
         if (!empty($mybb->settings['enablewarningsystem']) &&
             !empty($groupPermissions['canreceivewarnings']) &&
-            (!empty($mybb->usergroup['canwarnusers']) || ($current_user_id === $userID && !empty($mybb->settings['canviewownwarning'])))) {
+            (!empty($mybb->usergroup['canwarnusers']) || ($this->showcase->current_user_id === $userID && !empty($mybb->settings['canviewownwarning'])))) {
             if ($mybb->settings['maxwarningpoints'] < 1) {
                 $mybb->settings['maxwarningpoints'] = 10;
             }
@@ -478,7 +458,7 @@ class Render
             $warningLevel = get_colored_warning_level($warningLevel);
 
             // If we can warn them, it's not the same person, and we're in a PM or a post.
-            if (!empty($mybb->usergroup['canwarnusers']) && $userID !== $current_user_id) {
+            if (!empty($mybb->usergroup['canwarnusers']) && $userID !== $this->showcase->current_user_id) {
                 $templatesContext['show_warn_button'] = true;
 
                 $warningUrl = "warnings.php?uid={$userID}";
@@ -486,16 +466,16 @@ class Render
                 $warningUrl = 'usercp.php';
             }
 
-            if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_group_image_entries'] ||
-                $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_group_image_comments']) {
+            if ($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_group_image_entries'] ||
+                $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_group_image_comments']) {
             }
         }
 
-        if (($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_signatures_entries'] ||
-                $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_signatures_comments']) &&
+        if (($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_signatures_entries'] ||
+                $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_signatures_comments']) &&
             !empty($userData['username']) &&
             !empty($userData['signature']) &&
-            (!$current_user_id || !empty($mybb->user['showsigs'])) &&
+            (!$this->showcase->current_user_id || !empty($mybb->user['showsigs'])) &&
             (empty($userData['suspendsignature']) || !empty($userData['suspendsignature']) && !empty($userData['suspendsigtime']) && $userData['suspendsigtime'] < TIME_NOW) &&
             !empty($groupPermissions['canusesig']) &&
             (empty($groupPermissions['canusesigxposts']) || $groupPermissions['canusesigxposts'] > 0 && $userData['postnum'] > $groupPermissions['canusesigxposts']) &&
@@ -512,46 +492,46 @@ class Render
                 $signatureParserOptions['nofollow_on'] = true;
             }
 
-            if ($current_user_id && empty($mybb->user['showimages']) || empty($mybb->settings['guestimages']) && !$current_user_id) {
+            if ($this->showcase->current_user_id && empty($mybb->user['showimages']) || empty($mybb->settings['guestimages']) && !$this->showcase->current_user_id) {
                 $signatureParserOptions['allow_imgcode'] = false;
             }
 
-            $templatesContext['userSignature'] = $this->showcaseObject->parseMessage(
+            $templatesContext['userSignature'] = $this->showcase->parseMessage(
                 $userData['signature'],
                 $signatureParserOptions
             );
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $templatesContext['date'] = $this->showcaseObject->entry_data['dateline'];
+            $templatesContext['date'] = $this->showcase->entry_data['dateline'];
         } else {
             $templatesContext['date'] = $comment_object->dateline;
         }
 
         if ($moderatorCanManageEntries && (
-                $postType === self::POST_TYPE_ENTRY && !empty($this->showcaseObject->entry_data['edit_user_id']) ||
+                $postType === self::POST_TYPE_ENTRY && !empty($this->showcase->entry_data['edit_user_id']) ||
                 $postType === self::POST_TYPE_COMMENT && !empty($comment_object->edit_user_id)
             )) {
             $editUserData = get_user(
-                $postType === self::POST_TYPE_ENTRY ? $this->showcaseObject->entry_data['edit_user_id'] : $comment_object->edit_user_id
+                $postType === self::POST_TYPE_ENTRY ? $this->showcase->entry_data['edit_user_id'] : $comment_object->edit_user_id
             );
         }
 
         $templatesContext['buttonEmail'] = '';
 
-        if (empty($userData['hideemail']) && $userID !== $current_user_id && !empty($mybb->usergroup['cansendemail'])) {
+        if (empty($userData['hideemail']) && $userID !== $this->showcase->current_user_id && !empty($mybb->usergroup['cansendemail'])) {
         }
 
         $templatesContext['buttonPrivateMessage'] = '';
 
         if (!empty($mybb->settings['enablepms']) &&
-            $userID !== $current_user_id &&
+            $userID !== $this->showcase->current_user_id &&
             ((!empty($userData['receivepms']) &&
                     !empty($groupPermissions['canusepms']) &&
                     !empty($mybb->usergroup['cansendpms']) &&
                     my_strpos(
                         ',' . $userData['ignorelist'] . ',',
-                        ',' . $current_user_id . ','
+                        ',' . $this->showcase->current_user_id . ','
                     ) === false) ||
                 !empty($mybb->usergroup['canoverridepm']))) {
         }
@@ -585,37 +565,42 @@ class Render
 
         $userPermissions = user_permissions($userID);
 
-        if (!in_array($current_user_id, $reportUserIDs) && !empty($userPermissions['canbereported'])) {
+        if (!in_array(
+                $this->showcase->current_user_id,
+                $reportUserIDs
+            ) && !empty($userPermissions['canbereported'])) {
             $templatesContext['show_report_button'] = true;
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $postStatus = (int)$this->showcaseObject->entry_data['status'];
+            $postStatus = (int)$this->showcase->entry_data['status'];
         } else {
             $postStatus = $comment_object->status;
         }
 
         $templatesContext['buttonApprove'] = $templatesContext['buttonUnpprove'] = $templatesContext['buttonRestore'] = $templatesContext['buttonSoftDelete'] = $templatesContext['buttonDelete'] = '';
 
+        $entries_manager = new EntryManager($this->showcase);
+
         if (!$isPreview && $postType === self::POST_TYPE_ENTRY && ($moderatorCanManageEntries || $userCanSoftDeleteEntries)) {
-            if ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_PENDING_APPROVAL) {
-                $approveUrl = $this->showcaseObject->urlGenerate(
+            if ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_PENDING) {
+                $approveUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryApprove,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ]
                 );
                 /*$templatesContext['buttonApprove'] = $this->templateGet($templatePrefix . 'ButtonApprove', [
                     'approveUrl' => $approveUrl,
                     'entry_slug' => $entrySlug,
                 ]);*/
-            } elseif ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_VISIBLE) {
-                $unapproveUrl = $this->showcaseObject->urlGenerate(
+            } elseif ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_VISIBLE) {
+                $unapproveUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryUnapprove,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ]
                 );
                 /*$templatesContext['buttonUnpprove'] = $this->templateGet($templatePrefix . 'ButtonUnapprove', [
@@ -624,24 +609,24 @@ class Render
                 ]);*/
             }
 
-            if ($moderatorCanManageEntries && $postStatus === ENTRY_STATUS_SOFT_DELETED) {
-                $restoreUrl = $this->showcaseObject->urlGenerate(
+            if ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_DELETED) {
+                $restoreUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryRestore,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ]
                 );
                 /*$templatesContext['buttonRestore'] = $this->templateGet($templatePrefix . 'ButtonRestore', [
                     'entry_slug' => $entrySlug,
                     'restoreUrl' => $restoreUrl,
                 ]);*/
-            } elseif ($postStatus === ENTRY_STATUS_VISIBLE && $userCanSoftDeleteEntries) {
-                $softDeleteUrl = $this->showcaseObject->urlGenerate(
+            } elseif ($postStatus === $entries_manager::STATUS_VISIBLE && $userCanSoftDeleteEntries) {
+                $softDeleteUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntrySoftDelete,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ]
                 );
                 /*$templatesContext['buttonSoftDelete'] = $this->templateGet($templatePrefix . 'ButtonSoftDelete', [
@@ -653,11 +638,11 @@ class Render
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
             if ($moderatorCanManageEntries) {
-                $deleteUrl = $this->showcaseObject->urlGenerate(
+                $deleteUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryDelete,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ]
                 );
                 /*$templatesContext['buttonDelete'] = $this->templateGet($templatePrefix . 'ButtonDelete', [
@@ -667,44 +652,46 @@ class Render
             }
         }
 
+        $comments_manager = new CommentManager($this->showcase);
+
         if (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
-            if ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_PENDING_APPROVAL) {
+            if ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_PENDING) {
                 $templatesContext['url_comment_approve'] =
-                    $this->showcaseObject->config['url_showcase'] . '/' . $this->showcaseObject->urlGenerate(
+                    $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
                         RouterUrls::CommentView,
-                        array_merge($this->showcaseObject->urlParams, [
-                            'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                            'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        array_merge($this->showcase->urlParams, [
+                            'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                            'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                             'comment_slug' => $commentSlug,
                             'approve' => 1
                         ])
                     );
-            } elseif ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_VISIBLE) {
-                $templatesContext['url_comment_unapprove'] = $this->showcaseObject->urlGenerate(
+            } elseif ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_VISIBLE) {
+                $templatesContext['url_comment_unapprove'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentUnapprove,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 );
             }
 
-            if ($moderatorCanManageComments && $postStatus === COMMENT_STATUS_SOFT_DELETED) {
-                $templatesContext['url_comment_restore'] = $this->showcaseObject->urlGenerate(
+            if ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_DELETED) {
+                $templatesContext['url_comment_restore'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentRestore,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 );
-            } elseif ($postStatus === COMMENT_STATUS_VISIBLE) {
-                $templatesContext['url_comment_soft_delete'] = $this->showcaseObject->urlGenerate(
+            } elseif ($postStatus === $comments_manager::STATUS_VISIBLE) {
+                $templatesContext['url_comment_soft_delete'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentSoftDelete,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 );
@@ -712,11 +699,11 @@ class Render
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
             if ($moderatorCanManageComments) {
-                $templatesContext['url_comment_delete'] = $this->showcaseObject->urlGenerate(
+                $templatesContext['url_comment_delete'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentDelete,
                     [
-                        'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                         'comment_slug' => $commentSlug
                     ]
                 );
@@ -731,8 +718,8 @@ class Render
 
         $templatesContext['userDetails'] = '';
 
-        if ($postType === self::POST_TYPE_ENTRY && $this->showcaseObject->config['display_user_details_entries'] ||
-            $postType === self::POST_TYPE_COMMENT && $this->showcaseObject->config['display_user_details_comments']) {
+        if ($postType === self::POST_TYPE_ENTRY && $this->showcase->config['display_user_details_entries'] ||
+            $postType === self::POST_TYPE_COMMENT && $this->showcase->config['display_user_details_comments']) {
             $userPostNumber = my_number_format($userData['postnum'] ?? 0);
 
             $userThreadNumber = my_number_format($userData['threadnum'] ?? 0);
@@ -748,17 +735,17 @@ class Render
         }
 
         switch ($postStatus) {
-            case COMMENT_STATUS_PENDING_APPROVAL:
+            case $comments_manager::STATUS_PENDING:
                 $templatesContext['style_class'] = 'unapproved_post';
                 break;
-            case COMMENT_STATUS_SOFT_DELETED:
+            case $comments_manager::STATUS_DELETED:
                 $templatesContext['style_class'] = 'unapproved_post deleted_post';
                 break;
         }
 
         if (!$isPreview && (
-                self::POST_TYPE_ENTRY && $postStatus === ENTRY_STATUS_SOFT_DELETED ||
-                self::POST_TYPE_COMMENT && $postStatus === COMMENT_STATUS_SOFT_DELETED
+                self::POST_TYPE_ENTRY && $postStatus === $entries_manager::STATUS_DELETED ||
+                self::POST_TYPE_COMMENT && $postStatus === $comments_manager::STATUS_DELETED
             )) {
             if (self::POST_TYPE_ENTRY) {
                 $deletedMessage = $lang->sprintf($lang->myShowcaseEntryDeletedMessage, $userName);
@@ -772,12 +759,12 @@ class Render
         }
 
         // Is the user (not moderator) logged in and have unapproved posts?
-        if (!$isPreview && ($current_user_id &&
+        if (!$isPreview && ($this->showcase->current_user_id &&
                 (
-                    $postType === self::POST_TYPE_ENTRY && $postStatus === ENTRY_STATUS_PENDING_APPROVAL ||
-                    $postType === self::POST_TYPE_COMMENT && $postStatus === COMMENT_STATUS_PENDING_APPROVAL
+                    $postType === self::POST_TYPE_ENTRY && $postStatus === $entries_manager::STATUS_PENDING ||
+                    $postType === self::POST_TYPE_COMMENT && $postStatus === $comments_manager::STATUS_PENDING
                 ) &&
-                $userID === $current_user_id &&
+                $userID === $this->showcase->current_user_id &&
                 !(
                     $postType === self::POST_TYPE_ENTRY && $moderatorCanManageEntries ||
                     $postType === self::POST_TYPE_COMMENT && $moderatorCanManageComments
@@ -806,8 +793,8 @@ class Render
         }
 
         // todo, the entry query should fetch this from the reports table
-        if (isset($this->showcaseObject->entry_data['reporters'])) {
-            $templatesContext['skip_report'] = my_unserialize($this->showcaseObject->entry_data['reporters']);
+        if (isset($this->showcase->entry_data['reporters'])) {
+            $templatesContext['skip_report'] = my_unserialize($this->showcase->entry_data['reporters']);
 
             if (is_array($templatesContext['skip_report'])) {
                 $templatesContext['skip_report'][] = 0;
@@ -844,17 +831,11 @@ class Render
      * @throws LoaderError
      */
     public function buildComment(
-        \MyShowcase\Entity\Comment $comment_object,
+        Comment $comment_object,
         int $commentsCounter = 0,
         bool $isPreview = false,
         bool $isCreatePage = false
     ): string {
-        if ($isCreatePage) {
-            global $mybb;
-
-            $current_user_id = (int)$mybb->user['uid'];
-        }
-
         return $this->buildPost(
             isPreview: $isPreview,
             commentsCounter: $commentsCounter,
@@ -868,11 +849,11 @@ class Render
 
         $entryFieldsList = [];
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
-            $fieldObject = fieldGetObject($this->showcaseObject, $fieldDefinition);
+        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+            $fieldObject = fieldGetObject($this->showcase, $fieldDefinition);
 
             $entryFieldsList[$fieldDefinition['field_key']] = $fieldObject->valueSet(
-                $this->showcaseObject->entry_data[$fieldDefinition['field_key']] ?? ''
+                $this->showcase->entry_data[$fieldDefinition['field_key']] ?? ''
             )->renderEntry();
             /*
                         _dump($fieldID, $fieldDefinition, $this->showcaseObject->fields);
@@ -1088,7 +1069,7 @@ class Render
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
 
                 if (!$attachmentData['dateline']) {
-                    $attachmentData['dateline'] = $this->showcaseObject->entry_data['dateline'];
+                    $attachmentData['dateline'] = $this->showcase->entry_data['dateline'];
                 }
 
                 // Support for [attachment=attachment_hash] code
@@ -1107,8 +1088,8 @@ class Render
                         $attachmentBit = $this->templateGet('pageView' . $template_prefix . 'Attachment', [
                             'attachment_id' => $attachmentID,
                             'attachment_data' => $attachmentData,
-                            'display_thumbnail' => $this->showcaseObject->attachmentsDisplayThumbnails,
-                            'display_full' => $this->showcaseObject->attachmentsDisplayFullSizeImage,
+                            'display_thumbnail' => $this->showcase->attachmentsDisplayThumbnails,
+                            'display_full' => $this->showcase->attachmentsDisplayFullSizeImage,
                         ]);
 
                         if (str_contains(
@@ -1139,9 +1120,9 @@ class Render
                     continue;
                 }
 
-                if ($attachmentData['has_thumbnail'] && $this->showcaseObject->attachmentsDisplayThumbnails) {
+                if ($attachmentData['has_thumbnail'] && $this->showcase->attachmentsDisplayThumbnails) {
                     $templatesContext['attachedThumbnails'][$attachmentID] = $attachmentData;
-                } elseif (!$attachmentData['has_thumbnail'] && $this->showcaseObject->attachmentsDisplayFullSizeImage) {
+                } elseif (!$attachmentData['has_thumbnail'] && $this->showcase->attachmentsDisplayFullSizeImage) {
                     $templatesContext['attachedImages'][$attachmentID] = $attachmentData;
                 } else {
                     $templatesContext['attachedFiles'][$attachmentID] = $attachmentData;
@@ -1151,7 +1132,7 @@ class Render
             }
         }
 
-        $templatesContext['show_unapproved'] = $unapprovedCount > 0 && $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageAttachments];
+        $templatesContext['show_unapproved'] = $unapprovedCount > 0 && $this->showcase->user_permissions[ModeratorPermissions::CanManageAttachments];
 
         if ($templatesContext['show_unapproved']) {
             if ($unapprovedCount === 1) {
@@ -1218,26 +1199,26 @@ class Render
                     $myDropzoneSettingAllowedMimeFileTypes[] = $attachmentType['file_extension'];
                 }
             },
-            cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcaseObject->showcase_id] ?? []
+            cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcase->showcase_id] ?? []
         );
 
         $myDropzoneSettingAllowedMimeFileTypes = implode(',', $myDropzoneSettingAllowedMimeFileTypes);
 
-        $entrySlug = $this->showcaseObject->entry_data['entry_slug'];
+        $entrySlug = $this->showcase->entry_data['entry_slug'];
 
         if ($isEditPage) {
-            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+            $createUpdateUrl = $this->showcase->urlGenerate(
                 RouterUrls::EntryUpdate,
                 [
                     'entry_slug' => $entrySlug,
-                    'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom'],
+                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                 ],
-                $this->showcaseObject->urlParams
+                $this->showcase->urlParams
             );
         } else {
-            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+            $createUpdateUrl = $this->showcase->urlGenerate(
                 RouterUrls::EntryCreate,
-                $this->showcaseObject->urlParams
+                $this->showcase->urlParams
             );
         }
 
@@ -1247,9 +1228,7 @@ class Render
             $watermarkSelectedElement = 'checked="checked"';
         }
 
-        $current_user_id = (int)$mybb->user['uid'];
-
-        if ($this->showcaseObject->user_permissions['attachments_upload_quote'] === ALL_UNLIMITED_VALUE) {
+        if ($this->showcase->user_permissions['attachments_upload_quote'] === ALL_UNLIMITED_VALUE) {
             $usageQuoteNote = $lang->sprintf(
                 $lang->myShowcaseAttachmentsUsageQuote,
                 $lang->myShowcaseAttachmentsUsageQuoteUnlimited
@@ -1257,12 +1236,15 @@ class Render
         } else {
             $usageQuoteNote = $lang->sprintf(
                 $lang->myShowcaseAttachmentsUsageQuote,
-                get_friendly_size($this->showcaseObject->user_permissions['attachments_upload_quote'] * 1024)
+                get_friendly_size($this->showcase->user_permissions['attachments_upload_quote'] * 1024)
             );
         }
 
         $totalUserUsage = (int)(attachmentGet(
-            ["showcase_id='{$this->showcaseObject->showcase_id}'", "user_id='{$current_user_id}'"],
+            [
+                "showcase_id='{$this->showcase->showcase_id}'",
+                "user_id='{$this->showcase->current_user_id}'"
+            ],
             ['SUM(file_size) AS total_user_usage'],
             ['limit' => 1]
         )['total_user_usage'] ?? 0);
@@ -1303,7 +1285,7 @@ class Render
 
         $entrySubject = [];
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enable_subject']) {
                 continue;
             }
@@ -1312,7 +1294,7 @@ class Render
 
             $htmlType = $fieldDefinition['html_type'];
 
-            $entryFieldText = $this->showcaseObject->entry_data[$field_key] ?? '';
+            $entryFieldText = $this->showcase->entry_data[$field_key] ?? '';
 
             if (!$fieldDefinition['parse']) {
                 // todo, remove this legacy updating the database and updating the format field to TINYINT
@@ -1357,7 +1339,7 @@ class Render
                     }
                 }*/
             } else {
-                $entryFieldText = $this->showcaseObject->parseMessage($entryFieldText);
+                $entryFieldText = $this->showcase->parseMessage($entryFieldText);
             }
 
             if (!empty($entryFieldText)) {
@@ -1370,7 +1352,7 @@ class Render
         if (!$entrySubject) {
             $entrySubject = str_replace(
                 '{username}',
-                $this->showcaseObject->entry_data['username'],
+                $this->showcase->entry_data['username'],
                 $lang->myshowcase_viewing_user
             );
         }
@@ -1380,7 +1362,7 @@ class Render
 
     public function buildCommentsFormEditor(string &$editorCodeButtons, string &$editorSmilesInserter): void
     {
-        if ($this->showcaseObject->config['comments_build_editor']) {
+        if ($this->showcase->config['comments_build_editor']) {
             $this->buildEditor($editorCodeButtons, $editorSmilesInserter);
         }
     }
@@ -1395,14 +1377,14 @@ class Render
         $currentUserID = (int)$mybb->user['uid'];
 
         if (!empty($mybb->settings['bbcodeinserter']) &&
-            $this->showcaseObject->config['parser_allow_mycode'] &&
+            $this->showcase->config['parser_allow_mycode'] &&
             (!$currentUserID || !empty($mybb->user['showcodebuttons']))) {
             $editorCodeButtons = build_mycode_inserter(
                 $editorID,
-                $this->showcaseObject->config['parser_allow_smiles']
+                $this->showcase->config['parser_allow_smiles']
             );
 
-            if ($this->showcaseObject->config['parser_allow_smiles']) {
+            if ($this->showcase->config['parser_allow_smiles']) {
                 $editorSmilesInserter = build_clickable_smilies();
             }
         }

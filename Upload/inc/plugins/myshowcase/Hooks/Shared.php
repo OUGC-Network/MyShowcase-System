@@ -15,11 +15,11 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Shared;
 
+use MyShowcase\Service\EntryManager;
 use UserDataHandler;
 
-use function MyShowcase\Plugin\Functions\entryDelete;
-use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\showcaseGet;
+use function MyShowcase\Plugin\Functions\showcaseGetObject;
 
 function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDataHandler
 {
@@ -34,9 +34,13 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
     }
 
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
+        $showcase = showcaseGetObject($showcaseID);
+
+        $entries_manager = new EntryManager($showcase);
+
         foreach ($userIDs as $userID) {
-            foreach (entryGet($showcaseID, ["user_id={$userID}"]) as $entryID => $entryData) {
-                entryDelete($showcaseID, $entryID);
+            foreach ($entries_manager->queryEntries(["user_id={$userID}"], ['entry_id']) as $entryID => $entryData) {
+                $entries_manager->deleteEntry($entryID);
             }
         }
     }

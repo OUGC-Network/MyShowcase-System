@@ -14,7 +14,8 @@
 declare(strict_types=1);
 
 use MyShowcase\Plugin\FormTypes;
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 use MyShowcase\System\ModeratorPermissions;
 
 use function MyShowcase\Admin\buildPermissionsRow;
@@ -39,7 +40,7 @@ use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseDelete;
 use function MyShowcase\Plugin\Functions\showcaseGet;
-use function MyShowcase\Plugin\Functions\entryGet;
+use function MyShowcase\Plugin\Functions\showcaseGetObject;
 use function MyShowcase\Plugin\Functions\showcaseInsert;
 use function MyShowcase\Plugin\Functions\showcaseUpdate;
 use function MyShowcase\Plugin\Functions\urlHandlerBuild;
@@ -1777,7 +1778,11 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
     $showcaseName = $showcaseData['name'];
 
-    if (entryGet($showcaseID)) {
+    $showcase = showcaseGetObject($showcaseID);
+
+    $entries_manager = new EntryManager($showcase,);
+
+    if ($entries_manager->queryEntries()) {
         flash_message($lang->myShowcaseAdminErrorTableDrop, 'error');
 
         admin_redirect(urlHandlerBuild());
@@ -2001,7 +2006,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
         $formContainer->construct_row();
     } else {
         foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-            $showcaseObject = \MyShowcase\Plugin\Functions\showcaseGetObject($showcaseID);
+            $showcaseObject = showcaseGetObject($showcaseID);
 
             $showcaseTotalEntries = $showcaseTotalAttachments = $showcaseTotalFilesSize = $showcaseTotalComments = 0;
 
@@ -2010,11 +2015,9 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
             $showcaseDataTableExists = showcaseDataTableExists($showcaseID);
 
             if ($showcaseDataTableExists) {
-                $showcaseTotalEntries = entryGet(
-                    $showcaseID,
-                    queryFields: ['COUNT(entry_id) AS showcaseTotalEntries'],
-                    queryOptions: ['group_by' => 'entry_id']
-                )['showcaseTotalEntries'] ?? 0;
+                $entries_manager = new EntryManager($showcaseObject,);
+
+                $showcaseTotalEntries = $entries_manager->queryEntryCount();
 
                 $showcaseTotalAttachments = attachmentGet(
                     ["showcase_id='{$showcaseID}'"],
@@ -2028,9 +2031,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                     ['group_by' => 'showcase_id, attachment_id, file_size']
                 )['showcaseTotalFilesSize'] ?? 0;
 
-                $comments_manager = new CommentManager(
-                    $showcaseObject,
-                );
+                $comments_manager = new CommentManager($showcaseObject,);
 
                 $showcaseTotalComments = $comments_manager->queryCommentCount();
             }

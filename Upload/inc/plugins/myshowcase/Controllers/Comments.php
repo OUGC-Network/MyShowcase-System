@@ -17,21 +17,19 @@ namespace MyShowcase\Controllers;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Service\CommentManager;
+use MyShowcase\Service\EntryManager;
 use MyShowcase\System\ModeratorPermissions;
 use MyShowcase\System\UserPermissions;
 
 use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
-use function MyShowcase\Plugin\Functions\entryGet;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
 use function redirect;
 
 use const MyShowcase\ROOT;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
 use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 
 class Comments extends Base
@@ -67,23 +65,21 @@ class Comments extends Base
     ): int {
         global $db;
 
-        if (!$this->showcaseObject->config['comments_allow'] ||
+        if (!$this->showcase->config['comments_allow'] ||
             !(
-                $this->showcaseObject->user_permissions[UserPermissions::CanViewEntries] ||
-                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]
+                $this->showcase->user_permissions[UserPermissions::CanViewEntries] ||
+                $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]
             ) ||
             !(
-                $this->showcaseObject->user_permissions[UserPermissions::CanViewComments] ||
-                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]
+                $this->showcase->user_permissions[UserPermissions::CanViewComments] ||
+                $this->showcase->user_permissions[ModeratorPermissions::CanManageComments]
             )) {
             return self::NO_PERMISSION;
         }
 
         global $mybb;
 
-        $current_user_id = (int)$mybb->user['uid'];
-
-        $comments_manager = new CommentManager($this->showcaseObject);
+        $comments_manager = new CommentManager($this->showcase);
 
         $commentData = $comments_manager->queryComment(
             ["comment_slug='{$db->escape_string($commentSlug)}'"],
@@ -98,21 +94,21 @@ class Comments extends Base
 
         $commentUserID = (int)$commentData['user_id'];
 
-        if ($commentStatus === self::STATUS_PENDING_APPROVAL && $current_user_id !== $commentUserID ||
-            $commentStatus === self::STATUS_SOFT_DELETE && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
+        if ($commentStatus === self::STATUS_PENDING_APPROVAL && $this->showcase->current_user_id !== $commentUserID ||
+            $commentStatus === self::STATUS_SOFT_DELETE && !$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
             return self::INVALID_COMMENT;
         }
 
         $entryID = (int)$commentData['entry_id'];
 
-        $entryData = entryGet(
-            $this->showcaseObject->showcase_id,
+        $entries_manager = new EntryManager($this->showcase,);
+
+        $entryData = $entries_manager->queryEntry(
             [
                 $entrySlug !== null ? "entry_slug='{$db->escape_string($entrySlug)}'" : "entry_id='{$entryID}'",
                 $entrySlugCustom !== null ? "entry_slug_custom='{$db->escape_string($entrySlugCustom)}'" : "entry_id='{$entryID}'"
             ],
-            ['entry_slug', 'entry_slug_custom', 'status', 'user_id'],
-            ['limit' => 1],
+            ['entry_id', 'entry_slug', 'entry_slug_custom', 'status', 'user_id'],
         );
 
         if (empty($entryData)) {
@@ -123,8 +119,10 @@ class Comments extends Base
 
         $entryUserID = (int)$entryData['user_id'];
 
-        if ($entryStatus === ENTRY_STATUS_PENDING_APPROVAL && $current_user_id !== $entryUserID ||
-            $entryStatus === ENTRY_STATUS_SOFT_DELETED && !$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
+        $entries_manager = new EntryManager($this->showcase);
+
+        if ($entryStatus === $entries_manager::STATUS_PENDING && $this->showcase->current_user_id !== $entryUserID ||
+            $entryStatus === $entries_manager::STATUS_DELETED && !$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) {
             return self::INVALID_COMMENT;
         }
 
@@ -165,7 +163,7 @@ class Comments extends Base
             'commentsController' => &$this,
         ];
 
-        $commentUrl = $this->showcaseObject->urlGetEntryComment(
+        $commentUrl = $this->showcase->urlGetEntryComment(
             $this->entryData['entry_slug'],
             $this->entryData['entry_slug_custom'],
             $commentSlug
@@ -191,10 +189,6 @@ class Comments extends Base
                 error($lang->myShowcaseReportErrorInvalidComment);
         }
 
-        global $mybb;
-
-        $current_user_id = (int)$mybb->user['uid'];
-
         $statusVisible = self::STATUS_VISIBLE;
 
         $statusPendingApproval = self::STATUS_PENDING_APPROVAL;
@@ -203,9 +197,15 @@ class Comments extends Base
 
         $whereClauses = [
             "entry_id='{$this->entry_id}'",
-            "showcase_id='{$this->showcaseObject->showcase_id}'",
-            $this->showcaseObject->whereClauseStatusComment()
+            "showcase_id='{$this->showcase->showcase_id}'",
         ];
+
+        $comments_manager = new CommentManager($this->showcase);
+
+        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries] &&
+            !$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
+            $whereClauses[] = "(status='" . $comments_manager::STATUS_VISIBLE . "' OR (user_id='{$this->showcase->current_user_id}' AND status='" . $comments_manager::STATUS_PENDING . "'))";
+        }
 
         $hookArguments = [
             'commentsController' => &$this,
@@ -214,16 +214,14 @@ class Comments extends Base
 
         $commentTimeStamp = (int)$this->commentData['dateline'];
 
-        $comments_manager = new CommentManager($this->showcaseObject);
-
         $totalCommentsBeforeMainComment = $comments_manager->queryCommentCount(
             array_merge($whereClauses, ["dateline<='{$commentTimeStamp}'"])
         );
 
-        if (($totalCommentsBeforeMainComment % $this->showcaseObject->config['comments_per_page']) == 0) {
-            $this->renderObject->current_page = $totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page'];
+        if (($totalCommentsBeforeMainComment % $this->showcase->config['comments_per_page']) == 0) {
+            $this->renderObject->current_page = $totalCommentsBeforeMainComment / $this->showcase->config['comments_per_page'];
         } else {
-            $this->renderObject->current_page = (int)($totalCommentsBeforeMainComment / $this->showcaseObject->config['comments_per_page']) + 1;
+            $this->renderObject->current_page = (int)($totalCommentsBeforeMainComment / $this->showcase->config['comments_per_page']) + 1;
         }
 
         $hookArguments = hooksRun('controller_comments_view_end', $hookArguments);
@@ -237,7 +235,7 @@ class Comments extends Base
     {
         $statusVisible = self::STATUS_VISIBLE;
 
-        $whereClauses = ["entry_id='{$this->showcaseObject->entry_id}'", "status='{$statusVisible}'"];
+        $whereClauses = ["entry_id='{$this->showcase->entry_id}'", "status='{$statusVisible}'"];
 
         $hookArguments = [
             'commentsController' => &$this,
@@ -246,9 +244,14 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_update_entry_comments_count_start', $hookArguments);
 
-        $comments_manager = new CommentManager($this->showcaseObject);
+        $entries_manager = new EntryManager($this->showcase);
 
-        $this->showcaseObject->dataUpdate(['comments' => $comments_manager->queryCommentCount($whereClauses)]);
+        $comments_manager = new CommentManager($this->showcase);
+
+        $entries_manager->updateEntry(
+            ['comments' => $comments_manager->queryCommentCount($whereClauses)],
+            $this->showcase->entry_id
+        );
     }
 
     #[NoReturn] public function create(
@@ -261,8 +264,8 @@ class Comments extends Base
 
         if ($isUpdate) {
             if (!(
-                $this->showcaseObject->user_permissions[UserPermissions::CanUpdateComments] ||
-                $this->showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]
+                $this->showcase->user_permissions[UserPermissions::CanUpdateComments] ||
+                $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]
             )) {
                 error_no_permission();
             }
@@ -284,11 +287,9 @@ class Comments extends Base
             }
         } elseif (empty($mybb->input['post_hash'])) {
             $mybb->input['post_hash'] = generateUUIDv4();
-        } elseif (!$this->showcaseObject->user_permissions[UserPermissions::CanCreateEntries]) {
+        } elseif (!$this->showcase->user_permissions[UserPermissions::CanCreateEntries]) {
             error_no_permission();
         }
-
-        $current_user_id = (int)$mybb->user['uid'];
 
         $mybb->input = array_merge($this->commentData, $mybb->input);
 
@@ -303,7 +304,7 @@ class Comments extends Base
 
         $hookArguments = hooksRun('controller_comments_create_update_start', $hookArguments);
 
-        $this->showcaseObject->setEntry($entry_slug, true);
+        $this->showcase->setEntry($entry_slug, true);
 
         $commentPreview = '';
 
@@ -313,9 +314,9 @@ class Comments extends Base
             $isPreview = isset($mybb->input['preview']);
 
             if ($isUpdate) {
-                $dataHandler = dataHandlerGetObject($this->showcaseObject, DATA_HANDLER_METHOD_UPDATE);
+                $dataHandler = dataHandlerGetObject($this->showcase, DATA_HANDLER_METHOD_UPDATE);
             } else {
-                $dataHandler = dataHandlerGetObject($this->showcaseObject);
+                $dataHandler = dataHandlerGetObject($this->showcase);
             }
 
             $insertData = [
@@ -324,7 +325,7 @@ class Comments extends Base
             ];
 
             if (!$isUpdate) {
-                $insertData['user_id'] = $current_user_id;
+                $insertData['user_id'] = $this->showcase->current_user_id;
 
                 $insertData['post_hash'] = $mybb->get_input('post_hash');
 
@@ -333,30 +334,32 @@ class Comments extends Base
                 $insertData['dateline'] = TIME_NOW;
             }
 
-            if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
+            $entries_manager = new EntryManager($this->showcase);
+
+            if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
                 if ($isUpdate && (
-                        $this->showcaseObject->config['moderate_comments_update'] ||
-                        $this->showcaseObject->user_permissions[UserPermissions::ModerateCommentsUpdate]
+                        $this->showcase->config['moderate_comments_update'] ||
+                        $this->showcase->user_permissions[UserPermissions::ModerateCommentsUpdate]
                     )) {
-                    $insertData['status'] = ENTRY_STATUS_PENDING_APPROVAL;
-                } elseif (!$isUpdate && $this->showcaseObject->config['moderate_comments_create'] && (
-                        $this->showcaseObject->config['moderate_comments_create'] ||
-                        $this->showcaseObject->user_permissions[UserPermissions::ModerateCommentsCreate]
+                    $insertData['status'] = $entries_manager::STATUS_PENDING;
+                } elseif (!$isUpdate && $this->showcase->config['moderate_comments_create'] && (
+                        $this->showcase->config['moderate_comments_create'] ||
+                        $this->showcase->user_permissions[UserPermissions::ModerateCommentsCreate]
                     )) {
-                    $insertData['status'] = ENTRY_STATUS_PENDING_APPROVAL;
+                    $insertData['status'] = $entries_manager::STATUS_PENDING;
                 }
             }
 
             $dataHandler->dataSet($insertData);
 
             if (!$dataHandler->commentValidate()) {
-                $this->showcaseObject->errorMessages = array_merge(
-                    $this->showcaseObject->errorMessages,
+                $this->showcase->errorMessages = array_merge(
+                    $this->showcase->errorMessages,
                     $dataHandler->get_friendly_errors()
                 );
             }
 
-            if (!$isPreview && !$this->showcaseObject->errorMessages) {
+            if (!$isPreview && !$this->showcase->errorMessages) {
                 if ($isUpdate) {
                     $dataHandler->commentUpdate($this->commentID);
                 } else {
@@ -370,9 +373,9 @@ class Comments extends Base
                 // we redirect only if soft-deleted (plugin?) because users can see their own unapproved content
                 if (isset($dataHandler->returnData['status']) &&
                     $dataHandler->returnData['status'] === self::STATUS_SOFT_DELETE) {
-                    $entryUrl = $this->showcaseObject->urlGetEntry(
-                        $this->showcaseObject->entry_data['entry_slug'],
-                        $this->showcaseObject->entry_data['entry_slug_custom'],
+                    $entryUrl = $this->showcase->urlGetEntry(
+                        $this->showcase->entry_data['entry_slug'],
+                        $this->showcase->entry_data['entry_slug_custom'],
                     );
 
                     redirect(
@@ -380,7 +383,7 @@ class Comments extends Base
                         $isUpdate ? $lang->myShowcaseCommentUpdatedStatus : $lang->myShowcaseCommentCreatedStatus
                     );
                 } else {
-                    $commentUrl = $this->showcaseObject->urlGetComment($dataHandler->returnData['comment_slug']);
+                    $commentUrl = $this->showcase->urlGetComment($dataHandler->returnData['comment_slug']);
 
                     redirect(
                         $commentUrl,
@@ -390,7 +393,7 @@ class Comments extends Base
             }
 
             if ($isPreview) {
-                $this->showcaseObject->entry_data = array_merge($this->showcaseObject->entry_data, $mybb->input);
+                $this->showcase->entry_data = array_merge($this->showcase->entry_data, $mybb->input);
 
                 $commentPreview = $this->renderObject->buildComment(
                     array_merge($this->commentData, $mybb->input),
@@ -403,7 +406,7 @@ class Comments extends Base
 
         global $theme;
 
-        switch ($this->showcaseObject->config['filter_force_field']) {
+        switch ($this->showcase->config['filter_force_field']) {
             /*
                 case FILTER_TYPE_USER_ID:
                     $userData = get_user($this->showcaseObject->entryUserID);
@@ -430,33 +433,33 @@ class Comments extends Base
                     break;
             */
             default:
-                $mainUrl = $this->showcaseObject->urlGenerate(
+                $mainUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryView,
-                    $this->showcaseObject->urlParams
+                    $this->showcase->urlParams
                 );
         }
 
-        add_breadcrumb($this->showcaseObject->config['name_friendly'], $mainUrl);
+        add_breadcrumb($this->showcase->config['name_friendly'], $mainUrl);
 
         $entrySubject = $this->renderObject->buildEntrySubject();
 
-        $entryUrl = $this->showcaseObject->urlGenerate(
+        $entryUrl = $this->showcase->urlGenerate(
             RouterUrls::EntryView,
             [
-                'entry_slug' => $this->showcaseObject->entry_data['entry_slug'],
-                'entry_slug_custom' => $this->showcaseObject->entry_data['entry_slug_custom']
+                'entry_slug' => $this->showcase->entry_data['entry_slug'],
+                'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
             ]
         );
 
         add_breadcrumb($entrySubject, $entryUrl);
 
         if ($isUpdate) {
-            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+            $createUpdateUrl = $this->showcase->urlGenerate(
                 RouterUrls::CommentUpdate,
                 ['entry_slug' => $entry_slug, 'entry_slug_custom' => $entry_slug_custom, 'comment_slug' => $commentSlug]
             );
         } else {
-            $createUpdateUrl = $this->showcaseObject->urlGenerate(
+            $createUpdateUrl = $this->showcase->urlGenerate(
                 RouterUrls::CommentCreate,
                 [
                     'entry_slug' => $entry_slug,
@@ -473,8 +476,8 @@ class Comments extends Base
 
         $commentLengthLimitNote = $lang->sprintf(
             $lang->myshowcase_comment_text_limit,
-            my_number_format($this->showcaseObject->config['comments_minimum_length']),
-            my_number_format($this->showcaseObject->config['comments_maximum_length'])
+            my_number_format($this->showcase->config['comments_minimum_length']),
+            my_number_format($this->showcase->config['comments_maximum_length'])
         );
 
         $alternativeBackground = alt_trow(true);
@@ -509,7 +512,7 @@ class Comments extends Base
         $postHash = htmlspecialchars_uni($mybb->get_input('post_hash'));
 
         $this->outputSuccess($this->renderObject->templateGet('pageCommentCreateUpdateContents', [
-            'url_base' => $this->showcaseObject->url_base,
+            'url_base' => $this->showcase->url_base,
             'commentPreview' => $commentPreview,
             'commentMessage' => $commentMessage,
             'editorCodeButtons' => $editorCodeButtons,
@@ -547,21 +550,19 @@ class Comments extends Base
 
         verify_post_check($mybb->get_input('my_post_key'));
 
-        $current_user_id = (int)$mybb->user['uid'];
-
-        if (!$this->showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
+        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
             if (!($status === self::STATUS_SOFT_DELETE &&
-                (int)$this->commentData['user_id'] === $current_user_id &&
-                $this->showcaseObject->user_permissions[UserPermissions::CanDeleteComments])) {
+                (int)$this->commentData['user_id'] === $this->showcase->current_user_id &&
+                $this->showcase->user_permissions[UserPermissions::CanDeleteComments])) {
                 error_no_permission();
             }
         }
 
-        if ($status === self::STATUS_DELETE) {
-            $this->showcaseObject->commentDelete($this->commentID);
-        } else {
-            $comments_manager = new CommentManager($this->showcaseObject);
+        $comments_manager = new CommentManager($this->showcase);
 
+        if ($status === self::STATUS_DELETE) {
+            $comments_manager->deleteComment($this->commentID);
+        } else {
             $comments_manager->updateComment(['status' => $status], $this->commentID);
         }
 

@@ -71,18 +71,6 @@ const ORDER_DIRECTION_ASCENDING = 'asc';
 
 const ORDER_DIRECTION_DESCENDING = 'desc';
 
-const COMMENT_STATUS_PENDING_APPROVAL = 0;
-
-const COMMENT_STATUS_VISIBLE = 1;
-
-const COMMENT_STATUS_SOFT_DELETED = 2;
-
-const ENTRY_STATUS_PENDING_APPROVAL = 0;
-
-const ENTRY_STATUS_VISIBLE = 1;
-
-const ENTRY_STATUS_SOFT_DELETED = 2;
-
 const ATTACHMENT_STATUS_PENDING_APPROVAL = 0;
 
 const ATTACHMENT_STATUS_VISIBLE = 1;
@@ -376,6 +364,11 @@ const TABLES_DATA = [
             'default' => 1
         ],
         'entry_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'parent_comment_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
@@ -1884,12 +1877,12 @@ const DATA_TABLE_STRUCTURE = [
             'default' => '',
             'enable_search' => true,
         ],
-        'prefix' => [
+        'prefix_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'icon' => [
+        'icon_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,

@@ -17,8 +17,9 @@ namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
 
-use myshowcase\src\Service\CommentManager;
+use MyShowcase\Service\CommentManager;
 
+use MyShowcase\Service\EntryManager;
 use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\attachmentGet;
@@ -34,15 +35,9 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\COMMENT_STATUS_VISIBLE;
 use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_INSERT;
 use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_SOFT_DELETED;
-use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 
 /**
  * MyShowcase handling class, provides common structure to handle post data.
@@ -51,7 +46,7 @@ use const MyShowcase\Plugin\Core\ENTRY_STATUS_VISIBLE;
 class DataHandler extends CoreDataHandler
 {
     public function __construct(
-        protected Showcase &$showcaseObject,
+        protected Showcase &$showcase,
         public $method = DATA_HANDLER_METHOD_INSERT,
         /**
          * The language file used in the data handler.
@@ -128,7 +123,7 @@ class DataHandler extends CoreDataHandler
 
         $entry_data = &$this->data;
 
-        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->showcaseObject->entry_id) {
+        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->showcase->entry_id) {
             $this->set_error('invalid_entry');
         }
 
@@ -159,12 +154,14 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid_comments');
         }
 
+        $entries_manager = new EntryManager($this->showcase);
+
         if (isset($entry_data['status']) && !in_array(
                 $this->data['status'],
                 [
-                    ENTRY_STATUS_PENDING_APPROVAL,
-                    ENTRY_STATUS_VISIBLE,
-                    ENTRY_STATUS_SOFT_DELETED
+                    $entries_manager::STATUS_PENDING,
+                    $entries_manager::STATUS_VISIBLE,
+                    $entries_manager::STATUS_DELETED
                 ]
             )) {
             $this->set_error('invalid_status');
@@ -184,7 +181,7 @@ class DataHandler extends CoreDataHandler
 
         global $lang;
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enabled'] ||
                 $fieldDefinition['read_only'] ||
                 !isset($entry_data[$fieldDefinition['field_key']]) ||
@@ -204,7 +201,7 @@ class DataHandler extends CoreDataHandler
 
             if ($fieldDefinition['is_required'] && empty($entry_data[$fieldDefinition['field_key']])) {
                 if ($fieldDefinition['html_type'] === FieldHtmlTypes::File) {
-                    $entry_attachments = $this->showcaseObject->attachmentsGetFromField($fieldID);
+                    $entry_attachments = $this->showcase->attachmentsGetFromField($fieldID);
 
                     if (empty($entry_attachments)) {
                         $this->set_error(
@@ -279,7 +276,7 @@ class DataHandler extends CoreDataHandler
             }
         }
 
-        foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enabled'] ||
                 !isset($entry_data[$fieldDefinition['field_key']]) ||
                 !is_member($fieldDefinition['allowed_groups_fill'])) {
@@ -298,7 +295,7 @@ class DataHandler extends CoreDataHandler
         if ($this->method !== DATA_HANDLER_METHOD_UPDATE) {
             $entry_slug_custom = [];
 
-            foreach ($this->showcaseObject->fieldSetCache as $fieldID => $fieldDefinition) {
+            foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
                 if (!$fieldDefinition['enable_slug']) {
                     continue;
                 }
@@ -307,7 +304,7 @@ class DataHandler extends CoreDataHandler
                     foreach ($entry_data[$fieldDefinition['field_key']] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;
 
-                        if (!isset($this->showcaseObject->fieldSetCache[$field_data_id])) {
+                        if (!isset($this->showcase->fieldSetCache[$field_data_id])) {
                             continue;
                         }
 
@@ -350,6 +347,7 @@ class DataHandler extends CoreDataHandler
      * Insert a showcase into the database.
      *
      * @return array Array of new showcase details, entry_id and visibility.
+     * @throws RandomException
      */
     public function entryInsert(bool $isUpdate = false): array
     {
@@ -377,13 +375,15 @@ class DataHandler extends CoreDataHandler
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
 
         if (!isset($this->insertData['entry_slug']) && $this->method === 'insert') {
-            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcaseObject->showcase_id);
+            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcase->showcase_id);
         }
 
+        $entries_manager = new EntryManager($this->showcase);
+
         if ($isUpdate) {
-            $this->entry_id = $this->showcaseObject->dataUpdate($this->insertData);
+            $this->entry_id = $entries_manager->updateEntry($this->insertData, $this->showcase->entry_id);
         } else {
-            $this->entry_id = $this->showcaseObject->dataInsert($this->insertData);
+            $this->entry_id = $entries_manager->insertEntry($this->insertData);
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
@@ -401,23 +401,23 @@ class DataHandler extends CoreDataHandler
 
         $this->returnData['entry_id'] = $this->entry_id;
 
+        $entries_manager = new EntryManager($this->showcase);
+
         if (isset($this->insertData['entry_slug'])) {
             $this->returnData['entry_slug'] = $this->insertData['entry_slug'];
         } else {
-            $this->returnData['entry_slug'] = $this->showcaseObject->dataGet(
+            $this->returnData['entry_slug'] = $entries_manager->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug'],
-                ['limit' => 1]
             )['entry_slug'];
         }
 
         if (isset($this->insertData['entry_slug_custom'])) {
             $this->returnData['entry_slug_custom'] = $this->insertData['entry_slug_custom'];
         } else {
-            $this->returnData['entry_slug_custom'] = $this->showcaseObject->dataGet(
+            $this->returnData['entry_slug_custom'] = $entries_manager->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug_custom'],
-                ['limit' => 1]
             )['entry_slug_custom'];
         }
 
@@ -449,11 +449,11 @@ class DataHandler extends CoreDataHandler
 
         $commentData = $this->data;
 
-        if (isset($commentData['showcase_id']) && (int)$commentData['showcase_id'] !== $this->showcaseObject->showcase_id) {
+        if (isset($commentData['showcase_id']) && (int)$commentData['showcase_id'] !== $this->showcase->showcase_id) {
             $this->set_error('invalid showcase identifier');
         }
 
-        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->showcaseObject->entry_id) {
+        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->showcase->entry_id) {
             $this->set_error('invalid entry identifier');
         }
 
@@ -468,21 +468,23 @@ class DataHandler extends CoreDataHandler
                 $commentLength = my_strlen(postParser()->text_parse_message($this->data['comment']));
             }
 
-            if ($commentLength < $this->showcaseObject->config['comments_minimum_length']) {
+            if ($commentLength < $this->showcase->config['comments_minimum_length']) {
                 $this->set_error('the message is too short');
             }
 
-            if ($commentLength > $this->showcaseObject->config['comments_maximum_length']) {
+            if ($commentLength > $this->showcase->config['comments_maximum_length']) {
                 $this->set_error('the message is too large');
             }
         }
 
+        $comments_manager = new CommentManager($this->showcase);
+
         if (isset($commentData['status']) && !in_array(
                 $this->data['status'],
                 [
-                    COMMENT_STATUS_PENDING_APPROVAL,
-                    COMMENT_STATUS_VISIBLE,
-                    COMMENT_STATUS_SOFT_DELETED
+                    $comments_manager::STATUS_PENDING,
+                    $comments_manager::STATUS_VISIBLE,
+                    $comments_manager::STATUS_DELETED,
                 ]
             )) {
             $this->set_error('invalid status');
@@ -525,7 +527,7 @@ class DataHandler extends CoreDataHandler
             'isUpdate' => &$isUpdate,
         ];
 
-        $comments_manager = new CommentManager($this->showcaseObject);
+        $comments_manager = new CommentManager($this->showcase);
 
         if ($isUpdate && !isset($this->returnData['comment_slug'])) {
             $this->returnData['comment_slug'] = $comments_manager->queryComment(
@@ -547,7 +549,7 @@ class DataHandler extends CoreDataHandler
         } else {
             $this->comment_id = $comments_manager->insertComment(
                 array_merge($this->insertData, [
-                    'entry_id' => $this->showcaseObject->entry_id
+                    'entry_id' => $this->showcase->entry_id
                 ])
             );
         }
