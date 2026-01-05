@@ -17,8 +17,8 @@ namespace MyShowcase\Hooks\Forum;
 
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\CommentManager;
-use myshowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use myshowcase\Service\EntriesManager;
 use MyShowcase\System\ModeratorPermissions;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -245,8 +245,6 @@ function global_intermediate(): bool
         //$showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
         $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
 
-        $entries_manager = new EntryManager($showcaseObject,);
-
         //if showcase is enabled...
         if ($showcaseObject->config['enabled']) {
             //load language if we are going to use it
@@ -266,8 +264,8 @@ function global_intermediate(): bool
                 */
                 $unapprovedEntriesUrl = '';
 
-                $totalUnapprovedEntries = $entries_manager->queryEntryCount(
-                    ["status='" . $entries_manager::STATUS_PENDING . "'"]
+                $totalUnapprovedEntries = $showcaseObject->entryManager->queryEntryCount(
+                    ["status='" . $showcaseObject->entryManager::STATUS_PENDING . "'"]
                 );
 
                 if ($totalUnapprovedEntries > 0) {
@@ -438,9 +436,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
                 $showcase = showcaseGetObject($showcaseID);
 
-                $entries_manager = new EntryManager($showcase,);
-
-                $showcaseObjects = $entries_manager->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
+                $showcaseObjects = $showcase->entryManager->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
 
                 foreach ($showcaseObjects as $entryID => $entryData) {
                     $uid = $entryData['user_id'];
@@ -545,10 +541,8 @@ function showthread_start(): bool
             foreach ($showcase_objects as $showcaseID) {
                 $showcase = showcaseGetObject($showcaseID);
 
-                $entries_manager = new EntryManager($showcase,);
-
                 foreach (
-                    $entries_manager->queryEntries(
+                    $showcase->entryManager->queryEntries(
                         ["user_id IN ('{$userIDs}')", "status='1'"],
                         ['user_id', 'COUNT(user_id) AS total_user_entries'],
                         ['group_by' => 'user_id']
@@ -610,14 +604,34 @@ function postbit(array &$post): array
                 if (!isset($showcase_objects[$showcase_id])) {
                     $showcase_objects[$showcase_id] = showcaseGetObject((int)$showcase_id);
                 }
-                $entries_manager = new EntryManager($showcase_objects[$showcase_id],);
 
-                $showcase_objects[$showcase_id]->entriesAppend(
-                    $entries_manager->queryEntries(
+                foreach (
+                    $showcase_objects[$showcase_id]->entryManager->queryEntries(
                         ["entry_id IN ('{$attachment_entry_ids}')"],
-                        ['entry_id', 'user_id', 'post_hash', 'status', 'entry_slug', 'entry_slug_custom'],
-                    )
-                )
+                        [
+                            'entry_id',
+                            'entry_slug',
+                            'entry_slug_custom',
+                            'subject',
+                            'prefix_id',
+                            'icon_id',
+                            'user_id',
+                            'dateline',
+                            'views',
+                            'comments',
+                            'is_closed',
+                            'is_sticky',
+                            'status',
+                            'edit_user_id',
+                            'post_hash',
+                            'ipaddress',
+                        ],
+                    ) as $entryID => $entryData
+                ) {
+                    $showcase_objects[$showcase_id]->entryManager->setEntry($entryData);
+                }
+
+                $showcase_objects[$showcase_id]
                     ->attachmentsAppend(
                         array_filter(
                             $attachment_objects,
@@ -632,6 +646,7 @@ function postbit(array &$post): array
             foreach ($showcase_objects as $showcase_id => $showcase) {
                 foreach ($matches[1] as $attachment_hash) {
                     $attachment_data = $showcase->attachmentGetByHash($attachment_hash);
+
                     if ($attachment_data) {
                         $attachedThumbnail = $showcase->renderObject->templateGet(
                             'postBitAttachmentThumbnail',
@@ -690,9 +705,7 @@ function report_type(): void
 
         $showcase = showcaseGetObject($showcaseID);
 
-        $entries_manager = new EntryManager($showcase);
-
-        $entryData = $entries_manager->queryEntry(
+        $entryData = $showcase->entryManager->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id'],
         );
@@ -731,13 +744,9 @@ function report_type(): void
 
         $showcase = showcaseGetObject($showcaseID);
 
-        $entries_manager = new EntryManager($showcase);
+        $commentData = $showcase->commentManager->queryComment(["comment_id='{$commentID}'"], ['entry_id', 'user_id']);
 
-        $comments_manager = new CommentManager($showcase);
-
-        $commentData = $comments_manager->queryComment(["comment_id='{$commentID}'"], ['entry_id', 'user_id']);
-
-        $entryData = $entries_manager->queryEntry(
+        $entryData = $showcase->entryManager->queryEntry(
             ["entry_id='{$commentData['entry_id']}'"],
             ['user_id'],
         );
@@ -778,9 +787,7 @@ function modcp_reports_report(): void
 
         $showcaseObject = showcaseGetObject($showcaseID);
 
-        $entries_manager = new EntryManager($showcaseObject);
-
-        $entryData = $entries_manager->queryEntry(
+        $entryData = $showcaseObject->entryManager->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id', 'entry_slug', 'entry_slug_custom'],
         );
@@ -810,20 +817,14 @@ function modcp_reports_report(): void
 
         $showcaseObject = showcaseGetObject($showcaseID);
 
-        $entries_manager = new EntryManager($showcaseObject);
-
-        $comments_manager = new CommentManager(
-            $showcaseObject,
-        );
-
-        $commentData = $comments_manager->queryComment(
+        $commentData = $showcaseObject->commentManager->queryComment(
             ["comment_id='{$commentID}'"],
             ['showcase_id', 'entry_id', 'user_id', 'comment_slug'],
         );
 
         $entryID = (int)$commentData['entry_id'];
 
-        $entryData = $entries_manager->queryEntry(
+        $entryData = $showcaseObject->entryManager->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id', 'entry_slug', 'entry_slug_custom'],
         );

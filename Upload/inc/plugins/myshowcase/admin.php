@@ -18,8 +18,8 @@ namespace MyShowcase\Admin;
 use Form;
 use MyBB;
 use MyShowcase\Plugin\FormTypes;
-use MyShowcase\Service\CommentManager;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
 use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\cacheUpdate;
@@ -303,10 +303,12 @@ function pluginActivation(): bool
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
         $showcase = showcaseGetObject($showcaseID);
 
-        $comments_manager = new CommentManager($showcase);
-
-        foreach ($comments_manager->queryComments(["comment_slug=''"], 'comment_id') as $commentID => $commentData) {
-            $comments_manager->updateComment(['comment_slug' => $comments_manager->generateSlug()], $commentID);
+        foreach (
+            $showcase->commentManager->queryComments(["comment_slug=''"],
+                'comment_id') as $commentID => $commentData
+        ) {
+            $showcase->commentManager->updateComment(['comment_slug' => $showcase->commentManager->generateSlug()],
+                $commentID);
         }
     }
 
@@ -317,12 +319,10 @@ function pluginActivation(): bool
 
         $dataTableStructure = dataTableStructureGet($showcaseID);
 
-        $entries_manager = new EntryManager($showcase);
-
         dbVerifyTables(["myshowcase_data{$showcaseID}" => $dataTableStructure]);
 
-        foreach ($entries_manager->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData) {
-            $entries_manager->updateEntry(['entry_slug' => slugGenerateEntry($showcaseID)], $entryID);
+        foreach ($showcase->entryManager->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData) {
+            $showcase->entryManager->updateEntry(['entry_slug' => slugGenerateEntry($showcaseID)], $entryID);
         }
     }
 

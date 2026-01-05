@@ -15,8 +15,8 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
-use MyShowcase\Service\CommentManager;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
 use Postparser;
 use DirectoryIterator;
 use Random\RandomException;
@@ -75,7 +75,6 @@ use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_INSERT;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\FILTER_TYPE_NONE;
@@ -149,8 +148,8 @@ function hooksAdd(string $namespace): bool
 
 function hooksRun(
     string $hookName,
-    EntryManager|CommentManager|array &$hookArguments = []
-): EntryManager|CommentManager|array {
+    EntriesManager|CommentsManager|array &$hookArguments = []
+): EntriesManager|CommentsManager|array {
     global $plugins;
 
     return $plugins->run_hooks('myshowcase_system_' . $hookName, $hookArguments);
@@ -608,10 +607,8 @@ function showcaseDelete(int $showcaseID): bool
 
     $showcase = showcaseGetObject($showcaseID);
 
-    $comments_manager = new CommentManager($showcase, ['comment_id']);
-
-    foreach ($comments_manager->queryComments() as $commentID => $commentData) {
-        $comments_manager->deleteComment($commentID);
+    foreach ($showcase->commentManager->queryComments(query_fields: ['comment_id']) as $commentID => $commentData) {
+        $showcase->commentManager->deleteComment($commentID);
     }
 
     foreach (attachmentGet(["showcase_id='{$showcaseID}'"]) as $attachmentID => $attachmentData) {
@@ -707,12 +704,10 @@ function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
 
     $showcase = showcaseGetObject($showcaseID);
 
-    $entries_manager = new EntryManager($showcase);
-
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    foreach ($entries_manager->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
-        $entries_manager->deleteEntry($entryID);
+    foreach ($showcase->entryManager->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
+        $showcase->entryManager->deleteEntry($entryID, $showcase->commentManager);
     }
 
     $db->drop_column('myshowcase_data' . $showcaseID, $fieldName);
@@ -1318,7 +1313,7 @@ function attachmentUpload(
     }
 
     if (!empty($field_id)) {
-        $field_definition = $showcase->fieldSetCache[$field_id];
+        $field_definition = $showcase->fields_cache[$field_id];
 
         if (empty($field_definition)) {
             $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed; // todo, update lang
@@ -2013,22 +2008,6 @@ function renderGetObject(Showcase $showcaseObject): Render
     return $renderObjects[$showcaseObject->showcase_id];
 }
 
-function dataHandlerGetObject(
-    Showcase $showcaseObject,
-    string $method = DATA_HANDLER_METHOD_INSERT
-): DataHandler {
-    require_once MYBB_ROOT . 'inc/datahandler.php';
-    require_once ROOT . '/System/DataHandler.php';
-
-    static $dataHandlerObjects = [];
-
-    if (!isset($dataHandlerObjects[$showcaseObject->showcase_id])) {
-        $dataHandlerObjects[$showcaseObject->showcase_id] = new DataHandler($showcaseObject, $method);
-    }
-
-    return $dataHandlerObjects[$showcaseObject->showcase_id];
-}
-
 function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): FieldsInterface
 {
     static $fieldObjects = [];
@@ -2370,12 +2349,10 @@ function slugGenerateEntry(int $showcaseID, ?int $length = null): string
 
     $showcase = showcaseGetObject($showcaseID);
 
-    $entries_manager = new EntryManager($showcase,);
-
     while (!$uniqueFound) {
         $generatedSlug = my_strtolower(bin2hex(random_bytes($length)));
 
-        $uniqueFound = !$entries_manager->queryEntry(["entry_slug='{$db->escape_string($generatedSlug)}'"]);
+        $uniqueFound = !$showcase->entryManager->queryEntry(["entry_slug='{$db->escape_string($generatedSlug)}'"]);
     }
 
     return $generatedSlug;

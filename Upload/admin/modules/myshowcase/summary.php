@@ -14,8 +14,8 @@
 declare(strict_types=1);
 
 use MyShowcase\Plugin\FormTypes;
-use MyShowcase\Service\CommentManager;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
 use MyShowcase\System\ModeratorPermissions;
 
 use function MyShowcase\Admin\buildPermissionsRow;
@@ -1780,9 +1780,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
     $showcase = showcaseGetObject($showcaseID);
 
-    $entries_manager = new EntryManager($showcase,);
-
-    if ($entries_manager->queryEntries()) {
+    if ($showcase->entryManager->queryEntries()) {
         flash_message($lang->myShowcaseAdminErrorTableDrop, 'error');
 
         admin_redirect(urlHandlerBuild());
@@ -2015,9 +2013,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
             $showcaseDataTableExists = showcaseDataTableExists($showcaseID);
 
             if ($showcaseDataTableExists) {
-                $entries_manager = new EntryManager($showcaseObject,);
-
-                $showcaseTotalEntries = $entries_manager->queryEntryCount();
+                $showcaseTotalEntries = $showcaseObject->entryManager->queryEntryCount();
 
                 $showcaseTotalAttachments = attachmentGet(
                     ["showcase_id='{$showcaseID}'"],
@@ -2031,9 +2027,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
                     ['group_by' => 'showcase_id, attachment_id, file_size']
                 )['showcaseTotalFilesSize'] ?? 0;
 
-                $comments_manager = new CommentManager($showcaseObject,);
-
-                $showcaseTotalComments = $comments_manager->queryCommentCount();
+                $showcaseTotalComments = $showcaseObject->commentManager->queryCommentCount();
             }
 
             // Build popup menu

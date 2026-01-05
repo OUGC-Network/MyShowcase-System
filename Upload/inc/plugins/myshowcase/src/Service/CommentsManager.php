@@ -15,7 +15,7 @@ use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
-class CommentManager
+class CommentsManager
 {
     public const STATUS_PENDING = 0;
 
@@ -46,7 +46,7 @@ class CommentManager
         'edit_user_id',
     ];
 
-    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0, 'limit' => 10];
+    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0];
 
     private array $comments = [];
 
@@ -59,8 +59,10 @@ class CommentManager
     private readonly bool $is_update;
 
     public function __construct(
-        private readonly Showcase $showcase,
-        private $current_page = self::FIRST_PAGE,
+        private readonly int $showcase_id,
+        private int $current_page = self::FIRST_PAGE,
+        private readonly int $comments_per_page = 10,
+        private readonly int $current_user_id = 0,
     ) {
         return $this;
     }
@@ -131,7 +133,7 @@ class CommentManager
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->showcase->showcase_id}'";
+        $where_clauses[] = "showcase_id='{$this->showcase_id}'";
 
         global $db;
 
@@ -181,31 +183,31 @@ class CommentManager
         return $this->queryComment($where_clauses, 'COUNT(comment_id) AS total_comments')['total_comments'];
     }
 
-    public function fetchComments(): self
+    public function fetchComments(int $entry_id, array $user_permissions): self
     {
         $this->where_clauses = [
-            "entry_id='{$this->showcase->entry_id}'",
+            "entry_id='{$entry_id}'",
         ];
 
-        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries] &&
-            !$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]) {
-            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->showcase->current_user_id}' AND status='" . self::STATUS_PENDING . "'))";
+        if (!$user_permissions[ModeratorPermissions::CanManageEntries] &&
+            !$user_permissions[ModeratorPermissions::CanManageComments]) {
+            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->current_user_id}' AND status='" . self::STATUS_PENDING . "'))";
         }
 
-        $this->query_options['limit'] = $this->showcase->config['comments_per_page'];
+        $this->query_options['limit'] = $this->comments_per_page;
 
         hooksRun('comment_fetch_start', $this);
 
         $this->total_comments = $this->queryCommentCount($this->where_clauses);
 
-        $this->total_pages = (int)ceil($this->total_comments / $this->showcase->config['comments_per_page']);
+        $this->total_pages = (int)ceil($this->total_comments / $this->comments_per_page);
 
         if ($this->current_page > $this->total_pages) {
             $this->setCurrentPage(self::FIRST_PAGE);
         }
 
         if ($this->current_page) {
-            $this->query_options['limit_start'] = ($this->current_page - 1) * $this->showcase->config['comments_per_page'];
+            $this->query_options['limit_start'] = ($this->current_page - 1) * $this->comments_per_page;
         } else {
             $this->setCurrentPage(self::FIRST_PAGE);
         }
@@ -236,7 +238,7 @@ class CommentManager
         $this->comment_id = $comment_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->showcase->showcase_id,
+            'showcase_id' => $this->showcase_id,
         ];
 
         $this->is_update = $is_update;
@@ -276,7 +278,7 @@ class CommentManager
 
         $db->delete_query(
             'myshowcase_comments',
-            "showcase_id='{$this->showcase->showcase_id}' AND comment_id='{$comment_id}'"
+            "showcase_id='{$this->showcase_id}' AND comment_id='{$comment_id}'"
         );
     }
 }

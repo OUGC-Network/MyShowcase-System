@@ -50,7 +50,7 @@
 {% endif %}
 
 {# Deleted post #}
-{% if entry_data.is_deleted %}
+{% if entry_data.extra_data.is_deleted %}
     <div class="post post--message deleted_entry_collapsed" id="deleted_entry_{{ entry_data.entry_slug }}">
         <div class="post__meta">
             <h3 class="post__author">{{ userProfileLink|raw }}</h3>
@@ -143,7 +143,7 @@
         {# Post unapproved or deleted message #}
         {% if entry_data.status == 0 or entry_data.status == 2 %}
             <div class="post__status">
-                <span class="tag tag--post-status{% if entry_data.is_deleted %} tag--deleted{% endif %}{% if entry_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ entry_data.status }}</span>
+                <span class="tag tag--post-status{% if entry_data.extra_data.is_deleted %} tag--deleted{% endif %}{% if entry_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ entry_data.status }}</span>
             </div>
         {% endif %}
 

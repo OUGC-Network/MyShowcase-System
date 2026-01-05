@@ -116,7 +116,7 @@
         {# Post unapproved or deleted message #}
         {% if false and comment_data.status %}
             <div class="post__status">
-                <span class="tag tag--post-status{% if comment_data.is_deleted %} tag--deleted{% endif %}{% if comment_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ comment_data.status_type }}</span>
+                <span class="tag tag--post-status{% if comment_data.extra_data.is_deleted %} tag--deleted{% endif %}{% if comment_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ comment_data.status_type }}</span>
             </div>
         {% endif %}
 

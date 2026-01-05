@@ -18,7 +18,7 @@ namespace MyShowcase\Controllers;
 use MyBB;
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\EntriesManager;
 use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\UserPermissions;
 use MyShowcase\System\ModeratorPermissions;
@@ -73,7 +73,7 @@ class Attachments extends Base
             $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
         }
 
-        $field_definition = $this->showcase->fieldSetCache[$field_id];
+        $field_definition = $this->showcase->fields_cache[$field_id];
 
         if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
             !is_member($field_definition['allowed_groups_fill'])) {
@@ -83,9 +83,7 @@ class Attachments extends Base
         $entry_id = null;
 
         if ($post_hash === null) {
-            $entries_manager = new EntryManager($this->showcase,);
-
-            $entryData = $entries_manager->queryEntry(
+            $entryData = $this->showcase->entryManager->queryEntry(
                 ["entry_slug='{$entry_slug}'"],
                 ['entry_id', 'entry_slug_custom', 'status', 'user_id'],
             );
@@ -270,7 +268,7 @@ class Attachments extends Base
                 $this->errorNoPermission();
             }
 
-            $field_definition = $this->showcase->fieldSetCache[$field_id];
+            $field_definition = $this->showcase->fields_cache[$field_id];
 
             if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
                 !is_member($field_definition['allowed_groups_fill'])) {
@@ -331,15 +329,18 @@ class Attachments extends Base
 
         $lang->load('messages');
 
-        $where_clause = "entry_slug='{$db->escape_string($entry_slug ?? '')}'";
+        if ($entry_slug !== null) {
+            $entry_data = $this->showcase->entryManager->queryEntry(
+                ["entry_slug='{$db->escape_string($entry_slug)}'"],
+                ['entry_id']
+            );
 
-        if ($post_hash !== null) {
+            $where_clause = "entry_id='{$db->escape_string($entry_data['entry_id'])}'";
+        } else {
             $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
-        $entry_data = $entries_manager->queryEntry([$where_clause], ['user_id', 'post_hash', 'status']);
+        $entry_data = $this->showcase->entryManager->queryEntry([$where_clause], ['user_id', 'post_hash', 'status']);
 
         $this->showcase->entryDataSet($entry_data);
 
@@ -426,8 +427,6 @@ class Attachments extends Base
 
         $attachmentStatus = (int)$attachmentData['status'];
 
-        $entries_manager = new EntryManager($this->showcase);
-
         // Don't check the permissions on preview
         if ($this->showcase->current_user_id !== $attachmentUserID) {
             if (!$this->showcase->user_permissions[UserPermissions::CanDownloadAttachments] && !$is_thumbnail) {
@@ -438,7 +437,7 @@ class Attachments extends Base
             if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageAttachments] &&
                 (
                     $attachmentStatus !== ATTACHMENT_STATUS_VISIBLE ||
-                    (int)$this->showcase->entry_data['status'] !== $entries_manager::STATUS_VISIBLE
+                    (int)$this->showcase->entry_data['status'] !== $this->showcase->entryManager::STATUS_VISIBLE
                 )
             ) {
                 $this->error($lang->error_invalidattachment);

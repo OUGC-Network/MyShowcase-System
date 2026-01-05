@@ -17,7 +17,8 @@ namespace MyShowcase\System;
 
 use MyBB;
 use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
 
 use function MyShowcase\Plugin\Functions\attachmentDelete;
 use function MyShowcase\Plugin\Functions\attachmentGet;
@@ -45,15 +46,25 @@ use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 use const MyShowcase\Plugin\Core\VERSION_CODE;
+use const MyShowcase\ROOT;
 
 class Showcase
 {
+    public const DATA_HANDLER_METHOD_INSERT = 'insert';
+
+    public const DATA_HANDLER_METHOD_UPDATE = 'update';
+
+    public readonly array $user_permissions;
+
     public readonly int $current_user_id;
 
     public array $fieldset_display_fields = [];
-    public readonly array $user_permissions;
     private array $entry_objects = [];
     private array $attachment_objects = [];
+
+    public EntriesManager $entryManager;
+
+    public CommentsManager $commentManager;
 
     /**
      * Constructor of class.
@@ -62,6 +73,16 @@ class Showcase
      */
     public function __construct(
         public string $script_name,
+        public array $fields_cache = [],
+        public array $fields_searchable = [],
+        public array $url_params = [],
+        public string $search_keywords = '',
+        public string $search_field = '',
+        public int $search_exact = 0,
+        public string $sort_direction = 'asc',
+        public string $sort_field = 'dateline',
+
+
         public ?Render &$renderObject = null,
         public string $selfPhpScript = '',
         public string $dataTableName = '',
@@ -76,16 +97,11 @@ class Showcase
         public array $entry_data = [],
         public int $entry_id = 0,
         public int $entryUserID = 0,
-        public string $searchField = '',
-        public string $sort_field = '',
-        public string $sort_direction = '',
         public array $errorMessages = [],
         #Config
         public int $showcase_id = 0,
-        public array $fieldSetCache = [],
         public array $fieldSetFieldsIDs = [],
         public array $fieldSetEnabledFields = [],
-        public array $fieldSetSearchableFields = [],
         public array $fieldSetFieldsOrder = [],
         public bool $attachmentsDisplayThumbnails = true,
         public bool $attachmentsDisplayFullSizeImage = false,
@@ -94,11 +110,9 @@ class Showcase
         public string $urlViewEntry = '',
         public string $urlViewComment = '',
         public array $config = [],
-        public array $urlParams = [],
         // ***/
-        public string $search_keywords = '',
-        public int $search_exact = 0,
-    ) {
+    )
+    {
         global $db, $mybb, $cache;
 
         $this->current_user_id = (int)$mybb->user['uid'];
@@ -193,11 +207,11 @@ class Showcase
         }
 
         if ($this->config['field_set_id']) {
-            $this->fieldSetCache = cacheGet(CACHE_TYPE_FIELDS)[$this->config['field_set_id']] ?? [];
+            $this->fields_cache = cacheGet(CACHE_TYPE_FIELDS)[$this->config['field_set_id']] ?? [];
 
-            foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
                 if (!$fieldDefinition['enabled']/* || $fieldDefinition['is_required']*/) {
-                    unset($this->fieldSetCache[$fieldID]);
+                    unset($this->fields_cache[$fieldID]);
 
                     continue;
                 }
@@ -207,7 +221,7 @@ class Showcase
                 $this->fieldSetEnabledFields[$fieldDefinition['field_key']] = $fieldDefinition['html_type'];
 
                 if ($fieldDefinition['enable_search']) {
-                    $this->fieldSetSearchableFields[$fieldDefinition['field_key']] = $fieldDefinition['html_type'];
+                    $this->fields_searchable[$fieldDefinition['field_key']] = $fieldDefinition['html_type'];
                 }
 
                 $this->fieldSetFieldsOrder[$fieldDefinition['render_order']] = $fieldID;
@@ -224,13 +238,13 @@ class Showcase
             'comments' => ''
         ];
 
-        foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
             if ($fieldDefinition['display_in_main_page']) {
                 $this->fieldset_display_fields[$fieldDefinition['field_key']] = '';
             }
         }
 
-        $this->searchField = $mybb->get_input('search_field');
+        $this->search_field = $mybb->get_input('search_field');
 
         $this->sort_field = $mybb->get_input('sort');
 
@@ -289,6 +303,22 @@ class Showcase
         RouterUrls::init($this);
 
         $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
+
+        $this->entryManager = new EntriesManager(
+            $this->showcase_id,
+            $this->config['field_set_id'],
+            $this->config['filter_force_field'],
+            current_page: $mybb->get_input('page', MyBB::INPUT_INT),
+            entries_per_page: $this->config['entries_per_page'],
+            current_user_id: $this->current_user_id,
+        );
+
+        $this->commentManager = new CommentsManager(
+            $this->showcase_id,
+            current_page: $mybb->get_input('page', MyBB::INPUT_INT),
+            comments_per_page: $this->config['comments_per_page'],
+            current_user_id: $this->current_user_id,
+        );
 
         return $this;
     }
@@ -526,7 +556,9 @@ class Showcase
     {
         foreach ($this->attachment_objects as $entry_id_hash => &$attachmentObjects) {
             foreach ($attachmentObjects as $attachment_id => &$attachment_data) {
-                $entry_exist = !empty($entry_id_hash) && isset($this->entry_objects[$entry_id_hash]);
+                $entry_data = $this->entryManager->getEntryByID($attachment_data['entry_id']);
+
+                //$entry_exist = !empty($entry_id_hash) && isset($this->entry_objects[$entry_id_hash]);
 
                 $attachment_data = array_merge(
                     $attachment_data,
@@ -540,44 +572,52 @@ class Showcase
                         'is_image' => str_starts_with($attachment_data['mime_type'], 'image/'),
                         'icon' => get_attachment_icon($attachment_data['attachment_name']),
                         'has_thumbnail' => !empty($attachment_data['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
-                        'url' => $entry_exist ? (empty($this->entry_objects[$attachment_data['entry_id']]->entry_slug) ? _dump(
-                                $entry_exist,
-                                $this->entry_objects[$attachment_data['entry_id']]
-                            ) : '') . $this->urlGenerate(
-                                RouterUrls::AttachmentView,
-                                [
-                                    'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
-                                    'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
-                                    'attachment_hash' => $attachment_data['attachment_hash'],
-                                ],
-                            ) : $this->urlGenerate(
+                    ]
+                );
+
+                if ($entry_data !== false) {
+                    $attachment_data['url'] = $attachment_data['url_thumbnail'] = $this->urlGenerate(
+                        RouterUrls::AttachmentView,
+                        [
+                            'entry_slug' => $entry_data->entry_slug,
+                            'entry_slug_custom' => $entry_data->entry_slug_custom,
+                            'attachment_hash' => $attachment_data['attachment_hash'],
+                        ],
+                    );
+
+                    if ($attachment_data['has_thumbnail']) {
+                        $attachment_data['url_thumbnail'] = $this->urlGenerate(
+                            RouterUrls::ThumbnailView,
+                            [
+                                'entry_slug' => $entry_data->entry_slug,
+                                'entry_slug_custom' => $entry_data->entry_slug_custom,
+                                'attachment_hash' => $attachment_data['attachment_hash']
+                            ]
+                        );
+                    }
+                } else {
+                    _dump(123456, $attachment_data, $this->entry_objects[$attachment_data['entry_id']]);
+                    $attachment_data['url'] = $attachment_data['has_thumbnail'] = _dump(
+                            965,
+                            $this->entryManager->getEntryByID($attachment_data['entry_id'])
+                        ) . $this->urlGenerate(
                             RouterUrls::AttachmentViewFromPostHash,
                             [
                                 'post_hash' => $this->entry_objects[$attachment_data['entry_id']]->post_hash,
                                 'attachment_hash' => $attachment_data['attachment_hash']
                             ],
-                        ),
-                    ]
-                );
+                        );
 
-                if ($attachment_data['has_thumbnail']) {
-                    $attachment_data['url_thumbnail'] = $entry_exist ? $this->urlGenerate(
-                        RouterUrls::ThumbnailView,
-                        [
-                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
-                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
-                            'attachment_hash' => $attachment_data['attachment_hash']
-                        ]
-                    ) : $this->urlGenerate(
-                        RouterUrls::ThumbnailView,
-                        [
-                            'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
-                            'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
-                            'attachment_hash' => $attachment_data['attachment_hash']
-                        ]
-                    );
-                } else {
-                    $attachment_data['url_thumbnail'] = $attachment_data['url'];
+                    if ($attachment_data['has_thumbnail']) {
+                        $attachment_data['url_thumbnail'] = $this->urlGenerate(
+                            RouterUrls::ThumbnailView,
+                            [
+                                'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
+                                'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
+                                'attachment_hash' => $attachment_data['attachment_hash']
+                            ]
+                        );
+                    }
                 }
             }
         }
@@ -752,7 +792,7 @@ class Showcase
 
     public function entriesAppend($entry_data): Showcase
     {
-        $entry_id = !empty($entry_data->entry_id) ? $entry_data->entry_id : $entry_data->post_hah;
+        $entry_id = !empty($entry_data->entry_id) ? $entry_data->entry_id : $entry_data->post_hash;
 
         if ($entry_id) {
             $this->entry_objects[$entry_id] = $entry_data;
@@ -819,7 +859,7 @@ class Showcase
         $queryTables = ['users user_data ON (user_data.uid=entry_data.user_id)'];
 
         if ($loadFields) {
-            foreach ($this->fieldSetCache as $fieldID => $fieldDefinition) {
+            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
                 $field_key = $fieldDefinition['field_key'];
 
                 $htmlType = $fieldDefinition['html_type'];
@@ -842,9 +882,11 @@ class Showcase
             }
         }
 
-        $entries_manager = new EntryManager($this);
+        $entry_data = $this->entryManager->queryEntry($whereClauses, $queryFields, query_tables: $queryTables);
 
-        $entry_data = $entries_manager->queryEntry($whereClauses, $queryFields, query_tables: $queryTables);
+        $this->entryManager->setEntry(
+            $entry_data
+        );
 
         $this->entryDataSet($entry_data)
             ->entriesAppend([$entry_data['entry_id'] => $entry_data]);
@@ -857,11 +899,27 @@ class Showcase
 
     public function urlParamsSet(array $urlParams): void
     {
-        $this->urlParams = $urlParams;
+        $this->url_params = $urlParams;
     }
 
     public function urlParamsAppend(array $urlParams): void
     {
-        $this->urlParams = array_merge($this->urlParams, $urlParams);
+        $this->url_params = array_merge($this->url_params, $urlParams);
+    }
+
+    public function dataHandler(string $method = self::DATA_HANDLER_METHOD_INSERT): DataHandler
+    {
+        require_once MYBB_ROOT . 'inc/datahandler.php';
+        require_once ROOT . '/System/DataHandler.php';
+
+        return new DataHandler(
+            $this->showcase_id,
+            $this->fields_cache,
+            $this->commentManager,
+            $this->entryManager,
+            $this->config,
+            $this->entry_id,
+            method: $method,
+        );
     }
 }

@@ -61,7 +61,7 @@
         {{ asset('jscripts/thread.js', static=true) }}
 
         <section class="post-list" id="entry">
-            {{ entryPost|raw }}
+            {{ entry_data.rendered_entry|raw }}
         </section>
 
         <section class="post-list" id="comments">

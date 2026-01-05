@@ -13,7 +13,7 @@
 
 declare(strict_types=1);
 
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\EntriesManager;
 
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\showcaseGetObject;
@@ -31,14 +31,12 @@ function task_myshowcase(array $taskData): array
 
             $showcase = showcaseGetObject($showcaseID);
 
-            $entries_manager = new EntryManager($showcase,);
-
             foreach (
-                $entries_manager->queryEntries(
+                $showcase->entryManager->queryEntries(
                     ["dateline<='{$pruneTime}'", ['entry_id']]
                 ) as $entryID => $entryData
             ) {
-                $entries_manager->deleteEntry($entryID);
+                $showcase->entryManager->deleteEntry($entryID, $showcase->commentManager);
             }
         }
     }

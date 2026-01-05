@@ -18,8 +18,8 @@ namespace MyShowcase\System;
 use MyBB;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\CommentManager;
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -73,7 +73,7 @@ class Render
             'username' => $lang->myShowcaseMainSortUsername
         ];
 
-        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fields_cache as $fieldID => $fieldDefinition) {
             $field_key = $fieldDefinition['field_key'];
 
             $fieldKeyUpper = ucfirst($field_key);
@@ -104,8 +104,8 @@ class Render
             $this->urlParams['keywords'] = $this->showcase->search_keywords;
         }
 
-        if (in_array($this->showcase->searchField, array_keys($this->showcase->fieldSetSearchableFields))) {
-            $this->urlParams['search_field'] = $this->showcase->searchField;
+        if (in_array($this->showcase->search_field, array_keys($this->showcase->fields_searchable))) {
+            $this->urlParams['search_field'] = $this->showcase->search_field;
         }
 
         if ($this->showcase->sort_direction) {
@@ -134,8 +134,6 @@ class Render
      */
     public function templateGet(string $templateName = '', array $templatesContext = []): string
     {
-        global $mybb;
-
         return templateGet(
             $templateName,
             array_merge_recursive([
@@ -191,11 +189,14 @@ class Render
             $commentSlug = $comment_object->comment_slug;
         }
 
+        $entry_data = $this->showcase->entryManager->getEntryByID($this->showcase->entry_id);
+
+        $entry_data
+            ->setExtraData('is_deleted', false)
+            ->setExtraData('moderator_check', false);
+
         $templatesContext = [
-            'entry_data' => array_merge($this->showcase->entry_data, [
-                'is_deleted' => false,
-                'moderator_check' => false,
-            ]),
+            'entry_data' => &$entry_data,
             'comment_data' => $comment_object,
             'subject' => $this->buildEntrySubject(),
             'url' => [
@@ -207,7 +208,7 @@ class Render
             'is_ignored' => false,
             'ignored_message' => '',
             'style_visibility' => '',
-            'fields_objects' => $this->showcase->fieldSetCache,
+            'fields_objects' => $this->showcase->fields_cache,
             'entry_attachments' => '',
             'commentAttachments' => '',
             'class' => '',
@@ -245,12 +246,12 @@ class Render
         }
 
         // todo, will be empty when preview a new entry/comment
-        if (!empty($this->showcase->entry_data['entry_slug'])) {
+        if (!empty($entry_data->entry_slug)) {
             $templatesContext['url']['entry'] = $this->showcase->urlGenerate(
                 RouterUrls::EntryView,
                 [
-                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
+                    'entry_slug' => $entry_data->entry_slug,
+                    'entry_slug_custom' => $entry_data->entry_slug_custom
                 ]
             );
         }
@@ -275,7 +276,7 @@ class Render
             }
         } else {
             foreach ($templatesContext['fields_objects'] as $fieldID => &$fieldDefinition) {
-                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fieldSetCache[$fieldID]);
+                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fields_cache[$fieldID]);
 
                 if (!$fieldObject->isViewableInEntry()) {
                     unset($templatesContext['fields_objects'][$fieldID]);
@@ -283,7 +284,7 @@ class Render
                     continue;
                 }
 
-                $fieldObject->valueSet($this->showcase->entry_data[$fieldDefinition['field_key']] ?? '')
+                $fieldObject->valueSet($entry_data->getExtraData($fieldDefinition['field_key']) ?? '')
                     ->valuesBuild();
 
                 $fieldDefinition['value'] = $fieldObject->getUserValue();
@@ -292,7 +293,7 @@ class Render
             }
 
             foreach ($templatesContext['fields_objects'] as $fieldID => &$fieldDefinition) {
-                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fieldSetCache[$fieldID]);
+                $fieldObject = fieldGetObject($this->showcase, $this->showcase->fields_cache[$fieldID]);
 
                 $fieldDefinition['field_attachments'] = $fieldObject->getAttachments(
                     $templatesContext['fields_objects']
@@ -423,16 +424,16 @@ class Render
             $templatesContext['url']['update'] = $this->showcase->urlGenerate(
                 RouterUrls::EntryUpdate,
                 [
-                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                    'entry_slug' => $entry_data->entry_slug,
+                    'entry_slug_custom' => $entry_data->entry_slug_custom,
                 ]
             );
         } elseif (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanUpdateComments)) {
             $templatesContext['url']['update'] = $this->showcase->urlGenerate(
                 RouterUrls::CommentUpdate,
                 [
-                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                    'entry_slug' => $entry_data->entry_slug,
+                    'entry_slug_custom' => $entry_data->entry_slug_custom,
                     'comment_slug' => $commentSlug
                 ]
             );
@@ -503,17 +504,17 @@ class Render
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $templatesContext['date'] = $this->showcase->entry_data['dateline'];
+            $templatesContext['date'] = $entry_data->dateline;
         } else {
             $templatesContext['date'] = $comment_object->dateline;
         }
 
         if ($moderatorCanManageEntries && (
-                $postType === self::POST_TYPE_ENTRY && !empty($this->showcase->entry_data['edit_user_id']) ||
+                $postType === self::POST_TYPE_ENTRY && !empty($entry_data->edit_user_id) ||
                 $postType === self::POST_TYPE_COMMENT && !empty($comment_object->edit_user_id)
             )) {
             $editUserData = get_user(
-                $postType === self::POST_TYPE_ENTRY ? $this->showcase->entry_data['edit_user_id'] : $comment_object->edit_user_id
+                $postType === self::POST_TYPE_ENTRY ? $entry_data->edit_user_id : $comment_object->edit_user_id
             );
         }
 
@@ -573,34 +574,32 @@ class Render
         }
 
         if ($postType === self::POST_TYPE_ENTRY) {
-            $postStatus = (int)$this->showcase->entry_data['status'];
+            $postStatus = (int)$entry_data->status;
         } else {
             $postStatus = $comment_object->status;
         }
 
         $templatesContext['buttonApprove'] = $templatesContext['buttonUnpprove'] = $templatesContext['buttonRestore'] = $templatesContext['buttonSoftDelete'] = $templatesContext['buttonDelete'] = '';
 
-        $entries_manager = new EntryManager($this->showcase);
-
         if (!$isPreview && $postType === self::POST_TYPE_ENTRY && ($moderatorCanManageEntries || $userCanSoftDeleteEntries)) {
-            if ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_PENDING) {
+            if ($moderatorCanManageEntries && $postStatus === $this->showcase->entryManager::STATUS_PENDING) {
                 $approveUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryApprove,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
                 /*$templatesContext['buttonApprove'] = $this->templateGet($templatePrefix . 'ButtonApprove', [
                     'approveUrl' => $approveUrl,
                     'entry_slug' => $entrySlug,
                 ]);*/
-            } elseif ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_VISIBLE) {
+            } elseif ($moderatorCanManageEntries && $postStatus === $this->showcase->entryManager::STATUS_VISIBLE) {
                 $unapproveUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryUnapprove,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
                 /*$templatesContext['buttonUnpprove'] = $this->templateGet($templatePrefix . 'ButtonUnapprove', [
@@ -609,24 +608,24 @@ class Render
                 ]);*/
             }
 
-            if ($moderatorCanManageEntries && $postStatus === $entries_manager::STATUS_DELETED) {
+            if ($moderatorCanManageEntries && $postStatus === $this->showcase->entryManager::STATUS_DELETED) {
                 $restoreUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryRestore,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
                 /*$templatesContext['buttonRestore'] = $this->templateGet($templatePrefix . 'ButtonRestore', [
                     'entry_slug' => $entrySlug,
                     'restoreUrl' => $restoreUrl,
                 ]);*/
-            } elseif ($postStatus === $entries_manager::STATUS_VISIBLE && $userCanSoftDeleteEntries) {
+            } elseif ($postStatus === $this->showcase->entryManager::STATUS_VISIBLE && $userCanSoftDeleteEntries) {
                 $softDeleteUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntrySoftDelete,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
                 /*$templatesContext['buttonSoftDelete'] = $this->templateGet($templatePrefix . 'ButtonSoftDelete', [
@@ -641,8 +640,8 @@ class Render
                 $deleteUrl = $this->showcase->urlGenerate(
                     RouterUrls::EntryDelete,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
                 /*$templatesContext['buttonDelete'] = $this->templateGet($templatePrefix . 'ButtonDelete', [
@@ -652,46 +651,44 @@ class Render
             }
         }
 
-        $comments_manager = new CommentManager($this->showcase);
-
         if (!$isPreview && $postType === self::POST_TYPE_COMMENT && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
-            if ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_PENDING) {
+            if ($moderatorCanManageComments && $postStatus === $this->showcase->commentManager::STATUS_PENDING) {
                 $templatesContext['url_comment_approve'] =
                     $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
                         RouterUrls::CommentView,
-                        array_merge($this->showcase->urlParams, [
-                            'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                            'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        array_merge($this->showcase->url_params, [
+                            'entry_slug' => $entry_data->entry_slug,
+                            'entry_slug_custom' => $entry_data->entry_slug_custom,
                             'comment_slug' => $commentSlug,
                             'approve' => 1
                         ])
                     );
-            } elseif ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_VISIBLE) {
+            } elseif ($moderatorCanManageComments && $postStatus === $this->showcase->commentManager::STATUS_VISIBLE) {
                 $templatesContext['url_comment_unapprove'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentUnapprove,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'comment_slug' => $commentSlug
                     ]
                 );
             }
 
-            if ($moderatorCanManageComments && $postStatus === $comments_manager::STATUS_DELETED) {
+            if ($moderatorCanManageComments && $postStatus === $this->showcase->commentManager::STATUS_DELETED) {
                 $templatesContext['url_comment_restore'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentRestore,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'comment_slug' => $commentSlug
                     ]
                 );
-            } elseif ($postStatus === $comments_manager::STATUS_VISIBLE) {
+            } elseif ($postStatus === $this->showcase->commentManager::STATUS_VISIBLE) {
                 $templatesContext['url_comment_soft_delete'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentSoftDelete,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'comment_slug' => $commentSlug
                     ]
                 );
@@ -702,8 +699,8 @@ class Render
                 $templatesContext['url_comment_delete'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentDelete,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'comment_slug' => $commentSlug
                     ]
                 );
@@ -735,17 +732,17 @@ class Render
         }
 
         switch ($postStatus) {
-            case $comments_manager::STATUS_PENDING:
+            case $this->showcase->commentManager::STATUS_PENDING:
                 $templatesContext['style_class'] = 'unapproved_post';
                 break;
-            case $comments_manager::STATUS_DELETED:
+            case $this->showcase->commentManager::STATUS_DELETED:
                 $templatesContext['style_class'] = 'unapproved_post deleted_post';
                 break;
         }
 
         if (!$isPreview && (
-                self::POST_TYPE_ENTRY && $postStatus === $entries_manager::STATUS_DELETED ||
-                self::POST_TYPE_COMMENT && $postStatus === $comments_manager::STATUS_DELETED
+                self::POST_TYPE_ENTRY && $postStatus === $this->showcase->entryManager::STATUS_DELETED ||
+                self::POST_TYPE_COMMENT && $postStatus === $this->showcase->commentManager::STATUS_DELETED
             )) {
             if (self::POST_TYPE_ENTRY) {
                 $deletedMessage = $lang->sprintf($lang->myShowcaseEntryDeletedMessage, $userName);
@@ -761,8 +758,8 @@ class Render
         // Is the user (not moderator) logged in and have unapproved posts?
         if (!$isPreview && ($this->showcase->current_user_id &&
                 (
-                    $postType === self::POST_TYPE_ENTRY && $postStatus === $entries_manager::STATUS_PENDING ||
-                    $postType === self::POST_TYPE_COMMENT && $postStatus === $comments_manager::STATUS_PENDING
+                    $postType === self::POST_TYPE_ENTRY && $postStatus === $this->showcase->entryManager::STATUS_PENDING ||
+                    $postType === self::POST_TYPE_COMMENT && $postStatus === $this->showcase->commentManager::STATUS_PENDING
                 ) &&
                 $userID === $this->showcase->current_user_id &&
                 !(
@@ -849,7 +846,7 @@ class Render
 
         $entryFieldsList = [];
 
-        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fields_cache as $fieldID => $fieldDefinition) {
             $fieldObject = fieldGetObject($this->showcase, $fieldDefinition);
 
             $entryFieldsList[$fieldDefinition['field_key']] = $fieldObject->valueSet(
@@ -1213,12 +1210,12 @@ class Render
                     'entry_slug' => $entrySlug,
                     'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                 ],
-                $this->showcase->urlParams
+                $this->showcase->url_params
             );
         } else {
             $createUpdateUrl = $this->showcase->urlGenerate(
                 RouterUrls::EntryCreate,
-                $this->showcase->urlParams
+                $this->showcase->url_params
             );
         }
 
@@ -1285,7 +1282,7 @@ class Render
 
         $entrySubject = [];
 
-        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->showcase->fields_cache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enable_subject']) {
                 continue;
             }

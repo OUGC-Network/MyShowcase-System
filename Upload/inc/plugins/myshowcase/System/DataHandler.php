@@ -16,10 +16,8 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
-
-use MyShowcase\Service\CommentManager;
-
-use MyShowcase\Service\EntryManager;
+use MyShowcase\Service\CommentsManager;
+use myshowcase\Service\EntriesManager;
 use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\attachmentGet;
@@ -35,8 +33,6 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
-use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_INSERT;
-use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 /**
@@ -45,9 +41,18 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
  */
 class DataHandler extends CoreDataHandler
 {
+    public const METHOD_INSERT = 'insert';
+
+    public const METHOD_UPDATE = 'update';
+
     public function __construct(
-        protected Showcase &$showcase,
-        public $method = DATA_HANDLER_METHOD_INSERT,
+        private readonly int $showcase_id,
+        private readonly array $fields_cache,
+        private readonly CommentsManager $comments_manager,
+        private readonly EntriesManager $entries_manager,
+        private readonly array $config,
+        private int $entry_id,
+        public $method = self::METHOD_INSERT,
         /**
          * The language file used in the data handler.
          *
@@ -78,7 +83,6 @@ class DataHandler extends CoreDataHandler
          * @var array
          */
         public array $updateData = [],
-        public int $entry_id = 0,
         public int $comment_id = 0,
         public array $returnData = [],
     ) {
@@ -123,7 +127,7 @@ class DataHandler extends CoreDataHandler
 
         $entry_data = &$this->data;
 
-        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->showcase->entry_id) {
+        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->entry_id) {
             $this->set_error('invalid_entry');
         }
 
@@ -154,14 +158,12 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid_comments');
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
         if (isset($entry_data['status']) && !in_array(
                 $this->data['status'],
                 [
-                    $entries_manager::STATUS_PENDING,
-                    $entries_manager::STATUS_VISIBLE,
-                    $entries_manager::STATUS_DELETED
+                    $this->entries_manager::STATUS_PENDING,
+                    $this->entries_manager::STATUS_VISIBLE,
+                    $this->entries_manager::STATUS_DELETED
                 ]
             )) {
             $this->set_error('invalid_status');
@@ -181,7 +183,7 @@ class DataHandler extends CoreDataHandler
 
         global $lang;
 
-        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enabled'] ||
                 $fieldDefinition['read_only'] ||
                 !isset($entry_data[$fieldDefinition['field_key']]) ||
@@ -276,7 +278,7 @@ class DataHandler extends CoreDataHandler
             }
         }
 
-        foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['enabled'] ||
                 !isset($entry_data[$fieldDefinition['field_key']]) ||
                 !is_member($fieldDefinition['allowed_groups_fill'])) {
@@ -292,10 +294,10 @@ class DataHandler extends CoreDataHandler
         }
 
         // it doesn't matter if this changes, only the entry_slug should remain the same always
-        if ($this->method !== DATA_HANDLER_METHOD_UPDATE) {
+        if ($this->method !== self::METHOD_UPDATE) {
             $entry_slug_custom = [];
 
-            foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
                 if (!$fieldDefinition['enable_slug']) {
                     continue;
                 }
@@ -304,7 +306,7 @@ class DataHandler extends CoreDataHandler
                     foreach ($entry_data[$fieldDefinition['field_key']] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;
 
-                        if (!isset($this->showcase->fieldSetCache[$field_data_id])) {
+                        if (!isset($this->fields_cache[$field_data_id])) {
                             continue;
                         }
 
@@ -375,15 +377,13 @@ class DataHandler extends CoreDataHandler
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
 
         if (!isset($this->insertData['entry_slug']) && $this->method === 'insert') {
-            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcase->showcase_id);
+            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcase_id);
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
         if ($isUpdate) {
-            $this->entry_id = $entries_manager->updateEntry($this->insertData, $this->showcase->entry_id);
+            $this->entry_id = $this->entries_manager->updateEntry($this->insertData, $this->entry_id);
         } else {
-            $this->entry_id = $entries_manager->insertEntry($this->insertData);
+            $this->entry_id = $this->entries_manager->insertEntry($this->insertData);
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
@@ -401,12 +401,10 @@ class DataHandler extends CoreDataHandler
 
         $this->returnData['entry_id'] = $this->entry_id;
 
-        $entries_manager = new EntryManager($this->showcase);
-
         if (isset($this->insertData['entry_slug'])) {
             $this->returnData['entry_slug'] = $this->insertData['entry_slug'];
         } else {
-            $this->returnData['entry_slug'] = $entries_manager->queryEntry(
+            $this->returnData['entry_slug'] = $this->entries_manager->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug'],
             )['entry_slug'];
@@ -415,7 +413,7 @@ class DataHandler extends CoreDataHandler
         if (isset($this->insertData['entry_slug_custom'])) {
             $this->returnData['entry_slug_custom'] = $this->insertData['entry_slug_custom'];
         } else {
-            $this->returnData['entry_slug_custom'] = $entries_manager->queryEntry(
+            $this->returnData['entry_slug_custom'] = $this->entries_manager->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug_custom'],
             )['entry_slug_custom'];
@@ -449,11 +447,11 @@ class DataHandler extends CoreDataHandler
 
         $commentData = $this->data;
 
-        if (isset($commentData['showcase_id']) && (int)$commentData['showcase_id'] !== $this->showcase->showcase_id) {
+        if (isset($commentData['showcase_id']) && (int)$commentData['showcase_id'] !== $this->showcase_id) {
             $this->set_error('invalid showcase identifier');
         }
 
-        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->showcase->entry_id) {
+        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->entry_id) {
             $this->set_error('invalid entry identifier');
         }
 
@@ -461,30 +459,28 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid user identifier');
         }
 
-        if (isset($commentData['comment']) || $this->method === DATA_HANDLER_METHOD_INSERT) {
+        if (isset($commentData['comment']) || $this->method === self::METHOD_INSERT) {
             if (getSetting('parserMyCodeAffectsLength')) {
                 $commentLength = my_strlen($this->data['comment']);
             } else {
                 $commentLength = my_strlen(postParser()->text_parse_message($this->data['comment']));
             }
 
-            if ($commentLength < $this->showcase->config['comments_minimum_length']) {
+            if ($commentLength < $this->config['comments_minimum_length']) {
                 $this->set_error('the message is too short');
             }
 
-            if ($commentLength > $this->showcase->config['comments_maximum_length']) {
+            if ($commentLength > $this->config['comments_maximum_length']) {
                 $this->set_error('the message is too large');
             }
         }
 
-        $comments_manager = new CommentManager($this->showcase);
-
         if (isset($commentData['status']) && !in_array(
                 $this->data['status'],
                 [
-                    $comments_manager::STATUS_PENDING,
-                    $comments_manager::STATUS_VISIBLE,
-                    $comments_manager::STATUS_DELETED,
+                    $this->comments_manager::STATUS_PENDING,
+                    $this->comments_manager::STATUS_VISIBLE,
+                    $this->comments_manager::STATUS_DELETED,
                 ]
             )) {
             $this->set_error('invalid status');
@@ -527,15 +523,13 @@ class DataHandler extends CoreDataHandler
             'isUpdate' => &$isUpdate,
         ];
 
-        $comments_manager = new CommentManager($this->showcase);
-
         if ($isUpdate && !isset($this->returnData['comment_slug'])) {
-            $this->returnData['comment_slug'] = $comments_manager->queryComment(
+            $this->returnData['comment_slug'] = $this->comments_manager->queryComment(
                 ["comment_id='{$this->comment_id}'"],
                 ['comment_slug'],
             )['comment_slug'];
         } elseif (!$isUpdate) {
-            $this->returnData['comment_slug'] = $this->data['comment_slug'] = $comments_manager->generateSlug();
+            $this->returnData['comment_slug'] = $this->data['comment_slug'] = $this->comments_manager->generateSlug();
         }
 
         foreach ($this->data as $key => $value) {
@@ -545,11 +539,11 @@ class DataHandler extends CoreDataHandler
         $hookArguments = hooksRun('data_handler_comment_insert_update_start', $hookArguments);
 
         if ($isUpdate) {
-            $comments_manager->updateComment($this->insertData, $this->comment_id);
+            $this->comments_manager->updateComment($this->insertData, $this->comment_id);
         } else {
-            $this->comment_id = $comments_manager->insertComment(
+            $this->comment_id = $this->comments_manager->insertComment(
                 array_merge($this->insertData, [
-                    'entry_id' => $this->showcase->entry_id
+                    'entry_id' => $this->entry_id
                 ])
             );
         }

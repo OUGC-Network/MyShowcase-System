@@ -29,7 +29,7 @@ use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
 
-class EntryManager
+class EntriesManager
 {
     public const STATUS_PENDING = 0;
 
@@ -81,8 +81,12 @@ class EntryManager
     private readonly bool $is_update;
 
     public function __construct(
-        private readonly Showcase $showcase,
-        private $current_page = self::FIRST_PAGE,
+        private readonly int $showcase_id,
+        private readonly int $showcase_fieldset_id,
+        private readonly int $showcase_filter_force_field_id,
+        private int $current_page = self::FIRST_PAGE,
+        private readonly int $entries_per_page = 10,
+        private readonly int $current_user_id = 0,
     ) {
         return $this;
     }
@@ -94,7 +98,7 @@ class EntryManager
         }
     }
 
-    private function setEntry(array $entry_data): void
+    public function setEntry(array $entry_data): void
     {
         $extra_data = [];
 
@@ -126,6 +130,15 @@ class EntryManager
         foreach ($this->entries as $entry_id => $entry_data) {
             yield $entry_data;
         }
+    }
+
+    public function getEntryByID(int $entry_id): \MyShowcase\Entity\Entry|bool
+    {
+        if (isset($this->entries[$entry_id])) {
+            return $this->entries[$entry_id];
+        }
+
+        return false;
     }
 
     public function getEntriesIDs(): array
@@ -179,7 +192,7 @@ class EntryManager
     ): iterable {
         global $db;
 
-        $query_tables = array_merge(["myshowcase_data{$this->showcase->showcase_id} entry_data"], $query_tables);
+        $query_tables = array_merge(["myshowcase_data{$this->showcase_id} entry_data"], $query_tables);
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
@@ -234,21 +247,30 @@ class EntryManager
         )['total_entries'];
     }
 
-    public function fetchEntries(): self
-    {
+    public function fetchEntries(
+        array $user_permissions,
+        array $fields_cache,
+        array $fields_searchable,
+        array $url_params = [],
+        string $search_keywords = '',
+        string $search_field = '',
+        int $search_exact = 0,
+        string $sort_direction = 'asd',
+        string $sort_field = 'dateline',
+    ): self {
         $this->where_clauses = [];
 
-        if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) {
-            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->showcase->current_user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
+        if (!$user_permissions[ModeratorPermissions::CanManageEntries]) {
+            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
         }
 
         global $mybb;
 
         // First, the date cut for the entries.
-        if (empty($this->showcase->urlParams['days']) && !empty($mybb->user['daysprune'])) {
+        if (empty($url_params['days']) && !empty($mybb->user['daysprune'])) {
             $days_cut = $mybb->user['daysprune'];
         } else {
-            $days_cut = $this->showcase->urlParams['days'];
+            $days_cut = $url_params['days'];
         }
 
         if ($days_cut > 0) {
@@ -256,9 +278,9 @@ class EntryManager
             // todo, add setting to force showing featured entries regardless of date filter
         }
 
-        switch ($this->showcase->config['filter_force_field']) {
+        switch ($this->showcase_filter_force_field_id) {
             case FILTER_TYPE_USER_ID:
-                $this->where_clauses[] = "entry_data.user_id='{$this->showcase->urlParams['user_id']}'";
+                $this->where_clauses[] = "entry_data.user_id='{$url_params['user_id']}'";
 
                 break;
         }
@@ -269,7 +291,7 @@ class EntryManager
 
         $search_done = false;
 
-        $keywords = explode(' ', $this->showcase->search_keywords);
+        $keywords = explode(' ', $search_keywords);
 
         $this->query_fields = array_merge(array_map(function (string $field_name): string {
             return str_starts_with($field_name, 'entry_data.') ? $field_name : 'entry_data.' . $field_name;
@@ -281,31 +303,31 @@ class EntryManager
 
         global $db;
 
-        foreach ($this->showcase->fieldSetCache as $field_id => $field_definition) {
+        foreach ($fields_cache as $field_id => $field_definition) {
             if ($field_definition['html_type'] === FieldHtmlTypes::Select || $field_definition['html_type'] === FieldHtmlTypes::Radio) {
                 $this->query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
 
                 $this->query_fields[] = "table_{$field_definition['field_key']}.display_style AS {$field_definition['field_key']}";
 
-                if ($this->showcase->search_keywords && $this->showcase->searchField === $field_definition['field_key']) {
-                    if ($this->showcase->search_exact) {
-                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value='{$db->escape_string($this->showcase->search_keywords)}'";
+                if ($search_keywords && $search_field === $field_definition['field_key']) {
+                    if ($search_exact) {
+                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value='{$db->escape_string($search_keywords)}'";
                     } else {
-                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value LIKE '%{$db->escape_string($this->showcase->search_keywords)}%'";
+                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value LIKE '%{$db->escape_string($search_keywords)}%'";
                     }
 
-                    $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->showcase->config['field_set_id']}'";
+                    $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->showcase_fieldset_id}'";
                 }
-            } elseif ($this->showcase->searchField === 'username' && !$search_done) {
+            } elseif ($search_field === 'username' && !$search_done) {
                 $this->query_tables[] = 'users user_search_data ON (entry_data.user_id = user_search_data.uid)';
 
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($this->showcase->search_keywords) {
-                    if ($this->showcase->search_exact) {
-                        $this->where_clauses[] = "user_search_data.username='{$db->escape_string($this->showcase->search_keywords)}'";
+                if ($search_keywords) {
+                    if ($search_exact) {
+                        $this->where_clauses[] = "user_search_data.username='{$db->escape_string($search_keywords)}'";
                     } else {
-                        $this->where_clauses[] = "user_search_data.username LIKE '%{$db->escape_string($this->showcase->search_keywords)}%'";
+                        $this->where_clauses[] = "user_search_data.username LIKE '%{$db->escape_string($search_keywords)}%'";
                     }
                 }
 
@@ -313,19 +335,18 @@ class EntryManager
             } else {
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($this->showcase->search_keywords && $this->showcase->searchField === $field_definition['field_key']) {
-                    if ($this->showcase->search_exact) {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$db->escape_string($this->showcase->search_keywords)}'";
+                if ($search_keywords && $search_field === $field_definition['field_key']) {
+                    if ($search_exact) {
+                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$db->escape_string($search_keywords)}'";
                     } else {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$db->escape_string($this->showcase->search_keywords)}%'";
+                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$db->escape_string($search_keywords)}%'";
                     }
                 }
             }
 
-            if ($this->showcase->search_keywords &&
-                isset($this->showcase->fieldSetSearchableFields[$field_definition['field_key']])) {
+            if ($search_keywords && isset($fields_searchable[$field_definition['field_key']])) {
                 foreach ($keywords as $keyword) {
-                    if ($this->showcase->search_exact) {
+                    if ($search_exact) {
                         $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$db->escape_string($keyword)}'";
                     } else {
                         $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$db->escape_string($keyword)}%'";
@@ -334,30 +355,30 @@ class EntryManager
             }
         }
 
-        if ($this->showcase->sort_field !== 'dateline') {
-            $this->query_options['order_by'] = "{$db->escape_string($this->showcase->sort_field)} {$this->showcase->sort_direction}, is_sticky {$this->showcase->sort_direction}, entry_id";
+        if ($sort_field !== 'dateline') {
+            $this->query_options['order_by'] = "{$db->escape_string($sort_field)} {$sort_direction}, is_sticky {$sort_direction}, entry_id";
 
-            $this->query_options['order_dir'] = $this->showcase->sort_direction;
+            $this->query_options['order_dir'] = $sort_direction;
         } else {
-            $this->query_options['order_by'] = "is_sticky {$this->showcase->sort_direction}, entry_id";
+            $this->query_options['order_by'] = "is_sticky {$sort_direction}, entry_id";
 
-            $this->query_options['order_dir'] = $this->showcase->sort_direction;
+            $this->query_options['order_dir'] = $sort_direction;
         }
 
-        $this->query_options['limit'] = $this->showcase->config['entries_per_page'];
+        $this->query_options['limit'] = $this->entries_per_page;
 
         hooksRun('entry_fetch_start', $this);
 
         $this->total_entries = $this->queryEntryCount($this->where_clauses, $this->query_tables);
 
-        $this->total_pages = (int)ceil($this->total_entries / $this->showcase->config['entries_per_page']);
+        $this->total_pages = (int)ceil($this->total_entries / $this->entries_per_page);
 
         if ($this->current_page > $this->total_pages) {
             $this->setCurrentPage(self::FIRST_PAGE);
         }
 
         if ($this->current_page) {
-            $this->query_options['limit_start'] = ($this->current_page - 1) * $this->showcase->config['entries_per_page'];
+            $this->query_options['limit_start'] = ($this->current_page - 1) * $this->entries_per_page;
         } else {
             $this->setCurrentPage(self::FIRST_PAGE);
         }
@@ -451,14 +472,14 @@ class EntryManager
 
         if ($this->is_update) {
             $db->update_query(
-                'myshowcase_data' . $this->showcase->showcase_id,
+                'myshowcase_data' . $this->showcase_id,
                 $this->insert_data,
                 "entry_id='{$this->entry_id}'"
             );
 
             return $this->entry_id;
         } else {
-            return (int)$db->insert_query('myshowcase_data' . $this->showcase->showcase_id, $this->insert_data);
+            return (int)$db->insert_query('myshowcase_data' . $this->showcase_id, $this->insert_data);
         }
     }
 
@@ -470,7 +491,7 @@ class EntryManager
         return $this->insertEntry($entry_data, true, $entry_id);
     }
 
-    public function deleteEntry(int $entry_id): void
+    public function deleteEntry(int $entry_id, CommentsManager $commentManager): void
     {
         global $db;
 
@@ -478,24 +499,22 @@ class EntryManager
 
         hooksRun('entry_delete', $this);
 
-        $comments_manager = new CommentManager($this->showcase);
-
         foreach (
-            $comments_manager->queryComments(["entry_id='{$this->entry_id}'"],
+            $commentManager->queryComments(["entry_id='{$this->entry_id}'"],
                 'comment_id') as $commentID => $commentData
         ) {
-            $comments_manager->deleteComment($commentID);
+            $commentManager->deleteComment($commentID);
         }
 
         foreach (
-            attachmentGet(["entry_id='{$this->entry_id}'", "showcase_id='{$this->showcase->showcase_id}'"]
+            attachmentGet(["entry_id='{$this->entry_id}'", "showcase_id='{$this->showcase_id}'"]
             ) as $attachmentID => $attachmentData
         ) {
             attachmentDelete($attachmentID);
         }
 
         $db->delete_query(
-            'myshowcase_data' . $this->showcase->showcase_id,
+            'myshowcase_data' . $this->showcase_id,
             "entry_id='{$this->entry_id}'"
         );
     }

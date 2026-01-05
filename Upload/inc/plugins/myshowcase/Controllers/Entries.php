@@ -19,8 +19,6 @@ use captcha;
 use MyBB;
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\CommentManager;
-use MyShowcase\Service\EntryManager;
 use MyShowcase\System\FieldDefaultTypes;
 use MyShowcase\System\FieldHtmlTypes;
 use MyShowcase\System\ModeratorPermissions;
@@ -35,7 +33,6 @@ use function MyShowcase\Plugin\Functions\attachmentUpload;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldGetObject;
-use function MyShowcase\Plugin\Functions\dataHandlerGetObject;
 use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\getSetting;
@@ -47,7 +44,6 @@ use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\HTTP_CODE_PERMANENT_REDIRECT;
-use const MyShowcase\Plugin\Core\DATA_HANDLER_METHOD_UPDATE;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
 
@@ -91,9 +87,7 @@ class Entries extends Base
             return self::NO_PERMISSION;
         }
 
-        $entries_manager = new EntryManager($this->showcase,);
-
-        $entryData = $entries_manager->queryEntry(
+        $entryData = $this->showcase->entryManager->queryEntry(
             ["entry_slug='{$db->escape_string($entrySlug)}'"],
             array_merge(['entry_id', 'status', 'user_id'], $entryFields),
         );
@@ -106,8 +100,8 @@ class Entries extends Base
 
         $entryUserID = (int)$entryData['user_id'];
 
-        if ($entryStatus === $entries_manager::STATUS_PENDING && $this->showcase->current_user_id !== $entryUserID ||
-            $entryStatus === $entries_manager::STATUS_DELETED && !$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) {
+        if ($entryStatus === $this->showcase->entryManager::STATUS_PENDING && $this->showcase->current_user_id !== $entryUserID ||
+            $entryStatus === $this->showcase->entryManager::STATUS_DELETED && !$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) {
             return self::INVALID_ENTRY;
         }
 
@@ -158,7 +152,7 @@ class Entries extends Base
         if ($mybb->get_input('action') === 'inline_moderation') {
             switch ($mybb->get_input('moderate')) {
                 case 'open':
-                    _dump($mybb->input);
+                    _dump(156, $mybb->input);
                     break;
                 case 'close':
                     break;
@@ -232,7 +226,7 @@ class Entries extends Base
                     'subject' => $this->showcase->urlGenerate(
                         RouterUrls::Main,
                         array_merge(
-                            $this->showcase->urlParams,
+                            $this->showcase->url_params,
                             [
                                 'sort' => 'subject',
                                 'direction' => $this->showcase->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
@@ -241,21 +235,21 @@ class Entries extends Base
                     ),
                     'username' => $this->showcase->urlGenerate(
                         RouterUrls::Main,
-                        array_merge($this->showcase->urlParams, [
+                        array_merge($this->showcase->url_params, [
                             'sort' => 'username',
                             'direction' => $this->showcase->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
                         ])
                     ),
                     'comments' => $this->showcase->urlGenerate(
                         RouterUrls::Main,
-                        array_merge($this->showcase->urlParams, [
+                        array_merge($this->showcase->url_params, [
                             'sort' => 'comments',
                             'direction' => $this->showcase->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
                         ])
                     ),
                     'last_comment' => $this->showcase->urlGenerate(
                         RouterUrls::Main,
-                        array_merge($this->showcase->urlParams, [
+                        array_merge($this->showcase->url_params, [
                             'sort' => 'dateline',
                             'direction' => $this->showcase->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
                         ])
@@ -336,15 +330,13 @@ class Entries extends Base
 
         $hookArguments = hooksRun('output_main_start', $hookArguments);
 
-        $this->showcase->config['filter_force_field'] = 1;
-
         switch ($this->showcase->config['filter_force_field']) {
             case FILTER_TYPE_USER_ID:
                 $this->showcase->urlParamsAppend(
                     ['user_id' => $userID ?? $this->showcase->current_user_id]
                 );
 
-                $userData = get_user($this->showcase->urlParams['user_id']);
+                $userData = get_user($this->showcase->url_params['user_id']);
 
                 if (empty($userData['uid']) || (empty($mybb->usergroup['canviewprofiles']) && (int)$userData['uid'] !== $this->showcase->current_user_id)) {
                     error_no_permission();
@@ -364,7 +356,7 @@ class Entries extends Base
 
         $mainUrl = $this->showcase->urlGenerate(
             RouterUrls::Main,
-            $this->showcase->urlParams
+            $this->showcase->url_params
         );
 
         add_breadcrumb(
@@ -384,7 +376,7 @@ class Entries extends Base
             function (array &$fieldDefinition) use (&$templatesContext): array {
                 $templatesContext['url']['sort'][$fieldDefinition['field_key']] = $this->showcase->urlGenerate(
                     RouterUrls::Main,
-                    array_merge($this->showcase->urlParams, [
+                    array_merge($this->showcase->url_params, [
                         'sort' => $fieldDefinition['field_key'],
                         'direction' => $this->showcase->sort_direction === ORDER_DIRECTION_ASCENDING ? ORDER_DIRECTION_DESCENDING : ORDER_DIRECTION_ASCENDING
                     ])
@@ -392,25 +384,33 @@ class Entries extends Base
 
                 return $fieldDefinition;
             },
-            array_filter($this->showcase->fieldSetCache, function ($fieldDefinition): bool {
+            array_filter($this->showcase->fields_cache, function ($fieldDefinition): bool {
                 return $fieldDefinition['display_in_create_update_page'] &&
                     is_member($fieldDefinition['allowed_groups_fill']);
             })
         );
 
         foreach ($this->showcase->fieldSetFieldsOrder as $renderOrder => $fieldID) {
-            $field_key = $this->showcase->fieldSetCache[$fieldID]['field_key'];
+            $field_key = $this->showcase->fields_cache[$fieldID]['field_key'];
 
             if (!isset($lang->{"myshowcase_fieldset_field_{$field_key}"})) {
                 $lang->{"myshowcase_fieldset_field_{$field_key}"} = $field_key;
             }
         }
 
-        $entries_manager = new EntryManager($this->showcase, $mybb->get_input('page', MyBB::INPUT_INT));
+        $this->showcase->entryManager->fetchEntries(
+            $this->showcase->user_permissions,
+            $this->showcase->fields_cache,
+            $this->showcase->fields_searchable,
+            url_params: $this->showcase->url_params,
+            search_keywords: $this->showcase->search_keywords,
+            search_field: $this->showcase->search_field,
+            search_exact: $this->showcase->search_exact,
+            sort_direction: $this->showcase->sort_direction,
+            sort_field: $this->showcase->sort_field,
+        );
 
-        $entries_manager->fetchEntries();
-
-        $templatesContext['entries_count'] = $entries_manager->getTotalEntries();
+        $templatesContext['entries_count'] = $this->showcase->entryManager->getTotalEntries();
 
         $hookArguments = hooksRun('output_main_intermediate', $hookArguments);
 
@@ -418,14 +418,14 @@ class Entries extends Base
             $templatesContext['pagination'] = multipage(
                 $templatesContext['entries_count'],
                 $this->showcase->config['entries_per_page'],
-                $entries_manager->getCurrentPage(),
+                $this->showcase->entryManager->getCurrentPage(),
                 $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
                     RouterUrls::Main,
-                    $this->showcase->urlParams
+                    $this->showcase->url_params
                 ),
             );
 
-            foreach ($entries_manager->getEntries() as $entry_data) {
+            foreach ($this->showcase->entryManager->getEntries() as $entry_data) {
                 $this->showcase->entriesAppend($entry_data);
             }
 
@@ -435,7 +435,7 @@ class Entries extends Base
                     attachmentGet(
                         [
                             "showcase_id='{$this->showcase->showcase_id}'",
-                            "entry_id IN ('" . implode("','", $entries_manager->getEntriesIDs()) . "')",
+                            "entry_id IN ('" . implode("','", $this->showcase->entryManager->getEntriesIDs()) . "')",
                             "status='1'"
                         ],
                         [
@@ -460,7 +460,7 @@ class Entries extends Base
 
             $inlinecookie = 'inlinemod_forum' . $this->showcase->showcase_id;
 
-            foreach ($entries_manager->getEntries() as $entry_id => $entry_data) {
+            foreach ($this->showcase->entryManager->getEntries() as $entry_id => $entry_data) {
                 $entry_data->setExtraData('unread_comments', false)
                     ->setExtraData('modChecked', false);
 
@@ -489,7 +489,7 @@ class Entries extends Base
                                 'entry_slug' => $this->showcase->entry_data['entry_slug'],
                                 'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
                             ],
-                            $this->showcase->urlParams
+                            $this->showcase->url_params
                         )
                     );
 
@@ -527,7 +527,7 @@ class Entries extends Base
 
                 $entrySubject = $fieldCache = [];
 
-                foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+                foreach ($this->showcase->fields_cache as $fieldID => $fieldDefinition) {
                     $entryFieldText = $entry_data->getExtraData($fieldDefinition['field_key']) ?? '';
 
                     if (!$fieldDefinition['parse']) {
@@ -612,15 +612,13 @@ class Entries extends Base
                     $entry_data->setExtraData('moderator_check', true);
                 }
 
-                if ($entry_data->visible == $entries_manager::STATUS_PENDING) {
+                if ($entry_data->visible == $this->showcase->entryManager::STATUS_PENDING) {
                     $entry_data->setExtraData('background_class', 'trow_shaded');
-                } elseif ($entry_data->visible == $entries_manager::STATUS_DELETED && $templatesContext['permissions']['can_manage_entries]']) {
+                } elseif ($entry_data->visible == $this->showcase->entryManager::STATUS_DELETED && $templatesContext['permissions']['can_manage_entries]']) {
                     $entry_data->setExtraData('background_class', 'trow_shaded trow_deleted');
                 }
 
-                $comments_manager = new CommentManager($this->showcase);
-
-                $comment_data = $comments_manager->queryComment(
+                $comment_data = $this->showcase->commentManager->queryComment(
                     ["entry_id={$entry_data->entry_id}"],
                     ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline'],
                     [
@@ -654,7 +652,7 @@ class Entries extends Base
                     )
                     ->setExtraData(
                         'comments_by_you',
-                        $comments_manager->queryCommentCount(
+                        $this->showcase->commentManager->queryCommentCount(
                             [
                                 "entry_id='{$this->showcase->entry_id}'",
                                 "user_id='{$this->showcase->current_user_id}'",
@@ -704,9 +702,7 @@ class Entries extends Base
         string $orderBy = 'user_id',
         string $orderDirection = ORDER_DIRECTION_ASCENDING
     ): void {
-        $entries_manager = new EntryManager($this->showcase);
-
-        $statusUnapproved = $entries_manager::STATUS_PENDING;
+        $statusUnapproved = $this->showcase->entryManager::STATUS_PENDING;
 
         $this->mainView(
             $userID,
@@ -747,11 +743,15 @@ class Entries extends Base
             $this->showcase->setEntry($entry_slug, true);
         }
 
-        switch (1 || $this->showcase->config['filter_force_field']) {
-            /*case FILTER_TYPE_USER_ID:
-                $userData = get_user($this->showcaseObject->entryUserID);
+        switch ($this->showcase->config['filter_force_field']) {
+            case FILTER_TYPE_USER_ID:
+                $this->showcase->urlParamsAppend(
+                    ['user_id' => $userID ?? $this->showcase->current_user_id]
+                );
 
-                if (empty($userData['uid']) || empty($mybb->usergroup['canviewprofiles'])) {
+                $userData = get_user($this->showcase->url_params['user_id']);
+
+                if (empty($userData['uid']) || (empty($mybb->usergroup['canviewprofiles']) && (int)$userData['uid'] !== $this->showcase->current_user_id)) {
                     error_no_permission();
                 }
 
@@ -764,26 +764,15 @@ class Entries extends Base
                     $mybb->settings['bburl'] . '/' . get_profile_link($userData['uid'])
                 );
 
-                $mainUrl = str_replace(
-                    '/user/',
-                    '/user/' . $this->showcaseObject->entryUserID,
-                    $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
-                );
-
-                break;*/
+                break;
             default:
                 $mainUrl = $this->showcase->urlGenerate(
                     RouterUrls::Main,
-                    $this->showcase->urlParams
+                    $this->showcase->url_params
                 );
 
-                break;
+                add_breadcrumb($this->showcase->config['name_friendly'], $mainUrl);
         }
-
-        add_breadcrumb(
-            $this->showcase->config['name_friendly'],
-            $mainUrl
-        );
 
         if ($isEditPage) {
             add_breadcrumb(
@@ -821,13 +810,13 @@ class Entries extends Base
             'url' => [
                 'crate_update' => $isEditPage ? $this->showcase->urlGenerate(
                     RouterUrls::EntryUpdate,
-                    array_merge($this->showcase->urlParams, [
+                    array_merge($this->showcase->url_params, [
                         'entry_slug' => $this->showcase->entry_data['entry_slug'],
                         'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
                     ])
                 ) : $this->showcase->urlGenerate(
                     RouterUrls::EntryCreate,
-                    $this->showcase->urlParams
+                    $this->showcase->url_params
                 ),
                 'upload' => $isEditPage ? $this->showcase->urlGenerate(
                     RouterUrls::EntryUpdateUpload,
@@ -857,7 +846,7 @@ class Entries extends Base
                 (function () use ($db): array {
                     $default_fields = [];
 
-                    foreach ($this->showcase->fieldSetCache as $fied_id => $field_definition) {
+                    foreach ($this->showcase->fields_cache as $fied_id => $field_definition) {
                         $default_fields[$field_definition['field_key']] = match ($field_definition['default_type']) {
                             FieldDefaultTypes::AsDefined => $field_definition['default_value'],
                             FieldDefaultTypes::CurrentTimestamp => date('Y-m-d H:i:s', TIME_NOW),
@@ -897,32 +886,30 @@ class Entries extends Base
                 }
             }
 
-            $entries_manager = new EntryManager($this->showcase);
-
             if ($isEditPage && (
                     $this->showcase->config['moderate_entries_update'] ||
                     $this->showcase->user_permissions[UserPermissions::ModerateEntryUpdate]
                 )) {
-                $insertData['status'] = $entries_manager::STATUS_PENDING;
+                $insertData['status'] = $this->showcase->entryManager::STATUS_PENDING;
             } elseif (!$isEditPage && $this->showcase->config['moderate_entries_create'] && (
                     $this->showcase->config['moderate_entries_create'] ||
                     $this->showcase->user_permissions[UserPermissions::ModerateEntryCreate]
                 )) {
-                $insertData['status'] = $entries_manager::STATUS_PENDING;
+                $insertData['status'] = $this->showcase->entryManager::STATUS_PENDING;
             }
 
             // Set up a showcase handler.
             //Require_once MYBB_ROOT . 'inc/datahandlers/myshowcase_dh.php';
 
             if ($isEditPage) {
-                $dataHandler = dataHandlerGetObject($this->showcase, DATA_HANDLER_METHOD_UPDATE);
+                $dataHandler = $this->showcase->dataHandler($this->showcase::DATA_HANDLER_METHOD_UPDATE);
             } else {
                 $insertData['dateline'] = TIME_NOW;
 
-                $dataHandler = dataHandlerGetObject($this->showcase);
+                $dataHandler = $this->showcase->dataHandler();
             }
 
-            foreach ($this->showcase->fieldSetCache as $fieldID => $fieldDefinition) {
+            foreach ($this->showcase->fields_cache as $fieldID => $fieldDefinition) {
                 $insertData[$fieldDefinition['field_key']] = match ($fieldDefinition['html_type']) {
                     /*FieldHtmlTypes::CheckBox,
                     FieldHtmlTypes::Select => $mybb->get_input(
@@ -951,28 +938,11 @@ class Entries extends Base
                     $dataHandler->entryInsert();
                 }
 
-                if (isset($dataHandler->returnData['status']) && $dataHandler->returnData['status'] === $entries_manager::STATUS_DELETED) {
+                if (isset($dataHandler->returnData['status']) && $dataHandler->returnData['status'] === $this->showcase->entryManager::STATUS_DELETED) {
                     $mainUrl = $this->showcase->urlGenerate(
                         RouterUrls::Main,
-                        $this->showcase->urlParams
+                        $this->showcase->url_params
                     );
-
-                    switch (1 || $this->showcase->config['filter_force_field']) {
-                        /*case FILTER_TYPE_USER_ID:
-                            $mainUrl = str_replace(
-                                '/user/',
-                                '/user/' . $this->showcaseObject->entryUserID,
-                                $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
-                            );
-
-                            break;*/
-                        default:
-                            $mainUrl = $this->showcase->urlGenerate(
-                                RouterUrls::Main,
-                                $this->showcase->urlParams
-                            );
-                            break;
-                    }
 
                     redirect(
                         $mainUrl,
@@ -1108,7 +1078,7 @@ class Entries extends Base
 
                 return $fieldDefinition;
             },
-            array_filter($this->showcase->fieldSetCache, function ($fieldDefinition): bool {
+            array_filter($this->showcase->fields_cache, function ($fieldDefinition): bool {
                 return $fieldDefinition['display_in_create_update_page'] &&
                     is_member($fieldDefinition['allowed_groups_fill']);
             })
@@ -1169,52 +1139,47 @@ class Entries extends Base
             $this->showcase->setEntry($entry_slug, true);
         }
 
-        if (!$this->showcase->entry_id || empty($this->showcase->entry_data)) {
+        $entry_data = $this->showcase->entryManager->getEntryByID($this->showcase->entry_id);
+
+        if (!$this->showcase->entry_id || empty($entry_data)) {
             error($lang->myshowcase_invalid_id);
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
         if ($this->showcase->current_user_id !== $this->showcase->entryUserID &&
             !$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries] &&
-            (int)$this->showcase->entry_data['status'] !== $entries_manager::STATUS_VISIBLE
+            $entry_data->status !== $this->showcase->entryManager::STATUS_VISIBLE
         ) {
             error($lang->myshowcase_invalid_id);
         }
 
-        switch (1 || $this->showcase->config['filter_force_field']) {
-            /*
-                        case FILTER_TYPE_USER_ID:
-                            $userData = get_user($this->showcaseObject->entryUserID);
-
-                            if (empty($userData['uid']) || empty($mybb->usergroup['canviewprofiles'])) {
-                                error_no_permission();
-                            }
-
-                            $lang->load('member');
-
-                            $userName = htmlspecialchars_uni($userData['username']);
-
-                            add_breadcrumb(
-                                $lang->sprintf($lang->nav_profile, $userName),
-                                $mybb->settings['bburl'] . '/' . get_profile_link($userData['uid'])
-                            );
-
-                            $mainUrl = str_replace(
-                                '/user/',
-                                '/user/' . $this->showcaseObject->entryUserID,
-                                $this->showcaseObject->urlGenerate(\MyShowcase\Plugin\RouterUrls::MainUser)
-                            );
-
-                            break;
-            */
-            default:
-                $mainUrl = $this->showcase->urlGenerate(
-                    RouterUrls::Main,
-                    $this->showcase->urlParams
+        switch ($this->showcase->config['filter_force_field']) {
+            case FILTER_TYPE_USER_ID:
+                $this->showcase->urlParamsAppend(
+                    ['user_id' => $userID ?? $this->showcase->current_user_id]
                 );
+
+                $userData = get_user($this->showcase->url_params['user_id']);
+
+                if (empty($userData['uid']) || (empty($mybb->usergroup['canviewprofiles']) && (int)$userData['uid'] !== $this->showcase->current_user_id)) {
+                    error_no_permission();
+                }
+
+                $lang->load('member');
+
+                $userName = htmlspecialchars_uni($userData['username']);
+
+                add_breadcrumb(
+                    $lang->sprintf($lang->nav_profile, $userName),
+                    $mybb->settings['bburl'] . '/' . get_profile_link($userData['uid'])
+                );
+
                 break;
         }
+
+        $mainUrl = $this->showcase->urlGenerate(
+            RouterUrls::Main,
+            $this->showcase->url_params
+        );
 
         add_breadcrumb(
             $this->showcase->config['name_friendly'],
@@ -1222,7 +1187,7 @@ class Entries extends Base
         );
 
         $templatesContext = [
-            'entry_data' => $this->showcase->entry_data,
+            'entry_data' => &$entry_data,
             'captcha' => '',
             'online_count' => [
                 'users' => 0,
@@ -1237,15 +1202,15 @@ class Entries extends Base
                 'entry' => $this->showcase->urlGenerate(
                     RouterUrls::EntryView,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom
                     ]
                 ),
                 'comment' => $this->showcase->urlGenerate(
                     RouterUrls::CommentCreate,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 ),
             ]
@@ -1256,8 +1221,8 @@ class Entries extends Base
         $entryUrl = $this->showcase->urlGenerate(
             RouterUrls::EntryView,
             [
-                'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
+                'entry_slug' => $entry_data->entry_slug,
+                'entry_slug_custom' => $entry_data->entry_slug_custom
             ],
         );
 
@@ -1293,9 +1258,8 @@ class Entries extends Base
             $entryUrl
         );
 
-        if ($this->showcase->entry_data['username'] === '') {
-            $this->showcase->entry_data['username'] = $lang->guest;
-            $this->showcase->entry_data['user_id'] = 0;
+        if (!$entry_data->getExtraData('username')) {
+            $entry_data->setExtraData('username', $lang->guest);
         }
 
         $entryUrl = str_replace(
@@ -1310,46 +1274,46 @@ class Entries extends Base
         //doing this now should not impact anyhting. no issues with gomobile beta4
         define('IN_ARCHIVE', 1);
 
-        $templatesContext['entryPost'] = $this->renderObject->buildEntry();
+        $entry_data->setRenderEntry(
+            $this->renderObject->buildEntry()
+        );
 
         $templatesContext['commentsForm'] = '';
 
         if ($this->showcase->config['comments_allow'] && $this->showcase->user_permissions[UserPermissions::CanViewComments]) {
             $url_params['page'] = $this->renderObject->current_page;
 
-            $comments_manager = new CommentManager(
-                $this->showcase,
-                current_page: $mybb->get_input('page', MyBB::INPUT_INT)
+            $this->showcase->commentManager->fetchComments(
+                $this->showcase->entry_id,
+                $this->showcase->user_permissions
             );
-
-            $comments_manager->fetchComments();
 
             $templatesContext['commentObjects'] = [];
 
             $commentsCounter = 0;
 
-            if ($comments_manager->getCurrentPage()) {
-                $commentsCounter += ($comments_manager->getCurrentPage() - 1) *
+            if ($this->showcase->commentManager->getCurrentPage()) {
+                $commentsCounter += ($this->showcase->commentManager->getCurrentPage() - 1) *
                     $this->showcase->config['comments_per_page'];
             }
 
             $templatesContext['rendered_comments'] = [];
 
             $templatesContext['pagination'] = multipage(
-                $comments_manager->getTotalComments(),
+                $this->showcase->commentManager->getTotalComments(),
                 $this->showcase->config['comments_per_page'],
-                $comments_manager->getCurrentPage(),
+                $this->showcase->commentManager->getCurrentPage(),
                 $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
                     RouterUrls::EntryView,
-                    array_merge($this->showcase->urlParams, [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                    array_merge($this->showcase->url_params, [
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'page_id' => '{page}'
                     ])
                 )
             );
 
-            foreach ($comments_manager->getTopLevelComments() as $comment_data) {
+            foreach ($this->showcase->commentManager->getTopLevelComments() as $comment_data) {
                 ++$commentsCounter;
 
                 $comment_data->setRenderComment(
@@ -1390,8 +1354,8 @@ class Entries extends Base
                 $templatesContext['createUpdateUrl'] = $this->showcase->urlGenerate(
                     RouterUrls::CommentCreate,
                     [
-                        'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                        'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom'],
+                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug_custom' => $entry_data->entry_slug_custom,
                     ]
                 );
 
@@ -1431,10 +1395,10 @@ class Entries extends Base
 
         if ($this->showcase->user_permissions[UserPermissions::CanCreateComments] &&
             empty($mybb->user['suspendposting']) &&
-            (empty($this->showcase->entry_data['is_closed']) || $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) &&
+            (!$entry_data->is_closed || $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]) &&
             !empty($mybb->settings['quickreply']) &&
             !empty($mybb->user['showquickreply']) &&
-            $this->showcase->entry_data['uid'] === $this->showcase->current_user_id ||
+            $entry_data->user_id === $this->showcase->current_user_id ||
             true) {
             $templatesContext['showquickreply'] = true;
 
@@ -1514,25 +1478,21 @@ class Entries extends Base
             error_no_permission();
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
-        $entries_manager->updateEntry(['status' => $status], $this->showcase->entry_id);
+        $this->showcase->entryManager->updateEntry(['status' => $status], $this->showcase->entry_id);
 
         $entryUrl = $this->showcase->urlGenerate(
                 RouterUrls::EntryView,
                 ['entry_slug' => $this->showcase->entry_data['entry_slug']]
             ) . '#entry_id' . $this->showcase->entry_id;
 
-        $entries_manager = new EntryManager($this->showcase);
-
         switch ($status) {
-            case $entries_manager::STATUS_PENDING:
+            case $this->showcase->entryManager::STATUS_PENDING:
                 $redirectMessage = $lang->myShowcaseEntryEntryUnapproved;
                 break;
-            case $entries_manager::STATUS_VISIBLE:
+            case $this->showcase->entryManager::STATUS_VISIBLE:
                 $redirectMessage = $lang->myShowcaseEntryEntryApproved;
                 break;
-            case $entries_manager::STATUS_DELETED:
+            case $this->showcase->entryManager::STATUS_DELETED:
                 $redirectMessage = $lang->myShowcaseEntryEntrySoftDeleted;
                 break;
         }
@@ -1543,33 +1503,27 @@ class Entries extends Base
     #[NoReturn] public function unapproveEntry(
         string $entrySlug,
     ): void {
-        $entries_manager = new EntryManager($this->showcase);
-
         $this->approveEntry(
             $entrySlug,
-            $entries_manager::STATUS_PENDING
+            $this->showcase->entryManager::STATUS_PENDING
         );
     }
 
     #[NoReturn] public function softDeleteEntry(
         string $entrySlug
     ): void {
-        $entries_manager = new EntryManager($this->showcase);
-
         $this->approveEntry(
             $entrySlug,
-            $entries_manager::STATUS_DELETED
+            $this->showcase->entryManager::STATUS_DELETED
         );
     }
 
     #[NoReturn] public function restoreEntry(
         string $entrySlug
     ): void {
-        $entries_manager = new EntryManager($this->showcase);
-
         $this->approveEntry(
             $entrySlug,
-            $entries_manager::STATUS_VISIBLE
+            $this->showcase->entryManager::STATUS_VISIBLE
         );
     }
 
@@ -1588,13 +1542,11 @@ class Entries extends Base
             error_no_permission();
         }
 
-        $entries_manager = new EntryManager($this->showcase);
-
-        $entries_manager->deleteEntry($this->showcase->entry_id);
+        $this->showcase->entryManager->deleteEntry($this->showcase->entry_id, $this->showcase->commentManager);
 
         $mainUrl = $this->showcase->urlGenerate(
             RouterUrls::Main,
-            $this->showcase->urlParams
+            $this->showcase->url_params
         );
 
         redirect($mainUrl, $lang->myShowcaseEntryEntryDeleted);
@@ -1617,15 +1569,15 @@ class Entries extends Base
             isset($_SERVER['HTTP_UPLOAD_FILENAME']);
 
         if (!$is_upload_request) {
-            _dump($mybb->input);
+            _dump(128, $mybb->input);
             return;
         }
 
-        _dump($mybb->request_method);
+        _dump(119, $mybb->request_method);
 
         verify_post_check($mybb->get_input('my_post_key'));
 
-        _dump($mybb->request_method);
+        _dump(774, $mybb->request_method);
 
         echo json_encode([$mybb->input]);
         exit;

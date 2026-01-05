@@ -77,10 +77,6 @@ const ATTACHMENT_STATUS_VISIBLE = 1;
 
 const ATTACHMENT_STATUS_SOFT_DELETED = 2;
 
-const DATA_HANDLER_METHOD_INSERT = 'insert';
-
-const DATA_HANDLER_METHOD_UPDATE = 'update';
-
 const GUEST_GROUP_ID = 1;
 
 const FILTER_TYPE_NONE = 0;
@@ -573,6 +569,7 @@ const TABLES_DATA = [
             'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::Select,
             'form_function' => '\MyShowcase\Plugin\Core\generateFilterFieldsSelectArray',
         ],
+        */
         'filter_force_field' => [ // force view entries by uid, etc
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -581,7 +578,7 @@ const TABLES_DATA = [
             'formType' => \MyShowcase\Plugin\FormTypes::Select,
             'form_function' => '\MyShowcase\Plugin\Core\generateFilterFieldsSelectArray',
         ],
-        'order_default_direction' => [ // asc, desc
+        /*'order_default_direction' => [ // asc, desc
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
