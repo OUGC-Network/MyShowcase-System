@@ -47,7 +47,7 @@
                 </div>
             </section>
         {% endif %}
-        {{ errors|raw }}
+        {{ error_messages|raw }}
         <form action="{{ config.url_showcase }}/{{ url.crate_update }}" method="post"
               enctype="multipart/form-data" name="input" id="contentForm"></form>
         <div class="form form--compose compose">

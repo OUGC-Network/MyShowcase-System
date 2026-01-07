@@ -15,38 +15,35 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controllers;
 
-use MyBB;
 use JetBrains\PhpStorm\NoReturn;
-use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\Service\EntriesManager;
-use MyShowcase\System\FieldHtmlTypes;
-use MyShowcase\System\UserPermissions;
-use MyShowcase\System\ModeratorPermissions;
+use MyBB;
+use MyShowcase\Entity\Entry;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Enum\Routes;
 use MyShowcase\System\ExceptionInvalidRangeHeader;
 use MyShowcase\System\ExceptionNonExistentFile;
 use MyShowcase\System\ExceptionUnreadableFile;
 use MyShowcase\System\ExceptionUnsatisfiableRange;
 use MyShowcase\System\PartialFileServlet;
 use MyShowcase\System\RangeHeader;
+use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\attachmentLogInsert;
-use function MyShowcase\Plugin\Functions\attachmentUpdate;
-use function MyShowcase\Plugin\Functions\attachmentUpload;
-use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
-use const MyShowcase\ROOT;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_VISIBLE;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
+use const MyShowcase\ROOT;
 
 class Attachments extends Base
 {
+    /**
+     * @throws RandomException
+     */
     #[NoReturn] public function uploadAttachment(
         ?string $post_hash = null,
         ?string $entry_slug = null,
-        ?string $entry_slug_custom = null
     ): void {
         global $mybb, $lang;
 
@@ -83,30 +80,35 @@ class Attachments extends Base
         $entry_id = null;
 
         if ($post_hash === null) {
-            $entryData = $this->showcase->entryManager->queryEntry(
+            $entry_data = $this->showcase->entries_repository->queryEntry(
                 ["entry_slug='{$entry_slug}'"],
-                ['entry_id', 'entry_slug_custom', 'status', 'user_id'],
+                ['entry_id', 'post_hash', 'status', 'user_id'],
             );
 
-            if (!$entryData) {
+            if (!$entry_data) {
                 $this->errorNoPermission();
             }
 
-            $this->showcase->entryDataSet($entryData);
+            $this->showcase->addEntry($entry_data);
 
-            $entry_id = $entryData['entry_id'];
+            $entry_data = $this->showcase->getEntryByID($entry_data['entry_id']);
+
+            $entry_id = $entry_data->entry_id;
+        } else {
+            $entry_data = new Entry(user_id: $this->showcase->current_user_id);
+
+            $entry_data->setPostHash($post_hash);
         }
 
         if ($mybb->request_method === 'post') {
             require_once MYBB_ROOT . 'inc/functions_upload.php';
 
-            $fileObject = attachmentUpload(
-                $this->showcase,
+            $fileObject = $this->showcase->attachments_manager->uploadAttachment(
                 $_FILES[$field_key],
+                $entry_data,
                 field_id: $field_id,
-                entry_id: $entry_id,
-                post_hash: $post_hash,
-                watermarkImage: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
+                field_definition: $field_id ? $this->showcase->fields_cache[$field_id] : [],
+                do_watermark: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
             );
 
             if (isset($fileObject['error'])) {
@@ -115,18 +117,17 @@ class Attachments extends Base
                 $this->success([
                     'id' => $fileObject['attachment_id'],
                     'path' => $fileObject['file_name'],
-                    'url' => isset($entryData) ? $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
-                            RouterUrls::AttachmentView,
+                    'url' => isset($entry_data) ? $this->showcase->config['url_showcase'] . '/' . $this->routing->generateUrl(
+                            Routes::AttachmentView,
                             [
                                 'entry_slug' => $entry_slug,
-                                'entry_slug_custom' => $entryData['entry_slug_custom'],
                                 'attachment_hash' => $fileObject['attachment_hash'],
-                                'post_hash' => $post_hash,
+                                'post_hash' => $entry_data->post_hash,
                             ],
-                        ) : $this->showcase->config['url_showcase'] . '/' . $this->showcase->urlGenerate(
-                            RouterUrls::AttachmentViewFromPostHash,
+                        ) : $this->showcase->config['url_showcase'] . '/' . $this->routing->generateUrl(
+                            Routes::AttachmentViewFromPostHash,
                             [
-                                'post_hash' => $post_hash,
+                                'post_hash' => $entry_data->post_hash,
                                 'attachment_hash' => $fileObject['attachment_hash'],
                             ],
                         ),
@@ -277,7 +278,7 @@ class Attachments extends Base
             //$where_clauses[] = "field_id='{$field_id}'";
         }
 
-        $attachmentObjects = attachmentGet(
+        $attachmentObjects = $this->showcase->attachments_repository->queryAttachments(
             $where_clauses,
             [
                 'attachment_name',
@@ -289,14 +290,14 @@ class Attachments extends Base
         );
 
         foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-            $attachmentObjects[$attachmentID]['url'] = $post_hash === null ? $this->showcase->urlGenerate(
-                RouterUrls::AttachmentViewFromPostHash,
+            $attachmentObjects[$attachmentID]['url'] = $post_hash === null ? $this->routing->generateUrl(
+                Routes::AttachmentViewFromPostHash,
                 [
                     'post_hash' => $post_hash,
                     'attachment_hash' => $attachmentData['attachment_hash']
                 ],
-            ) : $this->showcase->urlGenerate(
-                RouterUrls::AttachmentViewFromPostHash,
+            ) : $this->routing->generateUrl(
+                Routes::AttachmentViewFromPostHash,
                 [
                     'post_hash' => $post_hash,
                     'attachment_hash' => $attachmentData['attachment_hash']
@@ -312,16 +313,14 @@ class Attachments extends Base
         string $attachment_hash,
         ?string $post_hash = null,
         ?string $entry_slug = null,
-        ?string $entry_slug_custom = null,
     ): void {
-        $this->viewThumbnail($attachment_hash, $post_hash, $entry_slug, $entry_slug_custom, false);
+        $this->viewThumbnail($attachment_hash, $post_hash, $entry_slug, false);
     }
 
     #[NoReturn] public function viewThumbnail(
         string $attachment_hash,
         ?string $post_hash = null,
         ?string $entry_slug = null,
-        ?string $entry_slug_custom = null,
         bool $is_thumbnail = true,
     ): void {
         global $mybb, $db;
@@ -330,29 +329,25 @@ class Attachments extends Base
         $lang->load('messages');
 
         if ($entry_slug !== null) {
-            $entry_data = $this->showcase->entryManager->queryEntry(
-                ["entry_slug='{$db->escape_string($entry_slug)}'"],
-                ['entry_id']
-            );
-
-            $where_clause = "entry_id='{$db->escape_string($entry_data['entry_id'])}'";
+            $whereClauses = ["entry_slug='{$db->escape_string($entry_slug)}'"];
         } else {
-            $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
+            $whereClauses = ["post_hash='{$db->escape_string($post_hash)}'"];
         }
 
-        $entry_data = $this->showcase->entryManager->queryEntry([$where_clause], ['user_id', 'post_hash', 'status']);
+        $entry_data = $this->showcase->entries_repository->queryEntry(
+            $whereClauses,
+            ['entry_id', 'user_id', 'post_hash', 'status']
+        );
 
-        $this->showcase->entryDataSet($entry_data);
+        $this->showcase->addEntry($entry_data);
 
-        if ($this->showcase->entry_id) {
-            $where_clause = "entry_id='{$this->showcase->entry_id}'";
-        }
+        $entry_data = $this->showcase->getEntryByID($entry_data['entry_id']);
 
         $tablesData = TABLES_DATA['myshowcase_attachments'];
 
         $whereClauses = [
             "showcase_id='{$this->showcase->showcase_id}'",
-            $where_clause,
+            "entry_id='{$entry_data->entry_id}'",
             "attachment_hash='{$db->escape_string($attachment_hash)}'",
         ];
 
@@ -373,10 +368,9 @@ class Attachments extends Base
 
         $hookArguments = hooksRun('controller_attachments_download_start', $hookArguments);
 
-        $attachmentData = attachmentGet(
+        $attachmentData = $this->showcase->attachments_repository->queryAttachment(
             $whereClauses,
             array_keys($tablesData),
-            queryOptions: ['limit' => 1]
         );
 
         if ($attachmentData['field_id'] !== 0) {
@@ -404,13 +398,11 @@ class Attachments extends Base
             $this->error($lang->error_invalidattachment);
         }
 
-        $attachmentTypes = cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcase->showcase_id] ?? [];
-
         $attachmentFileExtension = my_strtolower(get_extension($attachmentData['attachment_name']));
 
         $attachmentMimeType = my_strtolower($attachmentData['mime_type']);
 
-        foreach ($attachmentTypes as $attachmentTypeID => $attachmentTypeData) {
+        foreach ($this->showcase->attachment_types as $attachmentTypeID => $attachmentTypeData) {
             if (!($attachmentTypeData['file_extension'] === $attachmentFileExtension &&
                 $attachmentTypeData['mime_type'] === $attachmentMimeType)) {
                 unset($attachmentTypeData);
@@ -436,8 +428,8 @@ class Attachments extends Base
             // Error if attachment is invalid or not visible
             if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageAttachments] &&
                 (
-                    $attachmentStatus !== ATTACHMENT_STATUS_VISIBLE ||
-                    (int)$this->showcase->entry_data['status'] !== $this->showcase->entryManager::STATUS_VISIBLE
+                    $attachmentStatus !== $this->showcase->attachments_manager::STATUS_VISIBLE ||
+                    $entry_data->status !== $this->showcase->entries_manager::STATUS_VISIBLE
                 )
             ) {
                 $this->error($lang->error_invalidattachment);
@@ -450,7 +442,10 @@ class Attachments extends Base
                 $this->errorNoPermission();
             }
 
-            attachmentUpdate(['downloads' => $attachmentData['downloads'] + $incrementDownloadCount], $attachmentID);
+            $this->showcase->attachments_repository->updateAttachment(
+                ['downloads' => $attachmentData['downloads'] + $incrementDownloadCount],
+                $attachmentID
+            );
         }
 
         // basename isn't UTF-8 safe. This is a workaround.

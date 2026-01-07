@@ -38,9 +38,10 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
 
         foreach ($userIDs as $userID) {
             foreach (
-                $showcase->entryManager->queryEntries(["user_id={$userID}"], ['entry_id']) as $entryID => $entryData
+                $showcase->entries_repository->queryEntries(["user_id={$userID}"], ['entry_id']
+                ) as $entryID => $entryData
             ) {
-                $showcase->entryManager->deleteEntry($entryID, $showcase->commentManager);
+                $showcase->entries_repository->deleteEntry($entryID);
             }
         }
     }

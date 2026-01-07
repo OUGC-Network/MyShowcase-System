@@ -13,7 +13,8 @@
 
 declare(strict_types=1);
 
-use MyShowcase\Plugin\RouterUrls;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Enum\Routes;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
@@ -143,16 +144,18 @@ hooksRun('script_file_intermediate');
 
 $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
 
+if (!$showcaseObject->user_permissions[UserPermissions::CanView]) {
+    error_no_permission();
+}
+
 hooksRun('script_file_end');
 
 try {
-    $parameters = RouterUrls::getMatch();
+    $parameters = $showcaseObject->routing->getMatch();
 
     $controller = $parameters['_controller'];
 
     unset($parameters['_controller'], $parameters['_route']);
-
-    $showcaseObject->urlParamsSet($parameters);
 
     $controller($parameters);
 } catch (Exception $e) {

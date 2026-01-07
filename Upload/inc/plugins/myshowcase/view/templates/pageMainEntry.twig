@@ -68,10 +68,10 @@
     <div class="thread__column thread__column--replies">
         <p class="thread__replies">
             <span class="thread__count-container">
-                    <span title="{{ lang.myshowcase_main_table_row_comments }}: {{ entry_data.comments }} &middot; {{ lang.myshowcase_main_table_row_views }}: {{ entry_data.views }}"
-                          class="thread__reply-count">{{ entry_data.comments }}</span>
+                    <span title="{{ lang.myshowcase_main_table_row_comments }}: {{ entry_data.comments_approved }} &middot; {{ lang.myshowcase_main_table_row_views }}: {{ entry_data.views }}"
+                          class="thread__reply-count">{{ entry_data.comments_approved }}</span>
                 </span>
-            <span class="thread__reply-legend">{% if entry_data.comments == 1 %}{{ lang.reply }}{% else %}{{ lang.myshowcase_main_table_row_comments }}{% endif %}</span>
+            <span class="thread__reply-legend">{% if entry_data.comments_approved == 1 %}{{ lang.reply }}{% else %}{{ lang.myshowcase_main_table_row_comments }}{% endif %}</span>
         </p>
     </div>
     <div class="thread__column thread__column--latest">

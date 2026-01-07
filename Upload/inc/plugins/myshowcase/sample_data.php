@@ -22,8 +22,8 @@ declare(strict_types=1);
 // field_key - string, lowercase name of fieldset
 //----------------------------------------------------------
 
-use MyShowcase\System\FieldHtmlTypes;
-use MyShowcase\System\FieldTypes;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FieldTypes;
 
 global
 

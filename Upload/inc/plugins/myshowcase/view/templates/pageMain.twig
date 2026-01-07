@@ -96,7 +96,7 @@
             {% endfor %}
             <div class="sort-threads__column sort-threads__column--replies">
                 <a href="{{ url.sort.comments }}"
-                   class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if sorting.field == 'comments' %}{{ ascDesc }}{% endif %}</a>
+                   class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if sorting.field == 'comments_approved' %}{{ ascDesc }}{% endif %}</a>
             </div>
             <div class="sort-threads__column sort-threads__column--latest">
                 <a href="{{ url.sort.last_comment }}"

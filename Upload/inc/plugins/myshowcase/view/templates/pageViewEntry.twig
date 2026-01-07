@@ -28,7 +28,9 @@
 {% if entry_data.status == 2 and permissions.can_manage_entries %}
     <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ entry_data.entry_slug }}">
         <div class="post__meta">
-            <h3 class="post__author">{{ userProfileLink|raw }}</h3>
+            <h3 class="post__author">
+                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+            </h3>
         </div>
         <div class="post__body post__body--message post_body" id="deleted_post{{ entry_data.entry_slug }}">
             {{ trans(lang.myshowcase_view_entry_deleted_user, user_data.username) }}
@@ -53,7 +55,9 @@
 {% if entry_data.extra_data.is_deleted %}
     <div class="post post--message deleted_entry_collapsed" id="deleted_entry_{{ entry_data.entry_slug }}">
         <div class="post__meta">
-            <h3 class="post__author">{{ userProfileLink|raw }}</h3>
+            <h3 class="post__author">
+                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+            </h3>
         </div>
         <div class="post__body post__body--message post_body" id="deleted_post{{ entry_data.entry_slug }}">
             {{ deletedMessage }}
@@ -79,7 +83,7 @@
     <div class="post__meta">
         {# Author avatar #}
         {% if mybb.user.showavatars is defined and mybb.user.showavatars is not empty %}
-            <a href="{{ userProfileLinkPlain|raw }}" class="avatar-profile-link">
+            <a href="{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
                 {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
                 {% else %}
@@ -90,7 +94,7 @@
 
         {# Author username #}
         <h3 class="post__author">
-            {{ userProfileLink|raw }}
+            <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             {# Online status #}
             {% if userOnlineStatus == 'online' %}
                 <span class="user-status user-status--online">
@@ -101,7 +105,7 @@
 </span>
             {% elseif userOnlineStatus == 'away' %}
                 <span class="user-status user-status--away">
-    <a href="{{ userProfileLinkPlain|raw }}" title="{{ lang.myshowcase_view_entry_status_away }}"
+    <a href="{{ get_profile_link(user_data.uid) }}" title="{{ lang.myshowcase_view_entry_status_away }}"
        class="user-status__link">
         {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_away}, with_context = false) }}
     </a>
@@ -115,7 +119,7 @@
 
         {# Entry date & permalink #}
         <a href="{{ url.entry }}#{{ entry_data.entry_slug }}" title="{{ subject }}" class="post__date">
-            {{ date|my_date }}
+            {{ entry_data.dateline|my_date }}
         </a>
 
         {# Inline moderation checkbox #}
@@ -156,9 +160,9 @@
         {{ entry_attachments|raw }}
 
         {# Signature #}
-        {% if userSignature %}
+        {% if user_signature %}
             <div class="post__signature scaleimages">
-                {{ userSignature|raw }}
+                {{ user_signature|raw }}
             </div>
         {% endif %}
     </div>
@@ -209,9 +213,9 @@
             {% endif %}
 
             {# Reputation button #}
-            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and entry_data.user_id != mybb.user.uid and entry_data.status == 1 %}
+            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and user_data.uid != mybb.user.uid and entry_data.status == 1 %}
                 <a href="javascript:void(0)"
-                   onclick="MyBB.reputation({{ entry_data.user_id }}, {{ entry_data.entry_slug }}); return false;"
+                   onclick="MyBB.reputation({{ user_data.uid }}, {{ entry_data.entry_slug }}); return false;"
                    title="{{ lang.myshowcase_view_entry_action_rate_title }}" class="post-control post-control--rate">
                     {{ include('partials/icon.twig', {icon: 'thumbs-up', class: 'post-control__icon fa-fw'}, with_context = false) }}
                     <span class="post-control__text">{{ lang.myshowcase_view_entry_action_rate }}</span>
@@ -219,7 +223,14 @@
             {% endif %}
         </div>
         <div class="post-controls post-controls--secondary post-options">
-            {% if (permissions.can_update_entries or permissions.can_manage_entries) or (permissions.can_delete_entries or permissions.can_manage_entries) %}
+            {% if
+                (entry_data.entry_id and (
+                (permissions.can_update_entries or permissions.can_manage_entries) or
+                (permissions.can_delete_entries or permissions.can_manage_entries)
+                )) or
+                (mybb.user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported) or
+                (mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid) or
+                (show_purge_spammer_button) %}
                 <input type="checkbox" class="post-options__checkbox" id="post_options_{{ entry_data.entry_slug }}">
                 <label for="post_options_{{ entry_data.entry_slug }}"
                        class="post-control post-control--options post-options__control"
@@ -229,7 +240,7 @@
                 </label>
                 <span class="post-options__list" id="post_options2_{{ entry_data.entry_slug }}">
                     {# Edit button #}
-                    {% if permissions.can_update_entries or permissions.can_manage_entries %}
+                    {% if entry_data.entry_id and (permissions.can_update_entries or permissions.can_manage_entries) %}
                         <a href="{{ config.url_showcase }}/{{ url.update }}"
                            class="post-control post-control--full-edit">
                             {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -238,7 +249,7 @@
                     {% endif %}
 
                     {# Delete button #}
-                    {% if (permissions.can_delete_entries or permissions.can_manage_entries) %}
+                    {% if entry_data.entry_id and (permissions.can_delete_entries or permissions.can_manage_entries) %}
                         <a href="editpost.php?pid={{ entry_data.entry_slug }}"
                            onclick="Thread.deletePost({{ entry_data.entry_slug }}); return false;"
                            style="display: none;"
@@ -256,7 +267,7 @@
                     {% endif %}
 
                     {# Report button #}
-                    {% if mybb.user.uid not in skip_report and user_permissions.canbereported %}
+                    {% if mybb.user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported %}
                         <a href="javascript:void(0)"
                            onclick="Report.reportPost({{ entry_data.entry_slug }}); return false;"
                            title="{{ lang.myshowcase_view_entry_options_report_title }}"
@@ -267,8 +278,8 @@
                     {% endif %}
 
                     {# Warn user button #}
-                    {% if mybb.usergroup.canwarnusers and entry_data.user_id != mybb.user.uid %}
-                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ entry_data.user_id }}&amp;pid={{ entry_data.entry_slug }}"
+                    {% if mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid %}
+                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ entry_data.entry_slug }}"
                            title="{{ lang.myshowcase_view_entry_options_warn_title }}"
                            class="post-control post-control--warn">
                             {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -278,7 +289,7 @@
 
                     {# Purge spammer button #}
                     {% if show_purge_spammer_button %}
-                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ entry_data.user_id }}"
+                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ user_data.uid }}"
                            title="{{ lang.myshowcase_view_entry_options_purge_spammer_title }}"
                            class="post-control post-control--purge-spammer">
                             {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}

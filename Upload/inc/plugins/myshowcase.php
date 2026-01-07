@@ -46,21 +46,35 @@ define('MyShowcase\Plugin\Core\DEBUG', true);
 
 define('MyShowcase\ROOT', constant('MYBB_ROOT') . 'inc/plugins/myshowcase');
 
-//require_once ROOT . '/System/FormatTypes.php';
-require_once ROOT . '/System/FilterTypes.php';
-require_once ROOT . '/Plugin/FormTypes.php';
-require_once ROOT . '/System/UserPermissions.php';
-require_once ROOT . '/System/ModeratorPermissions.php';
-require_once ROOT . '/System/FieldDefaultTypes.php';
-require_once ROOT . '/System/FieldHtmlTypes.php';
-require_once ROOT . '/System/FormatTypes.php';
+
+/**
+ * PSR-4 Autoloader for the /src/ directory.
+ *
+ * @param string $class The fully-qualified class name.
+ * @return bool True if the class was loaded, false otherwise.
+ */
+spl_autoload_register(function (string $class): void {
+    $prefix = 'MyShowcase\\';
+
+    $baseDir = ROOT . '/src/';
+
+    $len = strlen($prefix);
+
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relativeClass = substr($class, $len);
+
+    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
+
 require_once ROOT . '/Plugin/Core.php';
 require_once ROOT . '/Plugin/Functions.php';
-require_once ROOT . '/Plugin/RouterUrls.php';
-require_once ROOT . '/src/Entity/Comment.php';
-require_once ROOT . '/src/Entity/Entry.php';
-require_once ROOT . '/src/Service/CommentsManager.php';
-require_once ROOT . '/src/Service/EntriesManager.php';
 
 defined('PLUGINLIBRARY') || define('PLUGINLIBRARY', MYBB_ROOT . 'inc/plugins/pluginlibrary.php');
 
@@ -147,7 +161,7 @@ $mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true
 $mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
 
 if (!function_exists('_dump')) {
-    function _dump(): never
+    function _dump(): void
     {
         echo '<pre>';
 

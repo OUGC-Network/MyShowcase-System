@@ -15,45 +15,23 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
+use DirectoryIterator;
+use MyShowcase\Enum\FieldDefaultTypes;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FieldTypes;
+use MyShowcase\Enum\FilterTypes;
+use MyShowcase\Enum\FormatTypes;
+use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
+use MyShowcase\System\Showcase;
 use Postparser;
-use DirectoryIterator;
 use Random\RandomException;
 use ReflectionClass;
-use MyShowcase\System\FilterTypes;
-use MyShowcase\System\FieldDefaultTypes;
-use MyShowcase\System\FieldHtmlTypes;
-use MyShowcase\System\FieldTypes;
-use MyShowcase\System\FormatTypes;
-use MyShowcase\System\DataHandler;
-use MyShowcase\System\Render;
-use MyShowcase\System\ModeratorPermissions;
-use MyShowcase\System\UserPermissions;
-use MyShowcase\System\Showcase;
-use MyShowcase\Fields\CheckBoxField;
-use MyShowcase\Fields\ColorField;
-use MyShowcase\Fields\DateField;
-use MyShowcase\Fields\DateTimeLocalField;
-use MyShowcase\Fields\EmailField;
-use MyShowcase\Fields\FieldsInterface;
-use MyShowcase\Fields\FileField;
-use MyShowcase\Fields\MonthField;
-use MyShowcase\Fields\NumberField;
-use MyShowcase\Fields\PasswordField;
-use MyShowcase\Fields\RadioField;
-use MyShowcase\Fields\RangeField;
-use MyShowcase\Fields\SearchField;
-use MyShowcase\Fields\SelectEntriesField;
-use MyShowcase\Fields\SelectField;
-use MyShowcase\Fields\SelectThreadsField;
-use MyShowcase\Fields\SelectUsersField;
-use MyShowcase\Fields\TelephoneField;
-use MyShowcase\Fields\TextAreaField;
-use MyShowcase\Fields\TextField;
-use MyShowcase\Fields\TimeField;
-use MyShowcase\Fields\UrlField;
-use MyShowcase\Fields\WeekField;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -62,12 +40,6 @@ use Twig\Error\SyntaxError;
 use function MyBB\app;
 use function MyBB\View\template;
 
-use const MyShowcase\ROOT;
-use const MyShowcase\Plugin\Core\ATTACHMENT_IMAGE_TOO_SMALL_FOR_THUMBNAIL;
-use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_PENDING_APPROVAL;
-use const MyShowcase\Plugin\Core\ATTACHMENT_STATUS_VISIBLE;
-use const MyShowcase\Plugin\Core\ATTACHMENT_THUMBNAIL_ERROR;
-use const MyShowcase\Plugin\Core\ATTACHMENT_THUMBNAIL_SMALL;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
@@ -81,26 +53,13 @@ use const MyShowcase\Plugin\Core\FILTER_TYPE_NONE;
 use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
 use const MyShowcase\Plugin\Core\SETTINGS;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\Plugin\Core\UPLOAD_STATUS_FAILED;
-use const MyShowcase\Plugin\Core\UPLOAD_STATUS_INVALID;
 use const MyShowcase\Plugin\Core\URL;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_CENTER;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_LEFT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_RIGHT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_LEFT;
 use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_RIGHT;
-
-const UPLOAD_ERROR_INI_SIZE = 1;
-
-const UPLOAD_ERROR_FORM_SIZE = 2;
-
-const UPLOAD_ERROR_PARTIAL = 3;
-
-const UPLOAD_ERROR_NO_FILE = 4;
-
-const UPLOAD_ERROR_NO_TMP_DIR = 6;
-
-const UPLOAD_ERROR_CANT_WRITE = 7;
+use const MyShowcase\ROOT;
 
 function loadLanguage(
     string $languageFileName = 'myshowcase',
@@ -148,8 +107,8 @@ function hooksAdd(string $namespace): bool
 
 function hooksRun(
     string $hookName,
-    EntriesManager|CommentsManager|array &$hookArguments = []
-): EntriesManager|CommentsManager|array {
+    EntriesManager|CommentsManager|AttachmentsManager|EntriesRepository|CommentsRepository|array &$hookArguments = []
+): EntriesManager|CommentsManager|AttachmentsManager|EntriesRepository|CommentsRepository|array {
     global $plugins;
 
     return $plugins->run_hooks('myshowcase_system_' . $hookName, $hookArguments);
@@ -595,6 +554,8 @@ function showcaseDelete(int $showcaseID): bool
         'showcaseID' => &$showcaseID,
     ];
 
+    $showcase = showcaseGetObject($showcaseID);
+
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
     foreach (permissionsGet(["showcase_id='{$showcaseID}'"]) as $permissionID => $permissionData) {
@@ -605,14 +566,14 @@ function showcaseDelete(int $showcaseID): bool
         moderatorsDelete($moderatorID);
     }
 
-    $showcase = showcaseGetObject($showcaseID);
-
-    foreach ($showcase->commentManager->queryComments(query_fields: ['comment_id']) as $commentID => $commentData) {
-        $showcase->commentManager->deleteComment($commentID);
+    foreach (
+        $showcase->comments_repository->queryComments(query_fields: ['comment_id']) as $commentID => $commentData
+    ) {
+        $showcase->comments_repository->deleteComment($commentID);
     }
 
-    foreach (attachmentGet(["showcase_id='{$showcaseID}'"]) as $attachmentID => $attachmentData) {
-        attachmentDelete($attachmentID);
+    foreach ($showcase->attachments_repository->queryAttachments() as $attachmentID => $attachmentData) {
+        $showcase->attachments_repository->deleteAttachment($attachmentID);
     }
 
     if (showcaseDataTableExists($showcaseID)) {
@@ -706,8 +667,8 @@ function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
 
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    foreach ($showcase->entryManager->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
-        $showcase->entryManager->deleteEntry($entryID, $showcase->commentManager);
+    foreach ($showcase->entries_repository->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
+        $showcase->entries_repository->deleteEntry($entryID);
     }
 
     $db->drop_column('myshowcase_data' . $showcaseID, $fieldName);
@@ -1118,722 +1079,6 @@ function fieldDataDelete(int $fieldDataID): bool
     return true;
 }
 
-function attachmentInsert(array $attachmentData, bool $isUpdate = false, int $attachmentID = 0): int
-{
-    global $db;
-
-    $tablesData = TABLES_DATA['myshowcase_attachments'];
-
-    $insertData = [];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'attachmentData' => &$attachmentData,
-        'isUpdate' => $isUpdate,
-        'attachmentID' => &$attachmentID,
-        'tableData' => &$tablesData,
-    ];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($attachmentData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($attachmentData[$fieldName], $fieldDefinition['type']);
-        }
-    }
-
-    $hookArguments = hooksRun('attachment_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_attachments', $insertData, "attachment_id='{$attachmentID}'");
-    } else {
-        $attachmentID = (int)$db->insert_query('myshowcase_attachments', $insertData);
-    }
-
-    return $attachmentID;
-}
-
-function attachmentUpdate(array $attachmentData, int $attachmentID): int
-{
-    return attachmentInsert($attachmentData, true, $attachmentID);
-}
-
-function attachmentGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
-{
-    global $db;
-
-    $query = $db->simple_select(
-        'myshowcase_attachments',
-        implode(',', array_merge(['attachment_id'], $queryFields)),
-        implode(' AND ', $whereClauses),
-        $queryOptions
-    );
-
-    if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
-    }
-
-    $attachmentObjects = [];
-
-    while ($attachment = $db->fetch_array($query)) {
-        $attachmentObjects[(int)$attachment['attachment_id']] = $attachment;
-    }
-
-    return $attachmentObjects;
-}
-
-function attachmentDelete(int $attachmentID): bool
-{
-    global $db;
-
-    $hookArguments = [
-        'attachmentID' => &$attachmentID,
-    ];
-
-    $hookArguments = hooksRun('attachment_delete_start', $hookArguments);
-
-    $db->delete_query('myshowcase_attachments', "attachment_id='{$attachmentID}'");
-
-    return true;
-}
-
-/**
- * Remove an attachment from a specific showcase
- *
- * @param Showcase $showcase The showcase ID
- * @param string $entryHash The post_hash if available
- * @param int $attachmentID The attachment ID
- * @param int $entryID
- * @return bool
- */
-function attachmentRemove(
-    Showcase $showcase,
-    string $entryHash = '',
-    int $attachmentID = 0,
-    int $entryID = 0
-): bool {
-    $whereClauses = ["showcase_id='{$showcase->showcase_id}'", "attachment_id='{$attachmentID}'"];
-
-    if (!empty($entryHash)) {
-        global $db;
-
-        _dump(2);
-        $whereClauses[] = "post_hash='{$db->escape_string($entryHash)}'";
-    } else {
-        $whereClauses[] = "entry_id='{$entryID}'";
-    }
-
-    $attachmentData = attachmentGet($whereClauses, ['attachment_name', 'thumbnail_name', 'status'], ['limit' => 1]);
-
-    $attachmentData = hooksRun('remove_attachment_do_delete', $attachmentData);
-
-    attachmentDelete($attachmentID);
-
-    unlink($showcase->config['attachments_uploads_path'] . '/' . $attachmentData['attachment_name']);
-
-    if (!empty($attachmentData['thumbnail_name'])) {
-        unlink($showcase->config['attachments_uploads_path'] . '/' . $attachmentData['thumbnail_name']);
-    }
-
-    $dateDirectory = explode('/', $attachmentData['attachment_name']);
-
-    if (!empty($dateDirectory[0]) && is_dir($showcase->config['attachments_uploads_path'] . '/' . $dateDirectory[0])) {
-        rmdir($showcase->config['attachments_uploads_path'] . '/' . $dateDirectory[0]);
-    }
-
-    return true;
-}
-
-/**
- * Upload an attachment in to the file system
- *
- * @param Showcase $showcase Attachment data (as fed by PHPs $_FILE)
- * @param array $attachmentData
- * @param int $field_id
- * @param int|null $entry_id
- * @param string|null $post_hash
- * @param bool $isUpdate
- * @param bool $watermarkImage
- * @return array Array of attachment data if successful, otherwise array of error data
- */
-function attachmentUpload(
-    Showcase $showcase,
-    array $attachmentData,
-    ?int $field_id = null,
-    ?int $entry_id = null,
-    ?string $post_hash = null,
-    bool $isUpdate = false,
-    bool $watermarkImage = false
-): array {
-    global $db, $lang;
-
-    $returnData = [];
-
-    if (isset($attachmentData['error']) && $attachmentData['error'] !== 0) {
-        $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail;
-
-        $returnData['error'] .= match ($attachmentData['error']) {
-            UPLOAD_ERROR_INI_SIZE => $lang->error_uploadfailed_php1,
-            UPLOAD_ERROR_FORM_SIZE => $lang->error_uploadfailed_php2,
-            UPLOAD_ERROR_PARTIAL => $lang->error_uploadfailed_php3,
-            UPLOAD_ERROR_NO_FILE => $lang->error_uploadfailed_php4,
-            UPLOAD_ERROR_NO_TMP_DIR => $lang->error_uploadfailed_php6,
-            UPLOAD_ERROR_CANT_WRITE => $lang->error_uploadfailed_php7,
-            default => $lang->sprintf($lang->error_uploadfailed_phpx, $attachmentData['error']),
-        };
-
-        return $returnData;
-    }
-
-    if (!is_uploaded_file($attachmentData['tmp_name']) || empty($attachmentData['tmp_name'])) {
-        $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_php4;
-
-        return $returnData;
-    }
-
-    $attachmentFileExtension = my_strtolower(get_extension($attachmentData['name']));
-
-    $attachmentMimeType = my_strtolower($attachmentData['type']);
-
-    $attachmentTypes = cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$showcase->showcase_id] ?? [];
-
-    $attachmentType = false;
-
-    foreach ($attachmentTypes as $attachmentTypeID => $attachmentTypeData) {
-        if ($attachmentTypeData['file_extension'] === $attachmentFileExtension &&
-            $attachmentTypeData['mime_type'] === $attachmentMimeType) {
-            $attachmentType = $attachmentTypeData;
-
-            break;
-        }
-    }
-
-    if ($attachmentType === false) {
-        $returnData['error'] = $lang->error_attachtype;
-
-        return $returnData;
-    }
-
-    if (!empty($field_id)) {
-        $field_definition = $showcase->fields_cache[$field_id];
-
-        if (empty($field_definition)) {
-            $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed; // todo, update lang
-
-            return $returnData;
-        }
-
-        if ($attachmentData['size'] < $field_definition['minimum_size'] * 1024 && !empty($field_definition['minimum_size'])) {
-            $returnData['error'] = $lang->sprintf(
-                $lang->myshowcase_create_update_attachment_error_size_too_low,
-                htmlspecialchars_uni($attachmentData['name']),
-                get_friendly_size($field_definition['minimum_size'] * 1024)
-            );
-
-            return $returnData;
-        }
-
-        if ($attachmentData['size'] > $field_definition['maximum_size'] * 1024 && !empty($field_definition['maximum_size'])) {
-            $returnData['error'] = $lang->sprintf(
-                $lang->myshowcase_create_update_attachment_error_size_too_large,
-                htmlspecialchars_uni($attachmentData['name']),
-                get_friendly_size($field_definition['maximum_size'] * 1024)
-            );
-
-            return $returnData;
-        }
-    }
-
-    if ($attachmentData['size'] > $attachmentType['maximum_size'] * 1024 && !empty($attachmentType['maximum_size'])) {
-        $returnData['error'] = $lang->sprintf(
-            $lang->error_attachsize,
-            htmlspecialchars_uni($attachmentData['name']),
-            $attachmentType['maximum_size']
-        );
-
-        return $returnData;
-    }
-
-    if ($showcase->user_permissions[UserPermissions::AttachmentsUploadQuote] > 0) {
-        $totalUserUsage = attachmentGet(
-            ["user_id='{$showcase->entryUserID}'"],
-            ['SUM(file_size) AS total_user_usage'],
-            ['group_by' => 'showcase_id']
-        )['total_user_usage'] ?? 0;
-
-        $totalUserUsage = $totalUserUsage + $attachmentData['size'];
-
-        if ($totalUserUsage > ($showcase->user_permissions[UserPermissions::AttachmentsUploadQuote] * 1024)) {
-            $returnData['error'] = $lang->sprintf(
-                $lang->error_reachedattachquota,
-                get_friendly_size($showcase->user_permissions[UserPermissions::AttachmentsUploadQuote] * 1024)
-            );
-
-            return $returnData;
-        }
-    }
-
-    if (!empty($entry_id)) {
-        $where_clause = "entry_id='{$entry_id}'";
-    } else {
-        $where_clause = "post_hash='{$db->escape_string($post_hash)}'";
-    }
-
-    $existingAttachment = attachmentGet(
-        [
-            "file_name='{$db->escape_string($attachmentData['name'])}'",
-            "showcase_id='{$showcase->showcase_id}'",
-            $where_clause
-        ],
-        queryOptions: ['limit' => 1]
-    );
-
-    $existingAttachmentID = (int)($existingAttachment['attachment_id'] ?? 0);
-
-    if ($existingAttachmentID && !$isUpdate) {
-        $returnData['error'] = $lang->error_alreadyuploaded;
-
-        return $returnData;
-    }
-
-    // Check if the attachment directory (YYYYMM) exists, if not, create it
-    $directoryMonthName = gmdate('Ym');
-
-    if (!is_dir($showcase->config['attachments_uploads_path'] . '/' . $directoryMonthName)) {
-        mkdir($showcase->config['attachments_uploads_path'] . '/' . $directoryMonthName);
-
-        if (!is_dir($showcase->config['attachments_uploads_path'] . '/' . $directoryMonthName)) {
-            $directoryMonthName = '';
-        }
-    }
-
-    // If safe_mode is enabled, don't attempt to use the monthly directories as it won't work
-    if (ini_get('safe_mode') || my_strtolower(ini_get('safe_mode')) === 'on') {
-        $directoryMonthName = '';
-    }
-
-    // All seems to be good, lets move the attachment!
-    $timeNow = TIME_NOW;
-
-    $attachmentHas = generateUUIDv4();
-
-    $fileName = "attachment_{$showcase->entryUserID}_{$entry_id}_{$timeNow}_{$attachmentHas}.attach";
-
-    $fileDataResult = fileUpload(
-        $attachmentData,
-        $showcase->config['attachments_uploads_path'] . '/' . $directoryMonthName,
-        $fileName
-    );
-
-    // Failed to create the attachment in the monthly directory, just throw it in the main directory
-    if ($fileDataResult['error'] && $directoryMonthName) {
-        $fileDataResult = fileUpload($attachmentData, $showcase->config['attachments_uploads_path'] . '/', $fileName);
-    }
-
-    if ($directoryMonthName) {
-        $fileName = $directoryMonthName . '/' . $fileName;
-    }
-
-    if ($fileDataResult['error']) {
-        $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail;
-
-        switch ($fileDataResult['error']) {
-            case UPLOAD_STATUS_INVALID:
-                $returnData['error'] .= $lang->error_uploadfailed_nothingtomove;
-                break;
-            case UPLOAD_STATUS_FAILED:
-                $returnData['error'] .= $lang->error_uploadfailed_movefailed;
-                break;
-        }
-
-        return $returnData;
-    }
-
-    // Let's just double-check that it exists
-    if (!file_exists($showcase->config['attachments_uploads_path'] . '/' . $fileName)) {
-        $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail . $lang->error_uploadfailed_lost;
-
-        return $returnData;
-    }
-
-    $insertData = [
-        'showcase_id' => $showcase->showcase_id,
-        'attachment_hash' => generateUUIDv4(),
-        'user_id' => $showcase->entryUserID,
-        'file_name' => $fileName,
-        'mime_type' => my_strtolower($fileDataResult['type']),
-        'file_size' => $fileDataResult['size'],
-        'attachment_name' => $fileDataResult['original_filename'],
-        'dateline' => TIME_NOW,
-        'status' => ATTACHMENT_STATUS_VISIBLE,
-        'field_id' => $field_id,
-        /*'cdn_file' => 0,*/
-    ];
-
-    $returnData['attachment_hash'] = $insertData['attachment_hash'];
-
-    $returnData['file_name'] = $insertData['file_name'];
-
-    $returnData['file_size'] = $insertData['file_size'];
-
-    if (!empty($entry_id)) {
-        $insertData['entry_id'] = $entry_id;
-    } else {
-        $insertData['post_hash'] = $post_hash;
-    }
-
-    if ($isUpdate) {
-        $insertData['edit_stamp'] = TIME_NOW;
-    }
-
-    if (!$isUpdate && (
-            $showcase->config['moderate_attachments_upload'] ||
-            $showcase->user_permissions[UserPermissions::ModerateAttachmentsUpload]
-        )) {
-        $insertData['status'] = ATTACHMENT_STATUS_PENDING_APPROVAL;
-    } elseif ($isUpdate && (
-            $showcase->config['moderate_attachments_update'] ||
-            $showcase->user_permissions[UserPermissions::ModerateAttachmentsUpdate]
-        )) {
-        $insertData['status'] = ATTACHMENT_STATUS_PENDING_APPROVAL;
-    }
-
-    // If we're uploading an image, check the MIME type compared to the image type and attempt to generate a thumbnail
-    if (in_array($attachmentFileExtension, ['gif', 'png', 'jpg', 'jpeg', 'jpe', 'webp'])) {
-        $fullImageDimensions = getimagesize($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-        if (!is_array($fullImageDimensions)) {
-            delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-            $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed;
-
-            return $returnData;
-        }
-
-        if (!empty($attachmentType['image_minimum_dimensions_width'])) {
-            if ($fullImageDimensions[0] < $attachmentType['image_minimum_dimensions_width'] ||
-                $fullImageDimensions[1] < $attachmentType['image_minimum_dimensions_height']) {
-                delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                $returnData['error'] = $lang->sprintf(
-                    $lang->myShowcaseAttachmentsUploadErrorMinimumDimensions,
-                    htmlspecialchars_uni($insertData['attachment_name']),
-                    $attachmentType['image_minimum_dimensions_width'],
-                    $attachmentType['image_minimum_dimensions_height']
-                );
-
-                return $returnData;
-            }
-        }
-
-        if (!empty($attachmentType['image_maximum_dimensions_width'])) {
-            if ($fullImageDimensions[0] > $attachmentType['image_maximum_dimensions_width'] ||
-                $fullImageDimensions[1] > $attachmentType['image_maximum_dimensions_height']) {
-                delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                $returnData['error'] = $lang->sprintf(
-                    $lang->myShowcaseAttachmentsUploadErrorMaximumDimensions,
-                    htmlspecialchars_uni($insertData['attachment_name']),
-                    $attachmentType['image_maximum_dimensions_width'],
-                    $attachmentType['image_maximum_dimensions_height']
-                );
-
-                return $returnData;
-            }
-        }
-
-        // Check a list of known MIME types to establish what kind of image we're uploading
-        $imageType = match ($insertData['mime_type']) {
-            'image/gif' => IMAGETYPE_GIF,
-            'image/jpeg', 'image/x-jpg', 'image/x-jpeg', 'image/pjpeg', 'image/jpg' => IMAGETYPE_JPEG,
-            'image/png', 'image/x-png' => IMAGETYPE_PNG,
-            'image/bmp', 'image/x-bmp', 'image/x-windows-bmp' => IMAGETYPE_BMP,
-            'image/webp' => IMAGETYPE_WEBP,
-            default => 0,
-        };
-
-        // todo, https://github.com/JamesHeinrich/phpThumb
-        // todo, https://github.com/jamiebicknell/Thumb
-
-        if (function_exists('finfo_open')) {
-            $file_info = finfo_open(FILEINFO_MIME);
-
-            $attachmentMimeType = my_strtolower(
-                explode(
-                    ';',
-                    finfo_file($file_info, $showcase->config['attachments_uploads_path'] . '/' . $fileName)
-                )[0] ?? ''
-            );
-
-            finfo_close($file_info);
-        } elseif (function_exists('mime_content_type')) {
-            $attachmentMimeType = my_strtolower(
-                mime_content_type(
-                    MYBB_ROOT . $showcase->config['attachments_uploads_path'] . '/' . $fileName
-                )
-            );
-        }
-
-        $returnData['mime_type'] = $attachmentMimeType;
-
-        // we check again just in case
-        if ($attachmentType['mime_type'] !== $attachmentMimeType) {
-            $returnData['error'] = $lang->error_attachtype;
-
-            return $returnData;
-        }
-
-        if ($fullImageDimensions[2] !== $imageType || !$imageType) {
-            delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-            $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorInvalidType;
-
-            return $returnData;
-        }
-
-        require_once MYBB_ROOT . 'inc/functions_image.php';
-
-        if ($showcase->config['attachments_thumbnails_width'] > 0 &&
-            $showcase->config['attachments_thumbnails_height'] > 0 &&
-            in_array($imageType, [IMAGETYPE_GIF, IMAGETYPE_JPEG, IMAGETYPE_PNG])) {
-            $thumbnailImage = generate_thumbnail(
-                $showcase->config['attachments_uploads_path'] . '/' . $fileName,
-                $showcase->config['attachments_uploads_path'],
-                str_replace('.attach', "_thumb.{$attachmentFileExtension}", $fileName),
-                $showcase->config['attachments_thumbnails_width'],
-                $showcase->config['attachments_thumbnails_height']
-            );
-
-            // maybe should just ignore ?
-            if ($thumbnailImage['code'] === ATTACHMENT_THUMBNAIL_ERROR) {
-                delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed;
-
-                return $returnData;
-            }
-
-            // we only generate thumbnails for large images
-            if ($thumbnailImage['code'] !== ATTACHMENT_IMAGE_TOO_SMALL_FOR_THUMBNAIL) {
-                if (empty($thumbnailImage['filename'])) {
-                    delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                    $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorThumbnailFailure;
-
-                    return $returnData;
-                }
-
-                $insertData['thumbnail_name'] = $returnData['thumbnail_name'] = $thumbnailImage['filename'];
-
-                $thumbnailImageDimensions = getimagesize(
-                    $showcase->config['attachments_uploads_path'] . '/' . $thumbnailImage['filename']
-                );
-
-                if (!is_array($thumbnailImageDimensions)) {
-                    delete_uploaded_file($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                    $returnData['error'] = $lang->myShowcaseAttachmentsUploadErrorThumbnailFailure;
-
-                    return $returnData;
-                }
-
-                $insertData['thumbnail_dimensions'] = $returnData['thumbnail_dimensions'] = "{$thumbnailImageDimensions[0]}x{$thumbnailImageDimensions[1]}";
-            }
-
-            if ($thumbnailImage['code'] === ATTACHMENT_IMAGE_TOO_SMALL_FOR_THUMBNAIL) {
-                $insertData['thumbnail_dimensions'] = $returnData['thumbnail_dimensions'] = ATTACHMENT_THUMBNAIL_SMALL;
-            }
-        }
-
-        $watermarkImagePath = MYBB_ROOT . $showcase->config['attachments_watermark_file'];
-
-        //if requested and enabled, watermark the master image
-        if ($showcase->user_permissions[UserPermissions::CanWaterMarkAttachments] &&
-            $watermarkImage &&
-            file_exists($watermarkImagePath)) {
-            //get watermark image object
-            switch (strtolower(get_extension($showcase->config['attachments_watermark_file']))) {
-                case 'gif':
-                    $watermarkImageObject = imagecreatefromgif($watermarkImagePath);
-                    break;
-                case 'jpg':
-                case 'jpeg':
-                case 'jpe':
-                    $watermarkImageObject = imagecreatefromjpeg($watermarkImagePath);
-                    break;
-                case 'png':
-                    $watermarkImageObject = imagecreatefrompng($watermarkImagePath);
-                    break;
-            }
-
-            if (!empty($watermarkImageObject)) {
-                //get watermark size
-                $waterMarkImageWidth = imagesx($watermarkImageObject);
-
-                $waterMarkImageHeight = imagesy($watermarkImageObject);
-
-                //get size of base image
-                $fullImageDetails = getimagesize($showcase->config['attachments_uploads_path'] . '/' . $fileName);
-
-                //set watermark location
-                switch ($showcase->config['attachments_watermark_location']) {
-                    case WATERMARK_LOCATION_LOWER_LEFT:
-                        $waterMarkPositionX = 5;
-
-                        $waterMarkPositionY = $fullImageDetails[1] - $waterMarkImageHeight - 5;
-                        break;
-                    case WATERMARK_LOCATION_LOWER_RIGHT:
-                        $waterMarkPositionX = $fullImageDetails[0] - $waterMarkImageWidth - 5;
-
-                        $waterMarkPositionY = $fullImageDetails[1] - $waterMarkImageHeight - 5;
-                        break;
-                    case WATERMARK_LOCATION_CENTER:
-                        $waterMarkPositionX = $fullImageDetails[0] / 2 - $waterMarkImageWidth / 2;
-
-                        $waterMarkPositionY = $fullImageDetails[1] / 2 - $waterMarkImageHeight / 2;
-                        break;
-                    case WATERMARK_LOCATION_UPPER_LEFT:
-                        $waterMarkPositionX = 5;
-
-                        $waterMarkPositionY = 5;
-                        break;
-                    case WATERMARK_LOCATION_UPPER_RIGHT:
-                        $waterMarkPositionX = $fullImageDetails[0] - $waterMarkImageWidth - 5;
-
-                        $waterMarkPositionY = 5;
-                        break;
-                }
-
-                //get base image object
-                switch ($imageType) {
-                    case IMAGETYPE_GIF:
-                        $uploadedAttachmentFile = imagecreatefromgif(
-                            $showcase->config['attachments_uploads_path'] . '/' . $fileName
-                        );
-                        break;
-                    case IMAGETYPE_JPEG:
-                        $uploadedAttachmentFile = imagecreatefromjpeg(
-                            $showcase->config['attachments_uploads_path'] . '/' . $fileName
-                        );
-                        break;
-                    case IMAGETYPE_PNG:
-                        $uploadedAttachmentFile = imagecreatefrompng(
-                            $showcase->config['attachments_uploads_path'] . '/' . $fileName
-                        );
-                        break;
-                }
-
-                if (!empty($uploadedAttachmentFile) && isset($waterMarkPositionX) && isset($waterMarkPositionY)) {
-                    imagealphablending($uploadedAttachmentFile, true);
-
-                    imagealphablending($watermarkImageObject, true);
-
-                    imagecopy(
-                        $uploadedAttachmentFile,
-                        $watermarkImageObject,
-                        $waterMarkPositionX,
-                        $waterMarkPositionY,
-                        0,
-                        0,
-                        min($waterMarkImageWidth, $fullImageDetails[0]),
-                        min($waterMarkImageHeight, $fullImageDetails[1])
-                    );
-
-                    //remove watermark from memory
-                    imagedestroy($watermarkImageObject);
-
-                    //write modified file
-
-                    $fileOpen = fopen($showcase->config['attachments_uploads_path'] . '/' . $fileName, 'w');
-
-                    if ($fileOpen) {
-                        ob_start();
-
-                        switch ($imageType) {
-                            case IMAGETYPE_GIF:
-                                imagegif($uploadedAttachmentFile);
-                                break;
-                            case IMAGETYPE_JPEG:
-                                imagejpeg($uploadedAttachmentFile);
-                                break;
-                            case IMAGETYPE_PNG:
-                                imagepng($uploadedAttachmentFile);
-                                break;
-                        }
-
-                        $content = ob_get_clean();
-
-                        ob_end_clean();
-
-                        fwrite($fileOpen, $content);
-
-                        fclose($fileOpen);
-
-                        imagedestroy($uploadedAttachmentFile);
-                    }
-                }
-            }
-        }
-
-        $returnData['dimensions'] = $insertData['dimensions'] = "{$fullImageDimensions[0]}x{$fullImageDimensions[1]}";
-    }
-
-    $insertData = hooksRun('upload_attachment_do_insert', $insertData);
-
-    if ($existingAttachmentID && $isUpdate) {
-        attachmentUpdate($insertData, $existingAttachmentID);
-    } else {
-        $existingAttachmentID = attachmentInsert($insertData);
-    }
-
-    $returnData['attachment_id'] = $existingAttachmentID;
-
-    return $returnData;
-}
-
-//todo review hooks here
-/**
- * Actually move a file to the uploads directory
- *
- * @param array $fileData The PHP $_FILE array for the file
- * @param string $uploadsPath The path to save the file in
- * @param string $fileName The file_name for the file (if blank, current is used)
- */
-function fileUpload(array $fileData, string $uploadsPath, string $fileName = ''): array
-{
-    $returnData = [];
-
-    if (empty($fileData['name']) || $fileData['name'] === 'none' || $fileData['size'] < 1) {
-        $returnData['error'] = UPLOAD_STATUS_INVALID;
-
-        return $returnData;
-    }
-
-    if (!$fileName) {
-        $fileName = $fileData['name'];
-    }
-
-    $returnData['original_filename'] = preg_replace('#/$#', '', $fileData['name']);
-
-    $fileName = preg_replace('#/$#', '', $fileName);
-
-    if (!move_uploaded_file($fileData['tmp_name'], $uploadsPath . '/' . $fileName)) {
-        $returnData['error'] = UPLOAD_STATUS_FAILED;
-
-        return $returnData;
-    }
-
-    my_chmod($uploadsPath . '/' . $fileName, '0644');
-
-    $returnData['file_name'] = $fileName;
-
-    $returnData['path'] = $uploadsPath;
-
-    $returnData['type'] = $fileData['type'];
-
-    $returnData['size'] = $fileData['size'];
-
-    return hooksRun('upload_file_end', $returnData);
-}
-
 function dataTableStructureGet(int $showcaseID = 0): array
 {
     global $db;
@@ -1984,7 +1229,6 @@ function showcaseGetObject(int $selectedShowcaseID): ?Showcase
 function showcaseGetObjectByScriptName(string $script_name): Showcase
 {
     require_once ROOT . '/System/Showcase.php';
-    require_once ROOT . '/System/Entry.php';
 
     static $showcaseObjects = [];
 
@@ -1993,192 +1237,6 @@ function showcaseGetObjectByScriptName(string $script_name): Showcase
     }
 
     return $showcaseObjects[$script_name];
-}
-
-function renderGetObject(Showcase $showcaseObject): Render
-{
-    require_once ROOT . '/System/Render.php';
-
-    static $renderObjects = [];
-
-    if (!isset($renderObjects[$showcaseObject->showcase_id])) {
-        $renderObjects[$showcaseObject->showcase_id] = new Render($showcaseObject);
-    }
-
-    return $renderObjects[$showcaseObject->showcase_id];
-}
-
-function fieldGetObject(Showcase $showcaseObject, array $fieldDefinition): FieldsInterface
-{
-    static $fieldObjects = [];
-
-    if (!isset($fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']])) {
-        require_once ROOT . '/Fields/FieldsInterface.php';
-        require_once ROOT . '/Fields/FieldTrait.php';
-        require_once ROOT . '/Fields/MultipleFieldTrait.php';
-        require_once ROOT . '/Fields/SingleFieldTrait.php';
-
-        switch ($fieldDefinition['html_type']) {
-            case FieldHtmlTypes::CheckBox:
-                require_once ROOT . '/Fields/CheckBoxField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new CheckBoxField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Color:
-                require_once ROOT . '/Fields/ColorField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new ColorField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Date:
-                require_once ROOT . '/Fields/DateField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new DateField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::DateTimeLocal:
-                require_once ROOT . '/Fields/DateTimeLocalField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new DateTimeLocalField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Email:
-                require_once ROOT . '/Fields/EmailField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new EmailField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::File:
-                require_once ROOT . '/Fields/FileField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new FileField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Month:
-                require_once ROOT . '/Fields/MonthField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new MonthField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Number:
-                require_once ROOT . '/Fields/NumberField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new NumberField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Password:
-                require_once ROOT . '/Fields/PasswordField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new PasswordField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Radio:
-                require_once ROOT . '/Fields/RadioField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new RadioField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Range:
-                require_once ROOT . '/Fields/RangeField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new RangeField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Search:
-                require_once ROOT . '/Fields/SearchField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SearchField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Telephone:
-                require_once ROOT . '/Fields/TelephoneField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TelephoneField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Text:
-                require_once ROOT . '/Fields/TextField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TextField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Time:
-                require_once ROOT . '/Fields/TimeField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TimeField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Url:
-                require_once ROOT . '/Fields/UrlField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new UrlField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Week:
-                require_once ROOT . '/Fields/WeekField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new WeekField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::TextArea:
-                require_once ROOT . '/Fields/TextAreaField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new TextAreaField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::Select:
-                require_once ROOT . '/Fields/SelectField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::SelectUsers:
-                require_once ROOT . '/Fields/SelectUsersField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectUsersField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::SelectEntries:
-                require_once ROOT . '/Fields/SelectEntriesField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectEntriesField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            case FieldHtmlTypes::SelectThreads:
-                require_once ROOT . '/Fields/SelectThreadsField.php';
-
-                $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']] = new SelectThreadsField(
-                    $showcaseObject, $fieldDefinition
-                );
-                break;
-            default:
-                _dump(987, $fieldDefinition['html_type']);
-        }
-    }
-
-    return $fieldObjects[$showcaseObject->showcase_id][$fieldDefinition['field_key']];
 }
 
 function formatTypes(): array
@@ -2201,15 +1259,15 @@ function FilterTypes(): array
     ];
 }
 
-function formatField(int $formatType, string|int &$fieldValue): string|int
+function formatField(int $formatType, mixed &$fieldValue): string
 {
     $fieldValue = match ($formatType) {
         FormatTypes::numberFormat => $fieldValue = my_number_format((int)$fieldValue),
         FormatTypes::numberFormat1 => $fieldValue = number_format((float)$fieldValue, 1),
         FormatTypes::numberFormat2 => $fieldValue = number_format((float)$fieldValue, 2),
-        FormatTypes::htmlSpecialCharactersUni => $fieldValue = htmlspecialchars_uni($fieldValue),
-        FormatTypes::stripTags => $fieldValue = strip_tags($fieldValue),
-        default => $fieldValue
+        FormatTypes::htmlSpecialCharactersUni => $fieldValue = htmlspecialchars_uni((string)$fieldValue),
+        FormatTypes::stripTags => $fieldValue = strip_tags((string)$fieldValue),
+        default => (string)$fieldValue
     };
 
     return $fieldValue;
@@ -2222,8 +1280,6 @@ function fieldTypesGet(): array
 
 function fieldTypeMatchInt(string $fieldType): bool
 {
-    require_once ROOT . '/System/FieldTypes.php';
-
     return in_array(my_strtolower($fieldType), [
         FieldTypes::TinyInteger => FieldTypes::TinyInteger,
         FieldTypes::SmallInteger => FieldTypes::SmallInteger,
@@ -2330,32 +1386,6 @@ function generateUUIDv4(): string
     $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
 
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-}
-
-/**
- * @throws RandomException
- */
-function slugGenerateEntry(int $showcaseID, ?int $length = null): string
-{
-    if (empty($length)) {
-        $length = getSetting('slugLength');
-    }
-
-    global $db;
-
-    $generatedSlug = '';
-
-    $uniqueFound = false;
-
-    $showcase = showcaseGetObject($showcaseID);
-
-    while (!$uniqueFound) {
-        $generatedSlug = my_strtolower(bin2hex(random_bytes($length)));
-
-        $uniqueFound = !$showcase->entryManager->queryEntry(["entry_slug='{$db->escape_string($generatedSlug)}'"]);
-    }
-
-    return $generatedSlug;
 }
 
 function castTableFieldValue(mixed $value, string $fieldType): mixed

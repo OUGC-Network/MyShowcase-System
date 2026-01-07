@@ -13,14 +13,11 @@
 
 declare(strict_types=1);
 
-use MyShowcase\Plugin\FormTypes;
-use MyShowcase\Service\CommentsManager;
-use MyShowcase\Service\EntriesManager;
-use MyShowcase\System\ModeratorPermissions;
+use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\FormTypes;
 
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
-use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\cacheUpdate;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
@@ -45,7 +42,6 @@ use function MyShowcase\Plugin\Functions\showcaseInsert;
 use function MyShowcase\Plugin\Functions\showcaseUpdate;
 use function MyShowcase\Plugin\Functions\urlHandlerBuild;
 
-use const MyShowcase\Plugin\Core\TABLES_DATA;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
@@ -54,6 +50,7 @@ use const MyShowcase\Plugin\Core\MODERATOR_TYPE_GROUP;
 use const MyShowcase\Plugin\Core\MODERATOR_TYPE_USER;
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_DISABLED;
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
@@ -1780,7 +1777,7 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
 
     $showcase = showcaseGetObject($showcaseID);
 
-    if ($showcase->entryManager->queryEntries()) {
+    if ($showcase->entries_repository->queryEntries()) {
         flash_message($lang->myShowcaseAdminErrorTableDrop, 'error');
 
         admin_redirect(urlHandlerBuild());
@@ -2013,21 +2010,13 @@ document.write('" . str_replace('/', '\/', $field_select) . "');
             $showcaseDataTableExists = showcaseDataTableExists($showcaseID);
 
             if ($showcaseDataTableExists) {
-                $showcaseTotalEntries = $showcaseObject->entryManager->queryEntryCount();
+                $showcaseTotalEntries = $showcaseObject->entries_repository->queryEntryCount();
 
-                $showcaseTotalAttachments = attachmentGet(
-                    ["showcase_id='{$showcaseID}'"],
-                    ['COUNT(attachment_id) AS showcaseTotalAttachments'],
-                    ['group_by' => 'showcase_id, attachment_id']
-                )['showcaseTotalAttachments'] ?? 0;
+                $showcaseTotalAttachments = $showcaseObject->attachments_repository->queryAttachmentCount();
 
-                $showcaseTotalFilesSize = attachmentGet(
-                    ["showcase_id='{$showcaseID}'"],
-                    ['SUM(file_size) AS showcaseTotalFilesSize'],
-                    ['group_by' => 'showcase_id, attachment_id, file_size']
-                )['showcaseTotalFilesSize'] ?? 0;
+                $showcaseTotalFilesSize = $showcaseObject->attachments_repository->queryAttachmentSum();
 
-                $showcaseTotalComments = $showcaseObject->commentManager->queryCommentCount();
+                $showcaseTotalComments = $showcaseObject->comments_repository->queryCommentCount();
             }
 
             // Build popup menu

@@ -16,8 +16,8 @@
         <td class="{{ background_class }}">
             <div style="width: 95%">
                     <textarea style="width: 100%; padding: 4px; margin: 0;" rows="8" cols="80" name="comment"
-                              id="comment" tabindex="1" form="contentForm">{{ commentMessage }}</textarea>
-                {{ editorCodeButtons|raw }}
+                              id="comment" tabindex="1" form="contentForm">{{ formatted_message|raw }}</textarea>
+                {{ code_buttons|raw }}
             </div>
             <div class="editor_control_bar" style="width: 95%; padding: 4px; margin-top: 3px;">
 						<span class="smalltext">
@@ -36,7 +36,7 @@
            tabindex="3" accesskey="s" form="contentForm"/>
 </div>
 <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
-<input type="hidden" name="post_hash" value="{{ postHash }}" form="contentForm"/>
+<input type="hidden" name="post_hash" value="{{ comment_data.post_hash }}" form="contentForm"/>
 <form action="{{ createUpdateUrl }}" method="post"
       enctype="multipart/form-data" name="input" id="contentForm"></form>
 {{ attachmentsUpload|raw }}

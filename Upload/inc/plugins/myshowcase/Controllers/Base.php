@@ -15,26 +15,39 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controllers;
 
-use JetBrains\PhpStorm\NoReturn;
-use MyShowcase\Plugin\RouterUrls;
-use MyShowcase\System\Render;
+use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Routing\Routing;
 use MyShowcase\System\Showcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
-use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 
-use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
 use const MyShowcase\Plugin\Core\VERSION_CODE;
 
 abstract class Base
 {
+    public const NO_PERMISSION = 0;
+
+    public const HAS_PERMISSION = 1;
+
+    public const INVALID_ENTRY = 3;
+
+    public const INVALID_COMMENT = 4;
+
+    public const INVALID_ATTACHMENT = 5;
+
+    private array $entry_data = [];
+
+    private array $comment_data = [];
+    private int $entry_id = 0;
+
     public function __construct(
+        protected readonly Routing $routing,
         public ?Showcase &$showcase = null,
-        public ?Render &$renderObject = null,
     ) {
 //make sure this file is current
         if (SHOWCASE_FILE_VERSION_CODE < VERSION_CODE) {
@@ -45,21 +58,9 @@ abstract class Base
 
         global $forumDirectoryPathTrailing;
 
-//adjust theme settings in case this file is outside mybb_root
-
-        if (isset($theme)) {
-            global $theme;
-
-            $theme['imgdir'] = $forumDirectoryPathTrailing . substr($theme['imgdir'], 0);
-
-            $theme['imglangdir'] = $forumDirectoryPathTrailing . substr($theme['imglangdir'], 0);
-        }
-
         //\MyShowcase\Plugin\Core\cacheUpdate(\MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG);
 //start by constructing the showcase
         $this->showcase = showcaseGetObjectByScriptName(THIS_SCRIPT);
-
-        $this->renderObject = renderGetObject($this->showcase);
 
         if (!$this->showcase->config['enabled']) {
             match ($this->showcase->errorType) {
@@ -81,83 +82,102 @@ abstract class Base
         ini_set('display_errors', 1);
 
         error_reporting(E_ALL);
-
-        return $this;
     }
 
-    #[NoReturn] public function outputError(string $errorMessage): void
-    {
-    }
-
-    #[NoReturn] public function outputSuccess(string $pageContents, string $templateName = 'page'): void
-    {
-        $templatesContext = ['pageContents' => $pageContents];
-
-        $hookArguments = [
-            'templatesContext' => &$templatesContext,
-        ];
-
-        $templatesContext['page_title'] = $this->showcase->config['name'];
-
-        $templatesContext['errorMessages'] = empty($this->showcase->errorMessages) ? '' : inline_error(
-            $this->showcase->errorMessages
-        );
-
-        $templatesContext['version'] = VERSION_CODE;
-
-        if (DEBUG) {
-            $templatesContext['version'] = TIME_NOW;
+    public function verifyPermission(
+        ?string $entry_slug = null,
+        ?string $comment_slug = null,
+    ): int {
+        if (!$this->showcase->user_permissions[UserPermissions::CanView]) {
+            return self::NO_PERMISSION;
         }
 
-        $showcaseDescription = htmlspecialchars_uni($this->showcase->config['description']);
+        global $db;
 
-        if ($this->showcase->entry_id) {
-            $entryUrl = $this->showcase->urlGenerate(
-                RouterUrls::EntryView,
-                [
-                    'entry_slug' => $this->showcase->entry_data['entry_slug'],
-                    'entry_slug_custom' => $this->showcase->entry_data['entry_slug_custom']
-                ]
+        if (!(
+            $this->showcase->user_permissions[UserPermissions::CanViewEntries] ||
+            $this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]
+        )) {
+            return self::NO_PERMISSION;
+        }
+
+        if ($entry_slug !== null) {
+            $entry_data = $this->showcase->entries_repository->queryEntry(
+                ["entry_slug='{$db->escape_string($entry_slug)}'"],
+                ['entry_id', 'entry_slug', 'entry_slug_custom', 'status', 'user_id'],
             );
         }
 
-        $hookArguments = hooksRun('controller_base_output_success', $hookArguments);
+        if ($comment_slug !== null) {
+            if (!$this->showcase->config['comments_allow'] ||
+                !(
+                    $this->showcase->user_permissions[UserPermissions::CanViewComments] ||
+                    $this->showcase->user_permissions[ModeratorPermissions::CanManageComments]
+                )) {
+                return self::NO_PERMISSION;
+            }
 
-        output_page($this->renderObject->templateGet($templateName, $templatesContext));
+            $comment_data = $this->showcase->comments_repository->queryComment(
+                ["comment_slug='{$db->escape_string($comment_slug)}'"],
+                ['entry_id', 'status', 'user_id', 'dateline'],
+            );
 
-        exit;
-    }
+            if (empty($comment_data)) {
+                return self::INVALID_COMMENT;
+            }
 
-    #[NoReturn] public function outputErrorJson(string $errorMessage): void
-    {
-        global $lang;
+            if (empty($entry_data)) {
+                $entry_data = $this->showcase->entries_repository->queryEntry(
+                    ["entry_id='{$db->escape_string($comment_data['entry_id'])}'"],
+                    ['entry_id', 'entry_slug', 'entry_slug_custom', 'status', 'user_id'],
+                );
+            }
+        }
 
-        http_response_code(404);
+        if (empty($entry_data)) {
+            return self::INVALID_ENTRY;
+        }
 
-        $data = [
-            'error' => true,
-            'message' => $errorMessage
-        ];
+        if (
+            (int)$entry_data['status'] !== $this->showcase->entries_manager::STATUS_VISIBLE &&
+            ((
+                    (int)$entry_data['status'] === $this->showcase->entries_manager::STATUS_PENDING &&
+                    $this->showcase->current_user_id !== (int)$entry_data['user_id']
+                ) ||
+                (
+                    (int)$entry_data['status'] === $this->showcase->entries_manager::STATUS_DELETED &&
+                    !$this->showcase->user_permissions[ModeratorPermissions::CanManageEntries]
+                ))) {
+            return self::INVALID_ENTRY;
+        }
 
-        header("Content-type: application/json; charset={$lang->settings['charset']}");
+        if ($comment_slug !== null) {
+            if (
+                (int)$comment_data['status'] !== $this->showcase->comments_manager::STATUS_VISIBLE &&
+                ((
+                        (int)$comment_data['status'] === $this->showcase->comments_manager::STATUS_PENDING &&
+                        $this->showcase->current_user_id !== (int)$comment_data['user_id']
+                    ) ||
+                    (
+                        (int)$comment_data['status'] === $this->showcase->comments_manager::STATUS_DELETED &&
+                        !$this->showcase->user_permissions[ModeratorPermissions::CanManageComments]
+                    ))) {
+                return self::INVALID_COMMENT;
+            }
+        }
 
-        $data = json_encode($data);
+        $this->showcase->addEntry($entry_data);
 
-        exit($data);
-    }
+        $this->showcase->entry_data = $entry_data;
 
-    #[NoReturn] public function outputSuccessJson(array $data): void
-    {
-        global $lang;
+        $this->entry_id = (int)$entry_data['entry_id'];
 
-        http_response_code(201);
+        $this->entry_data = $entry_data;
 
-        header("Content-type: application/json; charset={$lang->settings['charset']}");
+        $this->comment_data = $comment_data;
 
-        $data = json_encode($data);
+        hooksRun('controller_comments_verify_permissions_end', this);
 
-        exit($data);
+        return self::HAS_PERMISSION;
     }
 }
-
-//todo review hooks here

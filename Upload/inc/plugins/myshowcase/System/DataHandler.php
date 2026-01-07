@@ -16,22 +16,26 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
+use MyShowcase\Entity\Entry;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CommentsManager;
 use myshowcase\Service\EntriesManager;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FilterTypes;
+use MyShowcase\Repository\CommentsRepository;
 use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\attachmentGet;
-use function MyShowcase\Plugin\Functions\attachmentUpdate;
 use function MyShowcase\Plugin\Functions\cleanSlug;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
-use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
-use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
@@ -45,13 +49,18 @@ class DataHandler extends CoreDataHandler
 
     public const METHOD_UPDATE = 'update';
 
+    private int $entry_id = 0;
+
     public function __construct(
         private readonly int $showcase_id,
+        private readonly Entry $entry_data,
         private readonly array $fields_cache,
-        private readonly CommentsManager $comments_manager,
+        private readonly EntriesRepository $entry_repository,
+        private readonly CommentsRepository $comment_repository,
+        private readonly AttachmentsRepository $attachments_repository,
         private readonly EntriesManager $entries_manager,
+        private readonly CommentsManager $comments_manager,
         private readonly array $config,
-        private int $entry_id,
         public $method = self::METHOD_INSERT,
         /**
          * The language file used in the data handler.
@@ -76,15 +85,15 @@ class DataHandler extends CoreDataHandler
          *
          * @var array
          */
-        public array $insertData = [],
+        public array $insert_data = [],
         /**
          * Array of data used to update a showcase.
          *
          * @var array
          */
-        public array $updateData = [],
+        public array $update_data = [],
         public int $comment_id = 0,
-        public array $returnData = [],
+        public array $return_data = [],
     ) {
         $hookArguments = [
             'dataHandler' => &$this,
@@ -127,7 +136,7 @@ class DataHandler extends CoreDataHandler
 
         $entry_data = &$this->data;
 
-        if (isset($entry_data['entry_id']) && (int)$entry_data['entry_id'] !== $this->entry_id) {
+        if ($this->entry_data->entry_id !== $this->entry_data->entry_id) {
             $this->set_error('invalid_entry');
         }
 
@@ -154,7 +163,7 @@ class DataHandler extends CoreDataHandler
             $this->set_error('invalid_views');
         }
 
-        if (isset($entry_data['comments']) && $entry_data['comments'] < 0) {
+        if (isset($entry_data['comments_approved']) && $entry_data['comments_approved'] < 0) {
             $this->set_error('invalid_comments');
         }
 
@@ -203,9 +212,7 @@ class DataHandler extends CoreDataHandler
 
             if ($fieldDefinition['is_required'] && empty($entry_data[$fieldDefinition['field_key']])) {
                 if ($fieldDefinition['html_type'] === FieldHtmlTypes::File) {
-                    $entry_attachments = $this->showcase->attachmentsGetFromField($fieldID);
-
-                    if (empty($entry_attachments)) {
+                    if ($this->entry_data->getAttachmentsByFieldID($fieldID)->count() < 1) {
                         $this->set_error(
                             'required_field',
                             [$lang->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
@@ -371,61 +378,61 @@ class DataHandler extends CoreDataHandler
         }
 
         foreach ($entryData as $key => $value) {
-            $this->insertData[$key] = $value;
+            $this->insert_data[$key] = $value;
         }
 
         $hookArguments = hooksRun('data_handler_entry_insert_update_start', $hookArguments);
 
-        if (!isset($this->insertData['entry_slug']) && $this->method === 'insert') {
-            $this->insertData['entry_slug'] = slugGenerateEntry($this->showcase_id);
+        if (!isset($this->insert_data['entry_slug']) && $this->method === 'insert') {
+            $this->insert_data['entry_slug'] = $this->entries_manager->slugGenerate();
         }
 
         if ($isUpdate) {
-            $this->entry_id = $this->entries_manager->updateEntry($this->insertData, $this->entry_id);
+            $this->entry_id = $this->entry_repository->updateEntry($this->insert_data, $this->entry_data->entry_id);
         } else {
-            $this->entry_id = $this->entries_manager->insertEntry($this->insertData);
+            $this->entry_id = $this->entry_repository->insertEntry($this->insert_data);
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
-        if (!empty($this->insertData['post_hash'])) {
+        if (!empty($this->insert_data['post_hash'])) {
             foreach (
-                attachmentGet(
-                    ["post_hash='{$db->escape_string($this->insertData['post_hash'])}'"]
+                $this->attachments_repository->queryAttachments(
+                    ["post_hash='{$db->escape_string($this->insert_data['post_hash'])}'"]
                 ) as $attachmentID => $attachmentData
             ) {
-                attachmentUpdate(['entry_id' => $this->entry_id], $attachmentID);
+                $this->attachments_repository->updateAttachment(['entry_id' => $this->entry_id], $attachmentID);
             }
 
-            $this->returnData['post_hash'] = $this->insertData['post_hash'];
+            $this->return_data['post_hash'] = $this->insert_data['post_hash'];
         }
 
-        $this->returnData['entry_id'] = $this->entry_id;
+        $this->return_data['entry_id'] = $this->entry_id;
 
-        if (isset($this->insertData['entry_slug'])) {
-            $this->returnData['entry_slug'] = $this->insertData['entry_slug'];
+        if (isset($this->insert_data['entry_slug'])) {
+            $this->return_data['entry_slug'] = $this->insert_data['entry_slug'];
         } else {
-            $this->returnData['entry_slug'] = $this->entries_manager->queryEntry(
+            $this->return_data['entry_slug'] = $this->entry_repository->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug'],
             )['entry_slug'];
         }
 
-        if (isset($this->insertData['entry_slug_custom'])) {
-            $this->returnData['entry_slug_custom'] = $this->insertData['entry_slug_custom'];
+        if (isset($this->insert_data['entry_slug_custom'])) {
+            $this->return_data['entry_slug_custom'] = $this->insert_data['entry_slug_custom'];
         } else {
-            $this->returnData['entry_slug_custom'] = $this->entries_manager->queryEntry(
+            $this->return_data['entry_slug_custom'] = $this->entry_repository->queryEntry(
                 ["entry_id='{$this->entry_id}'"],
                 ['entry_slug_custom'],
             )['entry_slug_custom'];
         }
 
-        if (isset($this->insertData['status'])) {
-            $this->returnData['status'] = $this->insertData['status'];
+        if (isset($this->insert_data['status'])) {
+            $this->return_data['status'] = $this->insert_data['status'];
         }
 
         $hookArguments = hooksRun('data_handler_entry_insert_update_end', $hookArguments);
 
-        return $this->returnData;
+        return $this->return_data;
     }
 
     /**
@@ -523,51 +530,54 @@ class DataHandler extends CoreDataHandler
             'isUpdate' => &$isUpdate,
         ];
 
-        if ($isUpdate && !isset($this->returnData['comment_slug'])) {
-            $this->returnData['comment_slug'] = $this->comments_manager->queryComment(
+        if ($isUpdate && !isset($this->return_data['comment_slug'])) {
+            $this->return_data['comment_slug'] = $this->comment_repository->queryComment(
                 ["comment_id='{$this->comment_id}'"],
                 ['comment_slug'],
             )['comment_slug'];
         } elseif (!$isUpdate) {
-            $this->returnData['comment_slug'] = $this->data['comment_slug'] = $this->comments_manager->generateSlug();
+            $this->return_data['comment_slug'] = $this->data['comment_slug'] = $this->comments_manager->slugGenerate();
         }
 
         foreach ($this->data as $key => $value) {
-            $this->insertData[$key] = $value;
+            $this->insert_data[$key] = $value;
         }
 
         $hookArguments = hooksRun('data_handler_comment_insert_update_start', $hookArguments);
 
         if ($isUpdate) {
-            $this->comments_manager->updateComment($this->insertData, $this->comment_id);
+            $this->comment_repository->updateComment($this->insert_data, $this->comment_id);
         } else {
-            $this->comment_id = $this->comments_manager->insertComment(
-                array_merge($this->insertData, [
+            $this->comment_id = $this->comment_repository->insertComment(
+                array_merge($this->insert_data, [
                     'entry_id' => $this->entry_id
                 ])
             );
         }
 
-        $this->returnData['comment_id'] = $this->comment_id;
+        $this->return_data['comment_id'] = $this->comment_id;
 
         // Assign any uploaded attachments with the specific post_hash to the newly created comment.
         if (isset($this->data['post_hash'])) {
             foreach (
-                attachmentGet(
+                $this->attachments_repository->queryAttachments(
                     ["post_hash='{$db->escape_string($this->data['post_hash'])}'"]
                 ) as $attachmentID => $attachmentData
             ) {
-                attachmentUpdate(['comment_id' => $this->comment_id, 'post_hash' => ''], $attachmentID);
+                $this->attachments_repository->updateAttachment(
+                    ['comment_id' => $this->comment_id, 'post_hash' => ''],
+                    $attachmentID
+                );
             }
         }
 
         if (isset($this->data['status'])) {
-            $this->returnData['status'] = $this->data['status'];
+            $this->return_data['status'] = $this->data['status'];
         }
 
         $hookArguments = hooksRun('data_handler_comment_insert_update_end', $hookArguments);
 
-        return $this->returnData;
+        return $this->return_data;
     }
 
     /**

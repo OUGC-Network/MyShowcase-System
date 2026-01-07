@@ -65,7 +65,7 @@ $l['myshowcase_invalid_aid'] = 'The specified Attachment ID is invalid.';
 $l['myshowcase_not_specified'] = 'Not Specified';
 
 //view options
-$l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{username}&quot;';
+$l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{1}&quot;';
 $l['myshowcase_viewing_attachment'] = 'Viewing Attachment of &quot;{username}&quot;';
 
 //new/edit myshowcase
@@ -163,7 +163,7 @@ $l['viewing_myshowcase_list'] = "Viewing <a href=\"../{1}\">{2} List</a>";
 $l['viewing_myshowcase'] = "Viewing <a href=\"../{1}\">{2} entry</a> of <a href=\"{3}\">{4}</a>";
 $l['viewing_myshowcase_new'] = "Creating <a href=\"../{1}\">New {2}</a>";
 $l['viewing_myshowcase_edit'] = 'Editing a {1} entry';
-$l['viewing_myshowcase_attach'] = "Viewing <a href=\"../{1}\">Attachment</a> in a <a href=\"../{2}\">{3} entry</a> of <a href=\"{4}\">{5}</a>";
+$l['viewing_myshowcase_attach'] = 'Viewing Attachment';
 
 $l = array_merge($l, [
     'myshowcase_main_moderated_by' => 'Moderated by',

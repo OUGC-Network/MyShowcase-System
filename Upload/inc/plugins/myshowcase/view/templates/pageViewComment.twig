@@ -25,10 +25,12 @@
 {% endif %}
 
 {# Deleted post #}
-{% if entry_data.status == 2 and permissions.can_manage_entries %}
+{% if comment_data.status == 2 and permissions.can_manage_entries %}
     <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ comment_data.comment_slug }}">
         <div class="post__meta">
-            <h3 class="post__author">{{ userProfileLink|raw }}</h3>
+            <h3 class="post__author">
+                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+            </h3>
         </div>
         <div class="post__body post__body--message post_body" id="deleted_post{{ comment_data.comment_slug }}">
             {{ trans(lang.myshowcase_view_entry_deleted_user, user_data.username) }}
@@ -54,7 +56,7 @@
     <div class="post__meta">
         {# Author avatar #}
         {% if mybb.user.showavatars is defined and mybb.user.showavatars is not empty %}
-            <a href="{{ userProfileLinkPlain|raw }}" class="avatar-profile-link">
+            <a href="{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
                 {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
                 {% else %}
@@ -65,7 +67,7 @@
 
         {# Author username #}
         <h3 class="post__author">
-            {{ userProfileLink|raw }}
+            <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             {# Online status #}
             {% if userOnlineStatus == 'online' %}
                 <span class="user-status user-status--online">
@@ -76,7 +78,7 @@
 </span>
             {% elseif userOnlineStatus == 'away' %}
                 <span class="user-status user-status--away">
-    <a href="{{ userProfileLinkPlain|raw }}" title="{{ lang.myshowcase_view_comment_status_away }}"
+    <a href="{{ get_profile_link(user_data.uid) }}" title="{{ lang.myshowcase_view_comment_status_away }}"
        class="user-status__link">
         {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_comment_status_away}, with_context = false) }}
     </a>
@@ -86,12 +88,11 @@
     {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_comment_status_offline}, with_context = false) }}
 </span>
             {% endif %}
-            {{ userOnlineStatus|raw }}
         </h3>
 
         {# Post date & permalink #}
-        <a href="{{ commentUrl }}}#{{ comment_data.comment_slug }}" title="{{ subject }}" class="post__date">
-            {{ date|my_date }}
+        <a href="{{ url.comment }}#{{ comment_data.comment_slug }}" class="post__date">
+            {{ comment_data.dateline|my_date }}
         </a>
 
         {# Inline moderation checkbox #}
@@ -121,15 +122,15 @@
         {% endif %}
 
         {# Post message #}
-        {{ commentMessage|raw }}
+        {{ formatted_message|raw }}
 
         {# Attachments #}
         {{ commentAttachments|raw }}
 
         {# Signature #}
-        {% if userSignature %}
+        {% if user_signature %}
             <div class="post__signature scaleimages">
-                {{ userSignature|raw }}
+                {{ user_signature|raw }}
             </div>
         {% endif %}
     </div>
@@ -180,9 +181,9 @@
             {% endif %}
 
             {# Reputation button #}
-            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and comment_data.user_id != mybb.user.uid and comment_data.status == 1 %}
+            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and user_data.uid != mybb.user.uid and comment_data.status == 1 %}
                 <a href="javascript:void(0)"
-                   onclick="MyBB.reputation({{ comment_data.user_id }}, {{ comment_data.comment_slug }}); return false;"
+                   onclick="MyBB.reputation({{ user_data.uid }}, {{ comment_data.comment_slug }}); return false;"
                    title="{{ lang.myshowcase_view_comment_action_rate_title }}" class="post-control post-control--rate">
                     {{ include('partials/icon.twig', {icon: 'thumbs-up', class: 'post-control__icon fa-fw'}, with_context = false) }}
                     <span class="post-control__text">{{ lang.myshowcase_view_comment_action_rate }}</span>
@@ -227,7 +228,7 @@
                     {% endif %}
 
                     {# Report button #}
-                    {% if mybb.user.uid not in skip_report and user_permissions.canbereported %}
+                    {% if mybb.user.uid not in comment_data.extra_data.reporters_list and user_permissions.canbereported %}
                         <a href="javascript:void(0)"
                            onclick="Report.reportPost({{ comment_data.comment_slug }}); return false;"
                            title="{{ lang.myshowcase_view_comment_options_report_title }}"
@@ -238,8 +239,8 @@
                     {% endif %}
 
                     {# Warn user button #}
-                    {% if mybb.usergroup.canwarnusers and comment_data.user_id != mybb.user.uid %}
-                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ comment_data.user_id }}&amp;pid={{ comment_data.comment_slug }}"
+                    {% if mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid %}
+                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ comment_data.comment_slug }}"
                            title="{{ lang.myshowcase_view_comment_options_warn_title }}"
                            class="post-control post-control--warn">
                             {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -249,7 +250,7 @@
 
                     {# Purge spammer button #}
                     {% if show_purge_spammer_button %}
-                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ comment_data.user_id }}"
+                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ user_data.uid }}"
                            title="{{ lang.myshowcase_view_comment_options_purge_spammer_title }}"
                            class="post-control post-control--purge-spammer">
                             {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}

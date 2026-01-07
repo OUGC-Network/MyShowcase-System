@@ -1,0 +1,142 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MyShowcase\Repository;
+
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
+use MyShowcase\Event\EventDispatcher;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
+
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
+
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+
+class CommentsRepository
+{
+    private ?int $comment_id;
+
+    private array $insert_data = [];
+
+    private array $comment_data = [];
+
+    private readonly bool $is_update;
+
+    public function __construct(
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
+        private readonly int $showcase_id,
+        private readonly EventDispatcher $event_dispatcher,
+    ) {
+    }
+
+    /**
+     * @return iterable<array>
+     */
+    public function queryComments(
+        array $where_clauses = [],
+        array|string $query_fields = [],
+        array $query_options = []
+    ): iterable {
+        $where_clauses[] = "showcase_id='{$this->showcase_id}'";
+
+        if (is_array($query_fields)) {
+            $query_fields = implode(', ', $query_fields);
+        }
+
+        $query = $this->db->simple_select(
+            'myshowcase_comments',
+            $query_fields,
+            implode(' AND ', $where_clauses),
+            $query_options
+        );
+
+        while ($comment_data = $this->db->fetch_array($query)) {
+            yield $comment_data;
+        }
+    }
+
+    public function queryComment(
+        array $where_clauses = [],
+        array|string $query_fields = [],
+        array $query_options = []
+    ): array {
+        $query_options['limit'] = 1;
+
+        $comment_object = [];
+
+        foreach (
+            $this->queryComments(
+                $where_clauses,
+                $query_fields,
+                $query_options
+            ) as $comment_data
+        ) {
+            $comment_object = $comment_data;
+
+            break;
+        }
+
+        return $comment_object;
+    }
+
+    public function queryCommentCount(
+        array $where_clauses = []
+    ): int {
+        return $this->queryComment($where_clauses, 'COUNT(comment_id) AS total_comments')['total_comments'];
+    }
+
+    public function insertComment(array $comment_data, bool $is_update = false, ?int $comment_id = null): int
+    {
+        $this->comment_data = $comment_data;
+
+        $this->comment_id = $comment_id;
+
+        $this->insert_data = [
+            'showcase_id' => $this->showcase_id,
+        ];
+
+        $this->is_update = $is_update;
+
+        foreach (TABLES_DATA['myshowcase_comments'] as $field_name => $field_definition) {
+            if (isset($this->comment_data[$field_name])) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $this->comment_data[$field_name],
+                    $field_definition['type']
+                );
+            }
+        }
+
+        hooksRun('comment_insert_update', $this);
+
+        if ($this->is_update) {
+            $this->db->update_query('myshowcase_comments', $this->insert_data, "comment_id='{$this->comment_id}'");
+
+            return $this->comment_id;
+        } else {
+            $this->comment_id = (int)$this->db->insert_query('myshowcase_comments', $this->insert_data);
+        }
+
+        return $this->comment_id;
+    }
+
+    public function updateComment(array $comment_data, int $comment_id): int
+    {
+        return $this->insertComment($comment_data, true, $comment_id);
+    }
+
+    public function deleteComment(int $comment_id): void
+    {
+        $this->comment_id = $comment_id;
+
+        hooksRun('comment_delete', $this);
+
+        $this->db->delete_query(
+            'myshowcase_comments',
+            "showcase_id='{$this->showcase_id}' AND comment_id='{$comment_id}'"
+        );
+    }
+}

@@ -13,8 +13,8 @@
 
 declare(strict_types=1);
 
-use MyShowcase\Plugin\FormTypes;
-use MyShowcase\System\FieldHtmlTypes;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FormTypes;
 
 use function MyShowcase\Admin\buildDbFieldDefinition;
 use function MyShowcase\Admin\languageModify;
@@ -43,20 +43,16 @@ use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Plugin\Functions\urlHandlerBuild;
 use function MyShowcase\Plugin\Functions\urlHandlerSet;
 
-use const MyShowcase\ROOT;
-use const MyShowcase\Plugin\Core\TABLES_DATA;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\ROOT;
 
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
 }
-
-require_once ROOT . '/System/FieldHtmlTypes.php';
-require_once ROOT . '/System/FieldTypes.php';
-require_once ROOT . '/System/FormatTypes.php';
 
 global $lang, $cache, $db, $plugins, $mybb;
 global $page;

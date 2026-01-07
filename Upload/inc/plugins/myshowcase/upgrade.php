@@ -13,7 +13,7 @@
 
 declare(strict_types=1);
 
-use MyShowcase\System\UserPermissions;
+use MyShowcase\Enum\UserPermissions;
 
 use function MyShowcase\Plugin\Functions\getTemplatesList;
 

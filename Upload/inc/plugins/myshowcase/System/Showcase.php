@@ -16,23 +16,30 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 use MyBB;
-use MyShowcase\Plugin\RouterUrls;
+use MyShowcase\Collection\Collection;
+use MyShowcase\Entity\Entry;
+use MyShowcase\Enum\Routes;
+use MyShowcase\Event\EventDispatcher;
+use MyShowcase\Fields\FieldFactory;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Routing\Routing;
+use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
+use MyShowcase\Service\Render;
 
-use function MyShowcase\Plugin\Functions\attachmentDelete;
-use function MyShowcase\Plugin\Functions\attachmentGet;
 use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
-use function MyShowcase\Plugin\Functions\renderGetObject;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
 
 use const MyShowcase\Plugin\Core\ALL_UNLIMITED_VALUE;
+use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
@@ -41,6 +48,7 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\DEBUG;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_CONFIGURED;
 use const MyShowcase\Plugin\Core\ERROR_TYPE_NOT_INSTALLED;
+use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
 use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_ASCENDING;
 use const MyShowcase\Plugin\Core\ORDER_DIRECTION_DESCENDING;
@@ -50,6 +58,8 @@ use const MyShowcase\ROOT;
 
 class Showcase
 {
+    private Collection $entries;
+
     public const DATA_HANDLER_METHOD_INSERT = 'insert';
 
     public const DATA_HANDLER_METHOD_UPDATE = 'update';
@@ -59,12 +69,25 @@ class Showcase
     public readonly int $current_user_id;
 
     public array $fieldset_display_fields = [];
-    private array $entry_objects = [];
-    private array $attachment_objects = [];
 
-    public EntriesManager $entryManager;
+    public Routing $routing;
 
-    public CommentsManager $commentManager;
+    public EventDispatcher $event_dispatcher;
+
+    public EntriesRepository $entries_repository;
+
+    public CommentsRepository $comments_repository;
+
+    public AttachmentsRepository $attachments_repository;
+
+    public EntriesManager $entries_manager;
+
+    public CommentsManager $comments_manager;
+
+    public AttachmentsManager $attachments_manager;
+    public Render $render_manager;
+
+    public FieldFactory $field_factory;
 
     /**
      * Constructor of class.
@@ -77,42 +100,45 @@ class Showcase
         public array $fields_searchable = [],
         public array $url_params = [],
         public string $search_keywords = '',
+        public string $search_highlight = '',
         public string $search_field = '',
         public int $search_exact = 0,
         public string $sort_direction = 'asc',
         public string $sort_field = 'dateline',
+        public int $current_page = 0,
+        public int $filter_force_field_value = 0,
 
 
-        public ?Render &$renderObject = null,
         public string $selfPhpScript = '',
         public string $dataTableName = '',
         public string $prefix = '',
         public string $cleanName = '',
-        public array $parserOptions = [
+        public array $parser_options = [
             'filter_badwords' => true,
             'highlight' => '',
             'nl2br' => true
         ],
         public int $errorType = 0,
         public array $entry_data = [],
-        public int $entry_id = 0,
-        public int $entryUserID = 0,
-        public array $errorMessages = [],
+        public array $error_messages = [],
         #Config
         public int $showcase_id = 0,
         public array $fieldSetFieldsIDs = [],
         public array $fieldSetEnabledFields = [],
         public array $fieldSetFieldsOrder = [],
-        public bool $attachmentsDisplayThumbnails = true,
-        public bool $attachmentsDisplayFullSizeImage = false,
-        public string $maximumAvatarSize = '55x55',
+        public bool $attachments_display_thumbnails = true,
+        public bool $attachments_display_full_images = false,
         #urls
         public string $urlViewEntry = '',
         public string $urlViewComment = '',
         public array $config = [],
+        public array $ur_base = [],
+        public array $attachment_types = [],
         // ***/
     )
     {
+        $this->entries = new Collection();
+
         global $db, $mybb, $cache;
 
         $this->current_user_id = (int)$mybb->user['uid'];
@@ -191,20 +217,12 @@ class Showcase
 
         $this->user_permissions = $this->userPermissionsGet($this->current_user_id);
 
-        $this->parserOptions = array_merge($this->parserOptions, [
+        $this->parser_options = array_merge($this->parser_options, [
             'allow_html' => $this->config['parser_allow_html'],
             'allow_mycode' => $this->config['parser_allow_mycode'],
             'me_username' => $mybb->user['username'] ?? '',
             'allow_smilies' => $this->config['parser_allow_smiles']
         ]);
-
-        $this->entryUserID = $this->current_user_id;
-
-        // todo, probably unnecessary since entryDataSet() already sets the entryUserID
-        // probably also ignores moderator permissions
-        if (!empty($mybb->input['entryUserID'])) {
-            $this->entryUserID = $mybb->get_input('entryUserID', MyBB::INPUT_INT);
-        }
 
         if ($this->config['field_set_id']) {
             $this->fields_cache = cacheGet(CACHE_TYPE_FIELDS)[$this->config['field_set_id']] ?? [];
@@ -235,7 +253,7 @@ class Showcase
             'username' => '',
             //'user' => '',
             'views' => '',
-            'comments' => ''
+            'comments_approved' => ''
         ];
 
         foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
@@ -247,6 +265,54 @@ class Showcase
         $this->search_field = $mybb->get_input('search_field');
 
         $this->sort_field = $mybb->get_input('sort');
+
+        if ($mybb->get_input('page', MyBB::INPUT_INT) > 0) {
+            $this->current_page = $mybb->get_input('page', MyBB::INPUT_INT);
+        }
+
+        $this->url_params = [];
+
+        if ($this->current_page) {
+            $this->url_params['page'] = $this->current_page;
+        }
+
+        if ($mybb->get_input('user_id', MyBB::INPUT_INT) > 0) {
+            $this->url_params['user_id'] = $mybb->get_input('user_id', MyBB::INPUT_INT);
+        }
+
+        switch ($this->config['filter_force_field']) {
+            case FILTER_TYPE_USER_ID:
+                $this->filter_force_field_value = $this->url_params['user_id'] ?? $this->current_user_id;
+
+                break;
+        }
+
+        if ($mybb->get_input('unapproved', MyBB::INPUT_INT)) {
+            $this->url_params['unapproved'] = $mybb->get_input('unapproved', MyBB::INPUT_INT);
+        }
+
+        if (array_key_exists(
+            $this->sort_field,
+            $this->fieldset_display_fields
+        )) {
+            $this->url_params['sort_by'] = $this->sort_field;
+        }
+
+        if ($this->search_exact) {
+            $this->url_params['exact_match'] = $this->search_exact;
+        }
+
+        if ($this->search_keywords) {
+            $this->url_params['keywords'] = $this->search_keywords;
+        }
+
+        if (in_array($this->search_field, array_keys($this->fields_searchable))) {
+            $this->url_params['search_field'] = $this->search_field;
+        }
+
+        if ($this->sort_direction) {
+            $this->url_params['order_by'] = $this->sort_direction;
+        }
 
         if ($mybb->get_input('direction') === ORDER_DIRECTION_DESCENDING) {
             $this->sort_direction = ORDER_DIRECTION_DESCENDING;
@@ -278,8 +344,6 @@ class Showcase
 
         $mybb->binary_fields[$this->dataTableName]['ipaddress'] = true;
 
-        $this->renderObject = renderGetObject($this);
-
         //loadLanguage('myshowcase_fs' . $this->config['field_set_id']);
 
         $hookArguments = [
@@ -296,31 +360,112 @@ class Showcase
             $this->search_keywords = $mybb->get_input('keywords');
         }
 
+        if (isset($mybb->input['highlight'])) {
+            $this->search_highlight = $mybb->get_input('highlight');
+
+            $this->parser_options['highlight'] = $this->search_highlight;
+        }
+
         if (!empty($mybb->input['exact_match'])) {
             $this->search_exact = 1;
         }
 
-        RouterUrls::init($this);
+        $this->attachment_types = cacheGet(CACHE_TYPE_ATTACHMENT_TYPES)[$this->showcase->showcase_id] ?? [];
 
         $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
 
-        $this->entryManager = new EntriesManager(
+        $this->routing = new Routing($this);
+
+        $this->event_dispatcher = new EventDispatcher();
+
+        $this->entries_repository = new EntriesRepository(
+            $db,
             $this->showcase_id,
+            $this->event_dispatcher,
+        );
+
+        $this->comments_repository = new CommentsRepository(
+            $db,
+            $this->showcase_id,
+            $this->event_dispatcher,
+        );
+
+        $this->attachments_repository = new AttachmentsRepository(
+            $db,
+            $this->showcase_id,
+            $this->event_dispatcher,
+        );
+
+        $this->entries_manager = new EntriesManager(
+            $this->current_user_id,
+            $this->user_permissions,
+            $this->entries_repository,
+            $this->comments_repository,
+            $this->attachments_repository,
+            $this->event_dispatcher,
+            $this->fields_cache,
+            $this->fields_searchable,
+            $this->parser_options,
             $this->config['field_set_id'],
             $this->config['filter_force_field'],
+            $this->filter_force_field_value,
             current_page: $mybb->get_input('page', MyBB::INPUT_INT),
             entries_per_page: $this->config['entries_per_page'],
-            current_user_id: $this->current_user_id,
         );
 
-        $this->commentManager = new CommentsManager(
-            $this->showcase_id,
+        $this->comments_manager = new CommentsManager(
+            $this->current_user_id,
+            $this->user_permissions,
+            $this->entries_repository,
+            $this->comments_repository,
+            $this->attachments_repository,
+            $this->event_dispatcher,
             current_page: $mybb->get_input('page', MyBB::INPUT_INT),
             comments_per_page: $this->config['comments_per_page'],
-            current_user_id: $this->current_user_id,
         );
 
-        return $this;
+        $this->attachments_manager = new AttachmentsManager(
+            $this->showcase_id,
+            $this->user_permissions,
+            $this->attachment_types,
+            $this->entries_repository,
+            $this->comments_repository,
+            $this->attachments_repository,
+            $this->event_dispatcher,
+            $this->config['attachments_uploads_path'],
+            (bool)$this->config['moderate_attachments_upload'],
+            (bool)$this->config['moderate_attachments_update'],
+            $this->config['attachments_thumbnails_width'],
+            $this->config['attachments_thumbnails_height'],
+            (string)$this->config['attachments_watermark_file'],
+            $this->config['attachments_watermark_location'],
+        );
+
+        $this->field_factory = new FieldFactory(
+            $this->attachments_repository,
+            $this->entries_manager,
+            $this->attachments_manager,
+            $this->config['field_set_id'],
+            $this->parser_options,
+            $this->search_highlight,
+        );
+
+        $this->render_manager = new Render(
+            $this->field_factory,
+            $this->current_user_id,
+            $this->user_permissions,
+            $this->url_params,
+            $this->config,
+            $this->attachment_types,
+            $this->routing,
+            $this->entries_repository,
+            $this->attachments_repository,
+            $this->entries_manager,
+            $this->comments_manager,
+            $this->fields_cache,
+            $this->attachments_display_thumbnails,
+            $this->attachments_display_full_images,
+        );
     }
 
     /**
@@ -544,204 +689,9 @@ class Showcase
         return true;
     }
 
-    public function parseMessage(string $message, array $parserOptions = []): string
+    public function parseMessage(string $message, array $options = []): string
     {
-        return postParser()->parse_message(
-            $message,
-            array_merge($this->parserOptions, $parserOptions)
-        );
-    }
-
-    public function attachmentsParseObjects(): Showcase
-    {
-        foreach ($this->attachment_objects as $entry_id_hash => &$attachmentObjects) {
-            foreach ($attachmentObjects as $attachment_id => &$attachment_data) {
-                $entry_data = $this->entryManager->getEntryByID($attachment_data['entry_id']);
-
-                //$entry_exist = !empty($entry_id_hash) && isset($this->entry_objects[$entry_id_hash]);
-
-                $attachment_data = array_merge(
-                    $attachment_data,
-                    [
-                        'file_name' => $attachment_data['file_name'],
-                        'file_size' => get_friendly_size($attachment_data['file_size']),
-                        'attachment_name' => $attachment_data['attachment_name'],
-                        'downloads' => (int)$attachment_data['downloads'],
-                        'dateline' => (int)$attachment_data['dateline'],
-                        'thumbnail_name' => $attachment_data['thumbnail_name'],
-                        'is_image' => str_starts_with($attachment_data['mime_type'], 'image/'),
-                        'icon' => get_attachment_icon($attachment_data['attachment_name']),
-                        'has_thumbnail' => !empty($attachment_data['thumbnail_name']) && $this->attachmentsDisplayThumbnails,
-                    ]
-                );
-
-                if ($entry_data !== false) {
-                    $attachment_data['url'] = $attachment_data['url_thumbnail'] = $this->urlGenerate(
-                        RouterUrls::AttachmentView,
-                        [
-                            'entry_slug' => $entry_data->entry_slug,
-                            'entry_slug_custom' => $entry_data->entry_slug_custom,
-                            'attachment_hash' => $attachment_data['attachment_hash'],
-                        ],
-                    );
-
-                    if ($attachment_data['has_thumbnail']) {
-                        $attachment_data['url_thumbnail'] = $this->urlGenerate(
-                            RouterUrls::ThumbnailView,
-                            [
-                                'entry_slug' => $entry_data->entry_slug,
-                                'entry_slug_custom' => $entry_data->entry_slug_custom,
-                                'attachment_hash' => $attachment_data['attachment_hash']
-                            ]
-                        );
-                    }
-                } else {
-                    _dump(123456, $attachment_data, $this->entry_objects[$attachment_data['entry_id']]);
-                    $attachment_data['url'] = $attachment_data['has_thumbnail'] = _dump(
-                            965,
-                            $this->entryManager->getEntryByID($attachment_data['entry_id'])
-                        ) . $this->urlGenerate(
-                            RouterUrls::AttachmentViewFromPostHash,
-                            [
-                                'post_hash' => $this->entry_objects[$attachment_data['entry_id']]->post_hash,
-                                'attachment_hash' => $attachment_data['attachment_hash']
-                            ],
-                        );
-
-                    if ($attachment_data['has_thumbnail']) {
-                        $attachment_data['url_thumbnail'] = $this->urlGenerate(
-                            RouterUrls::ThumbnailView,
-                            [
-                                'entry_slug' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug,
-                                'entry_slug_custom' => $this->entry_objects[$attachment_data['entry_id']]->entry_slug_custom,
-                                'attachment_hash' => $attachment_data['attachment_hash']
-                            ]
-                        );
-                    }
-                }
-            }
-        }
-
-        return $this;
-    }
-
-    public function attachmentsGetFromObject(?int $field_id = null): array
-    {
-        $where_clauses = ["showcase_id='{$this->showcase_id}'"];
-
-        if ($this->entry_data['entry_id']) {
-            $where_clauses[] = "entry_id='{$this->entry_data['entry_id']}'";
-        } else {
-            $where_clauses[] = "post_hash='{$this->entry_data['post_hash']}'";
-        }
-
-        if (!empty($field_id)) {
-            $where_clauses[] = "field_id='{$field_id}'";
-        }
-
-        $this->attachmentsAppend(
-            attachmentGet(
-                $where_clauses,
-                [
-                    'entry_id',
-                    'post_hash',
-                    'attachment_hash',
-                    'file_name',
-                    'mime_type',
-                    'file_size',
-                    'attachment_name',
-                    'downloads',
-                    'dateline',
-                    'status',
-                    'thumbnail_name',
-                    'thumbnail_dimensions',
-                    'field_id',
-                ]
-            )
-        )
-            ->attachmentsParseObjects();
-
-        if ($this->entry_data['entry_id']) {
-            return $this->attachmentsGetByEntryID($this->entry_data['entry_id']);
-        } else {
-            return $this->attachmentsGetByPostHash($this->entry_data['post_hash']);
-        }
-    }
-
-    public function attachmentsGetFromEntry(): array
-    {
-        $attachment_objects = [];
-
-        foreach ($this->attachmentsGetFromObject() as $attachment_id => $attachment_data) {
-            if (($attachment_data['entry_id'] === $this->entry_data['entry_id'] || $attachment_data['post_hash'] === $this->entry_data['post_hash']) && empty($attachment_data['field_id'])) {
-                $attachment_objects[$attachment_data['attachment_id']] = $attachment_data;
-            }
-        }
-
-        return $attachment_objects;
-    }
-
-    public function attachmentsGetFromField(int $field_id): array
-    {
-        $attachment_objects = [];
-
-        foreach ($this->attachmentsGetFromObject($field_id) as $entry_id_hash => $attachment_data) {
-            if ($attachment_data['field_id'] === $field_id) {
-                $attachment_objects[$attachment_data['attachment_id']] = $attachment_data;
-            }
-        }
-
-        return $attachment_objects;
-    }
-
-    public function attachmentsRemove(array $whereClauses): void
-    {
-        $whereClauses[] = "showcase_id='{$this->showcase_id}'";
-
-        $attachmentObjects = attachmentGet($whereClauses, ['attachment_name', 'thumbnail_name', 'status']);
-
-        $attachmentObjects = hooksRun('remove_attachment_do_delete', $attachmentObjects);
-
-        foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-            attachmentDelete($attachmentID);
-
-            if (file_exists($this->config['attachments_uploads_path'] . '/' . $attachmentData['attachment_name'])) {
-                unlink($this->config['attachments_uploads_path'] . '/' . $attachmentData['attachment_name']);
-            }
-
-            if (!empty($attachmentData['thumbnail_name'])) {
-                if (file_exists($this->config['attachments_uploads_path'] . '/' . $attachmentData['thumbnail_name'])) {
-                    unlink($this->config['attachments_uploads_path'] . '/' . $attachmentData['thumbnail_name']);
-                }
-            }
-
-            $dateDirectory = explode('/', $attachmentData['attachment_name']);
-
-            if (!empty($dateDirectory[0]) && is_dir(
-                    $this->config['attachments_uploads_path'] . '/' . $dateDirectory[0]
-                )) {
-                rmdir($this->config['attachments_uploads_path'] . '/' . $dateDirectory[0]);
-            }
-        }
-    }
-
-    public function entryDataSet(array $entryData): Showcase
-    {
-        $this->entry_data = $entryData;
-
-        if (isset($this->entry_data['entry_id'])) {
-            $this->entry_id = (int)$this->entry_data['entry_id'];
-        }
-
-        if (isset($this->entry_data['user_id'])) {
-            $this->entryUserID = (int)$this->entry_data['user_id'];
-        }
-
-        if (isset($this->entry_data['post_hash'])) {
-            //$this->post_hash = (string)$this->entryData['post_hash'];
-        }
-
-        return $this;
+        return postParser()->parse_message($message, array_merge($this->parser_options, $options));
     }
 
     public function getBasicUrl(): string
@@ -768,14 +718,14 @@ class Showcase
         }
 
         return url(
-                RouterUrls::EntryView,
+                Routes::EntryView,
                 $options,
             )->getRelativeUrl() . ($addAnchor ? '#' . $entrySlug : '');
     }
 
     public function urlGetComment(string $commentSlug, bool $addAnchor = true): string
     {
-        return url(RouterUrls::Comment, ['comment_slug' => $commentSlug])->getRelativeUrl();
+        return url(Routes::Comment, ['comment_slug' => $commentSlug])->getRelativeUrl();
     }
 
     public function urlGetEntryComment(
@@ -785,141 +735,99 @@ class Showcase
         bool $addAnchor = true
     ): string {
         return url(
-                RouterUrls::CommentView,
+                Routes::CommentView,
                 ['entry_slug' => $entrySlug, 'entry_slug_custom' => $entrySlugCustom, 'comment_slug' => $commentSlug]
             )->getRelativeUrl() . ($addAnchor ? '#' . $commentSlug : '');
     }
 
-    public function entriesAppend($entry_data): Showcase
-    {
-        $entry_id = !empty($entry_data->entry_id) ? $entry_data->entry_id : $entry_data->post_hash;
-
-        if ($entry_id) {
-            $this->entry_objects[$entry_id] = $entry_data;
-        }
-
-        return $this;
-    }
-
-    public function attachmentsAppend(array $attachment_objects): Showcase
-    {
-        foreach ($attachment_objects as $attachment_id => $attachment_data) {
-            $entry_id = !empty($attachment_data['entry_id']) ? $attachment_data['entry_id'] : $attachment_data['post_hash'];
-
-            if ($entry_id) {
-                $this->attachment_objects[$entry_id][$attachment_id] = $attachment_data;
-            }
-        }
-
-        return $this;
-    }
-
-    public function attachmentsGetByEntryID(int $entry_id): array
-    {
-        return $this->attachment_objects[$entry_id] ?? [];
-    }
-
-    public function attachmentsGetByPostHash(string $post_hash): array
-    {
-        return $this->attachment_objects[$post_hash] ?? [];
-    }
-
-    public function attachmentGetByHash(string $attachment_hash): array|bool
-    {
-        foreach ($this->attachment_objects as $entry_id => $attachment_objects) {
-            foreach ($attachment_objects as $attachment_id => $attachment_data) {
-                if ($attachment_data['attachment_hash'] === $attachment_hash) {
-                    return $attachment_data;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public function setEntry(
-        string $entrySlug,
-        bool $loadFields = false
-    ): void {
-        global $db;
-
-        $dataTableStructure = dataTableStructureGet($this->showcase_id);
-
-        $whereClauses = ["entry_data.entry_slug='{$db->escape_string($entrySlug)}'"];
-
-        $queryFields = array_merge(
-            array_map(function (string $fieldName): string {
-                return 'entry_data.' . $fieldName;
-            }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
-            [
-                'user_data.username',
-            ]
-        );
-
-        $queryTables = ['users user_data ON (user_data.uid=entry_data.user_id)'];
-
-        if ($loadFields) {
-            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
-                $field_key = $fieldDefinition['field_key'];
-
-                $htmlType = $fieldDefinition['html_type'];
-
-                $fieldID = (int)$fieldDefinition['field_id'];
-
-                if (false and ($htmlType === FieldHtmlTypes::Select || $htmlType === FieldHtmlTypes::Radio)) {
-                    $queryTables[] = "myshowcase_field_data table_{$field_key} ON (table_{$field_key}.field_data_id=entry_data.{$field_key} AND table_{$field_key}.field_id='{$fieldID}')";
-
-                    //$queryFields[] = "table_{$field_key}.value AS {$field_key}";
-
-                    $queryFields[] = "table_{$field_key}.display_style AS {$field_key}";
-
-                    // todo, I don't understand the purpose of this now
-                    // the condition after OR seems to fix it for now
-                    //$whereClauses[] = "(table_{$field_key}.set_id='{$this->config['field_set_id']}' OR entry_data.{$field_key}=0)";
-                } else {
-                    $queryFields[] = $field_key;
-                }
-            }
-        }
-
-        $entry_data = $this->entryManager->queryEntry($whereClauses, $queryFields, query_tables: $queryTables);
-
-        $this->entryManager->setEntry(
-            $entry_data
-        );
-
-        $this->entryDataSet($entry_data)
-            ->entriesAppend([$entry_data['entry_id'] => $entry_data]);
-    }
-
     public function urlGenerate(string $name, array $parameters = []): string
     {
-        return RouterUrls::generateUrl($name, $parameters);
+        return Routing::generateUrl($name, $parameters);
     }
 
-    public function urlParamsSet(array $urlParams): void
+    public function urlParamsAppend(array $params): void
     {
-        $this->url_params = $urlParams;
+        $this->url_params = array_merge($this->url_params, $params);
     }
 
-    public function urlParamsAppend(array $urlParams): void
-    {
-        $this->url_params = array_merge($this->url_params, $urlParams);
-    }
-
-    public function dataHandler(string $method = self::DATA_HANDLER_METHOD_INSERT): DataHandler
+    public function dataHandler(Entry $entry_data, string $method = self::DATA_HANDLER_METHOD_INSERT): DataHandler
     {
         require_once MYBB_ROOT . 'inc/datahandler.php';
         require_once ROOT . '/System/DataHandler.php';
 
         return new DataHandler(
             $this->showcase_id,
+            $entry_data,
             $this->fields_cache,
-            $this->commentManager,
-            $this->entryManager,
+            $this->entries_repository,
+            $this->comments_repository,
+            $this->attachments_repository,
+            $this->entries_manager,
+            $this->comments_manager,
             $this->config,
-            $this->entry_id,
             method: $method,
         );
+    }
+
+    /**
+     * @return Collection<Entry>
+     */
+    public function getEntries(): Collection
+    {
+        return $this->entries;
+    }
+
+    public function getEntryByID(int $entry_id): Entry|bool
+    {
+        if (!$this->entries->offsetExists($entry_id)) {
+            return false;
+        }
+
+        return $this->entries->offsetGet($entry_id);
+    }
+
+    public function addEntry(array $entry_data): void
+    {
+        $extra_data = [];
+
+        foreach ($entry_data as $field_key => $field_value) {
+            if (!in_array($field_key, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']))) {
+                $extra_data[$field_key] = $field_value;
+
+                unset($entry_data[$field_key]);
+            }
+        }
+
+        if (!empty($extra_data)) {
+            $entry_data['extra_data'] = $extra_data;
+        }
+
+        if (!$this->entries->contains($entry_data)) {
+            if (!empty($entry_data['entry_id'])) {
+                $this->entries[$entry_data['entry_id']] = new Entry(...$entry_data);
+            } elseif (!empty($entry_data['post_hash'])) {
+                $this->entries[$entry_data['post_hash']] = new Entry(...$entry_data);
+            } else {
+                $this->entries[] = new Entry(...$entry_data);
+            }
+        }
+    }
+
+    public function editorBuild(string &$code_buttons, string &$smiles_inserter, string $identifier = 'comment'): void
+    {
+        global $mybb;
+
+        if (!empty($mybb->settings['bbcodeinserter']) &&
+            $this->config['parser_allow_mycode'] &&
+            (!$this->current_user_id || !empty($mybb->user['showcodebuttons']))) {
+            $code_buttons = build_mycode_inserter(
+                $identifier,
+                $this->config['parser_allow_smiles']
+            );
+
+            if ($this->config['parser_allow_smiles']) {
+                $smiles_inserter = build_clickable_smilies();
+            }
+        }
     }
 }

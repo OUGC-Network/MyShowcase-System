@@ -32,11 +32,11 @@ function task_myshowcase(array $taskData): array
             $showcase = showcaseGetObject($showcaseID);
 
             foreach (
-                $showcase->entryManager->queryEntries(
+                $showcase->entries_repository->queryEntries(
                     ["dateline<='{$pruneTime}'", ['entry_id']]
                 ) as $entryID => $entryData
             ) {
-                $showcase->entryManager->deleteEntry($entryID, $showcase->commentManager);
+                $showcase->entries_repository->deleteEntry($entryID);
             }
         }
     }

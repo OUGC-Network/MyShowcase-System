@@ -17,9 +17,7 @@ namespace MyShowcase\Admin;
 
 use Form;
 use MyBB;
-use MyShowcase\Plugin\FormTypes;
-use MyShowcase\Service\CommentsManager;
-use MyShowcase\Service\EntriesManager;
+use MyShowcase\Enum\FormTypes;
 use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\cacheUpdate;
@@ -35,12 +33,7 @@ use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Plugin\Functions\showcaseGetObject;
-use function MyShowcase\Plugin\Functions\slugGenerateEntry;
 
-use const MyShowcase\ROOT;
-use const MyShowcase\Plugin\Core\VERSION;
-use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\Plugin\Core\FIELDS_DATA;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
@@ -48,7 +41,11 @@ use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\FIELDS_DATA;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use const MyShowcase\Plugin\Core\VERSION;
 use const MyShowcase\Plugin\Core\VERSION_CODE;
+use const MyShowcase\ROOT;
 
 function pluginInformation(): array
 {
@@ -304,11 +301,13 @@ function pluginActivation(): bool
         $showcase = showcaseGetObject($showcaseID);
 
         foreach (
-            $showcase->commentManager->queryComments(["comment_slug=''"],
+            $showcase->comments_repository->queryComments(["comment_slug=''"],
                 'comment_id') as $commentID => $commentData
         ) {
-            $showcase->commentManager->updateComment(['comment_slug' => $showcase->commentManager->generateSlug()],
-                $commentID);
+            $showcase->comments_repository->updateComment(
+                ['comment_slug' => $showcase->comments_manager->slugGenerate()],
+                $commentID
+            );
         }
     }
 
@@ -321,8 +320,13 @@ function pluginActivation(): bool
 
         dbVerifyTables(["myshowcase_data{$showcaseID}" => $dataTableStructure]);
 
-        foreach ($showcase->entryManager->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData) {
-            $showcase->entryManager->updateEntry(['entry_slug' => slugGenerateEntry($showcaseID)], $entryID);
+        foreach (
+            $showcase->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData
+        ) {
+            $showcase->entries_repository->updateEntry(
+                ['entry_slug' => $showcase->entries_manager->slugGenerate()],
+                $entryID
+            );
         }
     }
 
@@ -725,8 +729,6 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
 
 function buildDbFieldDefinition(array $fieldDefinition): string
 {
-    require_once ROOT . '/System/FieldTypes.php';
-
     $definitionString = '';
 
     $definitionString .= $fieldDefinition['type'];

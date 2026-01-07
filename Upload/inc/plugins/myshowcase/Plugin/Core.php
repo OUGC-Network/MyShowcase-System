@@ -15,9 +15,9 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Core;
 
-use MyShowcase\Plugin\FormTypes;
-use MyShowcase\System\ModeratorPermissions;
-use MyShowcase\System\UserPermissions;
+use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Enum\FormTypes;
 
 const VERSION = '3.0.0';
 
@@ -26,10 +26,6 @@ const VERSION_CODE = 3000;
 const SHOWCASE_STATUS_DISABLED = 0;
 
 const SHOWCASE_STATUS_ENABLED = 1;
-
-const UPLOAD_STATUS_INVALID = 1;
-
-const UPLOAD_STATUS_FAILED = 2;
 
 const CACHE_TYPE_CONFIG = 'config';
 
@@ -49,12 +45,6 @@ const MODERATOR_TYPE_USER = 0;
 
 const MODERATOR_TYPE_GROUP = 1;
 
-const ATTACHMENT_THUMBNAIL_ERROR = 3;
-
-const ATTACHMENT_IMAGE_TOO_SMALL_FOR_THUMBNAIL = 4;
-
-const ATTACHMENT_THUMBNAIL_SMALL = 1;
-
 const URL = 'index.php?module=myshowcase-summary';
 
 const ALL_UNLIMITED_VALUE = -1;
@@ -71,19 +61,11 @@ const ORDER_DIRECTION_ASCENDING = 'asc';
 
 const ORDER_DIRECTION_DESCENDING = 'desc';
 
-const ATTACHMENT_STATUS_PENDING_APPROVAL = 0;
-
-const ATTACHMENT_STATUS_VISIBLE = 1;
-
-const ATTACHMENT_STATUS_SOFT_DELETED = 2;
-
 const GUEST_GROUP_ID = 1;
 
 const FILTER_TYPE_NONE = 0;
 
 const FILTER_TYPE_USER_ID = 1;
-
-const UPLOAD_ERROR_FAILED = 1;
 
 const WATERMARK_LOCATION_LOWER_LEFT = 1;
 
@@ -364,12 +346,12 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
-        'parent_comment_id' => [
+        'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
         ],
-        'user_id' => [
+        'parent_comment_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
@@ -567,7 +549,7 @@ const TABLES_DATA = [
             'default' => 0,
             'formCategory' => 'main',
             'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::Select,
-            'form_function' => '\MyShowcase\Plugin\Core\generateFilterFieldsSelectArray',
+            'form_function' => '\MyShowcase\Plugin\Functions\generateFilterFieldsSelectArray',
         ],
         */
         'filter_force_field' => [ // force view entries by uid, etc
@@ -575,8 +557,8 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
             'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\FormTypes::Select,
-            'form_function' => '\MyShowcase\Plugin\Core\generateFilterFieldsSelectArray',
+            'formType' => FormTypes::Select,
+            'form_function' => '\MyShowcase\Plugin\Functions\generateFilterFieldsSelectArray',
         ],
         /*'order_default_direction' => [ // asc, desc
             'type' => 'TINYINT',
@@ -1326,7 +1308,7 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
-        ModeratorPermissions::CaManageLogs => [
+        ModeratorPermissions::CanManageLogs => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0
@@ -1528,6 +1510,36 @@ const TABLES_DATA = [
             'formType' => FormTypes::YesNo,
         ],
         'parse' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'parser_allow_html' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'parser_allow_mycode' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'parser_allow_smiles' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'parser_allow_image_code' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'parser_allow_video_code' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -1914,7 +1926,7 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        'comments' => [
+        'comments_approved' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,

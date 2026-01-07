@@ -140,7 +140,6 @@
                             {% if field_data.allow_multiple_values %}multiple="multiple"{% endif %}
                     />
                 </fieldset> #}
-                ---{{ config.url_showcase }}/{{ url.upload }}---
                 <script>
                     // Register FilePond plugins
                     FilePond.registerPlugin(
@@ -824,12 +823,12 @@
         </div>
         {% endif %}
         {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-            {{ field_data.editorSmilesInserter|raw }}
+            {{ field_data.smiles_inserter|raw }}
         {% endif %}
     </div>
 
     {% if field_data.html_type in ['text', 'search', 'textarea'] and field_data.enable_editor %}
-        {{ field_data.editorCodeButtons|raw }}
+        {{ field_data.code_buttons|raw }}
     {% endif %}
 </div>
 {% if field_data.html_type == 'file' %}

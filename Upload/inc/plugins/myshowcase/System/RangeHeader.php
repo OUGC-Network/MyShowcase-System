@@ -16,7 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase\System;
 
 //https://stackoverflow.com/a/4451376
-class RangeHeader
+readonly class RangeHeader
 {
     /**
      * Create a new instance from a Range header string
@@ -54,7 +54,7 @@ class RangeHeader
          *
          * @var int|null
          */
-        private readonly ?int $firstByte,
+        private ?int $firstByte,
 
         /**
          * The last byte in the file to send (0-indexed), a null value indicates $start to
@@ -62,7 +62,7 @@ class RangeHeader
          *
          * @var int|null
          */
-        private readonly ?int $lastByte,
+        private ?int $lastByte,
     ) {
         if ($this->firstByte === null && $this->lastByte === null) {
             throw new ExceptionInvalidRangeHeader(

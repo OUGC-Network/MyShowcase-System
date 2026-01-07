@@ -18,7 +18,7 @@ namespace MyShowcase\System;
 //https://stackoverflow.com/a/4451376
 use InvalidArgumentException;
 
-class PartialFileServlet
+readonly class PartialFileServlet
 {
     /**
      * @param RangeHeader|null $range Range header on which the transmission will be based
@@ -29,7 +29,7 @@ class PartialFileServlet
          *
          * @var RangeHeader|null
          */
-        private readonly ?RangeHeader $range = null
+        private ?RangeHeader $range = null
     ) {
     }
 
