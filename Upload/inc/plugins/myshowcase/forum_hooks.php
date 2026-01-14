@@ -16,20 +16,15 @@ declare(strict_types=1);
 namespace MyShowcase\Hooks\Forum;
 
 use MyBB;
-use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\Routes;
+use MyShowcase\Service\CacheManager;
+use myshowcase\src\Showcase;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\loadLanguage;
-use function MyShowcase\Plugin\Functions\showcaseGetObject;
-use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
-use function MyShowcase\Plugin\Functions\urlHandlerSet;
-
-use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
 
 /**
  * Add global notices for unapproved and reported showcases
@@ -51,11 +46,10 @@ function global_start(): bool
             'globalMessageUnapprovedEntries',
         ];
 
-        $showcaseObjects = cacheGet(CACHE_TYPE_CONFIG);
+        $showcaseObjects = (new CacheManager($db, $cache))->get(CacheDataTypes::Config);
 
         foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-            //$showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
-            $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+            $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
             if (THIS_SCRIPT === 'showcase.php') {
                 $templateObjects = array_merge($templateObjects, [
@@ -199,12 +193,12 @@ function global_start(): bool
         $templatelist .= ', myShowcase_' . implode(', myShowcase_', $templateObjects);
 
         foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-            $showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
+            $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
-            //if showcase is enabled...
-            if ($showcaseObject->config['enabled']) {
-                $templatelist .= ", myShowcase{$showcaseObject->showcase_id}_" . implode(
-                        ", myShowcase{$showcaseObject->showcase_id}_",
+            //if showcase is is_enabled...
+            if ($showcaseObject->config['is_enabled']) {
+                $templatelist .= ", myShowcase{$showcaseObject->config['showcase_id']}_" . implode(
+                        ", myShowcase{$showcaseObject->config['showcase_id']}_",
                         $templateObjects
                     );
             }
@@ -227,31 +221,37 @@ function global_intermediate(): bool
 
     return false;
 
-    $moderatorsCache = cacheGet(CACHE_TYPE_MODERATORS);
+    global $db, $cache;
+
+    $cache_manager = new CacheManager($db, $cache);
+
+    $moderatorsCache = $cache_manager->get(CacheDataTypes::Moderators);
 
     $unapprovedEntriesNotices = $reportedEntriesNotices = [];
 
-    $unapprovedEntriesNotices[] = $showcaseObject->templateGet('globalMessageUnapprovedEntries', [
-        'url_base' => $showcaseObject->url_base,
+    $unapprovedEntriesNotices[] = $showcaseObject->render_manager->templateGet('globalMessageUnapprovedEntries', [
         'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
         'unapprovedText' => $unapprovedText,
     ]);
 
-    foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcaseID => $showcaseData) {
-        //$showcaseObject = showcaseGetObjectByScriptName($showcaseData['script_name']);
-        $showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+    foreach (
+        $cache_manager->get(
+            CacheDataTypes::Config
+        ) as $showcaseID => $showcaseData
+    ) {
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
-        //if showcase is enabled...
-        if ($showcaseObject->config['enabled']) {
+        //if showcase is is_enabled...
+        if ($showcaseObject->config['is_enabled']) {
             //load language if we are going to use it
-            if ($showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries] || $showcaseObject->user_permissions[ModeratorPermissions::CanManageComments]) {
+            if ($showcaseObject->current_user->hasPermission(
+                    UserPermissions::EntriesCanView
+                ) || $showcaseObject->current_user->hasPermission(UserPermissions::CommentsCanView)) {
                 loadLanguage();
             }
 
-            urlHandlerSet($showcaseObject->config['script_name']);
-
             //awaiting approval
-            if ($showcaseObject->user_permissions[ModeratorPermissions::CanManageEntries]) {
+            if ($showcaseObject->current_user->hasPermission(UserPermissions::EntriesCanView)) {
                 /*
                  $unapprovedEntriesUrl = url(
                     \MyShowcase\Plugin\RouterUrls::Main,
@@ -274,7 +274,6 @@ function global_intermediate(): bool
                     $unapprovedEntriesNotices[] = $showcaseObject->render_manager->templateGet(
                         'globalMessageUnapprovedEntries',
                         [
-                            'url_base' => $showcaseObject->url_base,
                             'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
                             'unapprovedText' => $unapprovedText,
                         ]
@@ -323,14 +322,18 @@ function fetch_wol_activity_end(array &$user_activity): array
     //get cache of configured myshowcases
     //check cache for matching file_name
     //have to do it this way since the file_name can vary for each myshowcase
-    foreach (cacheGet(CACHE_TYPE_CONFIG) as $id => $myshowcase) {
-        $split_mainfile = explode('.php', $myshowcase['script_name']);
+    foreach (
+        (new CacheManager($db, $cache))->get(
+            CacheDataTypes::Config
+        ) as $id => $myshowcase
+    ) {
+        $split_mainfile = explode('.php', $myshowcase['route_identifier']);
         if ($split_mainfile[0] == $filename) {
             //preload here so we don't need to get it in next function
             $user_activity['myshowcase_filename'] = $filename;
             $user_activity['myshowcase_name'] = $myshowcase['name'];
             $user_activity['myshowcase_id'] = $myshowcase['showcase_id'];
-            $user_activity['myshowcase_mainfile'] = $myshowcase['script_name'];
+            $user_activity['myshowcase_mainfile'] = $myshowcase['route_identifier'];
 
             if ($parameters['action'] == 'view') {
                 $user_activity['activity'] = 'myShowcaseMainTableHeadView';
@@ -431,7 +434,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
                 $entryID = $plugin_array['user_activity']['entry_id'];
 
-                $showcase = showcaseGetObject($showcaseID);
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
                 $showcaseObjects = $showcase->entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
 
@@ -479,13 +482,17 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 //from having to do it every post, just every page view
 function showthread_start(): bool
 {
-    global $db, $mybb, $thread, $cache, $showcase_objects;
+    global $db, $mybb, $lang, $thread, $cache, $showcase_objects;
 
-    //get list of enabled myshowcases with postbit links turned on
+    //get list of is_enabled myshowcases with postbit links turned on
     $showcase_objects = [];
 
-    foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcase_id => $showcase_data) {
-        if ($showcase_data['enabled'] && $showcase_data['display_in_posts']) {
+    foreach (
+        (new CacheManager($db, $cache))->get(
+            CacheDataTypes::Config
+        ) as $showcase_id => $showcase_data
+    ) {
+        if ($showcase_data['is_enabled'] && $showcase_data['display_in_posts']) {
             $showcase_objects[$showcase_data['showcase_id']] = ['uids' => []];
         }
     }
@@ -515,7 +522,7 @@ function showthread_start(): bool
         //get myshowcase counts for users in thread
         if (count($uids)) {
             foreach ($showcase_objects as $showcaseID) {
-                $showcase = showcaseGetObject($showcaseID);
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
                 foreach (
                     $showcase->entries_repository->queryEntries(
@@ -541,6 +548,14 @@ function showthread_start(): bool
  */
 function postbit(array &$post): array
 {
+    static $cache_manager = null;
+
+    if ($cache_manager === null) {
+        global $db, $cache;
+
+        $cache_manager = new CacheManager($db, $cache);
+    }
+
     if (str_contains($post['message'], '[attachment=')) {
         preg_match_all(
             '#\[attachment=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})]#si',
@@ -549,12 +564,16 @@ function postbit(array &$post): array
         );
 
         if (!empty($matches[1])) {
-            global $db;
+            global $db, $mybb, $lang;
 
             $attachment_hashes = implode("','", array_map([$db, 'escape_string'], $matches[1]));
 
-            foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcase_id => $showcaseData) {
-                $showcase = showcaseGetObject($showcase_id);
+            foreach (
+                $cache_manager->get(
+                    CacheDataTypes::Config
+                ) as $showcase_id => $showcaseData
+            ) {
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
                 // todo, cache attachment objects per showcase to reduce queries
                 foreach (
@@ -599,70 +618,85 @@ function postbit(array &$post): array
                         ],
                     ) as $entry_id => $entry_data
                 ) {
-                    $showcase->addEntry($entry_data);
+                    $showcase->entries_manager->addEntry($entry_data);
+                }
+
+                foreach ($showcase->attachments_manager->getAttachments() as $attachment_data) {
+                    $entry_data = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+
+                    $attachment_data
+                        ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
+                        ->setExtraData(
+                            'is_image',
+                            str_starts_with($attachment_data->mime_type, 'image/')
+                        )
+                        ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
+
+                    $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $showcase->config['attachments_display_thumbnails'];
+
+                    $attachment_data->setExtraData(
+                        'url',
+                        $showcase->routing->generateUrl(
+                            Routes::AttachmentDownload,
+                            [
+                                'attachment_hash' => $attachment_data->attachment_hash,
+                                'attachment_name' => $attachment_data->attachment_name,
+                            ],
+                        )
+                    );
+
+                    if ($attachment_data->has_thumbnail) {
+                        $attachment_data->setExtraData(
+                            'url_thumbnail',
+                            $showcase->routing->generateUrl(
+                                Routes::AttachmentThumbnail,
+                                [
+                                    'attachment_hash' => $attachment_data->attachment_hash,
+                                    'attachment_name' => $attachment_data->attachment_name,
+                                ],
+                            )
+                        );
+                    } else {
+                        $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
+                    }
+
+                    $entry_data->addAttachment($attachment_data);
                 }
             }
 
-            foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcase_id => $showcaseData) {
-                $showcase = showcaseGetObject($showcase_id);
+            foreach (
+                $cache_manager->get(
+                    CacheDataTypes::Config
+                ) as $showcase_id => $showcaseData
+            ) {
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
                 foreach ($matches[1] as $attachment_hash) {
                     $attachment_data = $showcase->attachments_manager->getAttachmentByHash($attachment_hash);
 
-                    if ($attachment_data && $showcase->getEntries()->offsetExists($attachment_data->entry_id)) {
-                        $entry_data = $showcase->getEntryByID($attachment_data->entry_id);
-
-                        $attachment_data
-                            ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
-                            ->setExtraData(
-                                'is_image',
-                                str_starts_with($attachment_data->mime_type, 'image/')
-                            )
-                            ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
-
-                        $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $showcase->attachments_display_thumbnails;
-
-                        if ($entry_data !== false) {
-                            $attachment_data->setExtraData(
-                                'url',
-                                $showcase->routing->generateUrl(
-                                    Routes::AttachmentView,
-                                    [
-                                        'entry_slug' => $entry_data->entry_slug,
-                                        'attachment_hash' => $attachment_data->attachment_hash,
-                                    ],
-                                )
-                            );
-
-                            if ($attachment_data->has_thumbnail) {
-                                $attachment_data->setExtraData(
-                                    'url_thumbnail',
-                                    $showcase->routing->generateUrl(
-                                        Routes::ThumbnailView,
-                                        [
-                                            'entry_slug' => $entry_data->entry_slug,
-                                            'attachment_hash' => $attachment_data->attachment_hash
-                                        ]
-                                    )
-                                );
-                            } else {
-                                $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
-                            }
-
-                            $attachedThumbnail = $showcase->render_manager->templateGet(
-                                'postBitAttachmentThumbnail',
-                                [
-                                    'thumbnail' => $attachment_data,
-                                ]
-                            );
-
-                            $post['message'] = str_replace(
-                                "[attachment={$attachment_data->attachment_hash}]",
-                                $attachedThumbnail,
-                                $post['message']
-                            );
-                        }
+                    if (!$attachment_data ||
+                        !$showcase->entries_manager->getEntries()->offsetExists($attachment_data->entry_id)) {
+                        continue;
                     }
+
+                    $entry_data = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+
+                    if (!$entry_data) {
+                        continue;
+                    }
+
+                    $attachedThumbnail = $showcase->render_manager->templateGet(
+                        'postBitAttachmentThumbnail',
+                        [
+                            'thumbnail' => $attachment_data,
+                        ]
+                    );
+
+                    $post['message'] = str_replace(
+                        "[attachment={$attachment_data->attachment_hash}]",
+                        $attachedThumbnail,
+                        $post['message']
+                    );
                 }
             }
         }
@@ -676,10 +710,12 @@ function postbit(array &$post): array
 
     if (!empty($showcase_objects)) {
         foreach ($showcase_objects as $showcase_id => $showcase_data) {
-            $showcase_data = cacheGet(CACHE_TYPE_CONFIG)[$showcase_id] ?? [];
+            $showcase_data = $cache_manager->get(
+                CacheDataTypes::Config
+            )[$showcase_id] ?? [];
 
             if ($showcase_data['uids'][$post['uid']] > 0) {
-                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['relative_path'] . $showcase_data['script_name'] . '?search_field=username&keywords=' . rawurlencode(
+                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['showcase_url'] . $showcase_data['route_identifier'] . '?search_field=username&keywords=' . rawurlencode(
                         $post['username']
                     ) . '&exact_match=1">' . $showcase_data['uids'][$post['uid']] . '</a>';
             }
@@ -691,7 +727,7 @@ function postbit(array &$post): array
 
 function report_type(): void
 {
-    global $mybb;
+    global $db, $mybb, $lang;
 
     // todo, id1=showcase_id, id2=report_type, id3=comment_id/entry_id/attachment_id
     if ($mybb->get_input('type') === 'showcase_entries') {
@@ -705,7 +741,7 @@ function report_type(): void
 
         $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = showcaseGetObject($showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         $entryData = $showcase->entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
@@ -744,7 +780,7 @@ function report_type(): void
 
         $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = showcaseGetObject($showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         $commentData = $showcase->comments_repository->queryComment(["comment_id='{$commentID}'"],
             ['entry_id', 'user_id']
@@ -779,7 +815,7 @@ function report_type(): void
 
 function modcp_reports_report(): void
 {
-    global $mybb, $lang;
+    global $db, $mybb, $lang;
     global $report, $usercache, $report_data;
 
     if ($report['type'] === 'showcase_entries') {
@@ -789,7 +825,7 @@ function modcp_reports_report(): void
 
         $entryID = (int)$report['id2'];
 
-        $showcaseObject = showcaseGetObject($showcaseID);
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         $entryData = $showcaseObject->entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
@@ -819,7 +855,7 @@ function modcp_reports_report(): void
 
         $commentID = (int)$report['id2'];
 
-        $showcaseObject = showcaseGetObject($showcaseID);
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         $commentData = $showcaseObject->comments_repository->queryComment(
             ["comment_id='{$commentID}'"],

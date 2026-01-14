@@ -14,13 +14,11 @@
 namespace MyShowcase\Fields;
 
 use MyShowcase\Collection\Collection;
-use MyShowcase\Fields\FieldsInterface;
-use MyShowcase\Fields\FieldTrait;
-use MyShowcase\Fields\SingleFieldTrait;
+use MyShowcase\Entity\Entry;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
-use myshowcase\Service\EntriesManager;
-use MyShowcase\System\Showcase;
+use MyShowcase\Service\EntriesManager;
+use myshowcase\src\Showcase;
 
 class WeekField implements FieldsInterface
 {
@@ -33,13 +31,14 @@ class WeekField implements FieldsInterface
         private readonly AttachmentsManager $attachments_manager,
         private readonly int $fieldset_id,
         public Showcase $showcaseObject,
-        protected array $fieldDefinition,
-        private readonly ?int $entry_id,
-        private readonly ?string $post_hash,
+        public readonly array $fieldDefinition,
+        private readonly Entry $entry_data,
         protected string $entryFieldValue = '',
         public string $multipleSeparator = ',',
         public string $multipleConcatenator = ', ',
     ) {
         $this->attachments = new Collection();
+
+        $this->selectable_values = new Collection();
     }
 }

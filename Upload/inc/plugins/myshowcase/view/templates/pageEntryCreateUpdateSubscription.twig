@@ -1,0 +1,35 @@
+<section class="section section--form compose__hidden-section compose__hidden-section--options">
+    <h2 class="title title--section">{{ lang.thread_subscription_method }}</h2>
+    <div class="section__container">
+        <div class="row row--form field">
+            <p class="option-field option-field--compact">
+                <label>
+                    <input type="radio"
+                           name="post_options[subscription_method]" {% if post_options.subscription_method not in [1, 2, 3] %} checked="checked"{% endif %}
+                           value=""/> {{ lang.no_subscribe }}
+                </label>
+            </p>
+            <p class="option-field option-field--compact">
+                <label>
+                    <input type="radio"
+                           name="post_options[subscription_method]" {% if post_options.subscription_method == 1 %} checked="checked"{% endif %}
+                           value="1"/> {{ lang.no_subscribe_notification }}
+                </label>
+            </p>
+            <p class="option-field option-field--compact">
+                <label>
+                    <input type="radio"
+                           name="post_options[subscription_method]" {% if post_options.subscription_method == 2 %} checked="checked"{% endif %}
+                           value="2"/> {{ lang.instant_email_subscribe }}
+                </label>
+            </p>
+            <p class="option-field option-field--compact">
+                <label>
+                    <input type="radio"
+                           name="post_options[subscription_method]" {% if post_options.subscription_method == 3 %} checked="checked"{% endif %}
+                           value="3"/> {{ lang.instant_pm_subscribe }}
+                </label>
+            </p>
+        </div>
+    </div>
+</section>

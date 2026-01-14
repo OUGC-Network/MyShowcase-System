@@ -16,7 +16,7 @@
     />&nbsp;&nbsp;&nbsp;
 {% else %}
     <div>
-        {{ attachment_data.icon|raw }}&nbsp;&nbsp;
+        {{ attachment_data.extra_data.icon|raw }}&nbsp;&nbsp;
         <a href="{{ attachment_data.extra_data.url }}" target="_blank"
            title="{{ attachment_data.dateline|my_date|striptags }}">
             {{ attachment_data.attachment_name }}

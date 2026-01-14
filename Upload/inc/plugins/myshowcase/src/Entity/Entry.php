@@ -6,6 +6,9 @@ namespace MyShowcase\Entity;
 
 use MyShowcase\Collection\Collection;
 
+use MyShowcase\Enum\Routes;
+use MyShowcase\Fields\FieldsInterface;
+
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class Entry
@@ -18,41 +21,49 @@ class Entry
 
     public ?string $rendered_entry;
 
-    private array $content_reports = [];
-
     public function __construct(
-        public readonly ?int $entry_id = 0,
-        public readonly ?string $entry_slug = null,
-        public readonly ?string $entry_slug_custom = null,
-        public readonly ?string $subject = null,
-        public readonly ?int $prefix_id = null,
-        public readonly ?int $icon_id = null,
-        public readonly ?int $user_id = null,
-        public readonly ?int $dateline = null,
-        public readonly ?int $views = null,
-        public readonly ?int $comments_approved = null,
-        public readonly ?int $is_closed = null,
-        public readonly ?int $is_sticky = null,
-        public readonly ?int $status = null,
-        public readonly ?int $edit_user_id = null,
+        public ?int $entry_id = 0,
+        public ?string $entry_slug = null,
+        public ?string $entry_slug_custom = null,
         public ?string $post_hash = null,
-        public readonly ?string $ipaddress = null,
+        public ?int $user_id = null,
+        public readonly ?string $username = null,
+        public ?string $subject = null,
+        public ?string $message = null,
+        public ?int $prefix_id = null,
+        public ?int $icon_id = null,
+        public ?int $dateline = null,
+        public ?int $status = null,
+        public ?int $is_closed = null,
+        public ?int $is_sticky = null,
+        public readonly ?int $views = null,
+        public readonly ?int $comments_pending = null,
+        public readonly ?int $comments_approved = null,
+        public readonly ?int $comments_deleted = null,
+        public readonly ?int $attachments_pending = null,
+        public readonly ?int $attachments_approved = null,
+        public readonly ?int $attachments_deleted = null,
+        public readonly ?int $edit_stamp = null,
+        public readonly ?int $edit_user_id = null,
+        public ?string $edit_note = null,
+        public ?int $last_comment_id = null,
+        public readonly ?int $last_comment_user_id = null,
+        public readonly ?string $last_comment_username = null,
+        public readonly ?int $allow_signature = null,
+        public readonly ?int $disable_smilies = null,
+        public ?string $ipaddress = null,
         public ?array $extra_data = [],
     ) {
         if ($this->extra_data === null) {
             $this->extra_data = [];
         }
 
+        $this->fields = new Collection();
+
         $this->comments = new Collection();
 
         $this->attachments = new Collection();
     }
-
-    public function setPostHash(string $post_hash): void
-    {
-        $this->post_hash = $post_hash;
-    }
-
 
     public function setRenderEntry(string $rendered_entry): void
     {
@@ -87,27 +98,13 @@ class Entry
         });
     }
 
-    public function addAttachment(array $attachment_data): void
+    public function addAttachment(Attachment $attachment_data): void
     {
-        $extra_data = [];
-
-        foreach ($attachment_data as $field_key => $field_value) {
-            if (!in_array($field_key, array_keys(TABLES_DATA['myshowcase_attachments']))) {
-                $extra_data[$field_key] = $field_value;
-
-                unset($attachment_data[$field_key]);
-            }
-        }
-
-        if (!empty($extra_data)) {
-            $attachment_data['extra_data'] = $extra_data;
-        }
-
         if (!$this->attachments->contains($attachment_data)) {
-            if (!empty($attachment_data['attachment_id'])) {
-                $this->attachments[$attachment_data['attachment_id']] = new Attachment(...$attachment_data);
+            if (!empty($attachment_data->attachment_id)) {
+                $this->attachments[$attachment_data->attachment_id] = $attachment_data;
             } else {
-                $this->attachments[] = new Attachment(...$attachment_data);
+                $this->attachments[] = $attachment_data;
             }
         }
     }
@@ -117,13 +114,13 @@ class Entry
         return $this->fields;
     }
 
-    public function addField(array $field_data): void
+    public function addField(FieldsInterface $field_data): void
     {
         if (!$this->fields->contains($field_data)) {
-            if (!empty($field_data['field_id'])) {
-                $this->fields[$field_data['field_id']] = new Field(...$field_data);
+            if (!empty($field_data->field_id)) {
+                $this->fields[$field_data->field_id] = $field_data;
             } else {
-                $this->fields[] = new Field(...$field_data);
+                $this->fields[] = $field_data;
             }
         }
     }

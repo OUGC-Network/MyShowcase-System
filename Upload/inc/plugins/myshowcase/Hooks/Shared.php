@@ -15,11 +15,10 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Shared;
 
-use MyShowcase\Service\EntriesManager;
+use myshowcase\src\Showcase;
 use UserDataHandler;
 
 use function MyShowcase\Plugin\Functions\showcaseGet;
-use function MyShowcase\Plugin\Functions\showcaseGetObject;
 
 function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDataHandler
 {
@@ -33,8 +32,10 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
         return $dataHandler;
     }
 
+    global $db, $mybb, $lang;
+
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = showcaseGetObject($showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         foreach ($userIDs as $userID) {
             foreach (

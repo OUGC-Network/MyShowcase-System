@@ -15,7 +15,7 @@ namespace MyShowcase\Enum;
 
 enum FieldHtmlTypes
 {
-    public const CheckBox = 'checkbox';// build select2?
+    public const CheckBox = 'checkbox';
     public const Color = 'color';
     public const Date = 'date';
     public const DateTimeLocal = 'datetime-local';
@@ -27,21 +27,16 @@ enum FieldHtmlTypes
     public const Radio = 'radio';
     public const Range = 'range';
     public const Search = 'search';
-    //public const SearchUsers = 'search';
     public const Telephone = 'tel';
     public const Text = 'text';
     public const Time = 'time';
     public const Url = 'url';
     public const Week = 'week';
     public const TextArea = 'textarea';
-    public const Select = 'select'; // build select2?
+    public const Select = 'select';
     public const SelectUsers = 'select2_users';
     public const SelectEntries = 'select2_entries';
     public const SelectThreads = 'select2_threads';
-
-    //public const Poll = 'poll'; allow multiple
-
-    // ? tab vs block? (section)?
-    // custom page field type (Pages)
-    // user field type allows for group filter
+    public const Poll = 'poll';
+    public const Rating = 'rating';
 }

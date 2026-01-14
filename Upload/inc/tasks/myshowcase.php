@@ -13,23 +13,27 @@
 
 declare(strict_types=1);
 
-use MyShowcase\Service\EntriesManager;
+use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Service\CacheManager;
+use myshowcase\src\Showcase;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\showcaseGetObject;
-
-use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
 
 function task_myshowcase(array $taskData): array
 {
-    foreach (cacheGet(CACHE_TYPE_CONFIG) as $showcaseID => $showcaseData) {
+    global $db, $mybb, $lang;
+
+    foreach (
+        (new CacheManager($db, $mybb->cache))->get(
+            CacheDataTypes::Config
+        ) as $showcaseID => $showcaseData
+    ) {
         $showcasePruneTime = explode('|', $showcaseData['prune_time']);
 
-        if ($showcasePruneTime[0] > 0 && $showcaseData['enabled'] === SHOWCASE_STATUS_ENABLED) {
+        if ($showcasePruneTime[0] > 0 && $showcaseData['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
             $pruneTime = (int)strtotime('-' . $showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
 
-            $showcase = showcaseGetObject($showcaseID);
+            $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
             foreach (
                 $showcase->entries_repository->queryEntries(

@@ -19,27 +19,11 @@ use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Enum\FormTypes;
 
-const VERSION = '3.0.0';
-
-const VERSION_CODE = 3000;
+use const MyShowcase\SETTINGS;
 
 const SHOWCASE_STATUS_DISABLED = 0;
 
 const SHOWCASE_STATUS_ENABLED = 1;
-
-const CACHE_TYPE_CONFIG = 'config';
-
-const CACHE_TYPE_FIELDS = 'fields';
-
-const CACHE_TYPE_FIELD_SETS = 'fieldsets';
-
-const CACHE_TYPE_MODERATORS = 'moderators';
-
-const CACHE_TYPE_PERMISSIONS = 'permissions';
-
-const CACHE_TYPE_FIELD_DATA = 'field_data';
-
-const CACHE_TYPE_ATTACHMENT_TYPES = 'attachment_types';
 
 const MODERATOR_TYPE_USER = 0;
 
@@ -57,35 +41,59 @@ const ERROR_TYPE_NOT_CONFIGURED = 1;
 
 const CHECK_BOX_IS_CHECKED = 1;
 
-const ORDER_DIRECTION_ASCENDING = 'asc';
-
-const ORDER_DIRECTION_DESCENDING = 'desc';
-
 const GUEST_GROUP_ID = 1;
 
-const FILTER_TYPE_NONE = 0;
-
-const FILTER_TYPE_USER_ID = 1;
-
-const WATERMARK_LOCATION_LOWER_LEFT = 1;
-
-const WATERMARK_LOCATION_LOWER_RIGHT = 2;
-
-const WATERMARK_LOCATION_CENTER = 3;
-
-const WATERMARK_LOCATION_UPPER_LEFT = 4;
-
-const WATERMARK_LOCATION_UPPER_RIGHT = 5;
-
-const HTTP_CODE_PERMANENT_REDIRECT = 301;
-
 const TABLES_DATA = [
+    'myshowcase_subscriptions' => [
+        'subscription_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'auto_increment' => true,
+            'primary_key' => true
+        ],
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+        'scope_type' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+        'user_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'entry_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'notification_type' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+        'dateline' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+    ],
     'myshowcase_attachments' => [
         'attachment_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'auto_increment' => true,
             'primary_key' => true
+        ],
+        'attachment_hash' => [
+            'type' => 'VARCHAR',
+            'size' => 36,
+            'default' => '',
+            'unique_key' => true
         ],
         'showcase_id' => [
             'type' => 'INT',
@@ -112,12 +120,6 @@ const TABLES_DATA = [
             'size' => 36,
             'default' => '',
         ],
-        'attachment_hash' => [
-            'type' => 'VARCHAR',
-            'size' => 36,
-            'default' => '',
-            'unique_key' => true
-        ],
         'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
@@ -127,6 +129,26 @@ const TABLES_DATA = [
             'type' => 'VARCHAR',
             'size' => 250,
             'default' => ''
+        ],
+        'dateline' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'status' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+        'edit_stamp' => [ // todo, should be attachment_history_id
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'edit_user_id' => [ // todo, should be entry_history_id
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
         ],
         'file_name' => [
             'type' => 'VARCHAR',
@@ -153,16 +175,6 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
-        'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'status' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1
-        ],
         'thumbnail_name' => [
             'type' => 'VARCHAR',
             'size' => 120,
@@ -178,10 +190,10 @@ const TABLES_DATA = [
             'size' => 20,
             'default' => ''
         ],
-        'edit_stamp' => [ // todo, should be attachment_history_id
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'ipaddress' => [
+            'type' => 'VARBINARY',
+            'size' => 16,
+            'default' => '',
         ],
     ],
     'myshowcase_attachments_history' => [
@@ -205,6 +217,11 @@ const TABLES_DATA = [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
+        ],
+        'edit_note' => [
+            'type' => 'VARCHAR',
+            'size' => 150,
+            'default' => ''
         ],
         'description' => [
             'type' => 'VARCHAR',
@@ -333,7 +350,7 @@ const TABLES_DATA = [
         ],
         'comment_slug' => [
             'type' => 'VARCHAR',
-            'size' => SETTINGS['slugLength'] * 2,
+            'size' => SETTINGS['slugLength'],
             'unique_key' => true
         ],
         'showcase_id' => [
@@ -346,66 +363,92 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
+        'post_hash' => [
+            'type' => 'VARCHAR',
+            'size' => 36,
+            'default' => '',
+        ],
         'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0
+            'default' => 0,
+        ],
+        'username' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
         ],
         'parent_comment_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
         ],
-        'post_hash' => [
+        'message' => [
+            'type' => 'TEXT',
+            'null' => true,
+            'enable_search' => true,
+        ],
+        'icon_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'dateline' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'status' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        'attachments_pending' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'attachments_approved' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'attachments_deleted' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'edit_stamp' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'edit_user_id' => [ // todo, should be entry_history_id
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'edit_note' => [
             'type' => 'VARCHAR',
-            'size' => 36,
+            'size' => 120,
             'default' => '',
+        ],
+        'allow_signature' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        'disable_smilies' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
         ],
         // todo, update old data from varchar to varbinary
         'ipaddress' => [
             'type' => 'VARBINARY',
             'size' => 16,
-            'default' => ''
+            'default' => '',
         ],
-        'comment' => [
-            'type' => 'TEXT',
-            'null' => true
-        ],
-        'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'status' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1
-        ],
-        'edit_user_id' => [ // todo, should be comment_history_id
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        /*'reply_to_comment_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'reply_to_attachment_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'display_signature' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1
-        ],
-        'display_smiles' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1
-        ],*/
     ],
     'myshowcase_comments_history' => [
         'comment_history_id' => [
@@ -429,12 +472,17 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
+        'edit_note' => [
+            'type' => 'VARCHAR',
+            'size' => 150,
+            'default' => ''
+        ],
         'ipaddress' => [
             'type' => 'VARBINARY',
             'size' => 16,
             'default' => ''
         ],
-        'comment' => [
+        'message' => [
             'type' => 'TEXT',
             'null' => true
         ],
@@ -451,572 +499,564 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
+        'field_set_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+            'category' => 'general',
+            'input_type' => FormTypes::SelectFieldset,
+        ],
         'name' => [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => '',
-            'formCategory' => 'main',
-            'formType' => FormTypes::Text,
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
         'description' => [
             'type' => 'VARCHAR',
             'size' => 255,
             'default' => '',
-            'formCategory' => 'main',
-            'formType' => FormTypes::Text,
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
-        'script_name' => [
+        'route_identifier' => [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => '',
-            'formCategory' => 'main',
-            'formType' => FormTypes::Text,
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
-        'field_set_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => FormTypes::Select,
-            'form_function' => '\MyShowcase\Plugin\Functions\generateFieldSetSelectArray',
-        ],
-        /*'relative_path' => [
+        'showcase_url' => [
             'type' => 'VARCHAR',
             'size' => 255,
             'default' => '',
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\FormTypes::Text,
-        ],*/
-        'enabled' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => FormTypes::YesNo,
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
-        'enable_friendly_urls' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => FormTypes::YesNo,
-        ],
-        'display_order' => [ // mean to be useful for building a header link, etc
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => FormTypes::Number,
-        ],
-        /*'enable_dvz_stream_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::YesNo,
-        ],
-        'enable_dvz_stream_comments' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::YesNo,
+        'password' => [
+            'type' => 'VARCHAR',
+            'size' => 255,
+            'default' => '',
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
         'custom_theme_force' => [ // if force & no custom theme selected, force default theme
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::YesNo,
+            'category' => 'general',
+            'input_type' => FormTypes::YesNo,
         ],
         'custom_theme_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::Select,
-        ],*/
-        'custom_theme_template_prefix' => [
+            'category' => 'general',
+            'input_type' => FormTypes::SelectTheme,
+        ],
+        'custom_template_prefix' => [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => '',
-            'formCategory' => 'main',
-            'formType' => FormTypes::Text,
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
         ],
-        /*'order_default_field' => [ // dateline, username, custom fields, etc
+        'rules_type' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::Select,
-            'form_function' => '\MyShowcase\Plugin\Functions\generateFilterFieldsSelectArray',
+            'category' => 'general',
+            'input_type' => FormTypes::SelectRulesType,
         ],
-        */
-        'filter_force_field' => [ // force view entries by uid, etc
+        'rules_title' => [
+            'type' => 'VARCHAR',
+            'size' => 200,
+            'default' => '',
+            'category' => 'general',
+            'input_type' => FormTypes::Text,
+        ],
+        'rules_content' => [
+            'type' => 'TEXT',
+            'null' => true,
+            'category' => 'general',
+            'input_type' => FormTypes::TextArea,
+            'max' => 65535,
+        ],
+        'is_enabled' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'main',
-            'formType' => FormTypes::Select,
-            'form_function' => '\MyShowcase\Plugin\Functions\generateFilterFieldsSelectArray',
+            'category' => 'general',
+            'input_type' => FormTypes::YesNo,
         ],
-        /*'order_default_direction' => [ // asc, desc
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'main',
-            'formType' => \MyShowcase\Plugin\Core\\MyShowcase\Plugin\FormTypes::YesNo,
-        ],
-        'entries_grouping' => [ // inserts template between entry rows in the main page
+        'display_order' => [ // mean to be useful for building a header link, etc
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'main',
-            'formSection' => 'entries',
-            'formType' => \MyShowcase\Plugin\FormTypes::Number,
-        ],*/
-        'entries_per_page' => [
+            'category' => 'general',
+            'input_type' => FormTypes::Number,
+            'max' => 4294967295,
+        ],
+        'main_display_moderators' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'main',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'main_display_users_browsing' => [ // 'showforumviewing'
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'main',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'main_per_page' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 10,
+            'category' => 'main',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
+        ],
+        'main_filter_force_field' => [ // force view entries by uid, etc
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'entries',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'category' => 'main',
+            'input_type' => FormTypes::SelectFilterField,
+        ],
+        'main_sort_default_field' => [
+            'type' => 'VARCHAR',
+            'size' => 10,
+            'default' => '',
+            'category' => 'main',
+            'input_type' => FormTypes::SelectSortField,
+        ],
+        'main_sort_direction' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'main',
+            'input_type' => FormTypes::YesNo,
         ],
         'parser_allow_html' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'parser',
-            'formType' => FormTypes::CheckBox,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
         'parser_allow_mycode' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'parser',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
         'parser_allow_smiles' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'parser',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
         'parser_allow_image_code' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'parser',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
         'parser_allow_video_code' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'parser',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
-        /*'display_moderators_list' => [
+        'parser_affects_message_length' => [ // todo, strip all tags using preview function
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
-        'display_stats' => [ // a duplicate of the index table 'showindexstats'
+        'entries_allow_post_icons' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
         ],
-        'display_users_browsing_main' => [ // 'showforumviewing'
+        'entries_allow_prefixes' => [ // 1= enable, 2 = require
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::SelectPrefixType,
         ],
-        'display_users_browsing_entries' => [ // 'showforumviewing'
-            'type' => 'TINYINT',
+        'entries_enable_subject' => [
+            'type' => 'INT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
-        'display_empty_fields' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
         ],
-        /*'display_in_posts' => [
+        'entries_subject_minimum_length' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
         ],
-        'display_profile_fields' => [
-            'type' => 'TINYINT',
+        'entries_subject_maximum_length' => [
+            'type' => 'INT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
-        'display_avatars_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
+            'default' => 120,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 120,
         ],
-        'display_avatars_comments' => [
+        'entries_enable_message' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
         ],
-        'display_stars_entries' => [
+        'entries_message_minimum_length' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
         ],
-        'display_stars_comments' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_group_image_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_group_image_comments' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_user_details_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_user_details_comments' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_signatures_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'display_signatures_comments' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_entries_create' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_entries_update' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_comments_create' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_comments_update' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_attachments_upload' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'moderate_attachments_update' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'moderation',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'comments_allow' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => FormTypes::CheckBox,
-        ],
-        /*
-        'display_recursive_comments' => [ // 'showforumviewing'
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],
-        'comments_allow_quotes' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
-        /*'comments_quick_form' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'display',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
-        'comments_build_editor' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => FormTypes::CheckBox,
-        ],
-        'comments_minimum_length' => [
+        'entries_message_maximum_length' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'category' => 'entries',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 65535,
         ],
-        'comments_maximum_length' => [
+        'entries_message_build_editor' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_avatars' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_profile_fields' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_stars' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_group_image' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_details' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_signatures' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_quick_reply' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_empty_fields' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_display_users_browsing' => [ // 'showforumviewing'
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_allow_reputations' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'entries_allow_edit_reasons' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo
+        ],
+        'comments_enable' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_allow_post_icons' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_message_minimum_length' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
+        ],
+        'comments_message_maximum_length' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'category' => 'comments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 65535,
+        ],
+        'comments_message_build_editor' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_avatars' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_profile_fields' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_stars' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_group_image' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_details' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_display_signatures' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_allow_reputations' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_enable_edit_reasons' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
         ],
         'comments_per_page' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'default' => 10,
+            'category' => 'comments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
         ],
-        /*'comments_direction' => [ // reverse order
+        'comments_sort_direction' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'comments',,
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
-        'attachments_allow_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
         ],
-        /*'attachments_allow_comments' => [
+        'comments_enable_quotes' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_maximum_nested_quotes' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
+        ],
+        'attachments_allow_in_entries' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'attachments_allow_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::YesNo,
+        ],
         'attachments_uploads_path' => [
             'type' => 'VARCHAR',
             'size' => 255,
             'default' => '',
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Text,
-            'formClass' => 'field150',
+            'category' => 'attachments',
+            'input_type' => FormTypes::Text,
         ],
-        'attachments_limit_entries' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
-        ],
-        /*'attachments_limit_comments' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::Number,
-            'formClass' => 'field150',
-        ],*/
-        /*'attachments_enable_sharing' => [ // allow using attachments from other entries
+        'attachments_main_render' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::Number,
-            'formClass' => 'field150',
-        ],*/
-        'attachments_grouping' => [
+            'category' => 'attachments',
+            'input_type' => FormTypes::SelectAttachmentsMainRender,
+        ],
+        'attachments_main_render_as_lightbox' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::YesNo,
         ],
-        // todo, maybe render all attachments instead of first image only?
-        'attachments_main_render_first' => [
+        'attachments_enable_embeds' => [ // allow using attachments from other entries
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::CheckBox,
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::YesNo,
         ],
-        /*'attachments_main_render_default_image' => [
-            'type' => 'VARCHAR',
-            'null' => true,
-            'size' => 50,
-            'default' => '',
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::Text,
-            'formClass' => 'field150',
-        ],*/
         'attachments_watermark_file' => [
             'type' => 'VARCHAR',
             'null' => true,
             'size' => 50,
             'default' => '',
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Text,
-            'formClass' => 'field150',
+            'category' => 'attachments',
+            'input_type' => FormTypes::Text,
         ],
         'attachments_watermark_location' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Select,
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::SelectWatermarkLocation,
             'form_function' => '\MyShowcase\Plugin\Functions\generateWatermarkLocationsSelectArray',
         ],
-        /*'attachments_portal_build_widget' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::Number,
-            'formClass' => 'field150',
-        ],
-        'attachments_parse_in_content' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => \MyShowcase\Plugin\FormTypes::CheckBox,
-        ],*/
         'attachments_thumbnails_width' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'default' => 200,
+            'category' => 'attachments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
         ],
         'attachments_thumbnails_height' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'formCategory' => 'other',
-            'formSection' => 'attachments',
-            'formType' => FormTypes::Number,
-            'formClass' => 'field150',
+            'default' => 200,
+            'category' => 'attachments',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
+        ],
+        'attachments_display_type' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'attachments',
+            'input_type' => FormTypes::SelectAttachmentsDisplayType,
+        ],
+        'subscriptions_enable' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'entries',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'subscriptions_message_length' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 255,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 255,
         ],
     ],
     'myshowcase_fieldsets' => [
@@ -1049,222 +1089,487 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
-        UserPermissions::CanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'general',
-        ],
-        UserPermissions::CanSearch => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'general',
-        ],
-        UserPermissions::CanViewEntries => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'entries',
-        ],
-        UserPermissions::CanCreateEntries => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'entries',
-        ],
-        UserPermissions::CanUpdateEntries => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'entries',
-        ],
-        UserPermissions::CanDeleteEntries => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'entries',
-        ],
-        UserPermissions::CanViewComments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'comments',
-        ],
-        UserPermissions::CanCreateComments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'comments',
-        ],
-        UserPermissions::CanUpdateComments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'comments',
-        ],
-        UserPermissions::CanDeleteComments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'comments',
-        ],
-        UserPermissions::CanViewAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
-        ],
-        UserPermissions::CanUploadAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
-        ],
-        UserPermissions::CanUpdateAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
-        ],
-        UserPermissions::CanDeleteAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
-        ],
-        UserPermissions::CanDownloadAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'draggingPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
-        ],
-        UserPermissions::AttachmentsUploadQuote => [
+        'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'zeroUnlimited' => true,
-            'formType' => FormTypes::Number,
-            'formCategory' => 'attachments',
+            'default' => 0
         ],
-        UserPermissions::CanWaterMarkAttachments => [
+        UserPermissions::MainCanView => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanView => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanViewOnlyOwn => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'attachments',
         ],
-        UserPermissions::AttachmentsFilesLimit => [
-            'type' => 'INT',
+        UserPermissions::EntriesCanViewUnapproved => [
+            'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-            'isPermission' => true,
-            'zeroUnlimited' => true,
-            'formType' => FormTypes::Number,
-            'formCategory' => 'attachments',
+            'default' => 1,
         ],
-        UserPermissions::CanViewSoftDeletedNotice => [
+        UserPermissions::EntriesCanViewDeleted => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateEntryCreate => [
+        UserPermissions::EntriesCanPost => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanUpdate => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanOpen => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateEntryUpdate => [
+        UserPermissions::EntriesCanClose => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateCommentsCreate => [
+        UserPermissions::EntriesCanSticky => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateCommentsUpdate => [
+        UserPermissions::EntriesCanUnstick => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateAttachmentsUpload => [
+        UserPermissions::EntriesCanApprove => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
-        UserPermissions::ModerateAttachmentsUpdate => [
+        UserPermissions::EntriesCanUnapprove => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'isPermission' => true,
-            'lowest' => true,
-            'formType' => FormTypes::CheckBox,
-            'formCategory' => 'moderation',
         ],
+        UserPermissions::EntriesCanCopy => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanSoftDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesCanRestore => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesCanDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesCanViewDeletionNotices => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::EntriesModerateNew => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesModerateUpdates => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitViewAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitViewInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitViewIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitPostAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitPostInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesLimitPostIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesReputationLimitAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesReputationLimitInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesReputationLimitIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesFloodTime => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 60,
+        ],
+        UserPermissions::CommentsCanView => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsCanViewOnlyOwn => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanViewUnapproved => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsCanViewDeleted => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanPost => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsCanPostInClosedEntries => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanUpdate => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsCanApprove => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanUnapprove => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanMove => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanSoftDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsCanRestore => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsCanViewDeletionNotices => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CommentsModerateNew => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsModerateUpdates => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsLimitPostAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsLimitPostInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsLimitPostIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsReputationLimitAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsReputationLimitInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsReputationLimitIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CommentsFloodTime => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 60,
+        ],
+        UserPermissions::AttachmentsCanView => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanViewOnlyOwn => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanViewUnapproved => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanViewDeleted => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanUpload => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanDownload => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanUpdate => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanApprove => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanUnapprove => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanSoftDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsCanRestore => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanDelete => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsCanViewDeletionNotices => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::AttachmentsModerateNew => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsModerateUpdates => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadQuotaAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadQuotaInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitUploadQuotaIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadQuotaAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadQuotaInterval => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitDownloadQuotaIntervalAmount => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitPerEntry => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsLimitPerComment => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsUploadFloodTime => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsDownloadFloodTime => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsQuota => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::AttachmentsWaterMarkImages => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanSearchEntries => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CanSearchComments => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CanSearchAttachments => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        UserPermissions::CanViewIPs => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanUseCustomModerationTools => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanManageReports => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanManageLogs => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanBypassDownloadLimits => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::CanBypassModeration => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        //'unique_keys' => ['showcase_group_user_id' => ['showcase_id', 'group_id', 'user_id']],
     ],
     'myshowcase_moderators' => [
         'moderator_id' => [
@@ -1283,17 +1588,22 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
+        'group_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
         'is_group' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0
         ],
-        ModeratorPermissions::CanManageEntries => [
+        ModeratorPermissions::EntriesCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0
         ],
-        ModeratorPermissions::CanManageComments => [
+        ModeratorPermissions::CommentsCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0
@@ -1331,89 +1641,89 @@ const TABLES_DATA = [
             'type' => 'VARCHAR',
             'size' => 30,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
             'formRequired' => true,
         ],
         'field_label' => [
             'type' => 'VARCHAR',
             'size' => 30,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'placeholder' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'description' => [
             'type' => 'VARCHAR',
             'size' => 250,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'html_type' => [
             'type' => 'VARCHAR',
             'size' => 15,
             'default' => '',
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\fieldHtmlTypes',
         ],
         'field_type' => [
             'type' => 'VARCHAR',
             'size' => 10,
             'default' => '',
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\fieldTypesGet',
         ],
         'file_capture' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\fileCaptureTypes',
         ],
         'allow_multiple_values' => [//checkbox, select, text area new line, text box comma
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'regular_expression' => [
             'type' => 'VARCHAR',
             'size' => 500,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'input_pattern' => [
             'type' => 'VARCHAR',
             'size' => 500,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'display_in_create_update_page' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'display_in_view_page' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'display_in_main_page' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'minimum_length' => [
             'type' => 'MEDIUMINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'maximum_length' => [
             'type' => 'MEDIUMINT',
@@ -1497,7 +1807,7 @@ const TABLES_DATA = [
             'formType' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\filterTypes',
         ],
-        'enabled' => [
+        'is_enabled' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -1699,133 +2009,127 @@ const TABLES_DATA = [
 
 const FIELDS_DATA = [
     'usergroups' => [
-        'myshowcase_' . UserPermissions::CanView => [
+        'myshowcase_' . UserPermissions::MainCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanSearch => [
+        'myshowcase_' . UserPermissions::CanSearchEntries => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanViewEntries => [
+        'myshowcase_' . UserPermissions::EntriesCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanCreateEntries => [
+        'myshowcase_' . UserPermissions::EntriesCanPost => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanUpdateEntries => [
+        'myshowcase_' . UserPermissions::EntriesCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanDeleteEntries => [
+        'myshowcase_' . UserPermissions::EntriesCanDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanViewComments => [
+        'myshowcase_' . UserPermissions::CommentsCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanCreateComments => [
+        'myshowcase_' . UserPermissions::CommentsCanPost => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanUpdateComments => [
+        'myshowcase_' . UserPermissions::CommentsCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanDeleteComments => [
+        'myshowcase_' . UserPermissions::CommentsCanDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanViewAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsCanView => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanUploadAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsCanUpload => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanUpdateAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanDeleteAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsCanDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanDownloadAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsCanDownload => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::AttachmentsUploadQuote => [
+        'myshowcase_' . UserPermissions::AttachmentsLimitUploadQuotaAmount => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::CanWaterMarkAttachments => [
+        'myshowcase_' . UserPermissions::AttachmentsWaterMarkImages => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::AttachmentsFilesLimit => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-            'zeroUnlimited' => true,
-        ],
-        'myshowcase_' . UserPermissions::CanViewSoftDeletedNotice => [
+        'myshowcase_' . UserPermissions::EntriesCanViewDeletionNotices => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'myshowcase_' . UserPermissions::ModerateEntryCreate => [
+        'myshowcase_' . UserPermissions::EntriesModerateNew => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'lowest' => true,
         ],
-        'myshowcase_' . UserPermissions::ModerateEntryUpdate => [
+        'myshowcase_' . UserPermissions::EntriesModerateUpdates => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'lowest' => true,
         ],
-        'myshowcase_' . UserPermissions::ModerateCommentsCreate => [
+        'myshowcase_' . UserPermissions::CommentsModerateNew => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'lowest' => true,
         ],
-        'myshowcase_' . UserPermissions::ModerateCommentsUpdate => [
+        'myshowcase_' . UserPermissions::CommentsModerateUpdates => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'lowest' => true,
         ],
-        'myshowcase_' . UserPermissions::ModerateAttachmentsUpload => [
+        'myshowcase_' . UserPermissions::AttachmentsModerateNew => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'lowest' => true,
         ],
-        'myshowcase_' . UserPermissions::ModerateAttachmentsUpdate => [
+        'myshowcase_' . UserPermissions::AttachmentsModerateUpdates => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -1850,6 +2154,18 @@ const FIELDS_DATA = [
     ]
 ];
 
+// todo, general settings
+// maximum entry subject
+// maximum comment length
+// enable entry length
+
+// todo, field settings
+// limit files per field
+// watermark images
+// generate thumbnails
+
+// todo, display a notice for unapproved entries/comments/attachments
+
 // todo, add field setting to order entries by (i.e: sticky)
 // todo, add field setting to block entries by (i.e: closed)
 // todo, add field setting to record changes by (i.e: history)
@@ -1867,23 +2183,41 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'auto_increment' => true,
             'primary_key' => true,
-            'enable_search' => true,
         ],
         'entry_slug' => [
             'type' => 'VARCHAR',
-            'size' => SETTINGS['slugLength'] * 2,
+            'size' => SETTINGS['slugLength'],
             'unique_key' => true,
         ],
         'entry_slug_custom' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
-            'enable_search' => true,
+        ],
+        'post_hash' => [
+            'type' => 'VARCHAR',
+            'size' => 36,
+            'default' => '',
+        ],
+        'user_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'username' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
         ],
         'subject' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
+            'enable_search' => true,
+        ],
+        'message' => [
+            'type' => 'TEXT',
+            'null' => true,
             'enable_search' => true,
         ],
         'prefix_id' => [
@@ -1896,40 +2230,15 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        /*'poll_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'category_primary' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        'category_secondary' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
-        ],*/
-        'user_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
         'dateline' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'views' => [
-            'type' => 'INT',
+        'status' => [
+            'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 0,
-        ],
-        'comments_approved' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'default' => 1,
         ],
         'is_closed' => [
             'type' => 'TINYINT',
@@ -1941,32 +2250,80 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        /*
-        notes text NOT NULL,*/
-        'status' => [
-            'type' => 'TINYINT',
+        'views' => [
+            'type' => 'INT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
+        ],
+        'comments_pending' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'comments_approved' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'comments_deleted' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'attachments_pending' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'attachments_approved' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'attachments_deleted' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'edit_stamp' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
         ],
         'edit_user_id' => [ // todo, should be entry_history_id
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        /*'approved' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
+        'edit_note' => [
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
         ],
-        'approved_by' => [
+        'last_comment_id' => [
             'type' => 'INT',
             'unsigned' => true,
-            'default' => 0,
-        ],*/
-        'post_hash' => [
+            'default' => 0
+        ],
+        'last_comment_user_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'last_comment_username' => [
             'type' => 'VARCHAR',
-            'size' => 36,
+            'size' => 120,
             'default' => '',
+        ],
+        'allow_signature' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        'disable_smilies' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
         ],
         'ipaddress' => [
             'type' => 'VARBINARY',

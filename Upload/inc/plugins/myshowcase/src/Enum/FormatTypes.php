@@ -21,8 +21,6 @@ enum FormatTypes
     public const numberFormat2 = 3;
     public const htmlSpecialCharactersUni = 4;
     public const stripTags = 5;
-
     public const ParserUrlAuto = 100;
-
     public const ParseVideoYoutube = 101;
 }

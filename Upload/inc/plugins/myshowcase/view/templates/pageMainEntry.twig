@@ -1,19 +1,26 @@
 <div class="row row--thread thread inline_row
     {% if entry_data.extra_data.unread_comments %} thread--unread{% endif %}
-    {% if permissions.can_manage_entries %} thread--moderator{% endif %}
-    {% if entry_data.status == 2 and permissions.can_manage_entries %} thread--deleted{% endif %}
+    {% if permissions.entries_can_view %} thread--moderator{% endif %}
+    {% if entry_data.status == 2 and permissions.entries_can_view %} thread--deleted{% endif %}
     {% if entry_data.status == 0 %} thread--awaiting-approval{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
             {# Entry attachments #}
-            {% if config.attachments_allow_entries and config.attachments_main_render_first and permissions.can_view_attachments and entry_data.extra_data.attachments is not empty %}
-                {% for attachment_id,attachment_data in entry_data.extra_data.attachments %}
+            {% if config.attachments_allow_in_entries and config.attachments_main_render and permissions.attachments_can_view and entry_data.getAttachments() is not empty %}
+                {% for attachment_id,attachment_data in entry_data.getAttachments() %}
                     {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
                 {% endfor %}
             {% endif %}
 
             {# Entry title #}
-            <a href="{{ entry_data.extra_data.url }}">{{ entry_data.extra_data.subject|raw }}</a>
+            <a href="{{ entry_data.extra_data.url }}">
+                {% for field_data in entry_data.getFields() %}
+                    {% if field_data.fieldDefinition.enable_subject %}
+                        {{ field_data.getUserValueDisplay()|raw }}
+                    {% endif %}
+                {% endfor %}
+                {{ entry_data.subject }}
+            </a>
 
             {# Deleted thread #}
             {% if entry_data.status == 2 %}
@@ -34,6 +41,13 @@
             {# Entry status icons #}
             <span class="thread__icons">
                 {# Entry icon #}
+                {% if entry_data.icon_id and iconCache[entry_data.icon_id] %}
+                    <span class="thread__icon">
+                        <img src="{{ iconCache[entry_data.icon_id].path }}"
+                             alt="{{ iconCache[entry_data.icon_id].name }}"
+                             title="{{ iconCache[entry_data.icon_id].name }}"/>
+                    </span>
+                {% endif %}
 
                 {# Contains posts by you #}
                 {% if entry_data.extra_data.comments_by_you %}
@@ -46,21 +60,50 @@
                     {{ include('partials/icon.twig', {icon: 'paperclip', class: 'thread__icon fa-fw', title: attachment_title}, with_context = false) }}
                 {% endif %}
 
+                {# Hot thread #}
+                {% if false and 'hot' in thread.folder.value %}
+                    {{ include('partials/icon.twig', {icon: 'fire', class: 'thread__icon fa-fw', title: lang.hot}, with_context = false) }}
+                {% endif %}
+
                 {# Closed #}
                 {% if entry_data.is_closed %}
                     {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
                 {% endif %}
+
+                {# Sticky #}
+                {% if entry_data.is_sticky %}
+                    {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.sticky}, with_context = false) }}
+                {% endif %}
             </span>
         </h3>
-        <p class="thread__author">{{ lang.myshowcase_main_table_row_by }} <a
-                    href="{{ get_profile_link(entry_data.user_id) }}">{{ entry_data.user_id|format_name }}</a> {{ entry_data.dateline|my_date }}
+        {% if entry_data.comments_approved > mybb.settings.postsperpage %}
+            <span class="thread__pages">
+                <span class="thread__page-legend">{{ lang.pages }}</span>
+                {% set pagesStop = (thread.pages > mybb.settings.maxmultipagelinks) ? mybb.settings.maxmultipagelinks : thread.pages %}
+                {% for page in 1..pagesStop %}
+                    <a href="{{ get_thread_link(entry_data.entry_slug, page) }}"
+                       class="thread__page-link">{{ page }}</a>
+                {% endfor %}
+                {% if thread.pages > mybb.settings.maxmultipagelinks %}... <a
+                    href="{{ get_thread_link(entry_data.entry_slug) }}"
+                    class="thread__page-link">{{ thread.pages }}</a>{% endif %}
+            </span>
+        {% endif %}
+        <p class="thread__author">
+            {{ lang.myshowcase_main_table_row_by }}
+            {% if entry_data.user_id > 0 %}
+                <a href="{{ get_profile_link(entry_data.user_id) }}">{{ entry_data.user_id|format_name }}</a>
+            {% else %}
+                {{ entry_data.username ?? lang.guest }}
+            {% endif %}
+            {{ entry_data.dateline|my_date }}
         </p>
     </div>
-    {% for render_order, field_id in fieldSetFieldsOrder %}
-        {% if fieldSetCache[field_id].display_in_main_page %}
+    {% for field_data in entry_data.getFields() %}
+        {% if field_data.fieldDefinition.display_in_main_page %}
             <div class="thread__column thread__column--replies">
                 <p class="thread__replies">
-                    {{ entry_data.extra_data.fields_cache[field_id]|raw }}
+                    {{ field_data.getUserValueDisplay()|raw }}
                 </p>
             </div>
         {% endif %}
@@ -95,12 +138,12 @@
             {% endif %}
         </p>
     </div>
-    {% if permissions.can_manage_entries %}
+    {% if permissions.entries_can_view %}
         <div class="thread__column thread__column--checkbox">
-            <label for="inlinemod_{{ entry_data.entry_slug }}"></label>
-            <input type="checkbox" class="checkbox" name="inlinemod_{{ entry_data.entry_slug }}"
-                   id="inlinemod_{{ entry_data.entry_slug }}"
-                   value="1"{% if entry_data.extra_data.moderator_check %} checked{% endif %} />
+            <label for="selected-entry-{{ entry_data.entry_slug }}"></label>
+            <input type="checkbox" class="checkbox" data-slug="{{ entry_data.entry_slug }}"
+                   id="selected-entry-{{ entry_data.entry_slug }}"
+                   {% if entry_data.extra_data.selected %}checked="checked"{% endif %} />
         </div>
     {% endif %}
 </div>

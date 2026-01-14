@@ -19,22 +19,51 @@ use MyShowcase\Entity\Attachment;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Enum\FieldHtmlTypes;
 
+use MyShowcase\Service\Render;
+
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
+
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+
+use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 trait FieldTrait
 {
     private Collection $attachments;
+    private Collection $selectable_values;
+
+    public string $attachments_rendered = '';
+
+    public ?array $extra_data = [];
 
     private string $user_value = '';
 
     private string $user_value_display = '';
 
+    public function setExtraData(string $name, string|bool|int|array|null $value): self
+    {
+        $this->extra_data[$name] = $value;
+
+        return $this;
+    }
+
+    public function getExtraData(string $name): string|bool|int|array|null
+    {
+        if (!isset($this->extra_data[$name])) {
+            return false;
+        }
+
+        return $this->extra_data[$name];
+    }
+
     public function isViewableInEntry(): bool
     {
-        if (empty($this->fieldDefinition['enabled'])) {
+        if (empty($this->fieldDefinition['is_enabled'])) {
             return false;
         }
 
@@ -73,6 +102,7 @@ trait FieldTrait
                     case FieldHtmlTypes::CheckBox:
                     case FieldHtmlTypes::Radio:
                     case FieldHtmlTypes::Select:
+
                         $value_id = (int)$userValueValue;
 
                         foreach (
@@ -91,8 +121,6 @@ trait FieldTrait
                             ) as $field_data_id => $field_data_data
                         ) {
                             if (!is_member($field_data_data['allowed_groups_view'])) {
-                                $userValues[$userValueKey] = '';
-
                                 continue;
                             }
 
@@ -104,15 +132,37 @@ trait FieldTrait
                         break;
                 }
 
-                if ($this->fieldDefinition['parse'] || $this->search_highlight) {
+                if (!$this->fieldDefinition['parse'] && $this->search_highlight) {
+                    $userValues[$userValueKey] = postParser()->highlight_message(
+                        $userValues[$userValueKey],
+                        ['highlight' => $this->search_highlight]
+                    );
+
+                    $user_value_display[$userValueKey] = postParser()->highlight_message(
+                        $user_value_display[$userValueKey],
+                        ['highlight' => $this->search_highlight]
+                    );
+                } elseif ($this->fieldDefinition['parse']) {
+                    $parser_options = array_merge($this->parser_options, [
+                        'allow_html' => !empty($this->fieldDefinition['parser_allow_html']),
+                        'allow_mycode' => !empty($this->fieldDefinition['parser_allow_mycode']),
+                        'allow_smilies' => !empty($this->fieldDefinition['parser_allow_smiles']),
+                        'allow_imgcode' => !empty($this->fieldDefinition['parser_allow_image_code']),
+                        'allow_videocode' => !empty($this->fieldDefinition['parser_allow_video_code'])
+                    ]);
+
+                    if ($this->search_highlight) {
+                        $parser_options['highlight'] = $this->search_highlight;
+                    }
+
                     $userValues[$userValueKey] = $this->entries_manager->parseMessage(
                         $userValues[$userValueKey] ?? '',
-                        $this->parser_options
+                        $parser_options
                     );
 
                     $user_value_display[$userValueKey] = $this->entries_manager->parseMessage(
                         $user_value_display[$userValueKey] ?? '',
-                        $this->parser_options
+                        $parser_options
                     );
                 }
             }
@@ -180,11 +230,6 @@ trait FieldTrait
         }
     }
 
-    public function attachmentsGet(): Collection
-    {
-        return $this->attachments;
-    }
-
     public function getUserValue(): string
     {
         return $this->user_value;
@@ -229,7 +274,7 @@ trait FieldTrait
         _dump('123');
     }
 
-    public function getAttachments2(): Collection
+    public function getAttachments(): Collection
     {
         return $this->attachments;
     }
@@ -257,5 +302,55 @@ trait FieldTrait
                 $this->attachments[] = new Attachment(...$attachment_data);
             }
         }
+    }
+
+    public function getSelectableValues(): Collection
+    {
+        return $this->selectable_values;
+    }
+
+    public function fetchSelectableValues(bool $verify_fill_permission = false): void
+    {
+        foreach (
+            fieldDataGet(
+                [
+                    "set_id='{$this->fieldset_id}'",
+                    "field_id='{$this->fieldDefinition['field_id']}'"
+                ],
+                [
+                    'field_data_id',
+                    'value_id',
+                    'value',
+                    'display_style',
+                    'allowed_groups_fill',
+                    'allowed_groups_view',
+                ],
+                ['order_by' => 'display_order']
+            ) as $field_data_id => $field_data_data
+        ) {
+            if ($verify_fill_permission && !is_member($field_data_data['allowed_groups_fill'])) {
+                continue;
+            }
+
+            if (!$this->selectable_values->contains($field_data_data)) {
+                if ($field_data_id) {
+                    $this->selectable_values[$field_data_id] = $field_data_data;
+                } else {
+                    $this->selectable_values[] = $field_data_data;
+                }
+            }
+        }
+    }
+
+    /**
+     * @throws RuntimeError
+     * @throws SyntaxError
+     * @throws LoaderError
+     */
+    public function attachmentsBuild(Render $render_manager): void
+    {
+        $render_manager->attachments_type = $render_manager::ATTACHMENT_TYPE_FIELD;
+
+        $this->attachments_rendered = $render_manager->buildAttachments($this->entry_data, $this->getAttachments());
     }
 }

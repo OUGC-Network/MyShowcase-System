@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
+use MyLanguage;
+use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Attachment;
 use MyShowcase\Entity\Entry;
+use MyShowcase\Entity\User;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Listener\EntryDeletedAttachmentListener;
 use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Repository\CommentsRepository;
-use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Util\UuidUtil;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
 use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
-
-use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class AttachmentsManager
 {
@@ -65,24 +68,25 @@ class AttachmentsManager
 
     private int $total_attachments = 0;
 
-    private array $attachments = [];
+    private Collection $attachments;
+
+    private array $insert_data = [];
+
+    private array $return_data = [];
+
+    private array $return_data_file = [];
 
     public function __construct(
-        private readonly int $showcase_id,
-        private readonly array $user_permissions,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly MyLanguage $language,
+        private readonly User $current_user,
         private readonly array $attachment_types,
-        private readonly EntriesRepository $entries_repository,
-        private readonly CommentsRepository $comments_repository,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly EventDispatcher $event_dispatcher,
-        private readonly string $attachments_uploads_path,
-        private readonly bool $moderate_attachments_upload,
-        private readonly bool $moderate_attachments_update,
-        private readonly int $attachments_thumbnails_width,
-        private readonly int $attachments_thumbnails_height,
-        private readonly string $attachments_watermark_file,
-        private readonly int $attachments_watermark_location,
+        private readonly array $config,
     ) {
+        $this->attachments = new Collection();
+
         $this->event_dispatcher->addListener(
             EntryDeletedEvent::NAME,
             new EntryDeletedAttachmentListener($attachments_repository)
@@ -100,15 +104,11 @@ class AttachmentsManager
     }
 
     /**
-     * @return iterable<Attachment>
+     * @return Collection<Attachment>
      */
-    public function getAttachments(): iterable
+    public function getAttachments(): Collection
     {
-        foreach ($this->attachments as $attachment_id => $attachment_data) {
-            if (empty($attachment_data->parent_attachment_id)) {
-                yield $attachment_data;
-            }
-        }
+        return $this->attachments;
     }
 
     public function getAttachmentsEntryIDs(): array
@@ -171,30 +171,27 @@ class AttachmentsManager
         bool $do_watermark = false, // todo ?
     ): array
     {
-        global $db, $lang;
-
-        $return_data = [];
-
         if (isset($attachment_data['error']) && $attachment_data['error'] !== 0) {
-            $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail;
+            $error_message = $this->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->language->error_uploadfailed_detail;
 
-            $return_data['error'] .= match ($attachment_data['error']) {
-                self::UPLOAD_ERROR_INI_SIZE => $lang->error_uploadfailed_php1,
-                self::UPLOAD_ERROR_FORM_SIZE => $lang->error_uploadfailed_php2,
-                self::UPLOAD_ERROR_PARTIAL => $lang->error_uploadfailed_php3,
-                self::UPLOAD_ERROR_NO_FILE => $lang->error_uploadfailed_php4,
-                self::UPLOAD_ERROR_NO_TMP_DIR => $lang->error_uploadfailed_php6,
-                self::UPLOAD_ERROR_CANT_WRITE => $lang->error_uploadfailed_php7,
-                default => $lang->sprintf($lang->error_uploadfailed_phpx, $attachment_data['error']),
+            $error_message .= match ($attachment_data['error']) {
+                self::UPLOAD_ERROR_INI_SIZE => $this->language->error_uploadfailed_php1,
+                self::UPLOAD_ERROR_FORM_SIZE => $this->language->error_uploadfailed_php2,
+                self::UPLOAD_ERROR_PARTIAL => $this->language->error_uploadfailed_php3,
+                self::UPLOAD_ERROR_NO_FILE => $this->language->error_uploadfailed_php4,
+                self::UPLOAD_ERROR_NO_TMP_DIR => $this->language->error_uploadfailed_php6,
+                self::UPLOAD_ERROR_CANT_WRITE => $this->language->error_uploadfailed_php7,
+                default => $this->language->sprintf(
+                    $this->language->error_uploadfailed_phpx,
+                    $attachment_data['error']
+                ),
             };
 
-            return $return_data;
+            return ['error' => $error_message];
         }
 
         if (!is_uploaded_file($attachment_data['tmp_name']) || empty($attachment_data['tmp_name'])) {
-            $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_php4;
-
-            return $return_data;
+            return ['error' => $this->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->language->error_uploadfailed_php4];
         }
 
         $attachment_extension = my_strtolower(get_extension($attachment_data['name']));
@@ -213,73 +210,75 @@ class AttachmentsManager
         }
 
         if ($attachment_type_data === false) {
-            $return_data['error'] = $lang->error_attachtype;
-
-            return $return_data;
+            return ['error' => $this->language->error_attachtype];
         }
 
         if (!empty($field_id)) {
             if (empty($field_definition)) {
-                $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed; // todo, update lang
-
-                return $return_data;
+                return ['error' => $this->language->myShowcaseAttachmentsUploadErrorUploadFailed]; // todo, update lang
             }
 
             if ($attachment_data['size'] < $field_definition['minimum_size'] * 1024 && !empty($field_definition['minimum_size'])) {
-                $return_data['error'] = $lang->sprintf(
-                    $lang->myshowcase_create_update_attachment_error_size_too_low,
-                    htmlspecialchars_uni($attachment_data['name']),
-                    get_friendly_size($field_definition['minimum_size'] * 1024)
-                );
-
-                return $return_data;
+                return [
+                    'error' => $this->language->sprintf(
+                        $this->language->myshowcase_create_update_attachment_error_size_too_low,
+                        htmlspecialchars_uni($attachment_data['name']),
+                        get_friendly_size($field_definition['minimum_size'] * 1024)
+                    )
+                ];
             }
 
             if ($attachment_data['size'] > $field_definition['maximum_size'] * 1024 && !empty($field_definition['maximum_size'])) {
-                $return_data['error'] = $lang->sprintf(
-                    $lang->myshowcase_create_update_attachment_error_size_too_large,
-                    htmlspecialchars_uni($attachment_data['name']),
-                    get_friendly_size($field_definition['maximum_size'] * 1024)
-                );
-
-                return $return_data;
+                return [
+                    'error' => $this->language->sprintf(
+                        $this->language->myshowcase_create_update_attachment_error_size_too_large,
+                        htmlspecialchars_uni($attachment_data['name']),
+                        get_friendly_size($field_definition['maximum_size'] * 1024)
+                    )
+                ];
             }
         }
 
         if ($attachment_data['size'] > $attachment_type_data['maximum_size'] * 1024 && !empty($attachment_type_data['maximum_size'])) {
-            $return_data['error'] = $lang->sprintf(
-                $lang->error_attachsize,
-                htmlspecialchars_uni($attachment_data['name']),
-                $attachment_type_data['maximum_size']
-            );
-
-            return $return_data;
+            return [
+                'error' => $this->language->sprintf(
+                    $this->language->error_attachsize,
+                    htmlspecialchars_uni($attachment_data['name']),
+                    $attachment_type_data['maximum_size']
+                )
+            ];
         }
 
-        if ($this->user_permissions[UserPermissions::AttachmentsUploadQuote] > 0) {
+        if ($this->current_user->hasPermission(UserPermissions::AttachmentsLimitUploadQuotaAmount) > 0) {
             $user_total_usage = $this->attachments_repository->queryAttachmentSum(["user_id='{$entry_data->user_id}'"]);
 
             $user_total_usage = $user_total_usage + $attachment_data['size'];
 
-            if ($user_total_usage > ($this->user_permissions[UserPermissions::AttachmentsUploadQuote] * 1024)) {
-                $return_data['error'] = $lang->sprintf(
-                    $lang->error_reachedattachquota,
-                    get_friendly_size($this->user_permissions[UserPermissions::AttachmentsUploadQuote] * 1024)
-                );
-
-                return $return_data;
+            if ($user_total_usage > ($this->current_user->hasPermission(
+                        UserPermissions::AttachmentsLimitUploadQuotaAmount
+                    ) * 1024)) {
+                return [
+                    'error' => $this->language->sprintf(
+                        $this->language->error_reachedattachquota,
+                        get_friendly_size(
+                            $this->current_user->hasPermission(
+                                UserPermissions::AttachmentsLimitUploadQuotaAmount
+                            ) * 1024
+                        )
+                    )
+                ];
             }
         }
 
         if (!empty($entry_data->entry_id)) {
             $where_clause = "entry_id='{$entry_data->entry_id}'";
         } else {
-            $where_clause = "post_hash='{$db->escape_string($entry_data->post_hash)}'";
+            $where_clause = "post_hash='{$this->database->escape_string($entry_data->post_hash)}'";
         }
 
         $existing_attachment = $this->queryAttachment(
             [
-                "file_name='{$db->escape_string($attachment_data['name'])}'",
+                "file_name='{$this->database->escape_string($attachment_data['name'])}'",
                 $where_clause
             ],
         );
@@ -287,23 +286,21 @@ class AttachmentsManager
         $existing_attachment_id = (int)($existing_attachment['attachment_id'] ?? 0);
 
         if ($existing_attachment_id && !$is_update) {
-            $return_data['error'] = $lang->error_alreadyuploaded;
-
-            return $return_data;
+            return ['error' => $this->language->error_alreadyuploaded];
         }
 
         // Check if the attachment directory (YYYYMM) exists, if not, create it
         $directory_month_name = gmdate('Ym');
 
-        if (!is_dir($this->attachments_uploads_path . '/' . $directory_month_name)) {
-            mkdir($this->attachments_uploads_path . '/' . $directory_month_name);
+        if (!is_dir($this->config['attachments_uploads_path'] . '/' . $directory_month_name)) {
+            mkdir($this->config['attachments_uploads_path'] . '/' . $directory_month_name);
 
-            if (!is_dir($this->attachments_uploads_path . '/' . $directory_month_name)) {
+            if (!is_dir($this->config['attachments_uploads_path'] . '/' . $directory_month_name)) {
                 $directory_month_name = '';
             }
         }
 
-        // If safe_mode is enabled, don't attempt to use the monthly directories as it won't work
+        // If safe_mode is is_enabled, don't attempt to use the monthly directories as it won't work
         if (ini_get('safe_mode') || my_strtolower(ini_get('safe_mode')) === 'on') {
             $directory_month_name = '';
         }
@@ -311,11 +308,11 @@ class AttachmentsManager
         // All seems to be good, lets move the attachment!
 
         if (!empty($entry_data->entry_id)) {
-            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->entry_id}_" . TIME_NOW . '_' . generateUUIDv4(
-                ) . '.attach';
+            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->entry_id}_" . TIME_NOW . '_' . (new UuidUtil(
+                ))->generateUuidV4() . '.attach';
         } else {
-            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->post_hash}_" . TIME_NOW . '_' . generateUUIDv4(
-                ) . '.attach';
+            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->post_hash}_" . TIME_NOW . '_' . (new UuidUtil(
+                ))->generateUuidV4() . '.attach';
         }
 
         $file_upload_result = $this->uploadFile($attachment_data, $file_name, $directory_month_name);
@@ -330,32 +327,30 @@ class AttachmentsManager
         }
 
         if ($file_upload_result['error']) {
-            $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail;
+            $error_message = $this->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->language->error_uploadfailed_detail;
 
             switch ($file_upload_result['error']) {
                 case self::UPLOAD_ERROR_INVALID:
-                    $return_data['error'] .= $lang->error_uploadfailed_nothingtomove;
+                    $error_message .= $this->language->error_uploadfailed_nothingtomove;
 
                     break;
                 case self::UPLOAD_ERROR_FAILED:
-                    $return_data['error'] .= $lang->error_uploadfailed_movefailed;
+                    $error_message .= $this->language->error_uploadfailed_movefailed;
 
                     break;
             }
 
-            return $return_data;
+            return ['error' => $error_message];
         }
 
         // Let's just double-check that it exists
-        if (!file_exists($this->attachments_uploads_path . '/' . $file_name)) {
-            $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed . $lang->error_uploadfailed_detail . $lang->error_uploadfailed_lost;
-
-            return $return_data;
+        if (!file_exists($this->config['attachments_uploads_path'] . '/' . $file_name)) {
+            return ['error' => $this->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->language->error_uploadfailed_detail . $this->language->error_uploadfailed_lost];
         }
 
-        $insert_data = [
-            'showcase_id' => $this->showcase_id,
-            'attachment_hash' => generateUUIDv4(),
+        $this->insert_data = [
+            'showcase_id' => $this->config['showcase_id'],
+            'attachment_hash' => (new UuidUtil())->generateUuidV4(),
             'user_id' => $entry_data->user_id,
             'file_name' => $file_name,
             'mime_type' => my_strtolower($file_upload_result['type']),
@@ -367,80 +362,72 @@ class AttachmentsManager
             /*'cdn_file' => 0,*/
         ];
 
-        $return_data['attachment_hash'] = $insert_data['attachment_hash'];
+        $this->return_data['attachment_hash'] = $this->insert_data['attachment_hash'];
 
-        $return_data['file_name'] = $insert_data['file_name'];
+        $this->return_data['file_name'] = $this->insert_data['file_name'];
 
-        $return_data['file_size'] = $insert_data['file_size'];
+        $this->return_data['file_size'] = $this->insert_data['file_size'];
 
         if (!empty($entry_data->entry_id)) {
-            $insert_data['entry_id'] = $entry_data->entry_id;
+            $this->insert_data['entry_id'] = $entry_data->entry_id;
         } else {
-            $insert_data['post_hash'] = $entry_data->post_hash;
+            $this->insert_data['post_hash'] = $entry_data->post_hash;
         }
 
         if ($is_update) {
-            $insert_data['edit_stamp'] = TIME_NOW;
+            $this->insert_data['edit_stamp'] = TIME_NOW;
         }
 
-        if (!$is_update && (
-                $this->moderate_attachments_upload ||
-                $this->user_permissions[UserPermissions::ModerateAttachmentsUpload]
-            )) {
-            $insert_data['status'] = self::STATUS_PENDING;
-        } elseif ($is_update && (
-                $this->moderate_attachments_update ||
-                $this->user_permissions[UserPermissions::ModerateAttachmentsUpdate]
-            )) {
-            $insert_data['status'] = self::STATUS_PENDING;
+        if (!$is_update && $this->current_user->hasPermission(UserPermissions::AttachmentsModerateNew)) {
+            $this->insert_data['status'] = self::STATUS_PENDING;
+        } elseif ($is_update && $this->current_user->hasPermission(UserPermissions::AttachmentsModerateUpdates)) {
+            $this->insert_data['status'] = self::STATUS_PENDING;
         }
 
         // If we're uploading an image, check the MIME type compared to the image type and attempt to generate a thumbnail
         if (in_array($attachment_extension, ['gif', 'png', 'jpg', 'jpeg', 'jpe', 'webp'])) {
-            $full_image_dimensions = getimagesize($this->attachments_uploads_path . '/' . $file_name);
+            $full_image_dimensions = getimagesize($this->config['attachments_uploads_path'] . '/' . $file_name);
 
             if (!is_array($full_image_dimensions)) {
-                delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed;
-
-                return $return_data;
+                return ['error' => $this->language->myShowcaseAttachmentsUploadErrorUploadFailed];
             }
 
             if (!empty($attachment_type_data['image_minimum_dimensions_width'])) {
                 if ($full_image_dimensions[0] < $attachment_type_data['image_minimum_dimensions_width'] ||
                     $full_image_dimensions[1] < $attachment_type_data['image_minimum_dimensions_height']) {
-                    delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                    delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                    $return_data['error'] = $lang->sprintf(
-                        $lang->myShowcaseAttachmentsUploadErrorMinimumDimensions,
-                        htmlspecialchars_uni($insert_data['attachment_name']),
-                        $attachment_type_data['image_minimum_dimensions_width'],
-                        $attachment_type_data['image_minimum_dimensions_height']
-                    );
-
-                    return $return_data;
+                    return [
+                        'error' => $this->language->sprintf(
+                            $this->language->myShowcaseAttachmentsUploadErrorMinimumDimensions,
+                            htmlspecialchars_uni($this->insert_data['attachment_name']),
+                            $attachment_type_data['image_minimum_dimensions_width'],
+                            $attachment_type_data['image_minimum_dimensions_height']
+                        )
+                    ];
                 }
             }
 
             if (!empty($attachment_type_data['image_maximum_dimensions_width'])) {
                 if ($full_image_dimensions[0] > $attachment_type_data['image_maximum_dimensions_width'] ||
                     $full_image_dimensions[1] > $attachment_type_data['image_maximum_dimensions_height']) {
-                    delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                    delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                    $return_data['error'] = $lang->sprintf(
-                        $lang->myShowcaseAttachmentsUploadErrorMaximumDimensions,
-                        htmlspecialchars_uni($insert_data['attachment_name']),
-                        $attachment_type_data['image_maximum_dimensions_width'],
-                        $attachment_type_data['image_maximum_dimensions_height']
-                    );
-
-                    return $return_data;
+                    return [
+                        'error' => $this->language->sprintf(
+                            $this->language->myShowcaseAttachmentsUploadErrorMaximumDimensions,
+                            htmlspecialchars_uni($this->insert_data['attachment_name']),
+                            $attachment_type_data['image_maximum_dimensions_width'],
+                            $attachment_type_data['image_maximum_dimensions_height']
+                        )
+                    ];
                 }
             }
 
             // Check a list of known MIME types to establish what kind of image we're uploading
-            $image_mime = match ($insert_data['mime_type']) {
+            $image_mime = match ($this->insert_data['mime_type']) {
                 'image/gif' => IMAGETYPE_GIF,
                 'image/jpeg', 'image/x-jpg', 'image/x-jpeg', 'image/pjpeg', 'image/jpg' => IMAGETYPE_JPEG,
                 'image/png', 'image/x-png' => IMAGETYPE_PNG,
@@ -457,7 +444,7 @@ class AttachmentsManager
                 $attachment_mime = my_strtolower(
                     explode(
                         ';',
-                        finfo_file($file_info, $this->attachments_uploads_path . '/' . $file_name)
+                        finfo_file($file_info, $this->config['attachments_uploads_path'] . '/' . $file_name)
                     )[0] ?? ''
                 );
 
@@ -465,90 +452,80 @@ class AttachmentsManager
             } elseif (function_exists('mime_content_type')) {
                 $attachment_mime = my_strtolower(
                     mime_content_type(
-                        MYBB_ROOT . $this->attachments_uploads_path . '/' . $file_name
+                        MYBB_ROOT . $this->config['attachments_uploads_path'] . '/' . $file_name
                     )
                 );
             }
 
-            $return_data['mime_type'] = $attachment_mime;
+            $this->return_data['mime_type'] = $attachment_mime;
 
             // we check again just in case
             if ($attachment_type_data['mime_type'] !== $attachment_mime) {
-                $return_data['error'] = $lang->error_attachtype;
-
-                return $return_data;
+                return ['error' => $this->language->error_attachtype];
             }
 
             if ($full_image_dimensions[2] !== $image_mime || !$image_mime) {
-                delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorInvalidType;
-
-                return $return_data;
+                return ['error' => $this->language->myShowcaseAttachmentsUploadErrorInvalidType];
             }
 
             require_once MYBB_ROOT . 'inc/functions_image.php';
 
-            if ($this->attachments_thumbnails_width > 0 &&
-                $this->attachments_thumbnails_height > 0 &&
+            if ($this->config['attachments_thumbnails_width'] > 0 &&
+                $this->config['attachments_thumbnails_height'] > 0 &&
                 in_array($image_mime, [IMAGETYPE_GIF, IMAGETYPE_JPEG, IMAGETYPE_PNG])) {
                 $thumbnail_image_data = generate_thumbnail(
-                    $this->attachments_uploads_path . '/' . $file_name,
-                    $this->attachments_uploads_path,
+                    $this->config['attachments_uploads_path'] . '/' . $file_name,
+                    $this->config['attachments_uploads_path'],
                     str_replace('.attach', "_thumb.{$attachment_extension}", $file_name),
-                    $this->attachments_thumbnails_width,
-                    $this->attachments_thumbnails_height
+                    $this->config['attachments_thumbnails_width'],
+                    $this->config['attachments_thumbnails_height']
                 );
 
                 // todo, maybe should just ignore ?
                 if ($thumbnail_image_data['code'] === self::ERROR_THUMBNAIL_FAILED) {
-                    delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                    delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                    $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorUploadFailed;
-
-                    return $return_data;
+                    return ['error' => $this->language->myShowcaseAttachmentsUploadErrorUploadFailed];
                 }
 
                 // we only generate thumbnails for large images
                 if ($thumbnail_image_data['code'] !== self::ERROR_THUMBNAIL_TOO_SMALL) {
                     if (empty($thumbnail_image_data['filename'])) {
-                        delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                        delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                        $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorThumbnailFailure;
-
-                        return $return_data;
+                        return ['error' => $this->language->myShowcaseAttachmentsUploadErrorThumbnailFailure];
                     }
 
-                    $insert_data['thumbnail_name'] = $return_data['thumbnail_name'] = $thumbnail_image_data['filename'];
+                    $this->return_data['thumbnail_name'] = $this->insert_data['thumbnail_name'] = $thumbnail_image_data['filename'];
 
                     $thumbnail_image_dimensions = getimagesize(
-                        $this->attachments_uploads_path . '/' . $thumbnail_image_data['filename']
+                        $this->config['attachments_uploads_path'] . '/' . $thumbnail_image_data['filename']
                     );
 
                     if (!is_array($thumbnail_image_dimensions)) {
-                        delete_uploaded_file($this->attachments_uploads_path . '/' . $file_name);
+                        delete_uploaded_file($this->config['attachments_uploads_path'] . '/' . $file_name);
 
-                        $return_data['error'] = $lang->myShowcaseAttachmentsUploadErrorThumbnailFailure;
-
-                        return $return_data;
+                        return ['error' => $this->language->myShowcaseAttachmentsUploadErrorThumbnailFailure];
                     }
 
-                    $insert_data['thumbnail_dimensions'] = $return_data['thumbnail_dimensions'] = "{$thumbnail_image_dimensions[0]}x{$thumbnail_image_dimensions[1]}";
+                    $this->return_data['thumbnail_dimensions'] = $this->insert_data['thumbnail_dimensions'] = "{$thumbnail_image_dimensions[0]}x{$thumbnail_image_dimensions[1]}";
                 }
 
                 if ($thumbnail_image_data['code'] === self::ERROR_THUMBNAIL_TOO_SMALL) {
-                    $insert_data['thumbnail_dimensions'] = $return_data['thumbnail_dimensions'] = self::ATTACHMENT_THUMBNAIL_SMALL;
+                    $this->return_data['thumbnail_dimensions'] = $this->insert_data['thumbnail_dimensions'] = self::ATTACHMENT_THUMBNAIL_SMALL;
                 }
             }
 
-            $watermark_image_path = MYBB_ROOT . $this->attachments_watermark_file;
+            $watermark_image_path = MYBB_ROOT . $this->config['attachments_watermark_file'];
 
-            //if requested and enabled, watermark the master image
-            if ($this->user_permissions[UserPermissions::CanWaterMarkAttachments] &&
+            //if requested and is_enabled, watermark the master image
+            if ($this->current_user->hasPermission(UserPermissions::AttachmentsWaterMarkImages) &&
                 $do_watermark &&
                 file_exists($watermark_image_path)) {
                 //get watermark image object
-                switch (strtolower(get_extension($this->attachments_watermark_file))) {
+                switch (strtolower(get_extension($this->config['attachments_watermark_file']))) {
                     case 'gif':
                         $watermark_image_object = imagecreatefromgif($watermark_image_path);
                         break;
@@ -569,10 +546,10 @@ class AttachmentsManager
                     $watermark_image_height = imagesy($watermark_image_object);
 
                     //get size of base image
-                    $image_full_details = getimagesize($this->attachments_uploads_path . '/' . $file_name);
+                    $image_full_details = getimagesize($this->config['attachments_uploads_path'] . '/' . $file_name);
 
                     //set watermark location
-                    switch ($this->attachments_watermark_location) {
+                    switch ($this->config['attachments_watermark_location']) {
                         case self::WATERMARK_LOCATION_LOWER_LEFT:
                             $watermark_position_x = 5;
 
@@ -604,17 +581,17 @@ class AttachmentsManager
                     switch ($image_mime) {
                         case IMAGETYPE_GIF:
                             $watermarked_attachment_file = imagecreatefromgif(
-                                $this->attachments_uploads_path . '/' . $file_name
+                                $this->config['attachments_uploads_path'] . '/' . $file_name
                             );
                             break;
                         case IMAGETYPE_JPEG:
                             $watermarked_attachment_file = imagecreatefromjpeg(
-                                $this->attachments_uploads_path . '/' . $file_name
+                                $this->config['attachments_uploads_path'] . '/' . $file_name
                             );
                             break;
                         case IMAGETYPE_PNG:
                             $watermarked_attachment_file = imagecreatefrompng(
-                                $this->attachments_uploads_path . '/' . $file_name
+                                $this->config['attachments_uploads_path'] . '/' . $file_name
                             );
                             break;
                     }
@@ -640,7 +617,10 @@ class AttachmentsManager
 
                         //write modified file
 
-                        $source_attachment_file = fopen($this->attachments_uploads_path . '/' . $file_name, 'w');
+                        $source_attachment_file = fopen(
+                            $this->config['attachments_uploads_path'] . '/' . $file_name,
+                            'w'
+                        );
 
                         if ($source_attachment_file) {
                             ob_start();
@@ -671,23 +651,21 @@ class AttachmentsManager
                 }
             }
 
-            $return_data['dimensions'] = $insert_data['dimensions'] = "{$full_image_dimensions[0]}x{$full_image_dimensions[1]}";
+            $this->return_data['dimensions'] = $this->insert_data['dimensions'] = "{$full_image_dimensions[0]}x{$full_image_dimensions[1]}";
         }
 
-        $insert_data = hooksRun('upload_update_attachment_insert', $insert_data);
+        hooksRun('attachment_upload_update', $this);
 
         if ($existing_attachment_id && $is_update) {
-            $this->attachments_repository->updateAttachment($insert_data, $existing_attachment_id);
+            $this->attachments_repository->updateAttachment($this->insert_data, $existing_attachment_id);
         } else {
-            $this->attachments_repository->insertAttachment($insert_data);
+            $this->attachments_repository->insertAttachment($this->insert_data);
         }
 
-        $return_data['attachment_id'] = $existing_attachment_id;
+        $this->return_data['attachment_id'] = $existing_attachment_id;
 
-        return $return_data;
+        return $this->return_data;
     }
-
-//todo review hooks here
 
     /**
      * Actually move a file to the uploads directory
@@ -698,41 +676,37 @@ class AttachmentsManager
      */
     public function uploadFile(array $file_data, string $file_name = '', string $uploads_path = ''): array
     {
-        $return_data = [];
-
         if (empty($file_data['name']) || $file_data['name'] === 'none' || $file_data['size'] < 1) {
-            $return_data['error'] = self::UPLOAD_ERROR_INVALID;
-
-            return $return_data;
+            return ['error' => self::UPLOAD_ERROR_INVALID];
         }
 
         if (!$file_name) {
             $file_name = $file_data['name'];
         }
 
-        $return_data['original_filename'] = preg_replace('#/$#', '', $file_data['name']);
+        $this->return_data_file['original_filename'] = preg_replace('#/$#', '', $file_data['name']);
 
         $file_name = preg_replace('#/$#', '', $file_name);
 
         if (!move_uploaded_file(
             $file_data['tmp_name'],
-            $this->attachments_uploads_path . '/' . $uploads_path . '/' . $file_name
+            $this->config['attachments_uploads_path'] . '/' . $uploads_path . '/' . $file_name
         )) {
-            $return_data['error'] = self::UPLOAD_ERROR_FAILED;
-
-            return $return_data;
+            return ['error' => self::UPLOAD_ERROR_FAILED];
         }
 
-        my_chmod($this->attachments_uploads_path . '/' . $uploads_path . '/' . $file_name, '0644');
+        my_chmod($this->config['attachments_uploads_path'] . '/' . $uploads_path . '/' . $file_name, '0644');
 
-        $return_data['file_name'] = $file_name;
+        $this->return_data_file['file_name'] = $file_name;
 
-        $return_data['path'] = $this->attachments_uploads_path . '/' . $uploads_path;
+        $this->return_data_file['path'] = $this->config['attachments_uploads_path'] . '/' . $uploads_path;
 
-        $return_data['type'] = $file_data['type'];
+        $this->return_data_file['type'] = $file_data['type'];
 
-        $return_data['size'] = $file_data['size'];
+        $this->return_data_file['size'] = $file_data['size'];
 
-        return hooksRun('upload_file', $return_data);
+        hooksRun('attachment_upload_file', $this);
+
+        return $this->return_data_file;
     }
 }

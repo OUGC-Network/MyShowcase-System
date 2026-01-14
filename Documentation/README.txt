@@ -142,7 +142,7 @@ v2.2.0
 - added pruning support and related task file/entry
 - added notification of comments, based on user cp allow notices setting
 - added support for smilies, BBCode and HTML in fields (per field, per showcase)
-- added support for admin setting error where field not enabled but set to required
+- added support for admin setting error where field not is_enabled but set to required
 - added support for auto-correcting supplied field names to make them valid for SQL
 - added support for formatting numeric fields
 

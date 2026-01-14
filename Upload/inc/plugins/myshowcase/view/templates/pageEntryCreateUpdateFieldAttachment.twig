@@ -12,7 +12,7 @@
         <span class="uploaded-attachment__file-size">({{ attachment_data.file_size }})</span>
     </div>
     <div class="uploaded-attachment__buttons">
-        {% if permissions.can_manage_entries %}
+        {% if permissions.entries_can_view %}
             {% if attachment_data.status == 1 %}
                 <input type="submit" class="button button--danger"
                        name="unapproveattach_{{ attachment_id }}"

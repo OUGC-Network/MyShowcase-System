@@ -13,28 +13,27 @@
 
 declare(strict_types=1);
 
+use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Enum\CacheDataTypes;
+
+use MyShowcase\Service\CacheManager;
+
 use function MyShowcase\Admin\pluginActivation;
 use function MyShowcase\Admin\pluginDeactivation;
 use function MyShowcase\Admin\pluginInformation;
 use function MyShowcase\Admin\pluginIsInstalled;
 use function MyShowcase\Admin\pluginUninstallation;
 use function MyShowcase\Plugin\Functions\hooksAdd;
-use function MyShowcase\Plugin\Functions\cacheUpdate;
 
 use const MyShowcase\ROOT;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 
 defined('IN_MYBB') || die('This file cannot be accessed directly.');
 
 // You can uncomment the lines below to avoid storing some settings in the DB
-define('MyShowcase\Plugin\Core\SETTINGS', [
+define('MyShowcase\SETTINGS', [
     //'key' => '',
     'superModeratorGroups' => '3,4',
-    'slugLength' => 5,
+    'slugLength' => 10,
     'slugBcryptCost' => 10,
     'ViewsCountSpider' => false,
     'ViewsCountGuests' => true,
@@ -42,10 +41,13 @@ define('MyShowcase\Plugin\Core\SETTINGS', [
     'parserMyCodeAffectsLength' => true,
 ]);
 
-define('MyShowcase\Plugin\Core\DEBUG', true);
+define('MyShowcase\DEBUG', true);
 
 define('MyShowcase\ROOT', constant('MYBB_ROOT') . 'inc/plugins/myshowcase');
 
+define('MyShowcase\VERSION', '3.0.0');
+
+define('MyShowcase\VERSION_CODE', 3000);
 
 /**
  * PSR-4 Autoloader for the /src/ directory.
@@ -121,35 +123,45 @@ function myshowcase_uninstall(): bool
 
 function update_myshowcase_config(): bool
 {
-    cacheUpdate(CACHE_TYPE_CONFIG);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Config);
 
     return true;
 }
 
 function update_myshowcase_fields(): bool
 {
-    cacheUpdate(CACHE_TYPE_FIELDS);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Fields);
 
     return true;
 }
 
 function update_myshowcase_fieldsets(): bool
 {
-    cacheUpdate(CACHE_TYPE_FIELD_SETS);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Fieldsets);
 
     return true;
 }
 
 function update_myshowcase_moderators(): bool
 {
-    cacheUpdate(CACHE_TYPE_MODERATORS);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Moderators);
 
     return true;
 }
 
 function update_myshowcase_permissions(): bool
 {
-    cacheUpdate(CACHE_TYPE_PERMISSIONS);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Permissions);
 
     return true;
 }
@@ -161,7 +173,7 @@ $mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true
 $mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
 
 if (!function_exists('_dump')) {
-    function _dump(): void
+    #[NoReturn] function _dump(): void
     {
         echo '<pre>';
 
@@ -171,4 +183,13 @@ if (!function_exists('_dump')) {
 
         exit;
     }
+}
+
+#[NoReturn] function _dump2(): void
+{
+    echo '<pre>';
+
+    var_dump(func_get_args());
+
+    echo '</pre>';
 }

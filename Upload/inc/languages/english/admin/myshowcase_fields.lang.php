@@ -136,7 +136,7 @@ $l = array_merge([
     'myShowcaseAdminFieldsCreateUpdateFormFileCapture' => 'File Capture',
     'myShowcaseAdminFieldsCreateUpdateFormFileCaptureDescription' => 'Select a capture method for file fields.',
     'myShowcaseAdminFieldsCreateUpdateFormAllowMultipleValues' => 'Allow Multiple Values',
-    'myShowcaseAdminFieldsCreateUpdateFormAllowMultipleValuesDescription' => 'If enabled, users will be able to input multiple values for this field.<br/>
+    'myShowcaseAdminFieldsCreateUpdateFormAllowMultipleValuesDescription' => 'If is_enabled, users will be able to input multiple values for this field.<br/>
     For text, this means to separate values using a comma.<br/>
     For text area, this means to separate values using per line.',
     'myShowcaseAdminFieldsCreateUpdateFormRegularExpression' => 'Regular Expression',

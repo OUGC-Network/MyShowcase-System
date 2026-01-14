@@ -7,26 +7,12 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
-use MyShowcase\Event\Event\EntryDeletedEvent;
-use MyShowcase\Enum\FieldDefaultTypes;
-use MyShowcase\Event\EventDispatcher;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
-use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
-use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class AttachmentsRepository
@@ -40,9 +26,8 @@ class AttachmentsRepository
     private readonly bool $is_update;
 
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
-        private readonly int $showcase_id,
-        private readonly EventDispatcher $event_dispatcher,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly array $config,
     ) {
     }
 
@@ -54,22 +39,20 @@ class AttachmentsRepository
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->showcase_id}'";
-
-        global $db;
+        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
         }
 
-        $query = $db->simple_select(
+        $query = $this->database->simple_select(
             'myshowcase_attachments',
             $query_fields,
             implode(' AND ', $where_clauses),
             $query_options
         );
 
-        while ($attachment_data = $db->fetch_array($query)) {
+        while ($attachment_data = $this->database->fetch_array($query)) {
             yield $attachment_data;
         }
     }
@@ -115,22 +98,25 @@ class AttachmentsRepository
 
     public function insertAttachment(array $attachment_data, bool $is_update = false, ?int $attachment_id = null): int
     {
-        global $db;
-
         $this->attachment_data = $attachment_data;
 
         $this->attachment_id = $attachment_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->showcase_id,
+            'showcase_id' => $this->config['showcase_id'],
         ];
 
         $this->is_update = $is_update;
 
         foreach (TABLES_DATA['myshowcase_attachments'] as $field_name => $field_definition) {
-            if (isset($attachmentData[$field_name])) {
+            if (isset($this->attachment_data[$field_name])) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $attachmentData[$field_name],
+                    $this->attachment_data[$field_name],
+                    $field_definition['type']
+                );
+            } elseif (!$this->is_update) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $field_definition['default'] ?? '',
                     $field_definition['type']
                 );
             }
@@ -139,11 +125,15 @@ class AttachmentsRepository
         hooksRun('attachment_insert_update', $this);
 
         if ($this->is_update) {
-            $db->update_query('myshowcase_attachments', $this->insert_data, "attachment_id='{$this->attachment_id}'");
+            $this->database->update_query(
+                'myshowcase_attachments',
+                $this->insert_data,
+                "attachment_id='{$this->attachment_id}'"
+            );
 
             return $this->attachment_id;
         } else {
-            return (int)$db->insert_query('myshowcase_attachments', $this->insert_data);
+            return (int)$this->database->insert_query('myshowcase_attachments', $this->insert_data);
         }
     }
 
@@ -154,8 +144,6 @@ class AttachmentsRepository
 
     public function deleteAttachment(int $attachment_id): void
     {
-        global $db;
-
         $this->attachment_id = $attachment_id;
 
         hooksRun('attachment_delete', $this);
@@ -165,9 +153,9 @@ class AttachmentsRepository
             ['attachment_name', 'thumbnail_name', 'status']
         );
 
-        $db->delete_query(
+        $this->database->delete_query(
             'myshowcase_attachments',
-            "showcase_id='{$this->showcase_id}' AND attachment_id='{$this->attachment_id}'"
+            "showcase_id='{$this->config['showcase_id']}' AND attachment_id='{$this->attachment_id}'"
         );
 
         if (!empty($attachment_data)) {

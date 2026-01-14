@@ -3,32 +3,11 @@
 namespace MyShowcase\Fields;
 
 use InvalidArgumentException;
+use MyShowcase\Entity\Entry;
 use MyShowcase\Enum\FieldHtmlTypes;
-use MyShowcase\Fields\ColorField;
-use MyShowcase\Fields\DateField;
-use MyShowcase\Fields\DateTimeLocalField;
-use MyShowcase\Fields\EmailField;
-use MyShowcase\Fields\FileField;
-use MyShowcase\Fields\MonthField;
-use MyShowcase\Fields\NumberField;
-use MyShowcase\Fields\PasswordField;
-use MyShowcase\Fields\RadioField;
-use MyShowcase\Fields\RangeField;
-use MyShowcase\Fields\SearchField;
-use MyShowcase\Fields\SelectEntriesField;
-use MyShowcase\Fields\SelectField;
-use MyShowcase\Fields\SelectThreadsField;
-use MyShowcase\Fields\SelectUsersField;
-use MyShowcase\Fields\TelephoneField;
-use MyShowcase\Fields\TextAreaField;
-use MyShowcase\Fields\TextField;
-use MyShowcase\Fields\TimeField;
-use MyShowcase\Fields\UrlField;
-use MyShowcase\Fields\WeekField;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
-use myshowcase\Service\EntriesManager;
-use MyShowcase\System\Showcase;
+use MyShowcase\Service\EntriesManager;
 
 class FieldFactory
 {
@@ -55,6 +34,8 @@ class FieldFactory
         FieldHtmlTypes::SelectUsers => SelectUsersField::class,
         FieldHtmlTypes::SelectEntries => SelectEntriesField::class,
         FieldHtmlTypes::SelectThreads => SelectThreadsField::class,
+        FieldHtmlTypes::Poll => PollField::class,
+        FieldHtmlTypes::Rating => RatingField::class,
     ];
 
     private array $field_objects_cache = [];
@@ -63,7 +44,7 @@ class FieldFactory
         private readonly AttachmentsRepository $attachments_repository,
         private readonly EntriesManager $entries_manager,
         private readonly AttachmentsManager $attachments_manager,
-        private readonly int $fieldset_id,
+        private readonly array $config,
         private readonly array $parser_options,
         private readonly string $search_highlight,
     ) {
@@ -71,33 +52,27 @@ class FieldFactory
 
     public function create(
         array $field_definition,
-        ?int $entry_id = null,
-        ?string $post_hash = null
+        Entry $entry_data,
     ): FieldsInterface {
-        $cacheKey = $field_definition['field_key'];
-
-        if (!isset($this->field_objects_cache[$cacheKey])) {
-            $fieldType = $field_definition['html_type'];
-
-            if (!isset(self::$field_class_map[$fieldType])) {
-                throw new InvalidArgumentException("Unknown field type: {$fieldType}");
+        if (!isset($this->field_objects_cache[$field_definition['field_key']])) {
+            if (!isset(self::$field_class_map[$field_definition['html_type']])) {
+                throw new InvalidArgumentException("Unknown field type: {$field_definition['html_type']}");
             }
 
-            $fieldClass = self::$field_class_map[$fieldType];
+            $field_class = self::$field_class_map[$field_definition['html_type']];
 
-            $this->field_objects_cache[$cacheKey] = new $fieldClass(
+            $this->field_objects_cache[$field_definition['field_key']] = new $field_class(
                 $this->attachments_repository,
                 $this->entries_manager,
                 $this->attachments_manager,
-                $this->fieldset_id,
+                $this->config['field_set_id'],
                 $this->parser_options,
                 $this->search_highlight,
                 $field_definition,
-                $entry_id,
-                $post_hash
+                $entry_data
             );
         }
 
-        return $this->field_objects_cache[$cacheKey];
+        return $this->field_objects_cache[$field_definition['field_key']];
     }
 }

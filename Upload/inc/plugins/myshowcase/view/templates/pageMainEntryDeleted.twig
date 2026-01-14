@@ -1,5 +1,5 @@
 {% set class %}{{ entry.background_class }}{% endset %}
-<div class="row row--thread thread {{ class }} inline_row {% if entry.unreadpost %}thread--unread{% endif %} {% if permissions.can_manage_entries %}thread--moderator{% endif %}">
+<div class="row row--thread thread {{ class }} inline_row {% if entry.unreadpost %}thread--unread{% endif %} {% if permissions.entries_can_view %}thread--moderator{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
             <span class="tag">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
@@ -20,7 +20,7 @@
     </div>
     <div class="thread__column thread__column--replies">&nbsp;</div>
     <div class="thread__column thread__column--latest">&nbsp;</div>
-    {% if permissions.can_manage_entries %}
+    {% if permissions.entries_can_view %}
         <div class="thread__column thread__column--checkbox">
             <input type="checkbox" class="checkbox" name="inlinemod_{{ entry.entry_slug }}"
                    id="inlinemod_{{ entry.entry_slug }}"

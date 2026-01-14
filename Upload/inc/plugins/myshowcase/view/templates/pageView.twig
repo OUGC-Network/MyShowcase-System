@@ -1,16 +1,22 @@
 {% extends 'layouts/master.twig' %}
 
 {% block head %}
-    <title>{{ subject|striptags }} - {{ mybb.settings.bbname }}</title>
+    <title>
+        {% for field_data in entry_data.getFields() %}
+            {% if field_data.fieldDefinition.enable_subject %}
+                {{ field_data.getUserValue() }}
+            {% endif %}
+        {% endfor %}
+        {{ entry_data.subject }} - {{ mybb.settings.bbname }}</title>
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
-    {% if page_canonical %}
-        <link rel="canonical" href="{{ page_canonical }}"/>
+    {% if meta.canonical %}
+        <link rel="canonical" href="{{ meta.canonical }}"/>
     {% endif %}
 
-    {% if page_meta %}
-        {% for meta in page_meta %}
-            <meta property="{{ meta.property }}" content="{{ meta.content }}">
+    {% if meta.page %}
+        {% for meta_data in meta.page %}
+            <meta property="{{ meta_data.property }}" content="{{ meta_data.content }}">
         {% endfor %}
     {% endif %}
 {% endblock head %}
@@ -26,26 +32,49 @@
             {% if entry_data.prefix_id %}
                 <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix_id }}">{{ entry_data.displayprefix|raw }}</span>
             {% endif %}
-            <h1 class="title title--page">{{ subject|raw }}</h1>
+            <h1 class="title title--page">
+                {% for field_data in entry_data.getFields() %}
+                    {% if field_data.fieldDefinition.enable_subject %}
+                        {{ field_data.getUserValueDisplay()|raw }}
+                    {% endif %}
+                {% endfor %}
+                {{ entry_data.subject }}</h1>
         </header>
 
         <div class="page-controls page-controls--top">
             <div class="page-buttons">
-                {% if permissions.can_create_comments %}
+
+                {% if current_user.user_id %}
+                    {% if is_subscribed %}
+                        <a href="{{ url.showcase }}/{{ url.unsubscribe }}"
+                           class="button button--secondary button--medium button--full-width subscribe--remove">
+                            {{ include('partials/icon.twig', {icon: 'minus', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_unsubscribe }}</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url.showcase }}/{{ url.subscribe }}"
+                           class="button button--secondary button--medium button--full-width subscribe--add">
+                            {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_button_subscribe }}</span>
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
-                        <a href="{{ url.comment }}"
+                        <a href="{{ url.showcase }}/{{ url.comment }}"
                            class="button button--medium button--full-width">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
-                    {% elseif entry_data.is_closed and permissions.can_manage_entries %}
-                        <a href="{{ url.comment }}"
+                    {% elseif entry_data.is_closed and permissions.entries_can_view %}
+                        <a href="{{ url.showcase }}/{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.entry }}"
+                        <a href="{{ url.showcase }}/{{ url.entry }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
@@ -60,45 +89,47 @@
 
         {{ asset('jscripts/thread.js', static=true) }}
 
-        <section class="post-list" id="entry">
+        <section class="post-list" id="posts">
             {{ entry_data.rendered_entry|raw }}
         </section>
 
-        <section class="post-list" id="comments">
-            {% if commentObjects|length > 0 %}
-                {% for comment_id, comment_data in commentObjects %}
-                    {{ comment_data.rendered_comment|raw }}
-                {% endfor %}
-            {% else %}
-                <div class="alert alert--warning">
-                    {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
-                    <div class="alert__message">
-                        <p class="alert__description">{{ lang.myshowcase_view_entry_comments_none }}</p>
+        {% if permissions.comments_can_view %}
+            <section class="post-list" id="comments">
+                {% if commentObjects|length > 0 %}
+                    {% for comment_id, comment_data in commentObjects %}
+                        {{ comment_data.rendered_comment|raw }}
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert--warning">
+                        {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
+                        <div class="alert__message">
+                            <p class="alert__description">{{ lang.myshowcase_view_entry_comments_none }}</p>
+                        </div>
                     </div>
-                </div>
-            {% endif %}
-        </section>
+                {% endif %}
+            </section>
+        {% endif %}
 
         <div class="page-controls page-controls--bottom">
             <div class="thread-pagination thread-pagination--bottom">
                 {{ pagination|raw }}
             </div>
             <div class="page-buttons">
-                {% if permissions.can_create_comments %}
+                {% if permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
-                        <a href="{{ url.comment }}"
+                        <a href="{{ url.showcase }}/{{ url.comment }}"
                            class="button button--medium button--full-width">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
-                    {% elseif entry_data.is_closed and permissions.can_manage_entries %}
-                        <a href="{{ url.comment }}"
+                    {% elseif entry_data.is_closed and permissions.entries_can_view %}
+                        <a href="{{ url.showcase }}/{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.entry }}"
+                        <a href="{{ url.showcase }}/{{ url.entry }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
@@ -108,41 +139,119 @@
             </div>
         </div>
 
-        {% if can_create_comments %}
+        {% if threaded_mode %}
+            <section class="block">
+                <h1 class="title title--major">{{ lang.messages_in_thread }}</h1>
+                <div class="threaded-mode">
+                    {% for post in threadedbits %}
+                        {% if post.bitactive %}
+                            <div class="threaded-mode__post threaded-mode__post--active"
+                                 style="margin-left: {{ post.indentsize }}px;">
+                                <span class="threaded-mode__date">{{ post.dateline|my_date }}</span>
+                                <span class="threaded-mode__author">
+                                    {{ lang.by }}
+                                    {% if post.uid > 0 %}
+                                        <a href="{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
+                                    {% else %}
+                                        {{ post.username|default(lang.guest) }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% else %}
+                            <div class="threaded-mode__post" style="margin-left: {{ post.indentsize }}px;">
+                                <span class="threaded-mode__date">
+                                    <a href="showthread.php?tid={{ entry_data.entry_slug }}&amp;pid={{ post.pid }}&amp;mode=threaded">{{ post.dateline|my_date }}</a>
+                                </span>
+                                <span class="threaded-mode__author">
+                                    {{ lang.by }}
+                                    {% if post.uid > 0 %}
+                                        <a href="{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
+                                    {% else %}
+                                        {{ post.username|default(lang.guest) }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        {% if permissions.comments_can_post %}
             <div id="quickreply_spinner" class="spinner spinner--quick-reply" style="display: none"><span
                         class="spinner__icon">{{ include('partials/icon.twig', {icon: 'sync', class: 'spinner__icon fa-spin'}, with_context = false) }}</span>
             </div>
             <div class="alert alert--danger">
-                {{ commentLengthLimitNote }}
+                {{ trans('myshowcase_comment_text_limit', config.comments_message_minimum_length|my_number_format, config.comments_message_minimum_length|my_number_format) }}
             </div>
             <div class="post post--reply post--quick-reply compose compose--quick-reply quick-reply" id="post-reply">
                 <form method="post" action="{{ createUpdateUrl }}" name="quick_comment_form"
                       id="quick_comment_form">
                     <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
                     <div class="post__meta">
-                        <a href="{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
-                           title="{{ lang.myshowcase_view_entry_go_to_my_profile }}">
-                            {{ render_avatar(url=mybb.user.avatar, alt=lang.welcome_my_avatar) }}
+                        <a href="{{ get_profile_link(current_user.user_id) }}" class="avatar-profile-link"
+                           title="{{ lang.myshowcase_view_entry_comment_form_my_profile }}">
+                            {{ render_avatar(url=current_user.avatar, alt=lang.welcome_my_avatar) }}
                         </a>
                         {# TO DO: username styling #}
                         <h3 class="post__author"><a
-                                    href="{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.uid|format_name }}</a>
+                                    href="{{ get_profile_link(current_user.user_id) }}">{{ current_user.user_id|format_name }}</a>
                         </h3>
                         <span class="post__date">{{ lang.myshowcase_view_entry_comment_form_title }}</span>
                     </div>
                     <div class="post__body">
                         <label>
-                        <textarea class="textarea" rows="8" cols="80" name="comment" id="comment" tabindex="1"
-                                  placeholder="{{ lang.myshowcase_view_entry_quick_comment_message }}"></textarea>
+                        <textarea class="textarea" rows="8" cols="80" name="message" id="comment" tabindex="1"
+                                  placeholder="{{ lang.myshowcase_view_entry_comment_form_message }}"></textarea>
                         </label>
                         {{ code_buttons|raw }}
                     </div>
+                    {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.allow_smilies or permissions.entries_can_view %}
+                        <label for="show-quick-reply-options"></label>
+                        <input type="checkbox" class="compose__checkbox" id="show-quick-reply-options">
+                        <div class="quick-reply__options">
+                            {% if mybb.usergroup.canusesig and current_user.suspend_signature != 1 %}
+                                <label class="quick-reply__option">
+                                    <input type="checkbox" class="checkbox quick-reply__checkbox"
+                                           name="postoptions[signature]"
+                                           value="1"{% if post_options.allow_signature %} checked="checked"{% endif %} /> {{ lang.myshowcase_view_entry_comment_form_allow_signature }}
+                                </label>
+                            {% endif %}
+                            {% if config.allow_smilies %}
+                                <label class="quick-reply__option">
+                                    <input type="checkbox" class="checkbox quick-reply__checkbox"
+                                           name="postoptions[disablesmilies]"
+                                           value="1"/> {{ lang.myshowcase_view_entry_comment_form_disable_smilies }}
+                                </label>
+                            {% endif %}
+                            {% if permissions.entries_can_view %}
+                                <label class="quick-reply__option">
+                                    <input type="checkbox" class="checkbox quick-reply__checkbox"
+                                           name="modoptions[closethread]"
+                                           value="1"{% if entry_data.is_closed %} checked="checked"{% endif %} /> {{ lang.myshowcase_view_entry_comment_form_close_entry }}
+                                </label>
+                            {% endif %}
+                            {% if permissions.entries_can_view %}
+                                <label class="quick-reply__option">
+                                    <input type="checkbox" class="checkbox quick-reply__checkbox"
+                                           name="modoptions[stickthread]"
+                                           value="1"{% if entry_data.is_sticky %} checked="checked"{% endif %} /> {{ lang.myshowcase_view_entry_comment_form_sticky_entry }}
+                                </label>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                     {{ captcha|raw }}
                     <div class="post__foot">
                         <button type="submit" class="button" tabindex="2" accesskey="s" id="quick_reply_submit">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </button>
+                        {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.allow_smilies or permissions.entries_can_view %}
+                            <label for="show-quick-reply-options" class="button button--basic">
+                                {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
+                                <span class="button__text">{{ lang.options }}</span>
+                            </label>
+                        {% endif %}
                         <button type="submit" class="button button--basic" name="preview" value="preview" tabindex="3">
                             {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_comment_form_preview }}</span>
@@ -150,7 +259,7 @@
                     </div>
                 </form>
             </div>
-        {% elseif mybb.user.uid is empty %}
+        {% elseif current_user.user_id is empty %}
             <div class="alert alert--warning">
                 {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
                 <div class="alert__message">
@@ -161,14 +270,14 @@
 
         <footer class="page-footer">
             <div class="row row--simple-columns thread-actions">
-                {% if permissions.can_search %}
+                {% if permissions.can_search_entries %}
                     <div class="thread-search inline-form">
                         <form action="search.php" method="post">
                             <input type="hidden" name="action" value="thread"/>
                             <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
                             <input type="text" name="keywords"
                                    placeholder="{{ lang.myshowcase_view_entry_search_keywords }}"
-                                   class="textbox textbox--large" size="25"/>
+                                   class="textbox textbox--large" size="25" value="{{ search.keywords }}"/>
                             <button type="submit" class="button button--inline">
                                 {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.myshowcase_view_entry_search }}</span>
@@ -176,11 +285,110 @@
                         </form>
                     </div>
                 {% endif %}
+                <div class="thread-nav">
+                    <a href="{{ url.showcase }}/{{ url.oldest|raw }}" class="button button--basic">
+                        {{ include('partials/icon.twig', {icon: 'angle-double-left', class: 'button__icon'}, with_context = false) }}
+                        <span class="button__text">{{ lang.myshowcase_view_entry_next_oldest }}</span>
+                    </a>
+                    <a href="{{ url.showcase }}/{{ url.newest }}" class="button button--basic">
+                        <span class="button__text">{{ lang.myshowcase_view_entry_next_newest }}</span>
+                        {{ include('partials/icon.twig', {icon: 'angle-double-right', class: 'button__icon button__icon--after'}, with_context = false) }}
+                    </a>
+                </div>
             </div>
 
-            {% if permissions.can_manage_entries %}
+            {% if permissions.entries_can_view %}
                 {% include '@ext.myshowcase/pageViewInlineModeration.twig' %}
             {% endif %}
+
+            {% if mybb.settings.showsimilarthreads and thread.similarthreads %}
+                <br>
+                <section class="block">
+                    <h1 class="title title--major">{{ lang.similar_threads }}</h1>
+                    <div class="thread-list thread-list--compact thread-list--no-footer">
+                        <div class="sort-threads sort-threads--alt">
+                            <div class="sort-threads__column sort-threads__column--primary">
+                                {{ lang.thread }}<span class="sort-threads__author"> &mdash; {{ lang.author }}</span>
+                            </div>
+                            <div class="sort-threads__column sort-threads__column--replies">
+                                {{ lang.replies }}
+                            </div>
+                            <div class="sort-threads__column sort-threads__column--latest">
+                                {{ lang.lastpost }}
+                            </div>
+                        </div>
+
+                        {% for similar_thread in similarthreads %}
+                            <div class="row row--thread thread {{ thread.class }}">
+                                <div class="thread__column thread__column--primary">
+                                    <h3 class="thread__title {{ new_class }}">
+                                        {% if similar_thread.threadprefix %}
+                                            <span class="tag tag--thread-prefix tag--thread-prefix-{{ similar_thread.prefix }}">{{ similar_thread.threadprefix|raw }}</span>
+                                        {% endif %}
+                                        <a href="{{ get_thread_link(similar_thread.tid) }}">{{ similar_thread.extra_data.subject }}</a>
+                                        <span class="thread__icons">
+                                            {% if similar_thread.hasicon %}
+                                                <img src="{{ similar_thread.icon_path }}"
+                                                     alt="{{ similar_thread.icon_name }}"
+                                                     title="{{ similar_thread.icon_name }}"/>
+                                            {% endif %}
+                                        </span>
+                                    </h3>
+                                    <p class="thread__author">
+                                        {{ lang.by }}
+                                        {% if similar_thread.uid > 0 %}
+                                            <a href="{{ get_profile_link(similar_thread.uid) }}">{{ similar_thread.uid|format_name }}</a>
+                                        {% else %}
+                                            {{ similar_thread.threadusername|default(lang.guest) }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="thread__column thread__column--replies">
+                                    <p class="thread__replies"
+                                       title="{{ lang.replies }}: {{ thread.replies }} &middot; {{ lang.views }}: {{ thread.views }}">
+                                        <a href="{{ mybb.settings.bburl }}/misc.php?action=whoposted&amp;tid={{ similar_thread.tid }}"
+                                           onclick="MyBB.whoPosted({{ similar_thread.tid }}); return false;"
+                                           class="thread__reply-count">{{ similar_thread.replies }}</a>
+                                        <span class="thread__reply-legend">{% if thread.replies == 1 %}{{ lang.reply }}{% else %}{{ lang.replies }}{% endif %}</span>
+                                    </p>
+                                </div>
+                                <div class="thread__column thread__column--latest">
+                                    <p class="thread__latest-post">
+                                        <span class="thread__latest-post__text">{{ lang.lastpost_by }}</span>
+                                        <span class="thread__latest-post__author">
+                                        {% if similar_thread.lastposteruid > 0 %}
+                                            <a href="{{ get_profile_link(similar_thread.lastposteruid) }}">{{ similar_thread.lastposteruid|format_name }}</a>
+                                        {% else %}
+                                            {{ similar_thread.lastposter|default(lang.guest) }}
+                                        {% endif %}
+                                        </span>
+                                        <a href="{{ get_thread_link(similar_thread.tid, 0, 'lastpost') }}"
+                                           class="thread__latest-post__date">{{ similar_thread.lastpost|my_date }}</a>
+                                    </p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+
+            <div class="page-controls">
+                <div class="page-buttons">
+                    {% if threaded_mode %}
+                        <a href="showthread.php?mode=linear&amp;tid={{ entry_data.entry_slug }}&amp;pid={{ entry_data.entry_slug }}#pid{{ entry_data.entry_slug }}"
+                           class="button button--basic">
+                            {{ include('partials/icon.twig', {icon: 'th-list', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_mode_linear }}</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url.showcase }}/{{ url.threaded }}"
+                           class="button button--basic">
+                            {{ include('partials/icon.twig', {icon: 'list', class: 'button__icon'}, with_context = false) }}
+                            <span class="button__text">{{ lang.myshowcase_view_entry_mode_threaded }}</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
 
             {% if mybb.settings.browsingthisthread %}
                 <div class="container container--small container--users-browsing">

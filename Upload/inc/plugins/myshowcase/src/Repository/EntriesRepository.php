@@ -7,25 +7,27 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyBB;
+use MyShowcase\Entity\Entry;
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Event\EventDispatcher;
+use MyShowcase\Service\CacheManager;
+use MyShowcase\Util\UuidUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\cacheGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\generateUUIDv4;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesRepository
@@ -34,14 +36,16 @@ class EntriesRepository
 
     private array $insert_data = [];
 
-    private array $entry_data = [];
+    private Entry $entry_data;
 
-    private readonly bool $is_update;
+    private bool $is_update;
 
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
-        private readonly int $showcase_id,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly MyBB $mybb,
         private readonly EventDispatcher $event_dispatcher,
+        private readonly CacheManager $cache_manager,
+        private readonly array $config,
     ) {
     }
 
@@ -54,20 +58,20 @@ class EntriesRepository
         array $query_options = [],
         array $query_tables = []
     ): iterable {
-        $query_tables = array_merge(["myshowcase_data{$this->showcase_id} entry_data"], $query_tables);
+        $query_tables = array_merge(["myshowcase_data{$this->config['showcase_id']} entry_data"], $query_tables);
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
         }
 
-        $query = $this->db->simple_select(
-            implode(" LEFT JOIN {$this->db->table_prefix}", $query_tables),
+        $query = $this->database->simple_select(
+            implode(" LEFT JOIN {$this->database->table_prefix}", $query_tables),
             $query_fields,
             implode(' AND ', $where_clauses),
             $query_options
         );
 
-        while ($entry_data = $this->db->fetch_array($query)) {
+        while ($entry_data = $this->database->fetch_array($query)) {
             yield $entry_data;
         }
     }
@@ -111,19 +115,17 @@ class EntriesRepository
 
     public function getContentReports(int $entry_id): array
     {
-        global $db;
-
-        $query = $db->simple_select(
+        $query = $this->database->simple_select(
             'reportedcontent',
             'uid, reporters',
-            "type='showcase_entries' AND id='{$this->showcase_id}' AND id2='{$entry_id}' AND reportstatus!='1'"
+            "type='showcase_entries' AND id='{$this->config['showcase_id']}' AND id2='{$entry_id}' AND reportstatus!='1'"
         );
 
-        if (!$db->num_rows($query)) {
+        if (!$this->database->num_rows($query)) {
             return [];
         }
 
-        $report_data = $db->fetch_array($query);
+        $report_data = $this->database->fetch_array($query);
 
         $reporters = my_unserialize($report_data['reporters']);
 
@@ -131,28 +133,30 @@ class EntriesRepository
             return [];
         }
 
-        return array_filter(array_map(function ($uid): int {
-            return (int)$uid;
-        }, $reporters));
+        return array_filter(
+            array_map(function ($uid): int {
+                return (int)$uid;
+            }, $reporters)
+        );
     }
 
     /**
      * @throws RandomException
      */
-    public function insertEntry(array $entry_data, bool $is_update = false, ?int $entry_id = null): int
+    public function insertEntry(Entry $entry_data, bool $is_update = false): int
     {
         $this->entry_data = $entry_data;
 
-        $this->entry_id = $entry_id;
+        $this->entry_id = $entry_data->entry_id;
 
         $this->insert_data = [];
 
         $this->is_update = $is_update;
 
         foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
-            if (isset($this->entry_data[$field_name])) {
+            if (isset($this->entry_data->$field_name)) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $this->entry_data[$field_name],
+                    $this->entry_data->$field_name,
                     $field_definition['type']
                 );
             } elseif (!$this->is_update) {
@@ -163,39 +167,43 @@ class EntriesRepository
             }
         }
 
-        foreach (cacheGet(CACHE_TYPE_FIELDS)[$this->config['field_set_id']] ?? [] as $field_id => $field_definition) {
-            if (!isset($this->entry_data[$field_definition['field_key']]) && !$this->is_update) {
+        foreach (
+            $this->cache_manager->get(
+                CacheDataTypes::Fields
+            )[$this->config['field_set_id']] as $field_id => $field_definition
+        ) {
+            if (!isset($this->entry_data->extra_data[$field_definition['field_key']]) && !$this->is_update) {
                 switch ($field_definition['default_type']) {
                     case FieldDefaultTypes::AsDefined:
-                        $this->entry_data[$field_definition['field_key']] = $this->db->escape_string(
-                            $field_definition['default_value']
-                        );
+                        $this->entry_data->extra_data[$field_definition['field_key']] = $field_definition['default_value'];
+
                         break;
                     case FieldDefaultTypes::CurrentTimestamp:
-                        $this->entry_data[$field_definition['field_key']] = $this->db->escape_string(
-                            date('Y-m-d H:i:s', TIME_NOW)
-                        );
+                        $this->entry_data->extra_data[$field_definition['field_key']] = date('Y-m-d H:i:s', TIME_NOW);
+
                         break;
                     case FieldDefaultTypes::UUID:
-                        $this->entry_data[$field_definition['field_key']] = $this->db->escape_string(generateUUIDv4());
+                        $this->entry_data->extra_data[$field_definition['field_key']] = (new UuidUtil(
+                        ))->generateUuidV4();
+
                         break;
                 }
             }
 
-            if (isset($this->entry_data[$field_definition['field_key']])) {
+            if (isset($this->entry_data->extra_data[$field_definition['field_key']])) {
                 if (fieldTypeMatchInt($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (int)$this->entry_data[$field_definition['field_key']];
+                    $this->insert_data[$field_definition['field_key']] = (int)$this->entry_data->extra_data[$field_definition['field_key']];
                 } elseif (fieldTypeMatchFloat($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (float)$this->entry_data[$field_definition['field_key']];
+                    $this->insert_data[$field_definition['field_key']] = (float)$this->entry_data->extra_data[$field_definition['field_key']];
                 } elseif (fieldTypeMatchChar($field_definition['field_type']) ||
                     fieldTypeMatchText($field_definition['field_type']) ||
                     fieldTypeMatchDateTime($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = $this->db->escape_string(
-                        $this->entry_data[$field_definition['field_key']]
+                    $this->insert_data[$field_definition['field_key']] = $this->database->escape_string(
+                        $this->entry_data->extra_data[$field_definition['field_key']]
                     );
                 } elseif (fieldTypeMatchBinary($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = $this->db->escape_binary(
-                        $this->entry_data[$field_definition['field_key']]
+                    $this->insert_data[$field_definition['field_key']] = $this->database->escape_binary(
+                        $this->entry_data->extra_data[$field_definition['field_key']]
                     );
                 }
             }
@@ -204,26 +212,27 @@ class EntriesRepository
         hooksRun('entry_insert_update_end', $this);
 
         if ($this->is_update) {
-            $this->db->update_query(
-                'myshowcase_data' . $this->showcase_id,
+            $this->database->update_query(
+                'myshowcase_data' . $this->config['showcase_id'],
                 $this->insert_data,
-                "entry_id='{$this->entry_id}'"
+                "entry_id='{$entry_data->entry_id}'"
             );
-
-            return $this->entry_id;
         } else {
-            $this->entry_id = (int)$this->db->insert_query('myshowcase_data' . $this->showcase_id, $this->insert_data);
+            $entry_data->entry_id = (int)$this->database->insert_query(
+                'myshowcase_data' . $this->config['showcase_id'],
+                $this->insert_data
+            );
         }
 
-        return $this->entry_id;
+        return $entry_data->entry_id;
     }
 
     /**
      * @throws RandomException
      */
-    public function updateEntry(array $entry_data, int $entry_id): int
+    public function updateEntry(Entry $entry_data): int
     {
-        return $this->insertEntry($entry_data, true, $entry_id);
+        return $this->insertEntry($entry_data, true);
     }
 
     public function deleteEntry(int $entry_id): void
@@ -232,11 +241,51 @@ class EntriesRepository
 
         hooksRun('entry_delete', $this);
 
-        $this->db->delete_query(
-            'myshowcase_data' . $this->showcase_id,
+        $this->database->delete_query(
+            'myshowcase_data' . $this->config['showcase_id'],
             "entry_id='{$this->entry_id}'"
         );
 
         $this->event_dispatcher->dispatch(new EntryDeletedEvent($this->entry_id), EntryDeletedEvent::NAME);
+    }
+
+    public function shutDownQueryIncrementViews(int $entry_id): void
+    {
+        $this->database->shutdown_query(
+            "UPDATE {$this->database->table_prefix}myshowcase_data{$this->config['showcase_id']} SET views=views+1 WHERE entry_id='{$entry_id}'"
+        );
+    }
+
+    public function querySessions(): array
+    {
+        $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
+
+        $query = $this->database->simple_select(
+            "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
+            's.ip, s.uid, u.username, u.avatar, s.time, u.invisible, u.usergroup, u.usergroup, u.displaygroup',
+            "s.uid != 0 AND s.time > $time_cut AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission != 1",
+            ['order_by' => 'u.username ASC, s.time DESC']
+        );
+
+        $session_objects = [];
+
+        while ($session_object = $this->database->fetch_array($query)) {
+            $session_objects[] = $session_object;
+        }
+
+        return $session_objects;
+    }
+
+    public function querySessionsCount(): int
+    {
+        $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
+
+        $query = $this->database->simple_select(
+            'sessions',
+            'COUNT(DISTINCT ip) AS guest_count',
+            "uid = 0 AND time > $time_cut AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission != 1"
+        );
+
+        return (int)$this->database->fetch_array($query)['guest_count'];
     }
 }

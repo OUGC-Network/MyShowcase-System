@@ -15,12 +15,11 @@ declare(strict_types=1);
 
 namespace MyShowcase\Routing;
 
-use MyShowcase\Controllers\Attachments;
-use MyShowcase\Controllers\Comments;
-use MyShowcase\Controllers\Entries;
-use MyShowcase\Controllers\Search;
+use MyShowcase\Controller\AttachmentsController;
+use MyShowcase\Controller\CommentsController;
+use MyShowcase\Controller\EntriesController;
 use MyShowcase\Enum\Routes;
-use MyShowcase\System\Showcase;
+use myshowcase\src\Showcase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -39,6 +38,8 @@ class Routing
     private ?Request $request = null;
     private ?UrlMatcher $matcher = null;
 
+    private readonly array $config;
+
     public function __construct(Showcase $showcase)
     {
         if ($this->showcase === null) {
@@ -47,15 +48,17 @@ class Routing
 
         $this->setRoutes();
 
-        $this->buildContext();
+        $this->context = new RequestContext();
 
-        $this->buildGenerator();
+        //$this->context->setBaseUrl($this->config['showcase_url']);
 
-        $this->buildRequest();
+        $this->generator = new UrlGenerator($this->routes, $this->context);
+
+        $this->request = Request::createFromGlobals();
 
         $this->context->fromRequest($this->request);
 
-        $this->buildMatcher();
+        $this->matcher = new UrlMatcher($this->routes, $this->context);
     }
 
     private function setRoutes(): void
@@ -66,131 +69,149 @@ class Routing
         $this->routes->add(
             Routes::Main,
             new Route(
-                '/',
+                '/{showcase}/',
                 [
-                    '_controller' => function (): void {
-                        output_page((new Entries($this))->main());
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new EntriesController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->main(...$parameters)
+                        );
                     },
                 ],
                 [
                     '_method' => 'GET',
-                ]
-            )
-        );
-
-        $this->routes->add(
-            Routes::Search,
-            new Route(
-                '/search',
-                [
-                    '_controller' => function (): string {
-                        return (new Search($this))->mainSearch();
-                    },
+                    'showcase' => '[a-z0-9]+',
                 ],
-            )
-        );
-
-        $this->routes->add(
-            Routes::Search,
-            new Route(
-                '/search/{search_hash}',
-                [
-                    '_controller' => function (): string {
-                        return (new Search($this))->mainSearch();
-                    },
-                ],
-                [
-                    '_method' => 'GET',
-                ]
             )
         );
 
         $this->routes->add(
             Routes::EntryCreate,
             new Route(
-                '/create',
-                [
-                    '_controller' => function (): void {
-                        output_page((new Entries($this))->create());
-                    },
-                ],
-            )
-        );
-
-        $this->routes->add(
-            Routes::EntryCreateUpload,
-            new Route(
-                '/create/{post_hash}/upload',
+                '/{showcase}/create',
                 [
                     '_controller' => function (array $parameters): void {
-                        output_page((new Attachments($this))->uploadAttachment(...$parameters));
-                    },
-                ],
-                [
-                    '_method' => 'POST',
-                    'post_hash' => '[a-z0-9-]+',
-                ]
-            ),
-        );
+                        unset($parameters['showcase']);
 
-        $this->routes->add(
-            Routes::EntryView,
-            new Route(
-                '/view/{entry_slug}/{entry_slug_custom}',
-                [
-                    '_controller' => function (array $parameters): void {
-                        output_page((new Entries($this))->view(...$parameters));
+                        output_page(
+                            (new EntriesController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->create(...$parameters)
+                        );
                     },
                 ],
                 [
                     '_method' => 'GET',
-                    'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
-                ]
+                    'showcase' => '[a-z0-9]+',
+                ],
             )
         );
 
         $this->routes->add(
             Routes::EntryUpdate,
             new Route(
-                '/view/{entry_slug}/update',
+                '/{showcase}/update/{entry_slug}',
                 [
                     '_controller' => function (array $parameters): void {
-                        output_page((new Entries($this))->update(...$parameters));
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new EntriesController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->update(...$parameters)
+                        );
                     },
                 ],
                 [
+                    'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
                 ]
             )
         );
 
         $this->routes->add(
-            Routes::EntryUpdateUpload,
+            Routes::EntryView,
             new Route(
-                '/view/{entry_slug}/update/attachment',
+                '/{showcase}/view/{entry_slug}/{entry_slug_custom}',
                 [
-                    '_controller' => function (array $parameters): string {
-                        (new Attachments($this))->uploadAttachment(...$parameters);
-                    },
-                ],
-                [
-                    'entry_slug' => '[a-z0-9-]+',
-                ]
-            )
-        );
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
 
-        $this->routes->add(
-            Routes::Comment,
-            new Route(
-                '/comment/{comment_slug}',
-                [
-                    '_controller' => function (): string {
-                        return (new Comments($this))->redirect();
+                        output_page(
+                            (new EntriesController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->view(...$parameters)
+                        );
                     },
                 ],
                 [
-                    'comment_slug' => '[a-z0-9-]+',
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -198,33 +219,37 @@ class Routing
         $this->routes->add(
             Routes::CommentCreate,
             new Route(
-                '/view/{entry_slug}/{entry_slug_custom}/comment',
+                '/{showcase}/view/{entry_slug}/{entry_slug_custom}/comment',
                 [
                     '_controller' => function (array $parameters): string {
-                        return (new Comments($this))->create(...$parameters);
-                    },
-                ],
-                [
-                    'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
-                ]
-            )
-        );
+                        unset($parameters['showcase']);
 
-        $this->routes->add(
-            Routes::CommentView,
-            new Route(
-                '/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}',
-                [
-                    '_controller' => function (): string {
-                        return (new Comments($this))->view();
+                        output_page(
+                            (new CommentsController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->create(...$parameters)
+                        );
                     },
                 ],
                 [
-                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
                     'entry_slug_custom' => '[a-z0-9-]*',
-                    'comment_slug' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -232,13 +257,35 @@ class Routing
         $this->routes->add(
             Routes::CommentUpdate,
             new Route(
-                '/comment/{comment_slug}/update',
+                '/{showcase}/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
                 [
                     '_controller' => function (array $parameters): string {
-                        return (new Comments($this))->update(...$parameters);
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new CommentsController(
+                                $this,
+                                $this->showcase->current_user,
+                                $this->showcase->entries_repository,
+                                $this->showcase->attachments_repository,
+                                $this->showcase->comments_repository,
+                                $this->showcase->subscriptions_repository,
+                                $this->showcase->moderators_repository,
+                                $this->showcase->entries_manager,
+                                $this->showcase->attachments_manager,
+                                $this->showcase->comments_manager,
+                                $this->showcase->render_manager,
+                                $this->showcase->field_factory,
+                                $this->config,
+                                $this->showcase->fieldset_fields,
+                                $this->showcase->filter,
+                                $this->showcase->attachment_types,
+                            ))->update(...$parameters)
+                        );
                     },
                 ],
                 [
+                    'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
                     'entry_slug_custom' => '[a-z0-9-]*',
                     'comment_slug' => '[a-z0-9-]+',
@@ -247,121 +294,241 @@ class Routing
         );
 
         $this->routes->add(
-            Routes::AttachmentViewFromPostHash,
+            Routes::CommentView,
             new Route(
-                '/create/{post_hash}/attachment/{attachment_hash}',
+                '/{showcase}/comment/{comment_slug}',
                 [
-                    '_controller' => function (array $parameters): string {
-                        // todo, maybe check that only the current user is trying to view ?
-                        (new Attachments($this))->downloadAttachment(...$parameters);
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        (new CommentsController(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->redirect(...$parameters);
                     },
                 ],
                 [
                     '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::AttachmentUpload,
+            new Route(
+                '/{showcase}/upload/{post_hash}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        (new AttachmentsController(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->uploadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'showcase' => '[a-z0-9]+',
                     'post_hash' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::AttachmentDownload,
+            new Route(
+                '/{showcase}/attachment/{attachment_hash}/{attachment_name}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        // todo, maybe check that only the current user is trying to view ?
+                        (new AttachmentsController(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->downloadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
                     'attachment_hash' => '[a-z0-9-]+',
+                    'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
                 ]
             ),
         );
 
         $this->routes->add(
-            Routes::AttachmentView,
+            Routes::AttachmentThumbnail,
             new Route(
-                '/view/{entry_slug}/attachment/{attachment_hash}',
+                '/{showcase}/thumbnail/{attachment_hash}/{attachment_name}',
                 [
-                    '_controller' => function (array $parameters): string {
-                        (new Attachments($this))->downloadAttachment(...$parameters);
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        (new AttachmentsController(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->viewThumbnail(...$parameters);
                     },
                 ],
                 [
                     '_method' => 'GET',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'showcase' => '[a-z0-9]+',
                     'attachment_hash' => '[a-z0-9-]+',
-                ]
+                    'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
+                ],
             )
         );
 
         $this->routes->add(
-            Routes::ThumbnailView,
+            Routes::Search,
             new Route(
-                '/view/{entry_slug}/thumbnail/{attachment_hash}',
+                '/{showcase}/search',
                 [
                     '_controller' => function (array $parameters): string {
-                        $parameters['is_thumbnail'] = true;
+                        unset($parameters['showcase']);
 
-                        (new Attachments($this))->viewThumbnail(...$parameters);
+                        return (new Search(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->mainSearch(...$parameters);
+                    },
+                ],
+                [
+                    'showcase' => '[a-z0-9]+',
+                ],
+            )
+        );
+
+        $this->routes->add(
+            Routes::SearchResults,
+            new Route(
+                '/{showcase}/search/{search_hash}',
+                [
+                    '_controller' => function (array $parameters): string {
+                        unset($parameters['showcase']);
+
+                        return (new Search(
+                            $this,
+                            $this->showcase->current_user,
+                            $this->showcase->entries_repository,
+                            $this->showcase->attachments_repository,
+                            $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->entries_manager,
+                            $this->showcase->attachments_manager,
+                            $this->showcase->comments_manager,
+                            $this->showcase->render_manager,
+                            $this->showcase->field_factory,
+                            $this->config,
+                            $this->showcase->fieldset_fields,
+                            $this->showcase->filter,
+                            $this->showcase->attachment_types,
+                        ))->mainSearch(...$parameters);
                     },
                 ],
                 [
                     '_method' => 'GET',
-                    'entry_slug' => '[a-z0-9-]+',
-                    'attachment_hash' => '[a-z0-9-]+',
+                    'showcase' => '[a-z0-9]+',
+                    'search_hash' => '[a-z0-9-]+',
                 ]
             )
         );
     }
 
-    private function getRoutes(): ?RouteCollection
-    {
-        return $this->routes;
-    }
-
-    private function buildContext(): RequestContext
-    {
-        if ($this->context !== null) {
-            return $this->context;
-        }
-
-        // Match the current request
-        $this->context = new RequestContext('/' . $this->showcase->contextPath); // Base URL
-
-        $this->context->setBaseUrl($this->showcase->config['url_root']);
-
-        return $this->context;
-    }
-
-    private function buildGenerator(): void
-    {
-        if ($this->generator !== null) {
-            return;
-        }
-
-        $this->generator = new UrlGenerator($this->getRoutes(), $this->buildContext());
-    }
-
-    private function buildRequest(): void
-    {
-        if ($this->request !== null) {
-            return;
-        }
-
-        $this->request = Request::createFromGlobals();
-    }
-
-    private function buildMatcher(): UrlMatcher
-    {
-        if ($this->matcher !== null) {
-            return $this->matcher;
-        }
-
-        $this->matcher = new UrlMatcher($this->routes, $this->context);
-
-        return $this->matcher;
-    }
-
     public function getMatch(): array
     {
-        $pathInfo = str_replace($this->showcase->contextPath, '', $this->request->getPathInfo());
-
-        return $this->buildMatcher()->match($pathInfo);
+        return $this->matcher->match($this->request->getPathInfo());
     }
 
     public function generateUrl(string $name, array $parameters = []): string
     {
-        return str_replace(
-            '../',
-            '',
-            $this->generator->generate($name, $parameters, UrlGenerator::RELATIVE_PATH)
-        );
+        $parameters['showcase'] = $this->config['route_identifier'];
+
+        $this->context->setBaseUrl('/');
+
+        return $this->generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_PATH);
+    }
+
+    public function routeIdentifier(): string|false
+    {
+        static $route_identifier = null;
+
+        if ($route_identifier === null) {
+            $route_identifier = array_values(array_filter(explode('/', $this->context->getPathInfo())))[0] ?? false;
+        }
+
+        return $route_identifier;
+    }
+
+    public function setConfig(mixed $config): void
+    {
+        $this->config = $config;
     }
 }

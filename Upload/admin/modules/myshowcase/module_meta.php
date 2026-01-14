@@ -39,12 +39,6 @@ function myshowcase_meta(): bool
         'link' => 'index.php?module=myshowcase-fields'
     ];
 
-    $sub_menu[$displayOrder += 10] = [
-        'id' => 'help',
-        'title' => $lang->myshowcase_admin_help,
-        'link' => 'index.php?module=myshowcase-help'
-    ];
-
     /*
     if (function_exists('MyShowcase\Plugin\Core\hooksRun')) {
         $sub_menu = hooksRun('admin_module_meta_start', $sub_menu);
@@ -81,7 +75,6 @@ function myshowcase_action_handler(string $action): string
         'summary' => ['active' => 'summary', 'file' => 'summary.php'],
         'new' => ['active' => 'new', 'file' => 'summary.php'],
         'fields' => ['active' => 'fields', 'file' => 'fields.php'],
-        'help' => ['active' => 'help', 'file' => 'help.php']
     ];
 
     $actions = hooksRun('admin_action_handler', $actions);
@@ -107,7 +100,6 @@ function myshowcase_admin_permissions(): array
         'edit' => $lang->myshowcase_admin_perm_edit,
         'fields' => $lang->myshowcase_admin_perm_fields,
         'cache' => $lang->myshowcase_admin_perm_cache,
-        'help' => $lang->myshowcase_admin_perm_help,
     ];
 
     $admin_permissions = hooksRun('admin_permissions', $admin_permissions);

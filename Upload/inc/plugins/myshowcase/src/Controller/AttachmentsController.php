@@ -13,15 +13,26 @@
 
 declare(strict_types=1);
 
-namespace MyShowcase\Controllers;
+namespace MyShowcase\Controller;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Entity\Entry;
+use MyShowcase\Entity\User;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\ModeratorPermissions;
-use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Enum\Routes;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Fields\FieldFactory;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Repository\ModeratorsRepository;
+use MyShowcase\Routing\Routing;
+use MyShowcase\Service\AttachmentsManager;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
+use MyShowcase\Service\Render;
 use MyShowcase\System\ExceptionInvalidRangeHeader;
 use MyShowcase\System\ExceptionNonExistentFile;
 use MyShowcase\System\ExceptionUnreadableFile;
@@ -29,6 +40,7 @@ use MyShowcase\System\ExceptionUnsatisfiableRange;
 use MyShowcase\System\PartialFileServlet;
 use MyShowcase\System\RangeHeader;
 use Random\RandomException;
+use Symfony\Component\Routing\Annotation\Route;
 
 use function MyShowcase\Plugin\Functions\attachmentLogInsert;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -36,11 +48,48 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 use const MyShowcase\ROOT;
 
-class Attachments extends Base
+class AttachmentsController extends BaseController
 {
+    public array $attachment_data;
+    public bool $is_thumbnail = true;
+    public int $download_count_increase = 1;
+
+    public function __construct(
+        private readonly Routing $routing,
+        private readonly User $current_user,
+        private readonly EntriesRepository $entries_repository,
+        private readonly AttachmentsRepository $attachments_repository,
+        private readonly CommentsRepository $comments_repository,
+        private readonly ModeratorsRepository $moderators_repository,
+        private readonly EntriesManager $entries_manager,
+        private readonly AttachmentsManager $attachments_manager,
+        private readonly CommentsManager $comments_manager,
+        private readonly Render $render_manager,
+        private readonly FieldFactory $field_factory,
+        private readonly array $config,
+        private readonly array $fieldset_fields,
+        private readonly array $filter,
+        protected readonly array $attachment_types,
+    ) {
+        parent::__construct(
+            $routing,
+            $this->current_user,
+            $this->entries_repository,
+            $this->comments_repository,
+            $this->entries_manager,
+            $this->comments_manager,
+            $this->render_manager,
+            $this->field_factory,
+            $this->config,
+            $this->fieldset_fields,
+            $this->filter,
+        );
+    }
+
     /**
      * @throws RandomException
      */
+    #[Route('/upload/{post_hash}', name: 'entry_create_upload', methods: ['POST'])]
     #[NoReturn] public function uploadAttachment(
         ?string $post_hash = null,
         ?string $entry_slug = null,
@@ -51,8 +100,8 @@ class Attachments extends Base
             $this->error($lang->invalid_post_code);
         }
 
-        if (!$this->showcase->config['attachments_allow_entries'] ||
-            !$this->showcase->user_permissions[UserPermissions::CanUploadAttachments]) {
+        if (!$this->config['attachments_allow_in_entries'] ||
+            !$this->current_user->hasPermission(UserPermissions::AttachmentsCanUpload)) {
             $this->errorNoPermission();
         }
 
@@ -60,7 +109,10 @@ class Attachments extends Base
 
         $field_id = null;
 
-        $field_id = $this->showcase->fieldSetFieldsIDs[$field_key] ?? 0;
+        $field_id = array_filter(
+            $this->fieldset_fields,
+            fn($field_data) => $field_data['field_key'] === $field_key
+        )[0]['field_id'] ?? 0;
 
         if (!$field_key || empty($field_id)) {
             $this->errorNoPermission();
@@ -70,7 +122,7 @@ class Attachments extends Base
             $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
         }
 
-        $field_definition = $this->showcase->fields_cache[$field_id];
+        $field_definition = $this->fieldset_fields[$field_id];
 
         if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
             !is_member($field_definition['allowed_groups_fill'])) {
@@ -80,7 +132,7 @@ class Attachments extends Base
         $entry_id = null;
 
         if ($post_hash === null) {
-            $entry_data = $this->showcase->entries_repository->queryEntry(
+            $entry_data = $this->entries_repository->queryEntry(
                 ["entry_slug='{$entry_slug}'"],
                 ['entry_id', 'post_hash', 'status', 'user_id'],
             );
@@ -89,57 +141,54 @@ class Attachments extends Base
                 $this->errorNoPermission();
             }
 
-            $this->showcase->addEntry($entry_data);
+            $this->entries_manager->addEntry($entry_data);
 
-            $entry_data = $this->showcase->getEntryByID($entry_data['entry_id']);
+            $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
 
             $entry_id = $entry_data->entry_id;
         } else {
-            $entry_data = new Entry(user_id: $this->showcase->current_user_id);
-
-            $entry_data->setPostHash($post_hash);
+            $entry_data = new Entry(post_hash: $post_hash, user_id: $this->current_user->user_id);
         }
 
         if ($mybb->request_method === 'post') {
             require_once MYBB_ROOT . 'inc/functions_upload.php';
 
-            $fileObject = $this->showcase->attachments_manager->uploadAttachment(
+            $upload_attachment_result = $this->attachments_manager->uploadAttachment(
                 $_FILES[$field_key],
                 $entry_data,
                 field_id: $field_id,
-                field_definition: $field_id ? $this->showcase->fields_cache[$field_id] : [],
+                field_definition: $field_id ? $this->fieldset_fields[$field_id] : [],
                 do_watermark: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
             );
 
-            if (isset($fileObject['error'])) {
-                $this->error($fileObject['error']);
+            if (isset($upload_attachment_result['error'])) {
+                $this->error($upload_attachment_result['error']);
             } else {
                 $this->success([
-                    'id' => $fileObject['attachment_id'],
-                    'path' => $fileObject['file_name'],
-                    'url' => isset($entry_data) ? $this->showcase->config['url_showcase'] . '/' . $this->routing->generateUrl(
-                            Routes::AttachmentView,
+                    'id' => $upload_attachment_result['attachment_id'],
+                    'path' => $upload_attachment_result['file_name'],
+                    'url' => $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                            Routes::AttachmentDownload,
                             [
-                                'entry_slug' => $entry_slug,
-                                'attachment_hash' => $fileObject['attachment_hash'],
-                                'post_hash' => $entry_data->post_hash,
-                            ],
-                        ) : $this->showcase->config['url_showcase'] . '/' . $this->routing->generateUrl(
-                            Routes::AttachmentViewFromPostHash,
-                            [
-                                'post_hash' => $entry_data->post_hash,
-                                'attachment_hash' => $fileObject['attachment_hash'],
+                                'attachment_hash' => $upload_attachment_result['attachment_hash'],
+                                'attachment_name' => $upload_attachment_result['attachment_name'],
                             ],
                         ),
                     'filename' => basename($_FILES[$field_key]['name']),
-                    'size' => $fileObject['file_size'],
-                    'type' => $fileObject['mime_type'],
+                    'size' => $upload_attachment_result['file_size'],
+                    'type' => $upload_attachment_result['mime_type'],
                     'status' => 'success', // error, pending
                     'message' => 'File uploaded successfully',
-                    'key' => $fileObject['attachment_id'],
+                    'key' => $upload_attachment_result['attachment_id'],
                     'metadata' => [
-                        'width' => empty($fileObject['dimensions']) ? '' : explode('x', $fileObject['dimensions'])[0],
-                        'height' => empty($fileObject['dimensions']) ? '' : explode('x', $fileObject['dimensions'])[1],
+                        'width' => empty($upload_attachment_result['dimensions']) ? '' : explode(
+                            'x',
+                            $upload_attachment_result['dimensions']
+                        )[0],
+                        'height' => empty($upload_attachment_result['dimensions']) ? '' : explode(
+                            'x',
+                            $upload_attachment_result['dimensions']
+                        )[1],
                         'author' => $mybb->user['username'] ?? '',
                     ],
                 ]);
@@ -159,7 +208,7 @@ class Attachments extends Base
     int(0)
     ["filter_on_save"]=>
     int(0)
-    ["enabled"]=>
+    ["is_enabled"]=>
     int(1)
     ["is_required"]=>
     int(0)
@@ -191,7 +240,7 @@ class Attachments extends Base
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle chunked uploads (FilePond sends chunks as separate requests)
             $chunkIndex = isset($_SERVER['HTTP_UPLOAD_OFFSET']) ? (int)$_SERVER['HTTP_UPLOAD_OFFSET'] : 0;
-            $fileName = isset($_SERVER['HTTP_UPLOAD_FILENAME']) ? $_SERVER['HTTP_UPLOAD_FILENAME'] : 'unknown';
+            $fileName = $_SERVER['HTTP_UPLOAD_FILENAME'] ?? 'unknown';
             $tempFileName = $uploadDir . 'temp_' . $fileName;
 
             // Append chunk to temporary file
@@ -250,7 +299,7 @@ class Attachments extends Base
     ): void {
         global $db;
 
-        $where_clauses = ["showcase_id='{$this->showcase->showcase_id}'"];
+        $where_clauses = ["showcase_id='{$this->config['showcase_id']}'"];
 
         if ($post_hash === null) {
             $where_clauses[] = "entry_slug='{$db->escape_string($entry_slug ?? '')}'";
@@ -263,13 +312,16 @@ class Attachments extends Base
         $field_key = $mybb->get_input('field_key');
 
         if ($field_key) {
-            $field_id = $this->showcase->fieldSetFieldsIDs[$field_key] ?? 0;
+            $field_id = array_filter(
+                $this->fieldset_fields,
+                fn($field_data) => $field_data['field_key'] === $field_key
+            )[0]['field_id'] ?? 0;
 
             if (empty($field_id)) {
                 $this->errorNoPermission();
             }
 
-            $field_definition = $this->showcase->fields_cache[$field_id];
+            $field_definition = $this->fieldset_fields[$field_id];
 
             if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
                 !is_member($field_definition['allowed_groups_fill'])) {
@@ -278,7 +330,7 @@ class Attachments extends Base
             //$where_clauses[] = "field_id='{$field_id}'";
         }
 
-        $attachmentObjects = $this->showcase->attachments_repository->queryAttachments(
+        $attachmentObjects = $this->attachments_repository->queryAttachments(
             $where_clauses,
             [
                 'attachment_name',
@@ -289,147 +341,113 @@ class Attachments extends Base
             ]
         );
 
-        foreach ($attachmentObjects as $attachmentID => $attachmentData) {
-            $attachmentObjects[$attachmentID]['url'] = $post_hash === null ? $this->routing->generateUrl(
-                Routes::AttachmentViewFromPostHash,
-                [
-                    'post_hash' => $post_hash,
-                    'attachment_hash' => $attachmentData['attachment_hash']
-                ],
-            ) : $this->routing->generateUrl(
-                Routes::AttachmentViewFromPostHash,
-                [
-                    'post_hash' => $post_hash,
-                    'attachment_hash' => $attachmentData['attachment_hash']
-                ],
-            );
-            //$attachmentObjects[$attachmentID]['url'] = 'https://static.wikia.nocookie.net/sonic/images/1/10/SRCSonic.png/revision/latest?cb=20251202132714';
+        foreach ($attachmentObjects as $attachment_id => $attachment_data) {
+            $attachmentObjects[$attachment_id]['url'] = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                    Routes::AttachmentDownload,
+                    [
+                        'attachment_hash' => $attachment_data['attachment_hash'],
+                        'attachment_name' => $attachment_data['attachment_name'],
+                    ],
+                );
+            //$attachmentObjects[$attachment_id]['url'] = 'https://static.wikia.nocookie.net/sonic/images/1/10/SRCSonic.png/revision/latest?cb=20251202132714';
         }
 
         $this->success(array_values($attachmentObjects));
     }
 
+    #[Route('/attachment/{attachment_hash}/{attachment_name}', name: 'attachment_view', methods: ['GET'])]
     #[NoReturn] public function downloadAttachment(
         string $attachment_hash,
-        ?string $post_hash = null,
-        ?string $entry_slug = null,
+        string $attachment_name,
     ): void {
-        $this->viewThumbnail($attachment_hash, $post_hash, $entry_slug, false);
+        $this->is_thumbnail = false;
+
+        $this->viewThumbnail($attachment_hash, $attachment_name);
     }
 
+    #[Route('/thumbnail/{attachment_hash}/{attachment_name}', name: 'thumbnail_view', methods: ['GET'])]
     #[NoReturn] public function viewThumbnail(
         string $attachment_hash,
-        ?string $post_hash = null,
-        ?string $entry_slug = null,
-        bool $is_thumbnail = true,
+        string $attachment_name,
     ): void {
         global $mybb, $db;
         global $lang;
 
         $lang->load('messages');
 
-        if ($entry_slug !== null) {
-            $whereClauses = ["entry_slug='{$db->escape_string($entry_slug)}'"];
-        } else {
-            $whereClauses = ["post_hash='{$db->escape_string($post_hash)}'"];
+        $where_clauses = [
+            "showcase_id='{$this->config['showcase_id']}'",
+            "attachment_hash='{$db->escape_string($attachment_hash)}'",
+            "attachment_name='{$db->escape_string($attachment_name)}'",
+        ];
+
+        if ($this->is_thumbnail) {
+            $where_clauses[] = "thumbnail_name!=''";
         }
 
-        $entry_data = $this->showcase->entries_repository->queryEntry(
-            $whereClauses,
+        $this->attachment_data = $this->attachments_repository->queryAttachment(
+            $where_clauses,
+            array_keys(TABLES_DATA['myshowcase_attachments']),
+        );
+
+        $entry_data = $this->entries_repository->queryEntry(
+            ["entry_id='{$this->attachment_data['entry_id']}'"],
             ['entry_id', 'user_id', 'post_hash', 'status']
         );
 
-        $this->showcase->addEntry($entry_data);
+        $this->entries_manager->addEntry($entry_data);
 
-        $entry_data = $this->showcase->getEntryByID($entry_data['entry_id']);
+        $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
 
-        $tablesData = TABLES_DATA['myshowcase_attachments'];
+        hooksRun('controller_attachments_download_start', $this);
 
-        $whereClauses = [
-            "showcase_id='{$this->showcase->showcase_id}'",
-            "entry_id='{$entry_data->entry_id}'",
-            "attachment_hash='{$db->escape_string($attachment_hash)}'",
-        ];
-
-        if ($is_thumbnail) {
-            $whereClauses[] = "thumbnail_name!=''";
-        }
-
-        $incrementDownloadCount = 1;
-
-        $hookArguments = [
-            'attachmentsController' => &$this,
-            'attachmentData' => &$attachmentData,
-            'isThumbnail' => $is_thumbnail,
-            'tableData' => &$tablesData,
-            'whereClauses' => &$whereClauses,
-            'incrementDownloadCount' => &$incrementDownloadCount,
-        ];
-
-        $hookArguments = hooksRun('controller_attachments_download_start', $hookArguments);
-
-        $attachmentData = $this->showcase->attachments_repository->queryAttachment(
-            $whereClauses,
-            array_keys($tablesData),
-        );
-
-        if ($attachmentData['field_id'] !== 0) {
+        if ($this->attachment_data['field_id'] !== 0) {
             // todo, check field permissions
         }
 
-        if (empty($attachmentData['attachment_name'])) {
+        if (empty($this->attachment_data['attachment_name'])) {
             $this->error($lang->error_invalidattachment);
         }
 
-        $hookArguments['attachmentData'] = &$attachmentData;
-
-        $attachmentID = (int)$attachmentData['attachment_id'];
-
-        $attachmentUserID = (int)$attachmentData['user_id'];
-
         if (
-            !$this->showcase->user_permissions[UserPermissions::CanView] ||
-            !$this->showcase->user_permissions[UserPermissions::CanViewEntries] ||
+            !$this->current_user->hasPermission(UserPermissions::MainCanView) ||
+            !$this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
             (
-                $this->showcase->current_user_id !== $attachmentUserID &&
-                !$this->showcase->user_permissions[UserPermissions::CanViewAttachments]
+                $this->current_user->user_id !== (int)$this->attachment_data['user_id'] &&
+                !$this->current_user->hasPermission(UserPermissions::AttachmentsCanView)
             )
         ) {
             $this->error($lang->error_invalidattachment);
         }
 
-        $attachmentFileExtension = my_strtolower(get_extension($attachmentData['attachment_name']));
+        $attachment_file_extension = my_strtolower(get_extension($this->attachment_data['attachment_name']));
 
-        $attachmentMimeType = my_strtolower($attachmentData['mime_type']);
+        $attachment_mime_type = my_strtolower($this->attachment_data['mime_type']);
 
-        foreach ($this->showcase->attachment_types as $attachmentTypeID => $attachmentTypeData) {
-            if (!($attachmentTypeData['file_extension'] === $attachmentFileExtension &&
-                $attachmentTypeData['mime_type'] === $attachmentMimeType)) {
-                unset($attachmentTypeData);
+        foreach ($this->attachment_types as $attachment_type_id => $attachment_type_data) {
+            if (!($attachment_type_data['file_extension'] === $attachment_file_extension &&
+                $attachment_type_data['mime_type'] === $attachment_mime_type)) {
+                unset($attachment_type_data);
             } else {
                 break;
             }
         }
 
-        if (empty($attachmentTypeData)) {
+        if (empty($attachment_type_data)) {
             $this->error($lang->error_invalidattachment);
         }
 
-        $hookArguments['attachmentTypeData'] = &$attachmentTypeData;
-
-        $attachmentStatus = (int)$attachmentData['status'];
-
         // Don't check the permissions on preview
-        if ($this->showcase->current_user_id !== $attachmentUserID) {
-            if (!$this->showcase->user_permissions[UserPermissions::CanDownloadAttachments] && !$is_thumbnail) {
+        if ($this->current_user->user_id !== (int)$this->attachment_data['user_id']) {
+            if (!$this->current_user->hasPermission(UserPermissions::AttachmentsCanDownload) && !$this->is_thumbnail) {
                 $this->errorNoPermission();
             }
 
             // Error if attachment is invalid or not visible
-            if (!$this->showcase->user_permissions[ModeratorPermissions::CanManageAttachments] &&
+            if (!$this->current_user->hasPermission(UserPermissions::CanManageAttachments) &&
                 (
-                    $attachmentStatus !== $this->showcase->attachments_manager::STATUS_VISIBLE ||
-                    $entry_data->status !== $this->showcase->entries_manager::STATUS_VISIBLE
+                    (int)$this->attachment_data['status'] !== $this->attachments_manager::STATUS_VISIBLE ||
+                    $entry_data->status !== $this->entries_manager::STATUS_VISIBLE
                 )
             ) {
                 $this->error($lang->error_invalidattachment);
@@ -437,44 +455,46 @@ class Attachments extends Base
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($incrementDownloadCount && !$is_thumbnail && $this->showcase->current_user_id !== $attachmentUserID) {
-            if (!is_member($attachmentTypeData['allowed_groups'])) {
+        if ($this->download_count_increase && !$this->is_thumbnail && $this->current_user->user_id !== (int)$this->attachment_data['user_id']) {
+            if (!is_member($attachment_type_data['allowed_groups'])) {
                 $this->errorNoPermission();
             }
 
-            $this->showcase->attachments_repository->updateAttachment(
-                ['downloads' => $attachmentData['downloads'] + $incrementDownloadCount],
-                $attachmentID
+            $this->attachments_repository->updateAttachment(
+                ['downloads' => $this->attachment_data['downloads'] + $this->download_count_increase],
+                (int)$this->attachment_data['attachment_id']
             );
         }
 
         // basename isn't UTF-8 safe. This is a workaround.
-        $attachmentName = ltrim(basename(' ' . $attachmentData['attachment_name']));
+        $attachment_file_name = ltrim(basename(' ' . $this->attachment_data['attachment_name']));
 
-        $absoluteUploadsPath = mk_path_abs($this->showcase->config['attachments_uploads_path']);
+        $absolute_uploads_path = mk_path_abs($this->config['attachments_uploads_path']);
 
-        $hookArguments = hooksRun('controller_attachments_download_intermediate', $hookArguments);
+        hooksRun('controller_attachments_download_intermediate', $this);
 
-        if ($is_thumbnail) {
-            if (!file_exists($absoluteUploadsPath . '/' . $attachmentData['thumbnail_name'])) {
+        if ($this->is_thumbnail) {
+            if (!file_exists($absolute_uploads_path . '/' . $this->attachment_data['thumbnail_name'])) {
                 $this->error($lang->error_invalidattachment);
             }
 
-            $imageType = match ($attachmentFileExtension) {
-                'gif' => 'image/gif',
-                'bmp' => 'image/bmp',
-                'png' => 'image/png',
-                'jpg', 'jpeg', 'jpe' => 'image/jpeg',
-                default => 'image/unknown',
-            };
+            header("Content-disposition: filename=\"{$attachment_file_name}\"");
 
-            header("Content-disposition: filename=\"{$attachmentName}\"");
+            header(
+                'Content-type: ' . match ($attachment_file_extension) {
+                    'gif' => 'image/gif',
+                    'bmp' => 'image/bmp',
+                    'png' => 'image/png',
+                    'jpg', 'jpeg', 'jpe' => 'image/jpeg',
+                    default => 'image/unknown',
+                }
+            );
 
-            header('Content-type: ' . $imageType);
+            header(
+                'Content-length: ' . filesize($absolute_uploads_path . '/' . $this->attachment_data['thumbnail_name'])
+            );
 
-            header('Content-length: ' . filesize($absoluteUploadsPath . '/' . $attachmentData['thumbnail_name']));
-
-            $handle = fopen($absoluteUploadsPath . '/' . $attachmentData['thumbnail_name'], 'rb');
+            $handle = fopen($absolute_uploads_path . '/' . $this->attachment_data['thumbnail_name'], 'rb');
 
             while (!feof($handle)) {
                 echo fread($handle, 8192);
@@ -484,13 +504,13 @@ class Attachments extends Base
 
             exit;
         } else {
-            if (!file_exists($absoluteUploadsPath . '/' . $attachmentData['file_name'])) {
+            if (!file_exists($absolute_uploads_path . '/' . $this->attachment_data['file_name'])) {
                 $this->error($lang->error_invalidattachment);
             }
 
-            $filetype = $attachmentMimeType;
+            $file_type = $attachment_mime_type;
 
-            switch ($attachmentMimeType) {
+            switch ($attachment_mime_type) {
                 case 'application/pdf':
                 case 'image/bmp':
                 case 'image/gif':
@@ -498,7 +518,7 @@ class Attachments extends Base
                 case 'image/pjpeg':
                 case 'image/png':
                 case 'text/plain':
-                    if (!empty($attachmentTypeData['force_download'])) {
+                    if (!empty($attachment_type_data['force_download'])) {
                         $disposition = 'attachment';
                     } else {
                         $disposition = 'inline';
@@ -507,14 +527,12 @@ class Attachments extends Base
                     break;
 
                 default:
-                    if (!$filetype) {
-                        $filetype = 'application/force-download';
+                    if (!$file_type) {
+                        $file_type = 'application/force-download';
                     }
 
                     $disposition = 'attachment';
             }
-
-            //ini_set('display_errors', 0);
 
             require_once ROOT . '/System/ExceptionInvalidRangeHeader.php';
             require_once ROOT . '/System/ExceptionNonExistentFile.php';
@@ -524,15 +542,15 @@ class Attachments extends Base
             require_once ROOT . '/System/RangeHeader.php';
 
             try {
-                $rangeHeader = RangeHeader::createFromHeaderString(
-                    RangeHeader::getRequestHeader('Range')
-                );
-
-                (new PartialFileServlet($rangeHeader))->sendFile(
-                    $absoluteUploadsPath . '/' . $attachmentData['file_name'],
-                    $filetype,
-                    (int)$attachmentData['file_size'],
-                    $attachmentName,
+                (new PartialFileServlet(
+                    RangeHeader::createFromHeaderString(
+                        RangeHeader::getRequestHeader('Range')
+                    )
+                ))->sendFile(
+                    $absolute_uploads_path . '/' . $this->attachment_data['file_name'],
+                    $file_type,
+                    (int)$this->attachment_data['file_size'],
+                    $attachment_file_name,
                     $disposition
                 );
             } catch (ExceptionInvalidRangeHeader $e) {
@@ -545,8 +563,8 @@ class Attachments extends Base
                 header('HTTP/1.1 500 Internal Server Error');
             } finally {
                 attachmentLogInsert([
-                    'user_id' => $this->showcase->current_user_id,
-                    'attachment_id' => $attachmentID,
+                    'user_id' => $this->current_user->user_id,
+                    'attachment_id' => $this->attachment_data['attachment_id'],
                     'ipaddress' => $mybb->session->packedip,
                     'dateline' => TIME_NOW,
                 ]);

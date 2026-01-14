@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
-use DirectoryIterator;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\FieldTypes;
@@ -23,43 +22,14 @@ use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FormatTypes;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Repository\CommentsRepository;
-use MyShowcase\Repository\EntriesRepository;
-use MyShowcase\Service\AttachmentsManager;
-use MyShowcase\Service\CommentsManager;
-use MyShowcase\Service\EntriesManager;
-use MyShowcase\System\Showcase;
+use MyShowcase\Repository\PermissionsRepository;
+use myshowcase\src\Showcase;
 use Postparser;
-use Random\RandomException;
 use ReflectionClass;
-use Twig\Environment;
-use Twig\Error\LoaderError;
-use Twig\Error\RuntimeError;
-use Twig\Error\SyntaxError;
 
-use function MyBB\app;
-use function MyBB\View\template;
-
-use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
-use const MyShowcase\Plugin\Core\DEBUG;
-use const MyShowcase\Plugin\Core\FILTER_TYPE_NONE;
-use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
-use const MyShowcase\Plugin\Core\SETTINGS;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\Plugin\Core\URL;
-use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_CENTER;
-use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_LEFT;
-use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_LOWER_RIGHT;
-use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_LEFT;
-use const MyShowcase\Plugin\Core\WATERMARK_LOCATION_UPPER_RIGHT;
-use const MyShowcase\ROOT;
+use const MyShowcase\SETTINGS;
 
 function loadLanguage(
     string $languageFileName = 'myshowcase',
@@ -107,59 +77,18 @@ function hooksAdd(string $namespace): bool
 
 function hooksRun(
     string $hookName,
-    EntriesManager|CommentsManager|AttachmentsManager|EntriesRepository|CommentsRepository|array &$hookArguments = []
-): EntriesManager|CommentsManager|AttachmentsManager|EntriesRepository|CommentsRepository|array {
+    mixed &$hookArguments = []
+): mixed {
     global $plugins;
 
     return $plugins->run_hooks('myshowcase_system_' . $hookName, $hookArguments);
-}
-
-function urlHandler(string $newUrl = ''): string
-{
-    static $setUrl = URL;
-
-    if (($newUrl = trim($newUrl))) {
-        $setUrl = $newUrl;
-    }
-
-    return $setUrl;
-}
-
-function urlHandlerSet(string $newUrl): bool
-{
-    urlHandler($newUrl);
-
-    return true;
-}
-
-function urlHandlerGet(): string
-{
-    return urlHandler();
-}
-
-function urlHandlerBuild(array $urlAppend = [], string $separator = '&amp;', bool $encode = true): string
-{
-    global $PL;
-
-    if (!is_object($PL)) {
-        $PL or require_once PLUGINLIBRARY;
-    }
-
-    if ($urlAppend && !is_array($urlAppend)) {
-        $urlAppend = explode('=', $urlAppend);
-        $urlAppend = [$urlAppend[0] => $urlAppend[1]];
-    }
-
-    return $PL->url_append(urlHandlerGet(), $urlAppend, $separator, $encode);
 }
 
 function getSetting(string $settingKey = '')
 {
     global $mybb;
 
-    return SETTINGS[$settingKey] ?? (
-        $mybb->settings['myshowcase_' . $settingKey] ?? false
-    );
+    return SETTINGS[$settingKey] ?? $mybb->settings['myshowcase_' . $settingKey] ?? false;
 }
 
 function templateGetName(string $templateName = '', string $showcasePrefix = '', bool $addPrefix = true): string
@@ -177,393 +106,54 @@ function templateGetName(string $templateName = '', string $showcasePrefix = '',
     return $templatePrefix . $templateName;
 }
 
-/**
- * @throws SyntaxError
- * @throws RuntimeError
- * @throws LoaderError
- */
-function templateGet(
-    string $templateName = '',
-    array $templatesContext = [],
-    string $custom_theme_template_prefix = '',
-): string {
-    if ($custom_theme_template_prefix !== '' &&
-        templateExists($custom_theme_template_prefix . '/' . $templateName)) {
-        return template(
-            '@ext.myshowcase/' . $custom_theme_template_prefix . '/' . $templateName . '.twig',
-            $templatesContext
-        );
-    } else {
-        return template(
-            '@ext.myshowcase/' . $templateName . '.twig',
-            $templatesContext
-        );
-    }
-}
-
-function templateExists(string $template_name): bool
-{
-    /** @var Environment $twig */
-    $twig = app(Environment::class);
-
-    $loader = $twig->getLoader();
-
-    return $loader->exists(
-        "@ext.myshowcase/{$template_name}.twig"
-    );
-}
-
-function templateGetCachedName(string $templateName = '', string $showcasePrefix = '', bool $addPrefix = false): string
-{
-    global $templates;
-
-    if (DEBUG) {
-        //$templates->get(getTemplateName($templateName));
-
-        //$templates->get(getTemplateName($templateName, $showcasePrefix));
-    }
-
-    if (DEBUG && file_exists($filePath = ROOT . "/Templates/{$templateName}.html")) {
-        $templateContents = file_get_contents($filePath);
-
-        $templates->cache[templateGetName($templateName)] = $templateContents;
-    } elseif (my_strpos($templateName, '/') !== false) {
-        $templateName = substr($templateName, my_strpos($templateName, '/') + 1);
-    }
-
-    if ($showcasePrefix !== '' && isset($templates->cache[templateGetName($templateName, $showcasePrefix)])) {
-        return templateGetName($templateName, $showcasePrefix, $addPrefix);
-    } elseif ($showcasePrefix) {
-        return templateGetCachedName($templateName, addPrefix: $addPrefix);
-    }
-
-    return templateGetName($templateName, $showcasePrefix, $addPrefix);
-}
-
 //set default permissions for all groups in all myshowcases
 //if you edit or reorder these, you need to also edit
 //the summary.php file (starting line 156) so the fields match this order
 function showcaseDefaultPermissions(): array
 {
     return [
-        UserPermissions::CanCreateEntries => false,
-        UserPermissions::CanUpdateEntries => false,
-        UserPermissions::CanUploadAttachments => false,
-        UserPermissions::CanView => true,
-        UserPermissions::CanViewComments => true,
-        UserPermissions::CanViewAttachments => true,
-        UserPermissions::CanCreateComments => false,
-        UserPermissions::CanDeleteComments => false,
-        //UserPermissions::CanDeleteAuthorComments => false,
-        UserPermissions::CanSearch => true,
-        UserPermissions::CanWaterMarkAttachments => false,
-        UserPermissions::AttachmentsFilesLimit => 0
+        UserPermissions::EntriesCanPost => false,
+        UserPermissions::EntriesCanUpdate => false,
+        UserPermissions::AttachmentsCanUpload => false,
+        UserPermissions::MainCanView => true,
+        UserPermissions::CommentsCanView => true,
+        UserPermissions::AttachmentsCanView => true,
+        UserPermissions::CommentsCanPost => false,
+        UserPermissions::CommentsCanDelete => false,
+        UserPermissions::CanSearchEntries => true,
     ];
 }
 
 function showcaseDefaultModeratorPermissions(): array
 {
     return [
-        ModeratorPermissions::CanManageEntries => false,
-        ModeratorPermissions::CanManageEntries => false,
-        ModeratorPermissions::CanManageEntries => false,
-        ModeratorPermissions::CanManageComments => false
+        ModeratorPermissions::EntriesCanView => false,
+        ModeratorPermissions::EntriesCanView => false,
+        ModeratorPermissions::EntriesCanView => false,
+        ModeratorPermissions::CommentsCanView => false
     ];
-}
-
-function getTemplatesList(): array
-{
-    $templatesDirIterator = new DirectoryIterator(ROOT . '/Templates');
-
-    $templatesList = [];
-
-    foreach ($templatesDirIterator as $template) {
-        if (!$template->isFile()) {
-            continue;
-        }
-
-        $pathName = $template->getPathname();
-
-        $pathInfo = pathinfo($pathName);
-
-        if ($pathInfo['extension'] === 'html') {
-            $templatesList[$pathInfo['filename']] = file_get_contents($pathName);
-        }
-    }
-
-    return $templatesList;
-}
-
-/**
- * Update the cache.
- *
- * @param string The cache item.
- * @param bool Clear the cache item.
- */
-function cacheUpdate(string $cacheKey): array
-{
-    global $db, $cache;
-
-    $cacheData = [];
-
-    $tablesData = TABLES_DATA;
-
-    $hookArguments = [
-        'cacheKey' => $cacheKey,
-        'cacheData' => &$cacheData,
-        'tableData' => &$tablesData,
-    ];
-
-    $hookArguments = hooksRun('cache_update_start', $hookArguments);
-
-    switch ($cacheKey) {
-        case CACHE_TYPE_CONFIG:
-            $showcaseObjects = showcaseGet(
-                queryFields: array_keys($tablesData['myshowcase_config']),
-                queryOptions: ['order_by' => 'display_order']
-            );
-
-            foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-                $cacheData[$showcaseID] = [];
-
-                foreach ($tablesData['myshowcase_config'] as $fieldName => $fieldDefinition) {
-                    if (isset($showcaseData[$fieldName])) {
-                        $cacheData[$showcaseID][$fieldName] = castTableFieldValue(
-                            $showcaseData[$fieldName],
-                            $fieldDefinition['type']
-                        );
-                    }
-                }
-            }
-
-            break;
-        case CACHE_TYPE_PERMISSIONS:
-            $permissionsObjects = permissionsGet(
-                [],
-                array_keys($tablesData['myshowcase_permissions'])
-            );
-
-            foreach ($permissionsObjects as $permissionID => $permissionData) {
-                $showcaseID = (int)$permissionData['showcase_id'];
-
-                $groupID = (int)$permissionData['group_id'];
-
-                $cacheData[$showcaseID][$groupID] = [];
-
-                foreach ($tablesData['myshowcase_permissions'] as $fieldName => $fieldDefinition) {
-                    if (isset($permissionData[$fieldName])) {
-                        $cacheData[$showcaseID][$groupID][$fieldName] = castTableFieldValue(
-                            $permissionData[$fieldName],
-                            $fieldDefinition['type']
-                        );
-                    }
-                }
-            }
-
-            break;
-        case CACHE_TYPE_FIELD_SETS:
-            $fieldsetObjects = fieldsetGet(
-                [],
-                ['set_id', 'set_name']
-            );
-
-            foreach ($fieldsetObjects as $fieldsetID => $fieldsetData) {
-                $cacheData[$fieldsetID] = [
-                    'set_id' => (int)$fieldsetData['set_id'],
-                    'set_name' => (string)$fieldsetData['set_name'],
-                ];
-            }
-
-            break;
-        case CACHE_TYPE_FIELDS:
-            $queryFields = $tablesData['myshowcase_fields'];
-
-            unset($queryFields['unique_keys']);
-
-            $fieldObjects = fieldsGet(
-                [],
-                array_keys($queryFields),
-                ['order_by' => 'display_order']
-            );
-
-            foreach ($fieldObjects as $fieldID => $fieldData) {
-                foreach ($tablesData['myshowcase_fields'] as $fieldName => $fieldDefinition) {
-                    if (isset($fieldData[$fieldName])) {
-                        $cacheData[(int)$fieldData['set_id']][$fieldID][$fieldName] = castTableFieldValue(
-                            $fieldData[$fieldName],
-                            $fieldDefinition['type']
-                        );
-                    }
-                }
-            }
-
-            break;
-        case CACHE_TYPE_FIELD_DATA;
-            $fieldDataObjects = fieldDataGet(
-                [],
-                ['set_id', 'field_id', 'value_id', 'value', 'value_id', 'display_order'],
-                ['order_by' => 'display_order']
-            );
-
-            foreach ($fieldDataObjects as $fieldDataID => $fieldDefinition) {
-                $cacheData[(int)$fieldDefinition['set_id']][$fieldDataID][(int)$fieldDefinition['value_id']] = $fieldDefinition;
-            }
-
-            break;
-        case CACHE_TYPE_MODERATORS;
-            $moderatorObjects = moderatorGet(
-                [],
-                [
-                    'moderator_id',
-                    'showcase_id',
-                    'user_id',
-                    'is_group',
-                    ModeratorPermissions::CanManageEntries,
-                    ModeratorPermissions::CanManageEntries,
-                    ModeratorPermissions::CanManageEntries,
-                    ModeratorPermissions::CanManageComments
-                ]
-            );
-
-            foreach ($moderatorObjects as $moderatorID => $moderatorData) {
-                $cacheData[(int)$moderatorData['showcase_id']][$moderatorID] = $moderatorData;
-            }
-
-            break;
-        case CACHE_TYPE_ATTACHMENT_TYPES;
-            $query = $db->simple_select(
-                'attachtypes',
-                'atid AS attachment_type_id, name AS type_name, mimetype AS mime_type, extension AS file_extension, maxsize AS maximum_size, icon AS type_icon, forcedownload AS force_download, groups AS allowed_groups, myshowcase_ids, myshowcase_image_minimum_dimensions, myshowcase_image_maximum_dimensions',
-                "myshowcase_ids!=''"
-            );
-
-            while ($attachmentTypeData = $db->fetch_array($query)) {
-                $attachmentTypeID = (int)$attachmentTypeData['attachment_type_id'];
-
-                foreach (explode(',', $attachmentTypeData['myshowcase_ids']) as $showcaseID) {
-                    $showcaseID = (int)$showcaseID;
-
-                    list($minimumWith, $minimumHeight) = array_pad(
-                        array_map(
-                            'intval',
-                            explode('x', $attachmentTypeData['myshowcase_image_minimum_dimensions'] ?? '')
-                        ),
-                        2,
-                        0
-                    );
-
-                    if ($minimumWith < 1 || $minimumHeight < 1) {
-                        $minimumWith = $minimumHeight = 0;
-                    }
-
-                    list($maximumWidth, $maximumHeight) = array_pad(
-                        array_map(
-                            'intval',
-                            explode('x', $attachmentTypeData['myshowcase_image_maximum_dimensions'] ?? '')
-                        ),
-                        2,
-                        0
-                    );
-
-                    if ($maximumWidth < 1 || $maximumHeight < 1) {
-                        $maximumWidth = $maximumHeight = 0;
-                    }
-
-                    $cacheData[$showcaseID][$attachmentTypeID] = [
-                        'type_name' => $attachmentTypeData['type_name'],
-                        'mime_type' => my_strtolower($attachmentTypeData['mime_type']),
-                        'file_extension' => my_strtolower($attachmentTypeData['file_extension']),
-                        'maximum_size' => (int)$attachmentTypeData['maximum_size'],
-                        'type_icon' => $attachmentTypeData['type_icon'],
-                        'force_download' => (int)$attachmentTypeData['force_download'],
-                        'allowed_groups' => $attachmentTypeData['allowed_groups'],
-                        'image_minimum_dimensions_width' => $minimumWith,
-                        'image_minimum_dimensions_height' => $minimumHeight,
-                        'image_maximum_dimensions_width' => $maximumWidth,
-                        'image_maximum_dimensions_height' => $maximumHeight,
-                    ];
-                }
-            }
-
-            break;
-    }
-
-    $hookArguments = hooksRun('cache_update_end', $hookArguments);
-
-    $cache->update("myshowcase_{$cacheKey}", $cacheData);
-
-    return $cacheData;
-}
-
-function cacheGet(string $cacheKey, bool $forceReload = false): array
-{
-    global $cache;
-
-    $cacheData = $cache->read("myshowcase_{$cacheKey}");
-
-    if (!is_array($cacheData) && $forceReload || DEBUG) {
-        $cacheData = cacheUpdate($cacheKey);
-    }
-
-    return $cacheData ?? [];
-}
-
-function showcaseInsert(array $showcaseData, bool $isUpdate = false, int $showcaseID = 0): int
-{
-    global $db;
-
-    $tablesData = TABLES_DATA['myshowcase_config'];
-
-    $insertData = [];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'showcaseData' => &$showcaseData,
-        'isUpdate' => $isUpdate,
-        'showcaseID' => &$showcaseID,
-        'tableData' => &$tablesData,
-    ];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($showcaseData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($showcaseData[$fieldName], $fieldDefinition['type']);
-        }
-    }
-
-    $hookArguments = hooksRun('showcase_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_config', $insertData, "showcase_id='{$showcaseID}'");
-    } else {
-        $showcaseID = (int)$db->insert_query('myshowcase_config', $showcaseData);
-    }
-
-    return $showcaseID;
-}
-
-function showcaseUpdate(array $showcaseData, int $showcaseID): int
-{
-    return showcaseInsert($showcaseData, true, $showcaseID);
 }
 
 function showcaseDelete(int $showcaseID): bool
 {
-    global $db;
+    global $db, $mybb, $lang;
 
     $hookArguments = [
         'showcaseID' => &$showcaseID,
     ];
 
-    $showcase = showcaseGetObject($showcaseID);
+    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
-    foreach (permissionsGet(["showcase_id='{$showcaseID}'"]) as $permissionID => $permissionData) {
-        permissionsDelete($permissionID);
+    $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcaseID]);
+
+    foreach ($permissions_repository->queryPermissions() as $permissionID => $permissionData) {
+        $permissions_repository->deletePermission($permissionID);
     }
 
-    foreach (moderatorGet(["showcase_id='{$showcaseID}'"]) as $moderatorID => $moderatorData) {
-        moderatorsDelete($moderatorID);
+    foreach ($showcase->moderators_repository->queryModerators() as $moderatorID => $moderatorData) {
+        $showcase->moderators_repository->deleteModerator($moderatorID);
     }
 
     foreach (
@@ -656,14 +246,14 @@ function showcaseDataTableDrop(int $showcaseID): bool
 
 function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
 {
-    global $db;
+    global $db, $mybb, $lang;
 
     $hookArguments = [
         'showcaseID' => &$showcaseID,
         'fieldName' => &$fieldName,
     ];
 
-    $showcase = showcaseGetObject($showcaseID);
+    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
@@ -672,162 +262,6 @@ function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
     }
 
     $db->drop_column('myshowcase_data' . $showcaseID, $fieldName);
-
-    return true;
-}
-
-function permissionsInsert(int $showcaseID, array $permissionData, bool $isUpdate = false, int $permissionID = 0): int
-{
-    $tablesData = TABLES_DATA['myshowcase_permissions'];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'permissionData' => &$permissionData,
-        'isUpdate' => $isUpdate,
-        'showcaseID' => &$showcaseID,
-        'permissionID' => &$permissionID,
-        'tableData' => &$tablesData,
-    ];
-
-    $insertData = [];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($permissionData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($permissionData[$fieldName], $fieldDefinition['type']);
-        }
-    }
-
-    global $db;
-
-    $hookArguments = hooksRun('permissions_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_permissions', $insertData, "permission_id='{$permissionID}'");
-    } else {
-        $permissionID = (int)$db->insert_query('myshowcase_permissions', $insertData);
-    }
-
-    return $permissionID;
-}
-
-function permissionsUpdate(int $showcaseID, array $permissionData, int $permissionID): int
-{
-    return permissionsInsert($showcaseID, $permissionData, true, $permissionID);
-}
-
-function permissionsDelete(int $permissionID): bool
-{
-    global $db;
-
-    $hookArguments = [
-        'permissionID' => &$permissionID,
-    ];
-
-    $hookArguments = hooksRun('permissions_delete_start', $hookArguments);
-
-    $db->delete_query('myshowcase_permissions', "permission_id='{$permissionID}'");
-
-    return true;
-}
-
-function permissionsGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
-{
-    global $db;
-
-    $query = $db->simple_select(
-        'myshowcase_permissions',
-        implode(',', array_merge(['permission_id'], $queryFields)),
-        implode(' AND ', $whereClauses),
-        $queryOptions
-    );
-
-    if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
-    }
-
-    $permissionData = [];
-
-    while ($permission = $db->fetch_array($query)) {
-        $permissionData[(int)$permission['permission_id']] = $permission;
-    }
-
-    return $permissionData;
-}
-
-function moderatorsInsert(int $showcaseID, array $moderatorData, bool $isUpdate = false, int $moderatorID = 0): int
-{
-    global $db;
-
-    $tablesData = TABLES_DATA['myshowcase_moderators'];
-
-    $insertData = [];
-
-    $hookArguments = [
-        'insertData' => &$insertData,
-        'moderatorData' => &$moderatorData,
-        'isUpdate' => $isUpdate,
-        'showcaseID' => &$showcaseID,
-        'moderatorID' => &$moderatorID,
-        'tableData' => &$tablesData,
-    ];
-
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($moderatorData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($moderatorData[$fieldName], $fieldDefinition['type']);
-        }
-    }
-
-    $hookArguments = hooksRun('moderator_insert_update_end', $hookArguments);
-
-    if ($isUpdate) {
-        $db->update_query('myshowcase_moderators', $insertData, "moderator_id='{$moderatorID}'");
-    } else {
-        $moderatorID = (int)$db->insert_query('myshowcase_moderators', $insertData);
-    }
-
-    return $moderatorID;
-}
-
-function moderatorsUpdate(int $showcaseID, array $moderatorData, int $moderatorID): int
-{
-    return moderatorsInsert($showcaseID, $moderatorData, true, $moderatorID);
-}
-
-function moderatorGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
-{
-    global $db;
-
-    $query = $db->simple_select(
-        'myshowcase_moderators',
-        implode(',', array_merge(['moderator_id'], $queryFields)),
-        implode(' AND ', $whereClauses),
-        $queryOptions
-    );
-
-    if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
-    }
-
-    $moderatorData = [];
-
-    while ($moderator = $db->fetch_array($query)) {
-        $moderatorData[(int)$moderator['moderator_id']] = $moderator;
-    }
-
-    return $moderatorData;
-}
-
-function moderatorsDelete(int $moderatorID): bool
-{
-    global $db;
-
-    $hookArguments = [
-        'moderatorID' => &$moderatorID,
-    ];
-
-    $hookArguments = hooksRun('moderator_delete_start', $hookArguments);
-
-    $db->delete_query('myshowcase_moderators', "moderator_id='{$moderatorID}'");
 
     return true;
 }
@@ -1209,36 +643,6 @@ function postParser(): postParser
     return $parser;
 }
 
-function showcaseGetObject(int $selectedShowcaseID): ?Showcase
-{
-    $showcaseObjects = showcaseGet(
-        queryFields: array_keys(TABLES_DATA['myshowcase_config'])
-    );
-
-    $script_name = '';
-
-    foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-        if ($selectedShowcaseID === $showcaseID) {
-            $script_name = $showcaseData['script_name'];
-        }
-    }
-
-    return showcaseGetObjectByScriptName($script_name);
-}
-
-function showcaseGetObjectByScriptName(string $script_name): Showcase
-{
-    require_once ROOT . '/System/Showcase.php';
-
-    static $showcaseObjects = [];
-
-    if (!isset($showcaseObjects[$script_name])) {
-        $showcaseObjects[$script_name] = new Showcase($script_name);
-    }
-
-    return $showcaseObjects[$script_name];
-}
-
 function formatTypes(): array
 {
     return [
@@ -1373,21 +777,6 @@ function fieldDefaultTypes(): array
     ];
 }
 
-//https://stackoverflow.com/a/15875555
-/**
- * @throws RandomException
- */
-function generateUUIDv4(): string
-{
-    $data = random_bytes(16);
-
-    $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 0100
-
-    $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
-
-    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-}
-
 function castTableFieldValue(mixed $value, string $fieldType): mixed
 {
     if (fieldTypeMatchInt($fieldType)) {
@@ -1420,45 +809,6 @@ function sanitizeTableFieldValue(mixed $value, string $fieldType)
     }
 
     return $value;
-}
-
-function cleanSlug(string $slug): string
-{
-    return str_replace(['---', '--'],
-        '-',
-        preg_replace(
-            '/[^\da-z]/i',
-            '-',
-            my_strtolower($slug)
-        ));
-}
-
-function generateFieldSetSelectArray(): array
-{
-    return array_map(function ($fieldsetData) {
-        return $fieldsetData['set_name'];
-    }, cacheGet(CACHE_TYPE_FIELD_SETS));
-}
-
-function generateFilterFieldsSelectArray(): array
-{
-    global $lang;
-
-    return [
-        FILTER_TYPE_NONE => $lang->none,
-        FILTER_TYPE_USER_ID => $lang->myShowcaseAdminSummaryAddEditFilterForceFieldUserID,
-    ];
-}
-
-function generateWatermarkLocationsSelectArray(): array
-{
-    return [
-        WATERMARK_LOCATION_LOWER_LEFT => 'lower-left',
-        WATERMARK_LOCATION_LOWER_RIGHT => 'lower-right',
-        WATERMARK_LOCATION_CENTER => 'center',
-        WATERMARK_LOCATION_UPPER_LEFT => 'upper-left',
-        WATERMARK_LOCATION_UPPER_RIGHT => 'upper-right',
-    ];
 }
 
 function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID = 0)

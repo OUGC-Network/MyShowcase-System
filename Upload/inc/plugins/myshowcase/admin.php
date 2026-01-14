@@ -17,35 +17,33 @@ namespace MyShowcase\Admin;
 
 use Form;
 use MyBB;
+use MyBB\Extensions\Theme\Repository;
+use MyLanguage;
+use MyShowcase\Entity\Permission;
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
+use MyShowcase\Service\CacheManager;
+use myshowcase\src\Showcase;
+use MyShowcase\Util\SelectableArrays;
 use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\cacheUpdate;
+use function MyBB\app;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\getTemplatesList;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseGet;
-use function MyShowcase\Plugin\Functions\showcaseGetObject;
 
-use const MyShowcase\Plugin\Core\CACHE_TYPE_CONFIG;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_DATA;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELD_SETS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_FIELDS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_MODERATORS;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\FIELDS_DATA;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\Plugin\Core\VERSION;
-use const MyShowcase\Plugin\Core\VERSION_CODE;
-use const MyShowcase\ROOT;
+use const MyShowcase\VERSION;
+use const MyShowcase\VERSION_CODE;
 
 function pluginInformation(): array
 {
@@ -95,12 +93,6 @@ function pluginActivation(): bool
         ],
     ]);
 
-    $templatesList = getTemplatesList();
-
-    if ($templatesList) {
-        $PL->templates('myshowcase', 'MyShowcase System', $templatesList);
-    }
-
     // Insert/update version into cache
     $plugins = $mybb->cache->read('ougc_plugins');
 
@@ -147,7 +139,7 @@ function pluginActivation(): bool
                 // todo, drop thumb_width, thumb_height, maximum_text_field_length, prune_time
                 'id' => 'showcase_id',
                 'fieldsetid' => 'field_set_id',
-                'f2gpath' => 'relative_path',
+                'f2gpath' => 'showcase_url',
                 'allowsmilies' => 'parser_allow_smilies',
                 'allowbbcode' => 'parser_allow_mycode',
                 'allowhtml' => 'parser_allow_mycode',
@@ -157,10 +149,10 @@ function pluginActivation(): bool
                 'comment_dispinit' => 'comments_per_page',
                 'disp_attachcols' => 'attachments_grouping',
                 'attachments_per_row' => 'attachments_grouping',
-                'disp_empty' => 'display_empty_fields',
+                'disp_empty' => 'entries_display_empty_fields',
                 'link_in_postbit' => 'display_in_posts',
-                'allow_attachments' => 'attachments_allow_entries',
-                'use_attach' => 'attachments_main_render_first',
+                'allow_attachments' => 'attachments_allow_in_entries',
+                'use_attach' => 'attachments_main_render',
                 'defaultimage' => 'attachments_main_render_default_image',
                 'default_image' => 'attachments_main_render_default_image',
                 'imgfolder' => 'attachments_uploads_path',
@@ -169,35 +161,33 @@ function pluginActivation(): bool
                 'water_mark_image_location' => 'attachments_watermark_location',
                 'portal_random' => 'attachments_portal_build_widget',
                 'build_random_entry_widget' => 'attachments_portal_build_widget',
-                'mainfile' => 'script_name',
+                'mainfile' => 'route_identifier',
                 'modnewedit' => 'moderate_entries_update',
                 'moderate_edits' => 'moderate_entries_update',
-                'comment_length' => 'comments_maximum_length',
+                'comment_length' => 'comments_message_maximum_length',
                 'allow_html' => 'parser_allow_html',
                 'allow_mycode' => 'parser_allow_mycode',
                 'allow_smilies' => 'parser_allow_smilies',
                 'allow_image_code' => 'parser_allow_image_code',
                 'allow_video_code' => 'parser_allow_video_code',
-                'allow_comments' => 'comments_allow',
-                'display_signatures' => 'display_signatures_entries',
+                'allow_comments' => 'comments_enable',
+                'display_signatures' => 'entries_display_signatures',
             ],
             'myshowcase_permissions' => [
                 // drop candelauthcomment
                 'pid' => 'permission_id',
                 'id' => 'showcase_id',
                 'gid' => 'group_id',
-                'canview' => 'can_view',
-                'canadd' => 'can_create_entries',
-                'canedit' => 'can_update_entries',
-                'canviewcomment' => 'can_view_comments',
-                'cancomment' => 'can_create_comments',
-                'candelowncomment' => 'can_delete_comments',
-                'canviewattach' => 'can_view_attachments',
-                'canattach' => 'can_upload_attachments',
-                'canwatermark' => 'can_watermark_attachments',
-                'attachlimit' => 'attachments_files_limit',
-                'cansearch' => 'can_search',
-                //'candelauthcomment' => 'can_delete_author_comments',
+                'canview' => 'main_can_view',
+                'canadd' => 'entries_can_post',
+                'canedit' => 'entries_can_update',
+                'canviewcomment' => 'comments_can_view',
+                'cancomment' => 'comments_can_post',
+                'candelowncomment' => 'comments_can_delete',
+                'canviewattach' => 'attachments_can_view',
+                'canattach' => 'attachments_can_upload',
+                'canwatermark' => 'attachments_watermark_images',
+                'cansearch' => 'can_search_entries',
             ],
             'myshowcase_moderators' => [
                 'mid' => 'moderator_id',
@@ -297,8 +287,10 @@ function pluginActivation(): bool
         'attachments_watermark_location NOT IN (1,2,3,4,5)'
     );
 
+    global $lang;
+
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = showcaseGetObject($showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         foreach (
             $showcase->comments_repository->queryComments(["comment_slug=''"],
@@ -314,7 +306,7 @@ function pluginActivation(): bool
     /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = showcaseGetObject($showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
 
         $dataTableStructure = dataTableStructureGet($showcaseID);
 
@@ -336,17 +328,21 @@ function pluginActivation(): bool
 
     $mybb->cache->update('ougc_plugins', $plugins);
 
+    global $db, $cache;
+
+    $cache_manager = new CacheManager($db, $cache);
+
     foreach (
         [
-            CACHE_TYPE_CONFIG,
-            CACHE_TYPE_PERMISSIONS,
-            CACHE_TYPE_FIELD_SETS,
-            CACHE_TYPE_FIELDS,
-            CACHE_TYPE_FIELD_DATA,
-            CACHE_TYPE_MODERATORS
+            CacheDataTypes::Config,
+            CacheDataTypes::Permissions,
+            CacheDataTypes::Fieldsets,
+            CacheDataTypes::Fields,
+            CacheDataTypes::FieldData,
+            CacheDataTypes::Moderators
         ] as $cacheType
     ) {
-        cacheUpdate($cacheType);
+        $cache_manager->update($cacheType);
     }
 
     return true;
@@ -378,7 +374,7 @@ function pluginUninstallation(): bool
 
     loadPluginLibrary();
 
-    //drop tables but only if setting specific to allow uninstall is enabled
+    //drop tables but only if setting specific to allow uninstall is is_enabled
     if (!empty($mybb->settings['myshowcase_delete_tables_on_uninstall'])) {
         foreach (showcaseGet() as $showcaseID => $showcaseData) {
             if (showcaseDataTableExists($showcaseID)) {
@@ -483,14 +479,14 @@ function taskInstallation(int $action = 1): bool
 
         $new_task = [
             'title' => $db->escape_string('MyShowcase'),
-            'description' => $db->escape_string('Prunes showcases where enabled.'),
+            'description' => $db->escape_string('Prunes showcases where is_enabled.'),
             'file' => $db->escape_string('myshowcase'),
             'minute' => 9,
             'hour' => 4,
             'day' => $_,
             'weekday' => $_,
             'month' => $_,
-            'enabled' => 1,
+            'is_enabled' => 1,
             'logging' => 1
         ];
 
@@ -864,125 +860,275 @@ function languageModify(
 }
 
 function buildPermissionsRow(
+    MyBB $mybb,
     Form $form,
-    string $fieldName,
-    array $fieldDefinition,
-    string $key,
-    string $section = 'Main',
-    bool $extraText = false,
-    string $languagePrefix = 'myShowcaseAdminSummaryAddEdit'
+    MyLanguage $lang,
+    string $name,
+    array $definition,
+    string $section = 'main',
+    string $language_prefix = 'myShowcaseAdminSummaryAddEdit',
+    bool $display_extra_text = false,
+    array $input = [],
+    ?array $showcase_config = null,
 ): string {
-    global $mybb, $lang;
+    $input_code = '';
 
-    $formInput = '';
+    $options = ['id' => $name, 'class' => $definition['class'] ?? ''];
 
-    $options = ['id' => $fieldName, 'class' => $fieldDefinition['formClass'] ?? ''];
-
-    if (!empty($fieldDefinition['is_disabled'])) {
+    if (!empty($definition['is_disabled'])) {
         $options['id'] .= '" disabled="disabled';
     }
 
-    switch ($fieldDefinition['formType']) {
-        case FormTypes::Text:
-            if ($extraText) {
-                $formInput .= '<div class="group_settings_bit">';
+    if (isset($definition['size'])) {
+        $options['class'] .= "\" maxlength=\"{$definition['size']}";
+    } elseif (isset($definition['max'])) {
+        $options['class'] .= "\" max=\"{$definition['max']}";
+    }
 
-                $formInput .= $lang->{$languagePrefix . $section . $key};
+    switch ($definition['input_type']) {
+        case FormTypes::PermissionBoolean:
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
 
-                $formInput .= '<br /><small class="input">';
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name;
 
-                $formInput .= $lang->{$languagePrefix . $section . $key . 'Description'};
+                $input_code .= '<br /><small class="input">';
 
-                $formInput .= '</small><br />';
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description';
+
+                $input_code .= '</small><br />';
             }
 
-            $options['max'] = $fieldDefinition['size'];
-
-            $formInput .= $form->generate_text_box(
-                $fieldName,
-                $mybb->get_input($fieldName),
+            $input_code .= $form->generate_select_box(
+                "showcase_permissions[{$name}]",
+                [
+                    Permission::BOOLEAN_TYPE_DISALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow',
+                    Permission::BOOLEAN_TYPE_ALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow',
+                    Permission::BOOLEAN_TYPE_INHERIT => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit',
+                    Permission::BOOLEAN_TYPE_NEVER => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never',
+                ],
+                [$input[$name] ?? $mybb->get_input($name)],
                 $options
             );
 
-            if ($extraText) {
-                $formInput .= '</div>';
+            if ($display_extra_text) {
+                $input_code .= '</div>';
+            }
+
+            break;
+        case FormTypes::SelectTimeInterval:
+        case FormTypes::SelectFieldset:
+        case FormTypes::SelectTheme:
+        case FormTypes::SelectRulesType:
+        case FormTypes::SelectFilterField:
+        case FormTypes::SelectSortField:
+        case FormTypes::SelectPrefixType:
+        case FormTypes::SelectAttachmentsMainRender:
+        case FormTypes::SelectWatermarkLocation:
+        case FormTypes::SelectAttachmentsDisplayType:
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name};
+
+                $input_code .= '<br /><small class="input">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'};
+
+                $input_code .= '</small><br />';
+            }
+
+            if ($definition['input_type'] === FormTypes::SelectTimeInterval) {
+                $select_array = [
+                    Permission::TIME_INTERVAL_TYPE_SECONDS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds',
+                    Permission::TIME_INTERVAL_TYPE_MINUTES => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes',
+                    Permission::TIME_INTERVAL_TYPE_HOURS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours',
+                    Permission::TIME_INTERVAL_TYPE_DAYS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_days'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_days',
+                ];
+            } elseif ($definition['input_type'] === FormTypes::SelectFieldset) {
+                global $db, $cache;
+
+                $select_array = (new SelectableArrays($lang, $db, $cache))->fieldsetsList();
+
+                if (showcaseDataTableExists($showcase_config['showcase_id'])) {
+                    $options['class'] .= '" disabled="disabled';
+                }
+            } elseif ($definition['input_type'] === FormTypes::SelectTheme) {
+                $extension_repository = app(Repository::class);
+
+                $packages = $extension_repository->getAll();
+
+                $select_array = array_combine(
+                    array_keys($packages),
+                    array_keys($packages),
+                );
+            } elseif ($definition['input_type'] === FormTypes::SelectFilterField) {
+                $select_array = (new SelectableArrays($lang))->filterFieldsList();
+            } elseif ($definition['input_type'] === FormTypes::SelectSortField) {
+                $select_array = (new SelectableArrays($lang))->sortFieldsList();
+            } elseif ($definition['input_type'] === FormTypes::SelectPrefixType) {
+                $select_array = (new SelectableArrays($lang))->prefixTypeList();
+            } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsMainRender) {
+                $select_array = (new SelectableArrays($lang))->attachmentsMainRenderList();
+            } elseif ($definition['input_type'] === FormTypes::SelectWatermarkLocation) {
+                $select_array = (new SelectableArrays($lang))->watermarkLocationsList();
+            } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsDisplayType) {
+                $select_array = (new SelectableArrays($lang))->attachmentsDisplayTypeList();
+            } else {
+                $select_array = [
+                    0 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_none'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_none',
+                    1 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_main'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_main',
+                    2 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_main_create_update'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_main_create_update',
+                    3 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_link'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_link',
+                ];
+            }
+
+            $input_code .= $form->generate_select_box(
+                "showcase_permissions[{$name}]",
+                $select_array,
+                [$input[$name] ?? $mybb->get_input($name)],
+                $options
+            );
+
+            if ($display_extra_text) {
+                $input_code .= '</div>';
+            }
+
+            break;
+        case FormTypes::Text:
+        case FormTypes::TextArea:
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name;
+
+                $input_code .= '<br /><small class="input">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description';
+
+                $input_code .= '</small><br />';
+            }
+
+            if ($definition['input_type'] === FormTypes::Text) {
+                $input_code .= $form->generate_text_box(
+                    $name,
+                    $input[$name] ?? $mybb->get_input($name),
+                    $options
+                );
+            } else {
+                $input_code .= $form->generate_text_area(
+                    $name,
+                    $input[$name] ?? $mybb->get_input($name),
+                    $options
+                );
+            }
+
+            if ($display_extra_text) {
+                $input_code .= '</div>';
             }
 
             break;
         case FormTypes::Number:
-            if ($extraText) {
-                $formInput .= '<div class="group_settings_bit">';
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
 
-                $formInput .= $lang->{$languagePrefix . $section . $key};
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name;
 
-                $formInput .= '<br /><small class="input">';
+                if (!empty($definition['highest'])) {
+                    $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_highest'} ?? $language_prefix . ($section ? '_' . $section : '') . '_highest';
+                } elseif (!empty($definition['lowest'])) {
+                    $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_lowest'} ?? $language_prefix . ($section ? '_' . $section : '') . '_lowest';
+                }
 
-                $formInput .= $lang->{$languagePrefix . $section . $key . 'Description'};
+                if (!empty($definition['zero_unlimited'])) {
+                    $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_zero_unlimited'} ?? $language_prefix . ($section ? '_' . $section : '') . '_zero_unlimited';
+                }
 
-                $formInput .= '</small><br />';
+                $input_code .= '<br /><small class="input">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description';
+
+                $input_code .= '</small><br />';
             }
 
-            $formInput .= $form->generate_numeric_field(
-                $fieldName,
-                $mybb->get_input($fieldName, MyBB::INPUT_INT),
+            $input_code .= $form->generate_numeric_field(
+                "showcase_permissions[{$name}]",
+                $input[$name] ?? $mybb->get_input($name),
                 $options
             );
 
-            if ($extraText) {
-                $formInput .= '</div>';
+            if ($display_extra_text) {
+                $input_code .= '</div>';
             }
 
             break;
         case FormTypes::YesNo:
-            $formInput .= $form->generate_yes_no_radio(
-                $fieldName,
-                $mybb->get_input($fieldName, MyBB::INPUT_INT),
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name;
+
+                $input_code .= '<br /><small class="input">';
+
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description';
+
+                $input_code .= '</small><br />';
+            }
+
+            $input_code .= $form->generate_yes_no_radio(
+                $name,
+                $input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT),
                 $options
             );
+
+            if ($display_extra_text) {
+                $input_code .= '</div>';
+            }
 
             break;
         case FormTypes::Select:
-            if ($extraText) {
-                $formInput .= '<div class="group_settings_bit">';
+            if ($display_extra_text) {
+                $input_code .= '<div class="group_settings_bit">';
 
-                $formInput .= $lang->{$languagePrefix . $section . $key};
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name;
 
-                $formInput .= '<br /><small class="input">';
+                $input_code .= '<br /><small class="input">';
 
-                $formInput .= $lang->{$languagePrefix . $section . $key . 'Description'};
+                $input_code .= $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description'} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name . '_description';
 
-                $formInput .= '</small><br />';
+                $input_code .= '</small><br />';
             }
 
-            $formInput .= $form->generate_select_box(
-                $fieldName,
-                isset($fieldDefinition['form_function']) ? $fieldDefinition['form_function'](
-                ) : $fieldDefinition['form_array'],
-                [$mybb->get_input($fieldName, MyBB::INPUT_INT)],
+            $input_code .= $form->generate_select_box(
+                $name,
+                isset($definition['form_function']) ? $definition['form_function']() : $definition['form_array'],
+                [$input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT)],
                 $options
             );
 
-            if ($extraText) {
-                $formInput .= '</div>';
+            if ($display_extra_text) {
+                $input_code .= '</div>';
             }
 
             break;
-        case FormTypes::CheckBox:
-            $formInput .= '<div class="user_settings_bit">';
+        case FormTypes::Checkbox:
+            $input_code .= '<div class="user_settings_bit">';
 
-            $options['checked'] = $mybb->get_input($fieldName, MyBB::INPUT_INT);
+            $options['checked'] = $input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT);
 
-            $formInput .= $form->generate_check_box(
-                $fieldName,
+            $input_code .= $form->generate_check_box(
+                $name,
                 1,
-                $lang->{$languagePrefix . $section . $key},
+                $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name,
                 $options
             );
 
-            $formInput .= '</div>';
+            $input_code .= '</div>';
 
             break;
+        default:
+            _dump($definition);
     }
 
-    return $formInput;
+    return $input_code;
 }

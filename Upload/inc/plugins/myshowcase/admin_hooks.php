@@ -17,19 +17,17 @@ namespace MyShowcase\Hooks\Admin;
 
 use MyBB;
 use FormContainer;
+use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Repository\PermissionsRepository;
+use MyShowcase\Security\PermissionsFactory;
+use MyShowcase\Service\CacheManager;
 
-use function MyShowcase\Plugin\Functions\cacheUpdate;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
-use function MyShowcase\Plugin\Functions\permissionsDelete;
-use function MyShowcase\Plugin\Functions\permissionsGet;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Admin\buildPermissionsRow;
 
-use const MyShowcase\Plugin\Core\CACHE_TYPE_ATTACHMENT_TYPES;
-use const MyShowcase\Plugin\Core\CACHE_TYPE_PERMISSIONS;
-use const MyShowcase\Plugin\Core\FIELDS_DATA;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 function admin_config_plugins_deactivate(): bool
@@ -62,13 +60,22 @@ function admin_config_plugins_deactivate(): bool
  */
 function admin_user_groups_delete_commit(): bool
 {
+    global $db, $cache;
     global $usergroup;
 
-    foreach (permissionsGet(["group_id='{$usergroup['gid']}'"]) as $permissionID => $permissionData) {
-        permissionsDelete($permissionID);
+    $groupID = (int)$usergroup['gid'];
+
+    foreach (showcaseGet() as $showcaseID => $showcaseData) {
+        $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcaseID]);
+
+        foreach (
+            $permissions_repository->queryPermission(["group_id='{$groupID}'"]) as $permissionID => $permissionData
+        ) {
+            $permissions_repository->deletePermission($permissionID);
+        }
     }
 
-    cacheUpdate(CACHE_TYPE_PERMISSIONS);
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Permissions);
 
     return true;
 }
@@ -96,115 +103,128 @@ function admin_user_groups_edit_graph_tabs(array &$tabs): array
     return $tabs;
 }
 
-function admin_user_groups_edit_graph(): bool
+function admin_user_groups_edit_graph(): void
 {
-    global $lang, $form, $mybb;
+    global $db, $lang, $form, $mybb;
+    global $usergroup;
 
     loadLanguage();
-    loadLanguage('myshowcase_summary');
-
-    $tablesData = TABLES_DATA;
-
-    $dataFields = FIELDS_DATA['usergroups'];
 
     echo '<div id="tab_myshowcase">';
 
     $formContainer = new FormContainer($lang->MyShowcaseGroupsTab);
 
-    $formFields = $formFieldsRate = $formFieldsIncome = [];
+    $tables_data = [];
 
     $hookArguments = [
-        'tablesData' => &$tablesData,
-        'dataFields' => &$dataFields,
-        'formFields' => &$formFields,
-        'formFieldsRate' => &$formFieldsRate,
-        'formFieldsIncome' => &$formFieldsIncome
+        'tables_data' => &$tables_data,
     ];
 
-    $hookArguments = hooksRun('admin_user_groups_edit_graph_start', $hookArguments);
+    hooksRun('admin_user_groups_edit_graph_start', $hookArguments);
 
-    $rowObjects = [];
+    $tables_data = array_merge($tables_data, TABLES_DATA);
 
-    foreach ($tablesData['myshowcase_permissions'] as $fieldName => $fieldDefinition) {
-        if (!isset($fieldDefinition['isPermission'])) {
+    $group_id = (int)$usergroup['gid'];
+
+    $permissions_repository = new PermissionsRepository($db);
+
+    $group_permission_data = $permissions_repository->queryPermission(
+        ["group_id='{$group_id}'"],
+        array_keys(TABLES_DATA['myshowcase_permissions'])
+    );
+
+    $permission_input = $mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
+
+    $permission_objects = [];
+
+    foreach (PermissionsFactory::$permission_options_map as $permission_name => $permission_definition) {
+        if (empty($permission_definition['is_group_permission'])) {
             continue;
         }
 
-        //$sectionKey = ucfirst($formSection);
-        //formSection
+        $permission_input[$permission_name] = $group_permission_data[$permission_name] ?? TABLES_DATA['myshowcase_permissions'][$permission_name]['default'];
 
-        //$key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
-
-        //$rowObjects[$fieldDefinition['formCategory']][$fieldName] = $lang->{'myShowcaseAdminSummaryPermissionsField' . $key};
-
-        $rowObjects[$fieldDefinition['formCategory']][$fieldName] = $fieldDefinition;
+        $permission_objects[$permission_definition['category']][$permission_name] = $permission_definition;
     }
 
-    foreach ($rowObjects as $formSection => $fieldObjects) {
-        $sectionKey = ucfirst($formSection);
+    foreach ($permission_objects as $category => $permissions) {
+        $setting_code = '';
 
-        $settingCode = '';
-
-        foreach ($fieldObjects as $fieldName => $fieldDefinition) {
-            $key = str_replace(' ', '', ucwords(str_replace('_', ' ', $fieldName)));
-
-            $settingCode .= buildPermissionsRow(
+        foreach ($permissions as $permission_name => $permission_definition) {
+            $setting_code .= buildPermissionsRow(
+                $mybb,
                 $form,
-                'myshowcase_' . $fieldName,
-                $fieldDefinition,
-                $key,
+                $lang,
+                $permission_name,
+                $permission_definition,
                 '',
+                'myshowcase_admin_permissions',
                 true,
-                'myShowcaseAdminSummaryPermissionsField'
+                $permission_input
             );
         }
 
         $formContainer->output_row(
-            $lang->{'myShowcaseAdminSummaryPermissionsFieldGroup' . $sectionKey},
+            $lang->{'myshowcase_admin_permissions_category_' . $category} ?? $category,
             '',
-            $settingCode
+            $setting_code
         );
     }
 
-
-    $hookArguments = hooksRun('admin_user_groups_edit_graph_end', $hookArguments);
+    hooksRun('admin_user_groups_edit_graph_end', $hookArguments);
 
     $formContainer->end();
 
     echo '</div>';
-
-    return true;
 }
 
-function admin_user_groups_edit_commit(): bool
+function admin_user_groups_edit_commit(): void
 {
     global $mybb, $db;
-    global $updated_group;
+    global $usergroup;
 
-    $dataFields = TABLES_DATA['myshowcase_permissions'];
+    $permission_input = $mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
 
-    $hook_arguments = [
-        'dataFields' => &$dataFields,
+    $tables_data = [];
+
+    $hookArguments = [
+        'tables_data' => &$tables_data,
     ];
 
-    $hook_arguments = hooksRun('admin_user_groups_edit_commit_start', $hook_arguments);
+    hooksRun('admin_user_groups_edit_commit_start', $hookArguments);
 
-    foreach ($dataFields as $dataFieldKey => $dataFieldData) {
-        if (!isset($dataFieldData['isPermission'])) {
+    $tables_data = array_merge($tables_data, TABLES_DATA);
+
+    $group_id = (int)$usergroup['gid'];
+
+    $insert_data = [
+        'group_id' => $group_id,
+    ];
+
+    foreach (PermissionsFactory::$permission_options_map as $permission_name => $permission_definition) {
+        if (empty($permission_definition['is_group_permission'])) {
             continue;
         }
 
-        if (isset($mybb->input['myshowcase_' . $dataFieldKey])) {
-            $updated_group['myshowcase_' . $dataFieldKey] = sanitizeTableFieldValue(
-                $mybb->get_input('myshowcase_' . $dataFieldKey),
-                $dataFieldData['type']
+        if (isset($permission_input[$permission_name])) {
+            $insert_data[$permission_name] = sanitizeTableFieldValue(
+                $permission_input[$permission_name],
+                $tables_data['myshowcase_permissions'][$permission_name]['type']
             );
-        } else {
-            $updated_group['myshowcase_' . $dataFieldKey] = $dataFieldData['default'];
         }
     }
 
-    return true;
+    $permissions_repository = new PermissionsRepository($db);
+
+    $existing_permission = $permissions_repository->queryPermission(["group_id='{$group_id}'"], 'permission_id');
+
+    if ($existing_permission) {
+        $permissions_repository->updatePermission($insert_data, $existing_permission['permission_id']);
+    } else {
+        $permissions_repository->insertPermission($insert_data);
+    }
+
+    (new CacheManager($db, $mybb->cache))->update(CacheDataTypes::Permissions);
 }
 
 function admin_config_attachment_types_add_commit(): void
@@ -258,12 +278,14 @@ function admin_config_attachment_types_edit_commit20(): void
 
     $db->update_query('attachtypes', $updated_type, "atid='{$attachment_type['atid']}'");
 
-    cacheUpdate(CACHE_TYPE_ATTACHMENT_TYPES);
+    (new CacheManager($db, $mybb->cache))->update(CacheDataTypes::AttachmentTypes);
 }
 
 function admin_config_attachment_types_delete_commit(): void
 {
-    cacheUpdate(CACHE_TYPE_ATTACHMENT_TYPES);
+    global $db, $cache;
+
+    (new CacheManager($db, $cache))->update(CacheDataTypes::AttachmentTypes);
 }
 
 function admin_formcontainer_output_row(array &$hookArguments): array

@@ -14,12 +14,11 @@
 declare(strict_types=1);
 
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Enum\Routes;
+use myshowcase\src\Showcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\showcaseGetObjectByScriptName;
 
-use const MyShowcase\Plugin\Core\DEBUG;
+use const MyShowcase\DEBUG;
 use const MyShowcase\ROOT;
 
 /*
@@ -123,28 +122,28 @@ if (str_contains($request_uri, '/attachment/') ||
     require_once $change_dir . '/global.php';
 }
 
-function_exists('MyShowcase\Plugin\Functions\hooksRun') || error();
+if (!function_exists('MyShowcase\Plugin\Functions\hooksRun')) {
+    error('The MyShowcase System has not been installed yet.');
+}
 
 hooksRun('script_file_start');
 
 //change directory back to current where script is
 chdir($currentWorkingDirectoryPath);
 
-require_once ROOT . '/Controllers/Base.php';
 require_once ROOT . '/vendor/autoload.php';
-
-if ($minimalLoad) {
-    require_once ROOT . '/Controllers/Attachments.php';
-} else {
-    require_once ROOT . '/Controllers/Entries.php';
-    require_once ROOT . '/Controllers/Comments.php';
-}
 
 hooksRun('script_file_intermediate');
 
-$showcaseObject = showcaseGetObjectByScriptName(THIS_SCRIPT);
+global $db, $mybb, $lang;
 
-if (!$showcaseObject->user_permissions[UserPermissions::CanView]) {
+$showcaseObject = new Showcase($db, $mybb, $lang);
+
+if (!$showcaseObject->data_table_exists || !$showcaseObject->config['field_set_id']) {
+    error('This showcase has not been installed or activated yet.');
+}
+
+if (!$showcaseObject->current_user->hasPermission(UserPermissions::MainCanView)) {
     error_no_permission();
 }
 

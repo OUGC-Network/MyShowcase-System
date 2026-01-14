@@ -9,8 +9,8 @@
     {% endif %}
 
     {% if meta.page %}
-        {% for page_data in meta.page %}
-            <meta property="{{ page_data.property }}" content="{{ page_data.content }}">
+        {% for meta_data in meta.page %}
+            <meta property="{{ meta_data.property }}" content="{{ meta_data.content }}">
         {% endfor %}
     {% endif %}
 {% endblock head %}
@@ -51,6 +51,20 @@
         </p>
     {% endif %}
 
+    {# Forum rules #}
+    {% if config.rules_type and config.rules_content %}
+        <section class="container container--forum-rules">
+            {% if config.rules_type == 2 %}
+                <strong>
+                    <a href="{{ url.showcase }}/{{ url.main }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
+                </strong>
+            {% else %}
+                <h4 class="title title--container">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</h4>
+                {{ config.rules_content }}
+            {% endif %}
+        </section>
+    {% endif %}
+
     {% if url_entry_create %}
         {% set button_new_entry %}
             <a href="{{ url_entry_create }}" class="button button--medium button--full-width">
@@ -62,6 +76,27 @@
 
     <div class="page-controls page-controls--top">
         <div class="page-buttons">
+            <a href="{{ url.showcase }}/{{ url.main }}?action=markread&amp;{% if current_user.user_id %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
+               class="button button--medium button--secondary button--half-width">
+                {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>
+            </a>
+            <a href="{{ url.showcase }}/{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
+               class="button button--medium button--secondary button--half-width">
+                {% if 'add' == 'add' %}
+                    {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">{{ lang.myshowcase_main_button_subscribe }}</span>
+                {% else %}
+                    {{ include('partials/icon.twig', {icon: 'minus', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">{{ lang.myshowcase_main_button_unsubscribe }}</span>
+                {% endif %}
+            </a>
+            {% if config.password %}
+                <a href="{{ url.showcase }}/{{ url.main }}?action=clearpass&amp;&amp;my_post_key={{ mybb.post_code }}"
+                   class="button button--medium button--secondary button--full-width">
+                    {{ include('partials/icon.twig', {icon: 'key', class: 'button__icon'}, with_context = false) }}
+                    {{ lang.myshowcase_main_button_clear_stored_password }}</a>
+            {% endif %}
             {{ button_new_entry }}
         </div>
         {{ pagination|raw }}
@@ -86,11 +121,11 @@
                             href="{{ url.sort.username }}"
                             class="sort-threads__link sort-threads__link--author">{{ lang.myshowcase_main_table_head_author }}{% if sorting.field == 'username' %}{{ ascDesc }}{% endif %}</a></span>
             </div>
-            {% for render_order, field_id in fieldSetFieldsOrder %}
-                {% if fieldSetCache[field_id].display_in_main_page %}
+            {% for field_data in showcase.fieldset_fields %}
+                {% if field_data.display_in_main_page %}
                     <div class="sort-threads__column sort-threads__column--replies">
-                        <a href="{{ url.sort[fieldSetCache[field_id].field_key] }}"
-                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ fieldSetCache[field_id].field_key) }}</a> {% if sorting.field == fieldSetCache[field_id].field_key %}{{ ascDesc }}{% endif %}
+                        <a href="{{ url.sort[field_data.field_key] }}"
+                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ field_data.field_key) }}</a> {% if sorting.field == field_data.field_key %}{{ ascDesc }}{% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
@@ -102,31 +137,39 @@
                 <a href="{{ url.sort.last_comment }}"
                    class="sort-threads__link sort-threads__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if sorting.field == 'dateline' %}{{ ascDesc }}{% endif %}</a>
             </div>
-            {% if permissions.can_manage_entries %}
+            {% if permissions.entries_can_view %}
                 <span class="sort-threads__column sort-threads__column--checkbox">
                             <label>
-                                <input type="checkbox" name="allbox" onclick="inlineModeration.checkAll(this)"/>
+                                <input type="checkbox" id="select-all-entries"/>
                             </label>
                         </span>
             {% endif %}
         </div>
 
         {# Select all #}
-        {% if true or permissions.can_manage_entries and entries_count > config.entries_per_page %}
-            <div class="thread-list__select-all" id="selectAllrow">
-                {{ trans('myshowcase_main_table_separator_selected_page', entries_count) }} <a href="javascript:void(0)"
-                                                                                               onclick='inlineModeration.selectAll(); return false;'>{{ trans('select_all', entries_count) }}</a>
+        {% if true or permissions.entries_can_view and entries_count > config.main_per_page %}
+            <div class="thread-list__select-all" id="page_select_row" style="display: none;">
+                {{ lang.myshowcase_main_table_separator_selected_page_start }}
+                <strong>0</strong> {{ lang.myshowcase_main_table_separator_selected_page_end }}
+
+                <a class="select_all_entries"
+                   href="#">{{ lang.myshowcase_main_table_separator_selected_all_select_start }}
+                    <strong>{{ entries_count }}</strong> {{ lang.myshowcase_main_table_separator_selected_all_select_end }}
+                </a>
             </div>
-            <div class="thread-list__select-all" id="allSelectedrow">
-                {{ trans('myshowcase_main_table_separator_selected_all', entries_count) }} <a href="javascript:void(0)"
-                                                                                              onclick='inlineModeration.clearChecked(); return false;'>{{ lang.myshowcase_main_table_separator_selected_pall_clear }}</a>
+            <div class="thread-list__select-all" id="all_select_row" style="display: none;">
+                {{ lang.myshowcase_main_table_separator_selected_all_start }}
+                <strong>0</strong> {{ lang.myshowcase_main_table_separator_selected_all_end }}
+
+                <a class="selected_entries_clear"
+                   href="#">{{ lang.myshowcase_main_table_separator_selected_all_clear }}</a>
             </div>
         {% endif %}
 
         {# Threads – errors #}
         {% if not entries_count %}
             <div class="alert alert--no-results">
-                {% if keywords %}
+                {% if search.keywords %}
                     {{ lang.myshowcase_main_table_empty_search }}
                 {% else %}
                     {{ lang.myshowcase_main_table_empty }}
@@ -140,7 +183,7 @@
                     </div>
                     {% for entry_data in entry_sticky_objects %}
 
-                        {% if permissions.can_manage_entries and entry_data.status == 2 and permissions.can_manage_entries %}
+                        {% if permissions.entries_can_view and entry_data.status == 2 and permissions.entries_can_view %}
                             {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                         {% else %}
                             {% include '@ext.myshowcase/pageMainEntry.twig' %}
@@ -155,7 +198,7 @@
                     </div>
                     {% for entry_data in entry_normal_objects %}
 
-                        {% if permissions.can_manage_entries and entry_data.status == 2 and permissions.can_manage_entries %}
+                        {% if permissions.entries_can_view and entry_data.status == 2 and permissions.entries_can_view %}
                             {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                         {% else %}
                             {% include '@ext.myshowcase/pageMainEntry.twig' %}
@@ -219,12 +262,12 @@
         <div class="row row--no-border page-tools">
             {# Search #}
             <div class="forum-search page-tools__item">
-                <h2 class="title title--legend {% if not permissions.can_manage_entries %}visually-hidden{% endif %}">{{ lang.myshowcase_main_search }}</h2>
+                <h2 class="title title--legend {% if not permissions.entries_can_view %}visually-hidden{% endif %}">{{ lang.myshowcase_main_search }}</h2>
                 <form action="{{ url.main }}" method="get">
                     <label>
                         <input type="text" name="keywords"
                                placeholder="{{ lang.myshowcase_main_search_keywords }}"
-                               class="textbox textbox--large" value="{{ keywords }}"/>
+                               class="textbox textbox--large" value="{{ search.keywords }}"/>
                     </label>
                     <input type="hidden" name="page" value="{{ current_page }}"/>
                     <button type="submit" class="button button--inline">
@@ -235,7 +278,7 @@
             </div>
 
             {# Inline moderation #}
-            {% if permissions.can_manage_entries %}
+            {% if permissions.entries_can_view %}
                 {% include '@ext.myshowcase/pageMainInlineModeration.twig' %}
             {% endif %}
         </div>

@@ -14,8 +14,9 @@
 namespace MyShowcase\Fields;
 
 use MyShowcase\Collection\Collection;
+use MyShowcase\Entity\Entry;
 use MyShowcase\Repository\AttachmentsRepository;
-use myshowcase\Service\EntriesManager;
+use MyShowcase\Service\EntriesManager;
 use MyShowcase\Service\AttachmentsManager;
 
 class UrlField implements FieldsInterface
@@ -29,13 +30,14 @@ class UrlField implements FieldsInterface
         private readonly AttachmentsManager $attachments_manager,
         private readonly int $fieldset_id,
         public Showcase $showcaseObject,
-        protected array $fieldDefinition,
-        private readonly ?int $entry_id,
-        private readonly ?string $post_hash,
+        public readonly array $fieldDefinition,
+        private readonly Entry $entry_data,
         protected string $entryFieldValue = '',
         public string $multipleSeparator = ',',
         public string $multipleConcatenator = ', ',
     ) {
         $this->attachments = new Collection();
+
+        $this->selectable_values = new Collection();
     }
 }

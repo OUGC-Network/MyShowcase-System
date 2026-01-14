@@ -1,18 +1,22 @@
 <div class="inline-moderation page-tools__item">
-    {{ asset('jscripts/inline_moderation.js', static=true) }}
-    <form id="inlinemoderation_options" action="{{ url.main }}" method="post">
+    {{ asset('jscripts/myshowcase_inline.js', static=true) }}
+    <form id="inline_moderation_form" action="{{ url.main }}" method="post">
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
         <input type="hidden" name="action" value="inline_moderation"/>
         <input type="hidden" name="field" value="{{ sorting.field }}"/>
         <input type="hidden" name="direction" value="{{ sorting.direction }}"/>
         <input type="hidden" name="page" value="{{ current_page }}"/>
-        <input type="hidden" name="keywords" value="{{ keywords }}"/>
-        <input type="hidden" name="exact" value="{{ search_exact }}"/>
+        <input type="hidden" name="keywords" value="{{ search.keywords }}"/>
+        <input type="hidden" name="exact" value="{{ search.exact }}"/>
+        <input type="hidden" id="selected-all-entries" name="selected_all_entries" value="">
+        <input type="hidden" id="selected-entries" name="selected_entries" value="">
+        <input type="hidden" id="unselected-entries" name="unselected_entries" value="">
         <h2 class="title title--legend">{{ lang.myshowcase_main_inline_moderation }}</h2>
         <div class="select-field">
             {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
             <label for="inlinemoderation_options_selector"></label>
             <select name="moderate" id="inlinemoderation_options_selector">
+                <option value="" selected="selected">{{ lang.myshowcase_main_inline_moderation_select_a_tool }}</option>
                 <optgroup label="{{ lang.myshowcase_main_inline_moderation_standard_tool }}">
                     <option value="open">{{ lang.myshowcase_main_inline_moderation_open }}</option>
                     <option value="close">{{ lang.myshowcase_main_inline_moderation_close }}</option>
@@ -20,6 +24,7 @@
                     <option value="unstick">{{ lang.myshowcase_main_inline_moderation_unstick }}</option>
                     <option value="approve">{{ lang.myshowcase_main_inline_moderation_approve }}</option>
                     <option value="unapprove">{{ lang.myshowcase_main_inline_moderation_unapprove }}</option>
+                    <option value="copy">{{ lang.myshowcase_main_inline_moderation_copy }}</option>
                     <option value="soft_delete">{{ lang.myshowcase_main_inline_moderation_soft_delete }}</option>
                     <option value="restore">{{ lang.myshowcase_main_inline_moderation_restore }}</option>
                     <option value="delete">{{ lang.myshowcase_main_inline_moderation_delete }}</option>
@@ -28,11 +33,11 @@
         </div>
         <button type="submit" name="go" class="button button--inline">
             {{ include('partials/icon.twig', {icon: 'arrow-right', class: 'button__icon'}, with_context = false) }}
-            <span class="button__text"
-                  id="inline_go">{{ lang.myshowcase_main_inline_moderation_go }} ({{ inline_selected_count }})</span>
+            <span class="button__text">{{ lang.myshowcase_main_inline_moderation_go }} (<span
+                        id="selected-counter">0</span>)</span>
         </button>
-        <button type="button" class="button button--secondary button--inline"
-                onclick="inlineModeration.clearChecked();">
+
+        <button type="button" class="button button--secondary button--inline selected_entries_clear">
             {{ include('partials/icon.twig', {icon: 'times', class: 'button__icon'}, with_context = false) }}
             <span class="button__text">{{ lang.myshowcase_main_inline_moderation_clear }}</span>
         </button>
@@ -40,12 +45,15 @@
     <script type="text/javascript">
         <!--
         const go_text = "{{ lang.myshowcase_main_inline_moderation_go }}";
-        const all_text = "{{ entries_count }}";
         const inlineType = "showcase";
         const inlineId = "{% if entry_data.entry_slug is defined %}{{ entry_data.entry_slug }}{% endif %}";
 
-        lang.select_tool = "{{ lang.myshowcase_main_inline_moderation_no_tool_selected }}";
-        lang.selected_nil = "{{ lang.myshowcase_main_inline_moderation_no_entry_selected }}";
+        const showcaseID = "{{ config.showcase_id }}";
+        const totalEntries = "{{ entries_count }}";
+        const entriesPerPage = "{{ config.main_per_page }}";
+
+        lang.inline_moderation_no_tool_selected = "{{ lang.myshowcase_main_inline_moderation_no_tool_selected }}";
+        lang.inline_moderation_no_entries_selected = "{{ lang.myshowcase_main_inline_moderation_no_entries_selected }}";
         // -->
     </script>
 </div>

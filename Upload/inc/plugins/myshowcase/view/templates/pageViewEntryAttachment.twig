@@ -7,7 +7,7 @@
                 title="{{ lang.myshowcase_main_table_row_attachment_file_name }} {{ attachment_data.attachment_name }} {{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }} {{ attachment_data.dateline|my_date|striptags }}"
         />
     </a>&nbsp;&nbsp;&nbsp;
-{% elseif attachment_data.extra_data.is_image and display_full and permissions.can_download_attachments %}
+{% elseif attachment_data.extra_data.is_image and display_full and permissions.attachments_can_download %}
     <img
             src="{{ attachment_data.extra_data.url }}"
             class="attachment"

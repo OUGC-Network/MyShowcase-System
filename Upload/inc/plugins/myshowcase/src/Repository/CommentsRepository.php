@@ -7,7 +7,6 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
-use MyShowcase\Event\EventDispatcher;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -27,9 +26,8 @@ class CommentsRepository
     private readonly bool $is_update;
 
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
-        private readonly int $showcase_id,
-        private readonly EventDispatcher $event_dispatcher,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly array $config,
     ) {
     }
 
@@ -41,20 +39,24 @@ class CommentsRepository
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->showcase_id}'";
+        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+
+        if (empty($query_fields)) {
+            $query_fields = 'comment_id';
+        }
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
         }
 
-        $query = $this->db->simple_select(
+        $query = $this->database->simple_select(
             'myshowcase_comments',
             $query_fields,
             implode(' AND ', $where_clauses),
             $query_options
         );
 
-        while ($comment_data = $this->db->fetch_array($query)) {
+        while ($comment_data = $this->database->fetch_array($query)) {
             yield $comment_data;
         }
     }
@@ -96,7 +98,7 @@ class CommentsRepository
         $this->comment_id = $comment_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->showcase_id,
+            'showcase_id' => $this->config['showcase_id'],
         ];
 
         $this->is_update = $is_update;
@@ -107,17 +109,26 @@ class CommentsRepository
                     $this->comment_data[$field_name],
                     $field_definition['type']
                 );
+            } elseif (!$this->is_update) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $field_definition['default'] ?? '',
+                    $field_definition['type']
+                );
             }
         }
 
         hooksRun('comment_insert_update', $this);
 
         if ($this->is_update) {
-            $this->db->update_query('myshowcase_comments', $this->insert_data, "comment_id='{$this->comment_id}'");
+            $this->database->update_query(
+                'myshowcase_comments',
+                $this->insert_data,
+                "comment_id='{$this->comment_id}'"
+            );
 
             return $this->comment_id;
         } else {
-            $this->comment_id = (int)$this->db->insert_query('myshowcase_comments', $this->insert_data);
+            $this->comment_id = (int)$this->database->insert_query('myshowcase_comments', $this->insert_data);
         }
 
         return $this->comment_id;
@@ -134,9 +145,9 @@ class CommentsRepository
 
         hooksRun('comment_delete', $this);
 
-        $this->db->delete_query(
+        $this->database->delete_query(
             'myshowcase_comments',
-            "showcase_id='{$this->showcase_id}' AND comment_id='{$comment_id}'"
+            "showcase_id='{$this->config['showcase_id']}' AND comment_id='{$comment_id}'"
         );
     }
 }

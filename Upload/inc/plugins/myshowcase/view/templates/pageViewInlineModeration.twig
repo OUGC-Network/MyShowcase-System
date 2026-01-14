@@ -11,14 +11,27 @@
                 <label for="moderator_options_selector"></label>
                 <select name="action" id="moderator_options_selector">
                     <optgroup label="{{ lang.myshowcase_view_inline_moderation_standard_tool }}">
-                        <option value="open">{{ lang.myshowcase_view_inline_moderation_open }}</option>
-                        <option value="close">{{ lang.myshowcase_view_inline_moderation_close }}</option>
-                        <option value="stick">{{ lang.myshowcase_view_inline_moderation_stick }}</option>
-                        <option value="unstick">{{ lang.myshowcase_view_inline_moderation_unstick }}</option>
-                        <option value="approve">{{ lang.myshowcase_view_inline_moderation_approve }}</option>
-                        <option value="unapprove">{{ lang.myshowcase_view_inline_moderation_unapprove }}</option>
-                        <option value="soft_delete">{{ lang.myshowcase_view_inline_moderation_soft_delete }}</option>
-                        <option value="restore">{{ lang.myshowcase_view_inline_moderation_restore }}</option>
+                        {% if entry_data.is_closed %}
+                            <option value="open">{{ lang.myshowcase_view_inline_moderation_open }}</option>
+                        {% else %}
+                            <option value="close">{{ lang.myshowcase_view_inline_moderation_close }}</option>
+                        {% endif %}
+                        {% if entry_data.is_sticky %}
+                            <option value="stick">{{ lang.myshowcase_view_inline_moderation_stick }}</option>
+                        {% else %}
+                            <option value="unstick">{{ lang.myshowcase_view_inline_moderation_unstick }}</option>
+                        {% endif %}
+                        {% if entry_data.status != 1 %}
+                            <option value="approve">{{ lang.myshowcase_view_inline_moderation_approve }}</option>
+                        {% else %}
+                            <option value="unapprove">{{ lang.myshowcase_view_inline_moderation_unapprove }}</option>
+                        {% endif %}
+                        <option value="copy">{{ lang.myshowcase_view_inline_moderation_copy }}</option>
+                        {% if entry_data.status != 2 %}
+                            <option value="soft_delete">{{ lang.myshowcase_view_inline_moderation_soft_delete }}</option>
+                        {% elseif entry_data.status == 2 %}
+                            <option value="restore">{{ lang.myshowcase_view_inline_moderation_restore }}</option>
+                        {% endif %}
                         <option value="delete">{{ lang.myshowcase_view_inline_moderation_delete }}</option>
                     </optgroup>
                 </select>
@@ -32,7 +45,7 @@
     <div class="page-tools__item thread-moderation__inline">
         {{ asset('jscripts/inline_moderation.js', static=true) }}
         <form action="moderation.php" method="post" style="margin-top: 0; margin-bottom: 0;"
-              id="inlinemoderation_options">
+              id="inline_moderation_form">
             <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
             <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
             <input type="hidden" name="modtype" value="inlinepost"/>
@@ -44,19 +57,20 @@
                     <optgroup label="{{ lang.myshowcase_view_inline_moderation_comments_standard_tool }}">
                         <option value="approve">{{ lang.myshowcase_view_inline_moderation_comments_approve }}</option>
                         <option value="unapprove">{{ lang.myshowcase_view_inline_moderation_comments_unapprove }}</option>
+                        <option value="move">{{ lang.myshowcase_view_inline_moderation_comments_move }}</option>
                         <option value="soft_delete">{{ lang.myshowcase_view_inline_moderation_comments_soft_delete }}</option>
                         <option value="restore">{{ lang.myshowcase_view_inline_moderation_comments_restore }}</option>
                         <option value="delete">{{ lang.myshowcase_view_inline_moderation_comments_delete }}</option>
                     </optgroup>
                 </select>
             </div>
-            <button type="submit" name="myshowcase_view_inline_moderation_go" class="button button--inline">
+            <button type="submit" name="go" class="button button--inline">
                 {{ include('partials/icon.twig', {icon: 'arrow-right', class: 'button__icon'}, with_context = false) }}
-                <span class="button__text"
-                      id="inline_go">{{ lang.myshowcase_view_inline_moderation_comments_go }} ({{ inline_selected_count }})</span>
+                <span class="button__text">{{ lang.myshowcase_view_inline_moderation_comments_go }} (<span
+                            id="selected-counter">0</span>)</span>
             </button>
-            <button type="button" class="button button--secondary button--inline"
-                    onclick="inlineModeration.clearChecked();">
+
+            <button type="button" class="button button--secondary button--inline selected_entries_clear">
                 {{ include('partials/icon.twig', {icon: 'times', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_view_inline_moderation_comments_clear }}</span>
             </button>
@@ -64,11 +78,11 @@
         <script type="text/javascript">
             <!--
             const go_text = "{{ lang.myshowcase_view_inline_moderation_comments_go }}";
-            const all_text = "{{ comments_count }}";
+            const totalEntries = "{{ comments_count }}";
             const inlineType = "entry";
             const inlineId = "{% if entry_data.entry_slug is defined %}{{ entry_data.entry_slug }}{% endif %}";
 
-            lang.select_tool = "{{ lang.myshowcase_view_inline_moderation_comments_no_tool_selected }}";
+            lang.inline_moderation_no_tool_selected = "{{ lang.myshowcase_view_inline_moderation_comments_no_tool_selected }}";
             lang.selected_nil = "{{ lang.myshowcase_view_inline_moderation_comments_no_entry_selected }}";
             // -->
         </script>

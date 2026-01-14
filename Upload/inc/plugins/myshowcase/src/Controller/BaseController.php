@@ -1,0 +1,363 @@
+<?php
+/**
+ * MyShowcase Plugin for MyBB - Main Plugin
+ * Copyright 2012 CommunityPlugins.com, All Rights Reserved
+ *
+ * Website: https://github.com/Sama34/MyShowcase-System
+ * Version 2.5.2
+ * License: Creative Commons Attribution-NonCommerical ShareAlike 3.0
+ * http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
+ * File: \inc\plugins\myshowcase.php
+ *
+ */
+
+declare(strict_types=1);
+
+namespace MyShowcase\Controller;
+
+use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Entity\Attachment;
+use MyShowcase\Entity\Comment;
+use MyShowcase\Entity\Entry;
+use MyShowcase\Entity\User;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\Routes;
+use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Fields\FieldFactory;
+use MyShowcase\Fields\FieldsInterface;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Routing\Routing;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Service\EntriesManager;
+use MyShowcase\Service\Render;
+use MyShowcase\Enum\FilterFields;
+
+use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\loadLanguage;
+
+use const MyShowcase\VERSION_CODE;
+
+abstract class BaseController
+{
+    public const HTTP_CODE_PERMANENT_REDIRECT = 301;
+
+    public const NO_PERMISSION = 0;
+
+    public const HAS_PERMISSION = 1;
+
+    public const INVALID_ENTRY = 3;
+
+    public const INVALID_COMMENT = 4;
+
+    public const INVALID_ATTACHMENT = 5;
+
+    protected int $entry_id = 0;
+
+    protected int $comment_id = 0;
+
+    public function __construct(
+        private readonly Routing $routing,
+        private readonly User $current_user,
+        private readonly EntriesRepository $entries_repository,
+        private readonly CommentsRepository $comments_repository,
+        private readonly EntriesManager $entries_manager,
+        private readonly CommentsManager $comments_manager,
+        private readonly Render $render_manager,
+        private readonly FieldFactory $field_factory,
+        private readonly array $config,
+        private readonly array $fieldset_fields,
+        private readonly array $filter,
+    ) {
+        //make sure this file is current
+        if (SHOWCASE_FILE_VERSION_CODE < VERSION_CODE) {
+            error(
+                'This file is not the same version as the MyShowcase System. Please be sure to upload and configure ALL files.'
+            );
+        }
+
+        //try to load showcase specific language file
+        loadLanguage();
+
+        loadLanguage('myshowcase' . $config['showcase_id'], false, true);
+
+        ini_set('display_errors', 1);
+
+        error_reporting(E_ALL);
+    }
+
+    public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
+    {
+        if (!$this->current_user->hasPermission(UserPermissions::MainCanView)) {
+            return self::NO_PERMISSION;
+        }
+
+        global $db;
+
+        if (!(
+            $this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
+            $this->current_user->hasPermission(UserPermissions::EntriesCanView)
+        )) {
+            return self::NO_PERMISSION;
+        }
+
+        if ($entry_slug !== null) {
+            $entry_data = $this->entries_manager->fetchEntry(
+                ["entry_slug='{$db->escape_string($entry_slug)}'"],
+            );
+
+            $this->entries_manager->addEntry($entry_data);
+
+            /**
+             * @var Entry $entry_data
+             */
+            $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+
+            $this->entry_id = $entry_data->entry_id;
+        }
+
+        if ($comment_slug !== null) {
+            if (!$this->config['comments_enable'] ||
+                !(
+                    $this->current_user->hasPermission(UserPermissions::CommentsCanView) ||
+                    $this->current_user->hasPermission(UserPermissions::CommentsCanView)
+                )) {
+                return self::NO_PERMISSION;
+            }
+
+            $comment_data = $this->comments_repository->queryComment(
+                ["comment_slug='{$db->escape_string($comment_slug)}'"],
+                ['entry_id', 'status', 'user_id', 'dateline'],
+            );
+
+            if (empty($comment_data)) {
+                return self::INVALID_COMMENT;
+            }
+
+            $this->comment_id = (int)$comment_data['comment_id'];
+
+            if (empty($entry_data)) {
+                $entry_data = $this->entries_manager->fetchEntry(
+                    ["entry_id='{$comment_data['entry_id']}'"],
+                );
+
+                $this->entries_manager->addEntry($entry_data);
+
+                /**
+                 * @var Entry $entry_data
+                 */
+                $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+
+                $this->entry_id = $entry_data->entry_id;
+            }
+
+            $entry_data->addComment($comment_data);
+
+            /**
+             * @var Comment $comment_data
+             */
+            $comment_data = $entry_data->getComments()->offsetGet($this->comment_id);
+        }
+
+        if (empty($entry_data->entry_id)) {
+            return self::INVALID_ENTRY;
+        }
+
+        if (
+            (int)$entry_data->status !== $this->entries_manager::STATUS_VISIBLE &&
+            ((
+                    (int)$entry_data->status === $this->entries_manager::STATUS_PENDING &&
+                    $this->current_user->user_id !== (int)$entry_data->user_id
+                ) ||
+                (
+                    (int)$entry_data->status === $this->entries_manager::STATUS_DELETED &&
+                    !$this->current_user->hasPermission(UserPermissions::EntriesCanView)
+                ))) {
+            return self::INVALID_ENTRY;
+        }
+
+        if ($comment_slug !== null) {
+            if (
+                $comment_data->status !== $this->comments_manager::STATUS_VISIBLE &&
+                ((
+                        $comment_data->status === $this->comments_manager::STATUS_PENDING &&
+                        $this->current_user->user_id !== $comment_data->user_id
+                    ) ||
+                    (
+                        $comment_data->status === $this->comments_manager::STATUS_DELETED &&
+                        !$this->current_user->hasPermission(UserPermissions::CommentsCanView)
+                    ))) {
+                return self::INVALID_COMMENT;
+            }
+        }
+
+        hooksRun('controller_comments_verify_permissions_end', $this);
+
+        return self::HAS_PERMISSION;
+    }
+
+    #[NoReturn] public function redirect(?string $entry_slug = null, ?string $comment_slug = null): void
+    {
+        switch ($this->verifyPermission($entry_slug, $comment_slug)) {
+            case self::NO_PERMISSION:
+                error_no_permission();
+
+                break;
+            case self::INVALID_ENTRY:
+                global $lang;
+
+                error($lang->myShowcaseReportErrorInvalidEntry);
+        }
+
+        /**
+         * @var Entry $entry_data
+         */
+        $entry_data = $this->entries_manager->getEntryByID($this->entry_id);
+
+        /**
+         * @var Comment $comment_data
+         */
+        $comment_data = $entry_data->getComments()->offsetGet($this->comment_id);
+
+        if ($comment_slug) {
+            $where_clauses = [
+                "entry_id='{$entry_data->entry_id}'",
+                "showcase_id='{$this->config['showcase_id']}'",
+                "dateline<='" . $comment_data->dateline . "'",
+            ];
+
+            if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
+                !$this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
+                $where_clauses[] = "(status='" . $this->comments_manager::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->user_id}' AND status='" . $this->comments_manager::STATUS_PENDING . "'))";
+            }
+
+            $total_comments = $this->comments_repository->queryCommentCount($where_clauses);
+
+            if (($total_comments % $this->config['comments_per_page']) === 0) {
+                $current_page = $total_comments / $this->config['comments_per_page'];
+            } else {
+                $current_page = (int)($total_comments / $this->config['comments_per_page']) + 1;
+            }
+
+            $url_params = [
+                'entry_slug' => $entry_data->entry_slug,
+                'entry_slug_custom' => $entry_data->entry_slug_custom,
+                'comment_hash' => $comment_slug,
+            ];
+
+            if ($current_page > 1) {
+                $url_params['page'] = $current_page;
+            }
+
+            $redirect_url = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                    Routes::EntryView,
+                    $url_params
+                ) . '#' . $comment_slug;
+        } else {
+            $redirect_url = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                    Routes::EntryView,
+                    array_merge(
+                        $this->render_manager->url_params,
+                        [
+                            'entry_slug' => $entry_data->entry_slug,
+                            'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        ]
+                    ),
+                ) . '#' . $entry_data->entry_slug;
+        }
+
+        header("Location: {$redirect_url}", response_code: self::HTTP_CODE_PERMANENT_REDIRECT);
+
+        exit;
+    }
+
+    public function forcedFieldBreadcrumb(): void
+    {
+        switch ($this->config['main_filter_force_field']) {
+            case FilterFields::UserID:
+                $user_data = get_user($this->filter['force_field_value']);
+
+                if (empty($user_data['uid']) || (empty($mybb->usergroup['canviewprofiles']) && (int)$user_data['uid'] !== $this->current_user->user_id)) {
+                    error_no_permission();
+                }
+
+                global $mybb, $lang;
+
+                $lang->load('member');
+
+                add_breadcrumb(
+                    $lang->sprintf($lang->nav_profile, htmlspecialchars_uni($user_data['username'])),
+                    $mybb->settings['bburl'] . '/' . get_profile_link($user_data['uid'])
+                );
+
+                break;
+        }
+    }
+
+    protected function loadEntryFields(Entry $entry_data, bool $verify_fill_permission = false): void
+    {
+        foreach ($this->fieldset_fields as $field_id => $field_definition) {
+            $entry_data->addField(
+                $this->field_factory->create(
+                    $field_definition,
+                    $entry_data
+                )
+            );
+        }
+
+        /**
+         * @var FieldsInterface $field_data
+         */
+        foreach ($entry_data->getFields() as $field_data) {
+            if (!$field_data->isViewableInEntry()) {
+                continue;
+            }
+
+            foreach (
+                $entry_data->getAttachments()->filter(
+                    function (Attachment $attachment) use ($field_data): bool {
+                        return $attachment->field_id === $field_data->fieldDefinition['field_id'];
+                    }
+                ) as $attachment_data
+            ) {
+                $field_data->addAttachment($attachment_data);
+            }
+
+            $field_data->fetchSelectableValues($verify_fill_permission);
+
+            $field_data
+                ->valueSet($entry_data->getExtraData($field_data->fieldDefinition['field_key']) ?? '')
+                ->valuesBuild($entry_data);
+
+            $field_data->attachmentsBuild($this->render_manager);
+
+            switch ($field_data->fieldDefinition['html_type']) {
+                case FieldHtmlTypes::File:
+                    $field_data->setExtraData(
+                        'accept_element',
+                        implode(
+                            ',',
+                            array_merge(
+                                array_column($this->attachment_types, 'mime_type'),
+                                array_column($this->attachment_types, 'file_extension')
+                            )
+                        )
+                    );
+            }
+
+            if ($field_data->fieldDefinition['enable_editor']) {
+                $code_buttons = $smiles_inserter = '';
+
+                $this->render_manager->editorBuild(
+                    $code_buttons,
+                    $smiles_inserter,
+                    $field_data->fieldDefinition['field_key']
+                );
+
+                $field_data->setExtraData('code_buttons', $code_buttons);
+
+                $field_data->setExtraData('smiles_inserter', $smiles_inserter);
+            }
+        }
+    }
+}

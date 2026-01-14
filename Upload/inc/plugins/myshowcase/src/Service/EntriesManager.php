@@ -2,26 +2,47 @@
 
 declare(strict_types=1);
 
-namespace myshowcase\Service;
+namespace MyShowcase\Service;
 
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
+use JetBrains\PhpStorm\NoReturn;
+use MyLanguage;
+use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Entry;
-use MyShowcase\Enum\ModeratorPermissions;
+use MyShowcase\Entity\User;
+use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
-use MyShowcase\Event\EventDispatcher;
+use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Enum\FilterFields;
+use MyShowcase\Service\CacheManager;
+use MyShowcase\Util\StringUtil;
+use MyShowcase\Util\UuidUtil;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
 use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\formatField;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 
-use const MyShowcase\Plugin\Core\FILTER_TYPE_USER_ID;
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesManager
 {
+    public const VALIDATION_METHOD_INSERT = 'insert';
+
+    public const VALIDATION_METHOD_UPDATE = 'update';
+
+    private Collection $entries;
+
     public const STATUS_PENDING = 0;
 
     public const STATUS_VISIBLE = 1;
@@ -36,45 +57,72 @@ class EntriesManager
 
     private array $query_tables = [];
 
-    private array $structure_fields = [
-        'entry_id',
-        'entry_slug',
-        'entry_slug_custom',
-        'subject',
-        'prefix_id',
-        'icon_id',
-        'user_id',
-        'dateline',
-        'views',
-        'comments_approved',
-        'is_closed',
-        'is_sticky',
-        'status',
-        'edit_user_id',
-        'post_hash',
-        'ipaddress',
-    ];
-
     private array $query_fields = [];
 
-    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0, 'limit' => 10];
+    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0];
+    private array $validation_errors = [];
+    private Entry $validation_data;
+    private bool $validation_data_is_valid = true;
+    private $validation_method = self::VALIDATION_METHOD_INSERT;
 
     public function __construct(
-        private readonly int $current_user_id,
-        private readonly array $user_permissions,
-        private readonly EntriesRepository $entry_repository,
-        private readonly CommentsRepository $comment_repository,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly MyLanguage $language,
+        private readonly User $current_user,
+        private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
-        private readonly EventDispatcher $event_dispatcher,
+        private readonly array $config,
         private readonly array $fields_cache,
-        private readonly array $fields_searchable,
+        private readonly array $fieldset_searchable_fields,
         private readonly array $parser_options = [],
-        private readonly int $fieldset_id,
-        private readonly int $filter_force_field_id,
-        private readonly int $filter_force_field_value,
-        private int $current_page = self::FIRST_PAGE,
-        private int $entries_per_page = 10,
+        private readonly array $filter,
+        private int $current_page,
     ) {
+        $this->entries = new Collection();
+    }
+
+    /**
+     * @return Collection<Entry>
+     */
+    public function getEntries(): Collection
+    {
+        return $this->entries;
+    }
+
+    public function getEntryByID(int $entry_id): Entry|bool
+    {
+        if (!$this->entries->offsetExists($entry_id)) {
+            return false;
+        }
+
+        return $this->entries->offsetGet($entry_id);
+    }
+
+    public function addEntry(array $entry_data): void
+    {
+        $extra_data = [];
+
+        foreach ($entry_data as $field_key => $field_value) {
+            if (!in_array($field_key, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']))) {
+                $extra_data[$field_key] = $field_value;
+
+                unset($entry_data[$field_key]);
+            }
+        }
+
+        if (!empty($extra_data)) {
+            $entry_data['extra_data'] = $extra_data;
+        }
+
+        if (!$this->entries->contains($entry_data)) {
+            if (!empty($entry_data['entry_id'])) {
+                $this->entries[$entry_data['entry_id']] = new Entry(...$entry_data);
+            } elseif (!empty($entry_data['post_hash'])) {
+                $this->entries[$entry_data['post_hash']] = new Entry(...$entry_data);
+            } else {
+                $this->entries[] = new Entry(...$entry_data);
+            }
+        }
     }
 
     public function parseMessage(string $message, array $options = []): string
@@ -105,10 +153,8 @@ class EntriesManager
     public function slugGenerate(?int $length = null): string
     {
         if (empty($length)) {
-            $length = getSetting('slugLength');
+            $length = getSetting('slugLength') / 2;
         }
-
-        global $db;
 
         $generated_slug = '';
 
@@ -117,35 +163,40 @@ class EntriesManager
         while (!$unique_found) {
             $generated_slug = my_strtolower(bin2hex(random_bytes($length)));
 
-            $unique_found = !$this->entry_repository->queryEntry(["entry_slug='{$db->escape_string($generated_slug)}'"]
+            $unique_found = !$this->entries_repository->queryEntry(
+                ["entry_slug='{$this->database->escape_string($generated_slug)}'"],
+                ['entry_id']
             );
         }
 
         return $generated_slug;
     }
 
-    public function fetchEntries(
+    #[NoReturn] public function fetchEntries(
+        array $sorting = [],
         array $url_params = [],
-        string $search_keywords = '',
-        string $search_field = '',
-        int $search_exact = 0,
-        string $sort_direction = 'asc',
-        string $sort_field = 'dateline',
-        array $where_clauses = []
+        array $search = [],
+        array $where_clauses = [],
+        array $query_options = [],
+        bool $load_all = false,
     ): array {
-        $this->where_clauses = $where_clauses;
+        $this->query_options = array_merge($this->query_options, $query_options);
 
-        if (!$this->user_permissions[ModeratorPermissions::CanManageEntries]) {
-            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
+        if (!isset($this->query_options['limit']) && !$load_all) {
+            $this->query_options['limit'] = $this->config['main_per_page'];
         }
 
-        global $mybb;
+        $this->where_clauses = $where_clauses;
+
+        if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user->user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
+        }
 
         // First, the date cut for the entries.
-        if (empty($url_params['days']) && !empty($mybb->user['daysprune'])) {
-            $days_cut = $mybb->user['daysprune'];
+        if (empty($url_params['days']) && !empty($this->current_user->days_prune)) {
+            $days_cut = $this->current_user->days_prune;
         } else {
-            $days_cut = $url_params['days'];
+            $days_cut = $url_params['days'] ?? 0;
         }
 
         if ($days_cut > 0) {
@@ -157,9 +208,9 @@ class EntriesManager
             $this->where_clauses[] = "entry_data.user_id='{$url_params['user_id']}'";
         }
 
-        switch ($this->filter_force_field_id) {
-            case FILTER_TYPE_USER_ID:
-                $this->where_clauses[] = "entry_data.user_id='{$this->filter_force_field_value}'";
+        switch ($this->config['main_filter_force_field']) {
+            case FilterFields::UserID:
+                $this->where_clauses[] = "entry_data.user_id='{$this->filter['force_field_value']}'";
 
                 break;
         }
@@ -170,12 +221,14 @@ class EntriesManager
 
         $search_done = false;
 
-        $keywords = explode(' ', $search_keywords);
+        $keywords = array_filter(array_map(function (string $value) {
+            return trim($value);
+        }, explode(' ', $search['keywords'] ?? '')));
 
         $this->query_fields = array_merge(
             array_map(function (string $field_name): string {
                 return str_starts_with($field_name, 'entry_data.') ? $field_name : 'entry_data.' . $field_name;
-            }, $this->structure_fields),
+            }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
             [
                 'user_data.username',
                 'user_data.usergroup',
@@ -183,33 +236,37 @@ class EntriesManager
             ]
         );
 
-        global $db;
-
         foreach ($this->fields_cache as $field_id => $field_definition) {
-            if ($field_definition['html_type'] === FieldHtmlTypes::Select || $field_definition['html_type'] === FieldHtmlTypes::Radio) {
+            if ($field_definition['html_type'] === FieldHtmlTypes::CheckBox ||
+                $field_definition['html_type'] === FieldHtmlTypes::Radio ||
+                $field_definition['html_type'] === FieldHtmlTypes::Select) {
                 $this->query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
 
-                $this->query_fields[] = "table_{$field_definition['field_key']}.display_style AS {$field_definition['field_key']}";
+                $this->query_fields[] = $field_definition['field_key'];
 
-                if ($search_keywords && $search_field === $field_definition['field_key']) {
-                    if ($search_exact) {
-                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value='{$db->escape_string($search_keywords)}'";
-                    } else {
-                        $this->where_clauses[] = "table_{$field_definition['field_key']}.value LIKE '%{$db->escape_string($search_keywords)}%'";
+                if ($keywords && $search['field'] === $field_definition['field_key']) {
+                    foreach ($keywords as $keyword) {
+                        if ($search['exact']) {
+                            $this->where_clauses[] = "(table_{$field_definition['field_key']}.value='{$this->database->escape_string($keyword)}' OR table_{$field_definition['field_key']}.display_style='{$this->database->escape_string($keyword)}')";
+                        } else {
+                            $this->where_clauses[] = "(table_{$field_definition['field_key']}.value LIKE '%{$this->database->escape_string($keyword)}%' OR table_{$field_definition['field_key']}.display_style LIKE '%{$this->database->escape_string($keyword)}%'";
+                        }
                     }
 
-                    $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->fieldset_id}'";
+                    $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->config['field_set_id']}'";
                 }
-            } elseif ($search_field === 'username' && !$search_done) {
+            } elseif ($search['field'] === 'username' && !$search_done) {
                 $this->query_tables[] = 'users user_search_data ON (entry_data.user_id = user_search_data.uid)';
 
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($search_keywords) {
-                    if ($search_exact) {
-                        $this->where_clauses[] = "user_search_data.username='{$db->escape_string($search_keywords)}'";
-                    } else {
-                        $this->where_clauses[] = "user_search_data.username LIKE '%{$db->escape_string($search_keywords)}%'";
+                if ($keywords) {
+                    foreach ($keywords as $keyword) {
+                        if ($search['exact']) {
+                            $this->where_clauses[] = "user_search_data.username='{$this->database->escape_string($keyword)}'";
+                        } else {
+                            $this->where_clauses[] = "user_search_data.username LIKE '%{$this->database->escape_string($keyword)}%'";
+                        }
                     }
                 }
 
@@ -217,62 +274,63 @@ class EntriesManager
             } else {
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($search_keywords && $search_field === $field_definition['field_key']) {
-                    if ($search_exact) {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$db->escape_string($search_keywords)}'";
-                    } else {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$db->escape_string($search_keywords)}%'";
+                if ($keywords && $search['field'] === $field_definition['field_key']) {
+                    foreach ($keywords as $keyword) {
+                        if ($search['exact']) {
+                            $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
+                        } else {
+                            $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
+                        }
                     }
                 }
             }
 
-            if ($search_keywords && isset($this->fields_searchable[$field_definition['field_key']])) {
+            if ($keywords && isset($this->fieldset_searchable_fields[$field_definition['field_key']])) {
                 foreach ($keywords as $keyword) {
-                    if ($search_exact) {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$db->escape_string($keyword)}'";
+                    if ($search['exact']) {
+                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
                     } else {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$db->escape_string($keyword)}%'";
+                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
                     }
                 }
             }
         }
 
-        if ($sort_field !== 'dateline') {
-            $this->query_options['order_by'] = "{$db->escape_string($sort_field)} {$sort_direction}, is_sticky {$sort_direction}, entry_id";
+        if (isset($sorting['field']) && $sorting['field'] !== 'dateline') {
+            $this->query_options['order_by'] = "{$this->database->escape_string($sorting['field'])} {$sorting['direction']}, is_sticky {$sorting['direction']}, entry_id";
 
-            $this->query_options['order_dir'] = $sort_direction;
+            $this->query_options['order_dir'] = $sorting['direction'];
         } else {
-            $this->query_options['order_by'] = "is_sticky {$sort_direction}, entry_id";
+            $this->query_options['order_by'] = "is_sticky {$sorting['direction']}, entry_id";
 
-            $this->query_options['order_dir'] = $sort_direction;
+            $this->query_options['order_dir'] = $sorting['direction'];
         }
-
-        $this->query_options['limit'] = $this->entries_per_page;
 
         hooksRun('entry_fetch_start', $this);
 
-        if ($this->entries_per_page === 1) {
-            $this->total_entries = 1;
-        } else {
-            $this->total_entries = $this->entry_repository->queryEntryCount($this->where_clauses, $this->query_tables);
-
-            if ($this->current_page > ceil($this->total_entries / $this->entries_per_page)) {
+        if ($this->query_options['limit'] > 1 && !$load_all) {
+            if ($this->current_page > ceil($this->total_entries / $this->query_options['limit'])) {
                 $this->setCurrentPage(self::FIRST_PAGE);
             }
 
             if ($this->current_page) {
-                $this->query_options['limit_start'] = ($this->current_page - 1) * $this->entries_per_page;
+                $this->query_options['limit_start'] = ($this->current_page - 1) * $this->query_options['limit'];
             } else {
                 $this->setCurrentPage(self::FIRST_PAGE);
             }
         }
+
+        $this->total_entries = $this->entries_repository->queryEntryCount(
+            $this->where_clauses,
+            $this->query_tables
+        );
 
         hooksRun('entry_fetch_intermediate', $this);
 
         $entry_objects = [];
 
         foreach (
-            $this->entry_repository->queryEntries(
+            $this->entries_repository->queryEntries(
                 $this->where_clauses,
                 $this->query_fields,
                 $this->query_options,
@@ -289,47 +347,342 @@ class EntriesManager
 
     public function fetchEntry(array $where_clauses = []): array
     {
-        $this->entries_per_page = 1;
-
-        return $this->fetchEntries(where_clauses: $where_clauses)[0] ?? [];
+        return $this->fetchEntries(where_clauses: $where_clauses, query_options: ['limit' => 1])[0] ?? [];
     }
 
-    public function buildSubject(Entry $entry): string
+    /**
+     * Sets the data to be used for the data handler
+     *
+     * @param Entry $entry_data
+     * @param string $method
+     * @return void
+     */
+    public function validateSet(Entry $entry_data, string $method = self::VALIDATION_METHOD_INSERT): void
     {
-        global $lang;
+        $this->validation_data = $entry_data;
 
-        $subject_elements = [];
+        $this->validation_method = $method;
+    }
 
-        foreach ($this->fields_cache as $field_id => $field_definition) {
-            if (!$field_definition['enable_subject'] ||
-                ($field_value = $entry->getExtraData($field_definition['field_key'] ?? '')) === false) {
+    /**
+     * Add an error to the error array.
+     *
+     * @param string $error The error name.
+     * @param array $data
+     */
+    public function validateSetError(string $error, array $data = []): void
+    {
+        $this->validation_errors[$error] = $this->language->sprintf($error, ...$data);
+    }
+
+    /**
+     * @return array
+     */
+    public function validateGetError(): array
+    {
+        return $this->validation_errors;
+    }
+
+    /**
+     * Validate a showcase.
+     *
+     * @return bool True when valid, false when invalid.
+     * @throws RandomException
+     */
+    public function validateEntry(): bool
+    {
+        hooksRun('entry_validate_start', $this);
+
+        if (empty($this->validation_data)) {
+            $this->validateSetError('invalid_entry');
+        }
+
+        if (isset($this->validation_data->entry_slug_custom)) {
+            $slugLength = my_strlen($this->validation_data->entry_slug_custom);
+
+            if ($slugLength < 1) {
+                $this->validateSetError('custom_slug_too_short', [1]);
+            }
+
+            if ($slugLength > DATA_TABLE_STRUCTURE['myshowcase_data']['entry_slug_custom']['size']) {
+                $this->validateSetError(
+                    'custom_slug_too_long',
+                    [DATA_TABLE_STRUCTURE['myshowcase_data']['entry_slug_custom']['size']]
+                );
+            }
+        }
+
+        if (!empty($this->validation_data->user_id) && empty(get_user($this->validation_data->user_id)['uid'])) {
+            $this->validateSetError('invalid_user');
+        }
+
+        if (isset($this->validation_data->views) && $this->validation_data->views < 0) {
+            $this->validateSetError('invalid_views');
+        }
+
+        if (isset($this->validation_data->comments_approved) && $this->validation_data->comments_approved < 0) {
+            $this->validateSetError('invalid_comments');
+        }
+
+        if (isset($this->validation_data->status) && !in_array(
+                $this->validation_data->status,
+                [
+                    $this::STATUS_PENDING,
+                    $this::STATUS_VISIBLE,
+                    $this::STATUS_DELETED
+                ]
+            )) {
+            $this->validateSetError('invalid_status');
+        }
+
+        if (!empty($this->validation_data->edit_user_id) &&
+            empty(get_user($this->validation_data->edit_user_id)['uid'])) {
+            $this->validateSetError('invalid_edit_user');
+        }
+
+        if (isset($this->validation_data->dateline) && $this->validation_data->dateline < 0) {
+            $this->validateSetError('invalid_dateline');
+        }
+
+        if (isset($this->validation_data->edit_stamp) && $this->validation_data->edit_stamp < 0) {
+            $this->validateSetError('invalid_edit_stamp');
+        }
+
+        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+            if (!$fieldDefinition['is_enabled'] ||
+                $fieldDefinition['read_only'] ||
+                !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
+                !is_member($fieldDefinition['allowed_groups_fill'])) {
+                // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            if (empty($field_definition['parse'])) {
-                // todo, remove this legacy updating the database and updating the format field to TINYINT
-                formatField((int)$field_definition['format'], $field_value);
-            } else {
-                $field_value = $this->parseMessage((string)$field_value, [
-                    'allow_html' => $field_definition['parser_allow_html'],
-                    'allow_mycode' => $field_definition['parser_allow_mycode'],
-                    'allow_smilies' => $field_definition['parser_allow_smiles'],
-                    'allow_imgcode' => $field_definition['parser_allow_image_code'],
-                    'allow_videocode' => $field_definition['parser_allow_video_code'],
-                ]);
+            if ($fieldDefinition['regular_expression'] &&
+                preg_match($fieldDefinition['regular_expression'], '') !== false &&
+                preg_match(
+                    $fieldDefinition['regular_expression'],
+                    $this->validation_data->extra_data[$fieldDefinition['field_key']]
+                ) === 1) {
+                $this->validateSetError(
+                    'invalid_value',
+                    [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                );
             }
 
-            if (!empty($field_value)) {
-                $subject_elements[] = $field_value;
+            if ($fieldDefinition['is_required'] && empty($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                if ($fieldDefinition['html_type'] === FieldHtmlTypes::File) {
+                    if ($this->validation_data->getAttachmentsByFieldID($fieldID)->count() < 1) {
+                        $this->validateSetError(
+                            'required_field',
+                            [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                        );
+                    }
+                } else {
+                    $this->validateSetError(
+                        'required_field',
+                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                    );
+                }
+            }
+
+            if (empty($this->validation_data->extra_data[$fieldDefinition['field_key']]) && $fieldDefinition['default_value'] !== '') {
+                $this->validation_data->extra_data[$fieldDefinition['field_key']] = $fieldDefinition['default_value'];
+            }
+
+            if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
+                if (is_array($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                    foreach ($this->validation_data->extra_data[$fieldDefinition['field_key']] as $fieldValue) {
+                        if (!is_numeric($fieldValue)) {
+                            $this->validateSetError(
+                                'invalid_value',
+                                [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                            );
+                        }
+                    }
+                } elseif (!is_numeric($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                    $this->validateSetError(
+                        'invalid_value',
+                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                    );
+                }
+            } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
+                fieldTypeMatchText($fieldDefinition['field_type'])) {
+                if (!is_scalar($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                    $this->validateSetError(
+                        'invalid_value',
+                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                    );
+                }
+
+                if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
+                    if ($fieldDefinition['minimum_length'] &&
+                        my_strlen(
+                            $this->validation_data->extra_data[$fieldDefinition['field_key']]
+                        ) < $fieldDefinition['minimum_length']) {
+                        $this->validateSetError(
+                            'invalid_length_minimum',
+                            [
+                                $this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
+                                my_strlen($this->validation_data->extra_data[$fieldDefinition['field_key']]),
+                                my_number_format($fieldDefinition['minimum_length']),
+                                my_number_format($fieldDefinition['maximum_length']),
+                            ]
+                        );
+                    }
+
+                    if ($fieldDefinition['maximum_length'] &&
+                        my_strlen(
+                            $this->validation_data->extra_data[$fieldDefinition['field_key']]
+                        ) > $fieldDefinition['maximum_length']) {
+                        $this->validateSetError(
+                            'invalid_length_maximum',
+                            [
+                                $this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
+                                my_strlen($this->validation_data->extra_data[$fieldDefinition['field_key']]),
+                                my_number_format($fieldDefinition['minimum_length']),
+                                my_number_format($fieldDefinition['maximum_length']),
+                            ]
+                        );
+                    }
+                }
             }
         }
 
-        $subject_elements = trim(implode(' ', $subject_elements));
+        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+            if (!$fieldDefinition['is_enabled'] ||
+                !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
+                !is_member($fieldDefinition['allowed_groups_fill'])) {
+                continue;
+            }
 
-        if (empty($subject_elements)) {
-            $subject_elements = $lang->sprintf($lang->myshowcase_viewing_user, $entry->getExtraData('username'));
+            if ($fieldDefinition['filter_on_save']) {
+                $this->validation_data->extra_data[$fieldDefinition['field_key']] = match ($fieldDefinition['filter_on_save']) {
+                    FilterTypes::UUID => (new UuidUtil())->generateUuidV4(),
+                    default => $this->validation_data->extra_data[$fieldDefinition['field_key']],
+                };
+            }
         }
 
-        return $subject_elements;
+        // it doesn't matter if this changes, only the entry_slug should remain the same always
+        if ($this->validation_method !== self::VALIDATION_METHOD_UPDATE) {
+            $entry_slug_custom = [];
+
+            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+                if (!$fieldDefinition['enable_slug']) {
+                    continue;
+                }
+
+                if (is_array($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                    foreach ($this->validation_data->extra_data[$fieldDefinition['field_key']] as $field_data_id) {
+                        $field_data_id = (int)$field_data_id;
+
+                        if (!isset($this->fields_cache[$field_data_id])) {
+                            continue;
+                        }
+
+                        foreach (
+                            fieldDataGet(
+                                [
+                                    "field_data_id='{$field_data_id}'"
+                                ],
+                                ['value', 'allowed_groups_fill'],
+                                ['order_by' => 'display_order']
+                            ) as $field_data_id => $field_data_data
+                        ) {
+                            if (is_member($field_data_data['allowed_groups_fill'])) {
+                                $entry_slug_custom[] = $field_data_data['value'];
+                            }
+                        }
+                    }
+                } elseif (is_member($fieldDefinition['allowed_groups_fill'])) {
+                    $entry_slug_custom[] = $this->validation_data->extra_data[$fieldDefinition['field_key']];
+                }
+            }
+
+            $this->validation_data->entry_slug_custom = (new StringUtil())
+                ->createSlug(implode(' ', $entry_slug_custom))
+                ->lower()
+                ->toString();
+        }
+
+        hooksRun('entry_validate_end', $this);
+
+        if ($this->validation_errors) {
+            $this->validation_data_is_valid = false;
+        }
+
+        return $this->validation_data_is_valid;
+    }
+
+    /**
+     * Insert a showcase into the database.
+     *
+     * @return Entry Object of new showcase entry
+     * @throws RandomException
+     */
+    public function validationEntryInsert(): Entry
+    {
+        if (!$this->validation_data_is_valid) {
+            die('The entry needs to be validated before inserting it into the DB.');
+        }
+
+        if ($this->validation_errors) {
+            die('The entry is not valid.');
+        }
+
+        hooksRun('entry_validate_insert_update_start', $this);
+
+        if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_data->entry_slug)) {
+            $this->validation_data->entry_slug = $this->slugGenerate();
+        }
+
+        if ($this->validation_method === self::VALIDATION_METHOD_UPDATE) {
+            $this->validation_data->entry_id = $this->entries_repository->updateEntry($this->validation_data);
+        } else {
+            $this->validation_data->entry_id = $this->entries_repository->insertEntry($this->validation_data);
+        }
+
+        // Assign any uploaded attachments with the specific post_hash to the newly created entry.
+        if (!empty($this->validation_data->post_hash)) {
+            foreach (
+                $this->attachments_repository->queryAttachments(
+                    ["post_hash='{$this->database->escape_string($this->validation_data->post_hash)}'"],
+                    'attachment_id',
+                ) as $attachmentID => $attachmentData
+            ) {
+                $this->attachments_repository->updateAttachment(
+                    ['entry_id' => $this->validation_data->entry_id],
+                    $attachmentID
+                );
+            }
+        }
+
+        if (!isset($this->validation_data->entry_slug)) {
+            $this->validation_data->entry_slug = $this->entries_repository->queryEntry(
+                ["entry_id='{$this->validation_data->entry_id}'"],
+                ['entry_slug'],
+            )['entry_slug'];
+        }
+
+        if (!isset($this->validation_data->entry_slug_custom)) {
+            $this->validation_data->entry_slug_custom = $this->entries_repository->queryEntry(
+                ["entry_id='{$this->validation_data->entry_id}'"],
+                ['entry_slug_custom'],
+            )['entry_slug_custom'];
+        }
+
+        hooksRun('entry_validate_insert_update_end', $this);
+
+        return $this->validation_data;
+    }
+
+    /**
+     * Updates a showcase that is already in the database.
+     *
+     * @throws RandomException
+     */
+    public function validationEntryUpdate(): Entry
+    {
+        return $this->validationEntryInsert();
     }
 }

@@ -42,7 +42,7 @@ $custom_fieldsets[] = ['Trucks'];
 // set_id - int, 1 is default for new installs
 // field_key - string, lowercase name of field
 // html_type - string, html input type. acceptable types are textarea, textbox, radio, checkbox and db. 'db' type uses myshowcase_field_data for obtaining options
-// enabled - int, 1 to enable field, 0 to disable
+// is_enabled - int, 1 to enable field, 0 to disable
 // field_type - type of field to create in the table for this field. acceptable types are int, timestamp, varchar, text
 // minimum_length - int, min allowed length of the data
 // maximum_length - int, max allowed length of the data, also length/size of field (except for text fields)

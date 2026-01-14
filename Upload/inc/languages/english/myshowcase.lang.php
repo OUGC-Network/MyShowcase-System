@@ -13,151 +13,33 @@
 
 declare(strict_types=1);
 
-global $showcaseName, $showcase_lower;
-
-//$l['nav_myshowcase'] = $showcaseName; //for breadcrumb
-//$l['myshowcase'] = $showcaseName; //for rest of myshowcase
-$l['latest_myshowcases'] = "Latest {$showcaseName}";
-$l['myshowcase_showcase'] = 'Showcase';
-
-//headerinclude / JS confirmations
-
 //basic headers for index table
 $l['myShowcaseMainTableHeadView'] = 'View';
-$l['myShowcaseMainTableHeadAuthor'] = 'Author';
-
-$l['myShowcaseMainTableRowLastComment'] = 'Last comment';
 
 //error messages
-$l['myshowcase_disabled'] = 'This system is disabled.';
-$l['myshowcase_not_authorized'] = 'You are not authorized to perform that action.';
-$l['myshowcase_comment_error'] = 'The attempted action failed.';
-$l['myshowcase_db_no_data'] = 'No results returned for table lookup. Data is missing.';
-$l['myshowcase_feature_disabled'] = 'This feature is disabled.';
-$l['myshowcase_comment_empty'] = 'The data submitted contains no text.';
 
 //moderation words
-$l['myshowcase_no_myshowcaseselected'] = 'There are no selected entries';
-$l['myshowcase_nav_multidelete'] = 'Inline Deletion';
-$l['myshowcase_edit'] = 'Edit';
 $l['myshowcase_save'] = 'Save';
-$l['myshowcase_delete'] = 'Delete';
-$l['myshowcase_delete_multi'] = 'Delete Entries';
-$l['confirm_delete_myshowcases'] = 'Are you sure you wish to delete the selected entry? Once an entry has been deleted it cannot be restored and any attachments and comment within that entry are also deleted.';
 $l['myshowcase_unapproved_count'] = 'The {1} Showcase has {2} unapproved entries.';
-$l['myshowcase_unapproved_exist_title'] = 'Unapproved Entries';
-$l['myshowcase_unapproved_link'] = 'Click to view unapproved.';
-
-//sorting words
-$l['myshowcase_order'] = 'Order By:';
-$l['myShowcaseMainSearch'] = 'Search:';
-$l['myShowcaseMainSearchFor'] = 'for:';
-
-$l['myshowcase_asc'] = 'asc';
-$l['myshowcase_desc'] = 'desc';
-
-$l['myShowcaseMainSearchMatch'] = 'exact match';
 
 //query results
 $l['myshowcase_invalid_id'] = 'The specified Entry ID is invalid.';
-$l['myshowcase_invalid_comment_id'] = 'The specified Comment ID is invalid.';
-$l['myshowcase_invalid_aid'] = 'The specified Attachment ID is invalid.';
-$l['myshowcase_not_specified'] = 'Not Specified';
 
 //view options
 $l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{1}&quot;';
-$l['myshowcase_viewing_attachment'] = 'Viewing Attachment of &quot;{username}&quot;';
 
 //new/edit myshowcase
 $l['myShowcaseButtonEntryUpdate'] = 'Update Entry';
 $l['myShowcaseButtonCommentCreate'] = 'Post Comment';
 $l['myShowcaseButtonCommentUpdate'] = 'Update Comment';
-$l['myshowcase_post'] = 'Post';
-$l['myshowcase_edit_user'] = 'Edit entry of &quot;{username}&quot;';
-$l['myshowcase_editing_user'] = 'Editing entry';
-$l['myshowcase_editing_number'] = "<span class=\"smalltext\">This field is going to be formatted as numeric. Non-numeric content will result in a zero value.</span>";
-$l['myshowcase_watermark'] = 'Watermark?';
-
-//redirects
-$l['redirect_myshowcase_return'] = "<br /><br />Alternatively, <a href=\"{1}\">return to the list</a>.";
-$l['redirect_myshowcase_new'] = 'Thank you, your entry has been successfully built.';
-$l['redirect_myshowcase'] = '<br />You will now be taken to your entry.';
-$l['redirect_myshowcase_approve'] = 'The selected entries have been approved.';
-$l['redirect_myshowcase_unapprove'] = 'The selected entries have been unapproved.';
-$l['redirect_myshowcase_delete'] = 'The selected entries have been deleted.';
-$l['redirect_myshowcase_back'] = 'You will now be redirected back to your original location.';
 
 //attachments
-$l['myshowcase_unlimited'] = 'unlimited';
 $l['myshowcase_attachments'] = 'Attachments';
-$l['myshowcase_new_attachments'] = "Optionally you may attach one or more attachments to this showcase. Please select the file and click 'Add Attachment' to upload it.";
-$l['myshowcase_add_attachments'] = 'Add Attachment';
-$l['myshowcase_attach_quota'] = 'You are currently using <strong>{1}</strong> of your allowable images ({2})';
-$l['myshowcase_attachments_none'] = 'There are no attachments at this time.';
-$l['myshowcase_attachment_alt'] = 'Attachment {1} of {2}';
-$l['myshowcase_attachment_uploaded'] = '<strong>Date Uploaded:</strong> ';
-$l['myshowcase_attachment_filename'] = '<strong>Filename:</strong> ';
-
-$l['myshowcase_entry_approved'] = 'The entry has been approved.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_entry_unapproved'] = 'The entry has been unapproved.<br>You will now be redirected back to where you came from.';
 
 //comment language
-$l['myshowcase_comments_add'] = 'Add a comment';
-$l['myshowcase_posted_at'] = 'posted the following comment at';
-$l['myshowcase_comment_edit'] = 'Edit';
-$l['myshowcase_comment_delete'] = 'Delete';
-$l['myshowcase_comment_soft_delete'] = 'Soft Delete';
-$l['myshowcase_comment_restore'] = 'Restore';
-$l['myshowcase_comment_approve'] = 'Approve';
-$l['myshowcase_comment_unapprove'] = 'Unapprove';
-$l['myshowcase_comment_show_all'] = 'Show all {count} comments';
 $l['myshowcase_comment_text_limit'] = 'Message should be between {1} and {2} characters long.';
-$l['myshowcase_comment_deleted'] = 'The selected comment has been deleted.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_comment_added'] = 'Your comment has been added.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_comment_approved'] = 'The comment has been approved.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_comment_unapproved'] = 'The comment has been unapproved.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_comment_soft_deleted'] = 'The comment has been soft deleted.<br>You will now be redirected back to where you came from.';
-$l['myshowcase_comment_deleted'] = 'The comment has been deleted.<br>You will now be redirected back to where you came from.';
-
-$l['myshowcase_comment_more'] = '... (visit the entry to read more..)';
-
-$l['myshowcase_comment_emailsubject'] = 'New comment to your {1}';
-
-$l['myshowcase_comment_email'] = "{1},
-
-{2} has just commented on your entry in '{3}'. 
-
-Here is an excerpt of the message:
---
-{4}
---
-
-To view the comment, you can go to the following URL:
-{5}
-
-Thank you,
-{6} Staff
-
-------------------------------------------
-Unsubscription Information:
-
-If you would not like to receive any more notifications of new comments to your entries, visit the following URL in your browser and uncheck Receive emails from the Administrators:
-{7}/usercp.php?action=options
-
-------------------------------------------";
-
-//misc
-$l['myshowcase_from'] = 'From';
-$l['myshowcase_jumpto'] = 'Jump to:';
-$l['myshowcase_top'] = 'Goto Top';
-$l['myshowcase_cancel'] = 'Cancel';
-
-$l['myshowcase_day'] = 'Day';
-$l['myshowcase_month'] = 'Month';
-$l['myshowcase_year'] = 'Year';
 
 //who's onine and portal
-$l['latest_myshowcases'] = 'Latest Showcases';
 
 $l['viewing_myshowcase_list'] = "Viewing <a href=\"../{1}\">{2} List</a>";
 $l['viewing_myshowcase'] = "Viewing <a href=\"../{1}\">{2} entry</a> of <a href=\"{3}\">{4}</a>";
@@ -176,34 +58,45 @@ $l = array_merge($l, [
 
     'myshowcase_main_inline_moderation' => 'Inline Moderation',
     'myshowcase_main_inline_moderation_go' => 'Go',
+    'myshowcase_main_inline_moderation_select_a_tool' => 'Select A Tool',
     'myshowcase_main_inline_moderation_standard_tool' => 'Standard Tools',
     'myshowcase_main_inline_moderation_open' => 'Open Entries',
     'myshowcase_main_inline_moderation_close' => 'Close Entries',
     'myshowcase_main_inline_moderation_stick' => 'Stick Entries',
     'myshowcase_main_inline_moderation_unstick' => 'Unstick Entries',
+    'myshowcase_main_inline_moderation_copy' => 'Copy Entries',
     'myshowcase_main_inline_moderation_approve' => 'Approve Entries',
     'myshowcase_main_inline_moderation_unapprove' => 'Unapprove Entries',
     'myshowcase_main_inline_moderation_soft_delete' => 'Soft Delete Entries',
     'myshowcase_main_inline_moderation_restore' => 'Restore Entries',
-    'myshowcase_main_inline_moderation_delete' => 'Delete Entries',
+    'myshowcase_main_inline_moderation_delete' => 'Delete Entries Permanently',
     'myshowcase_main_inline_moderation_clear' => 'Clear',
     'myshowcase_main_inline_moderation_no_tool_selected' => 'Please select a tool to perform moderation action.',
-    'myshowcase_main_inline_moderation_no_entry_selected' => 'You need to select one or more entries to perform the moderation action on.',
+    'myshowcase_main_inline_moderation_no_entries_selected' => 'You need to select one or more entries to perform the moderation action on.',
 
     'myshowcase_main_button_entry_create' => 'Post Entry',
     'myshowcase_main_button_sort_entries' => 'Sort Entries',
     'myshowcase_main_button_search' => 'Search Entries',
+
+    'myshowcase_main_button_read' => 'Mark Read',
+    'myshowcase_main_button_subscribe' => 'Subscribe',
+    'myshowcase_main_button_unsubscribe' => 'Unsubscribe',
+    'myshowcase_main_button_clear_stored_password' => 'Clear Password',
 
     'myshowcase_main_table_head_entry' => 'Entry',
     'myshowcase_main_table_head_author' => 'Author',
     'myshowcase_main_table_head_comments' => 'Comments',
     'myshowcase_main_table_head_last_comment' => 'Last Comment',
 
-    'myshowcase_main_table_separator_sticky' => 'Important Threads',
-    'myshowcase_main_table_separator_normal' => 'Normal Threads',
-    'myshowcase_main_table_separator_selected_page' => 'All <strong>{1}</strong> entries on this page are selected.',
-    'myshowcase_main_table_separator_selected_pall' => 'All <strong>{1}</strong> entries in this forum are selected.',
-    'myshowcase_main_table_separator_selected_pall_clear' => 'Clear Selection',
+    'myshowcase_main_table_separator_sticky' => 'Important Entries',
+    'myshowcase_main_table_separator_normal' => 'Normal Entries',
+    'myshowcase_main_table_separator_selected_page_start' => 'All',
+    'myshowcase_main_table_separator_selected_page_end' => 'entries on this page are selected.',
+    'myshowcase_main_table_separator_selected_all_start' => 'All',
+    'myshowcase_main_table_separator_selected_all_end' => 'entries in this forum are selected.',
+    'myshowcase_main_table_separator_selected_all_select_start' => 'Select all',
+    'myshowcase_main_table_separator_selected_all_select_end' => 'entries in this forum.',
+    'myshowcase_main_table_separator_selected_all_clear' => 'Clear All',
 
     'myshowcase_main_table_row_comments' => 'Comments',
     'myshowcase_main_table_row_views' => 'Views',
@@ -214,13 +107,13 @@ $l = array_merge($l, [
     'myshowcase_main_table_row_go_to_first_unread' => 'Go to first unread comment',
     'myshowcase_main_table_row_contains_comments_by_you' => 'Contains comments by you.',
     'myshowcase_main_table_row_by' => 'by',
-    'myshowcase_main_table_row_last_comment_by' => 'Last post by',
+    'myshowcase_main_table_row_last_comment_by' => 'Last comment by',
 
     'myshowcase_main_table_row_attachment_file_name' => 'Filename',
     'myshowcase_main_table_row_attachment_size' => 'Size',
     'myshowcase_main_table_row_attachment_downloads' => 'Downloads',
-    'myshowcase_main_table_row_attachments_count_single' => 'This thread contains 1 attachment.',
-    'myshowcase_main_table_row_attachments_count_plural' => 'This thread contains {1} attachments.',
+    'myshowcase_main_table_row_attachments_count_single' => 'This entry contains 1 attachment.',
+    'myshowcase_main_table_row_attachments_count_plural' => 'This entry contains {1} attachments.',
 
     'myshowcase_main_table_empty' => 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.',
     'myshowcase_main_table_empty_search' => 'The search returned no results. Please try another search term.',
@@ -240,18 +133,46 @@ $l = array_merge($l, [
     'myshowcase_main_sort_days_25' => 'From: 25 Days Ago',
     'myshowcase_main_sort_days_100' => 'From: 100 Days Ago',
 
-    'myshowcase_create_update_entry_title_create' => 'New Thread in {1}',
-    'myshowcase_create_update_entry_your_message' => 'Your Message',
+    'myshowcase_main_inline_moderation_redirect_opened' => 'The selected entries have been opened.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_closed' => 'The selected entries have been closed.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_stuck' => 'The selected entries have been stuck.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_unstuck' => 'The selected entries have been unstuck.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_approved' => 'The selected entries have been approved.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_unapproved' => 'The selected entries have been unapproved.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_soft_deleted' => 'The selected entries have been soft-deleted.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_restored' => 'The selected entries have been restored.<br />You will now be returned to your previous location.',
+    'myshowcase_main_inline_moderation_redirect_deleted' => 'The selected entries have been deleted.<br />You will now be returned to your previous location.',
 
+    'myshowcase_create_update_entry_title_create' => 'New Entry in {1}',
+    'myshowcase_create_update_entry_your_message' => 'Your Message',
+    'myshowcase_create_update_entry_post_options' => 'Post Options',
+
+    'myshowcase_create_update_entry_post_options_signature' => 'Signature:',
+    'myshowcase_create_update_entry_post_options_signature_description' => 'include your signature. (registered users only)',
+    'myshowcase_create_update_entry_post_options_disable_smilies' => 'Disable Smilies:',
+    'myshowcase_create_update_entry_post_options_disable_smilies_description' => 'disable smilies from showing in this post.',
+
+    'myshowcase_view_entry_button_subscribe' => 'Subscribe',
+    'myshowcase_view_entry_button_unsubscribe' => 'Unsubscribe',
     'myshowcase_view_entry_button_create_comment' => 'Post Comment',
     'myshowcase_view_entry_button_entry_closed' => 'Closed',
 
+    'myshowcase_view_entry_mode_threaded' => 'Threaded',
+    'myshowcase_view_entry_mode_linear' => 'Linear',
+
+    'myshowcase_view_entry_next_oldest' => 'Next Oldest',
+    'myshowcase_view_entry_next_newest' => 'Next Newest',
+
     'myshowcase_view_entry_comments_none' => 'There are no comments at this time.',
-    'myshowcase_view_entry_go_to_my_profile' => 'Go to My Profile',
-    'myshowcase_view_entry_quick_comment_message' => 'Compose your message...',
     'myshowcase_view_entry_comments_not_logged_in' => 'You must be logged in to add a comment.',
 
     'myshowcase_view_entry_comment_form_title' => 'Quick Comment',
+    'myshowcase_view_entry_comment_form_my_profile' => 'Go to My Profile',
+    'myshowcase_view_entry_comment_form_message' => 'Compose your message...',
+    'myshowcase_view_entry_comment_form_allow_signature' => 'Signature',
+    'myshowcase_view_entry_comment_form_disable_smilies' => 'Disable Smilies',
+    'myshowcase_view_entry_comment_form_close_entry' => 'Close Entry',
+    'myshowcase_view_entry_comment_form_sticky_entry' => 'Stick Entry',
     'myshowcase_view_entry_comment_form_preview' => 'Preview Comment',
 
     'myshowcase_view_entry_search' => 'Search Entry',
@@ -267,11 +188,12 @@ $l = array_merge($l, [
     'myshowcase_view_inline_moderation_close' => 'Close Entry',
     'myshowcase_view_inline_moderation_stick' => 'Stick Entry',
     'myshowcase_view_inline_moderation_unstick' => 'Unstick Entry',
+    'myshowcase_view_inline_moderation_copy' => 'Copy Entry',
     'myshowcase_view_inline_moderation_approve' => 'Approve Entry',
     'myshowcase_view_inline_moderation_unapprove' => 'Unapprove Entry',
     'myshowcase_view_inline_moderation_soft_delete' => 'Soft Delete Entry',
     'myshowcase_view_inline_moderation_restore' => 'Restore Entry',
-    'myshowcase_view_inline_moderation_delete' => 'Delete Entry',
+    'myshowcase_view_inline_moderation_delete' => 'Delete Entry Permanently',
     'myshowcase_view_inline_moderation_clear' => 'Clear',
 
     'myshowcase_view_inline_moderation_comments' => 'Inline Comment Moderation',
@@ -279,9 +201,10 @@ $l = array_merge($l, [
     'myshowcase_view_inline_moderation_comments_standard_tool' => 'Standard Tools',
     'myshowcase_view_inline_moderation_comments_approve' => 'Approve Comments',
     'myshowcase_view_inline_moderation_comments_unapprove' => 'Unapprove Comments',
+    'myshowcase_view_inline_moderation_comments_move' => 'Move Comments',
     'myshowcase_view_inline_moderation_comments_soft_delete' => 'Soft Delete Comments',
     'myshowcase_view_inline_moderation_comments_restore' => 'Restore Comments',
-    'myshowcase_view_inline_moderation_comments_delete' => 'Delete Comments',
+    'myshowcase_view_inline_moderation_comments_delete' => 'Delete Comments Permanently',
     'myshowcase_view_inline_moderation_comments_clear' => 'Clear',
     'myshowcase_view_inline_moderation_comments_no_tool_selected' => 'Please select a tool to perform moderation action.',
     'myshowcase_view_inline_moderation_comments_no_entry_selected' => 'You need to select one or more comments to perform the moderation action on.',
@@ -312,6 +235,8 @@ $l = array_merge($l, [
     'myshowcase_view_entry_status_offline' => 'Offline',
     'myshowcase_view_entry_status_away' => 'Away',
 
+    'myshowcase_view_entry_edited_note' => 'This entry was last modified: {1} by',
+
     'myshowcase_view_entry_currently_ignoring_user' => 'The contents of this message are hidden because {1} is on your <a href=\"{2}/usercp.php?action=editlists\">ignore list</a>.',
     'myshowcase_view_entry_under_moderation' => 'The entry made by you is under moderation and currently not visible publicly. The entry will be visible to everyone once a moderator approves it.',
     'myshowcase_view_entry_deleted_user' => 'This entry by {1} has been deleted',
@@ -323,10 +248,12 @@ $l = array_merge($l, [
     'myshowcase_view_entry_action_multi_quote_title' => 'Quote this entry',
     'myshowcase_view_entry_action_rate' => 'Rate',
     'myshowcase_view_entry_action_rate_title' => 'Give Reputation to this user',
+    'myshowcase_view_entry_action_edit' => 'Edit',
+    'myshowcase_view_entry_action_edit_title' => 'Quick Edit',
     'myshowcase_view_entry_options' => 'Entry Options',
     'myshowcase_view_entry_options_full_edit' => 'Full Edit',
     'myshowcase_view_entry_options_quick_delete' => 'Delete',
-    'myshowcase_view_entry_options_quick_delete_title' => 'Delete this thread',
+    'myshowcase_view_entry_options_quick_delete_title' => 'Delete this entry',
     'myshowcase_view_entry_options_report' => 'Report',
     'myshowcase_view_entry_options_report_title' => 'Report this entry to a moderator',
     'myshowcase_view_entry_options_warn' => 'Warn',
@@ -339,6 +266,8 @@ $l = array_merge($l, [
     'myshowcase_view_comment_status_online' => 'Online',
     'myshowcase_view_comment_status_offline' => 'Offline',
     'myshowcase_view_comment_status_away' => 'Away',
+
+    'myshowcase_view_comment_edited_note' => 'This entry was last modified: {1} by',
 
     'myshowcase_view_comment_currently_ignoring_user' => 'The contents of this message are hidden because {1} is on your <a href=\"{2}/usercp.php?action=editlists\">ignore list</a>.',
     'myshowcase_view_comment_under_moderation' => 'The comment made by you is under moderation and currently not visible publicly. The comment will be visible to everyone once a moderator approves it.',
@@ -354,7 +283,7 @@ $l = array_merge($l, [
     'myshowcase_view_comment_options' => 'Comment Options',
     'myshowcase_view_comment_options_full_edit' => 'Full Edit',
     'myshowcase_view_comment_options_quick_delete' => 'Delete',
-    'myshowcase_view_comment_options_quick_delete_title' => 'Delete this thread',
+    'myshowcase_view_comment_options_quick_delete_title' => 'Delete this comment',
     'myshowcase_view_comment_options_report' => 'Report',
     'myshowcase_view_comment_options_report_title' => 'Report this comment to a moderator',
     'myshowcase_view_comment_options_warn' => 'Warn',
@@ -374,6 +303,18 @@ $l = array_merge($l, [
     ///
 
     'myShowcaseNewEditFormTitle' => 'New Entry',
+    'myShowcaseNewEditFormEntrySubject' => 'Post Subject',
+    'myShowcaseNewEditFormEntrySubjectPlaceholder' => 'Entry subject...',
+
+    'myShowcaseNewEditFormEntryMultiQuoteSingular' => 'You have selected one post from another thread.',
+    'myShowcaseNewEditFormEntryMultiQuotePlural' => 'You have selected {1} posts from other threads.',
+    'myShowcaseNewEditFormEntryMultiQuoteDeselectSingular' => 'deselect this post',
+    'myShowcaseNewEditFormEntryMultiQuoteDeselectPlural' => 'deselect these posts',
+    'myShowcaseNewEditFormEntryMultiQuotePlusSingular' => 'Quote this post too',
+    'myShowcaseNewEditFormEntryMultiQuotePlusPlural' => 'Quote these posts too',
+
+    'myShowcaseNewEditFormEntryPrefixesNoPrefix' => 'No Prefix',
+
     'myShowcaseNewEditFormField' => 'Field',
     'myShowcaseNewEditFormValue' => 'Value',
 
@@ -428,8 +369,8 @@ $l = array_merge($l, [
     'myShowcaseEntryButtonDeleteDescription' => 'Delete entry',
     'myShowcaseEntryButtonDeleteConfirm' => 'Are you sure you want to delete this entry?',
 
-    'myShowcaseCommentDetailsPosts' => 'Posts',
-    'myShowcaseCommentDetailsThreads' => 'Threads',
+    'myShowcaseCommentDetailsComments' => 'Comments',
+    'myShowcaseCommentDetailsEntries' => 'Entries',
     'myShowcaseCommentDetailsJoined' => 'Joined',
     'myShowcaseCommentDetailsReputation' => 'Reputation:',
     'myShowcaseCommentDetailsWarningLevel' => 'Warning Level:',
