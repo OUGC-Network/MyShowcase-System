@@ -1,0 +1,44 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ config.name }} - {{ mybb.settings.bbname }}</title>
+    <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
+{% endblock head %}
+
+{% block body %}
+    <div class="page-content page-content--centered">
+        <header class="page-header">
+            <h1 class="title title--page">{{ lang.myshowcase_password_required }}</h1>
+        </header>
+
+        {% if display_error %}
+            <div class="alert alert--danger">
+                {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
+                <div class="alert__message">
+                    <p class="alert__description">{{ lang.myshowcase_password_wrong_password }}</p>
+                </div>
+            </div>
+        {% endif %}
+
+        <form action="//{{ http_host }}{{ request_uri }}" method="post">
+            <section class="block block--form form">
+                <div class="section section--form">
+                    <div class="row row--form field">
+                        <h3 class="field__name">
+                            <label for="password">{{ lang.myshowcase_password_enter_password_below }}</label>
+                        </h3>
+                        <p class="field__description">{{ lang.myshowcase_password_note }}</p>
+                        <input type="password" class="textbox" name="password" id="password" value=""
+                               autocomplete="showcase_password_{{ config.showcase_id }}"/>
+                    </div>
+                </div>
+                <div class="form__submit">
+                    <button type="submit" class="button button--medium">
+                        {{ include('partials/icon.twig', {icon: 'key', class: 'button__icon'}, with_context = false) }}
+                        <span class="button__text">{{ lang.myshowcase_password_verify_password }}</span>
+                    </button>
+                </div>
+            </section>
+        </form>
+    </div>
+{% endblock body %}

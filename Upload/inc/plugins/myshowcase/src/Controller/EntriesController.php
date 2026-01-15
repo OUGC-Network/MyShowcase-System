@@ -16,14 +16,22 @@ declare(strict_types=1);
 namespace MyShowcase\Controller;
 
 use captcha;
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyLanguage;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Event\Event\AccessLogDeletedEvent;
+use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
+use MyShowcase\Repository\AccessLogsRepository;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
@@ -36,6 +44,8 @@ use MyShowcase\Service\EntriesManager;
 use MyShowcase\Service\Render;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
 use Random\RandomException;
 use ReflectionException;
 use ReflectionProperty;
@@ -55,9 +65,17 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesController extends BaseController
 {
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
     public function __construct(
         private readonly Routing $routing,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
+        private readonly MyLanguage $language,
+        private readonly EventDispatcher $event_dispatcher,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
@@ -76,7 +94,10 @@ class EntriesController extends BaseController
     ) {
         parent::__construct(
             $routing,
+            $this->database,
             $this->mybb,
+            $this->language,
+            $this->event_dispatcher,
             $this->current_user,
             $this->entries_repository,
             $this->comments_repository,
@@ -88,6 +109,29 @@ class EntriesController extends BaseController
             $this->fieldset_fields,
             $this->filter,
         );
+
+        $this->verifyPassword();
+
+        if ($this->mybb->get_input('clear_password', MyBB::INPUT_INT) === 1) {
+            $this->clearPassword();
+        }
+    }
+
+    private function clearPassword(): void
+    {
+        verify_post_check($this->mybb->get_input('my_post_key'));
+
+        $access_logs_repository = new AccessLogsRepository($this->database, $this->config, $this->event_dispatcher);
+
+        $access_logs_repository->updateAccessLogs(
+            ['is_valid' => parent::PASSWORD_IS_INVALID],
+            ['user_id' => $this->current_user->user_id]
+        );
+
+        redirect(
+            $this->config['showcase_url'] . $this->routing->generateUrl(Routes::Main),
+            $this->language->myshowcase_redirect_password_cleared
+        );
     }
 
     /**
@@ -96,13 +140,11 @@ class EntriesController extends BaseController
      * @throws SyntaxError
      * @throws RandomException
      */
-    #[Route('/', name: 'main', methods: ['GET'])]
+    #[NoReturn] #[Route('/', name: 'main', methods: ['GET'])]
     public function main(): string
     {
-        global $lang, $mybb, $db;
-
-        if ($mybb->get_input('action') === 'inline_moderation') {
-            verify_post_check($mybb->get_input('my_post_key'));
+        if ($this->mybb->get_input('action') === 'inline_moderation') {
+            verify_post_check($this->mybb->get_input('my_post_key'));
 
             foreach (
                 $this->entries_manager->fetchEntries(
@@ -117,23 +159,23 @@ class EntriesController extends BaseController
 
             $selected_entries = $this->entries_manager->getEntries()->filter(
                 fn(Entry $entry_data) => (
-                        $mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
+                        $this->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         !in_array(
                             $entry_data->entry_slug,
-                            (array)json_decode($mybb->get_input('unselected_entries'), true),
+                            (array)json_decode($this->mybb->get_input('unselected_entries'), true),
                             true
                         )
                     ) || (
-                        !$mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
+                        !$this->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         in_array(
                             $entry_data->entry_slug,
-                            (array)json_decode($mybb->get_input('selected_entries'), true),
+                            (array)json_decode($this->mybb->get_input('selected_entries'), true),
                             true
                         )
                     )
             );
 
-            switch ($mybb->get_input('moderate')) {
+            switch ($this->mybb->get_input('moderate')) {
                 case 'open':
                     /**
                      * @var Entry $entry_data
@@ -147,7 +189,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_opened
+                        $this->language->myshowcase_main_inline_moderation_redirect_opened
                     );
 
                     break;
@@ -164,7 +206,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             $this->render_manager->url_params
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_closed
+                        $this->language->myshowcase_main_inline_moderation_redirect_closed
                     );
 
                     break;
@@ -181,7 +223,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_stuck
+                        $this->language->myshowcase_main_inline_moderation_redirect_stuck
                     );
 
                     break;
@@ -198,7 +240,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_unstuck
+                        $this->language->myshowcase_main_inline_moderation_redirect_unstuck
                     );
 
                     break;
@@ -218,7 +260,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_approved
+                        $this->language->myshowcase_main_inline_moderation_redirect_approved
                     );
 
                     break;
@@ -238,7 +280,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_unapproved
+                        $this->language->myshowcase_main_inline_moderation_redirect_unapproved
                     );
 
                     break;
@@ -260,7 +302,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_soft_deleted
+                        $this->language->myshowcase_main_inline_moderation_redirect_soft_deleted
                     );
 
                     break;
@@ -280,7 +322,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_restored
+                        $this->language->myshowcase_main_inline_moderation_redirect_restored
                     );
 
                     break;
@@ -297,7 +339,7 @@ class EntriesController extends BaseController
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
-                        $lang->myshowcase_main_inline_moderation_redirect_deleted
+                        $this->language->myshowcase_main_inline_moderation_redirect_deleted
                     );
 
                     break;
@@ -306,20 +348,27 @@ class EntriesController extends BaseController
             error_no_permission();
         }
 
-        if ($mybb->get_input('sort')) {
-            $this->render_manager->urlParamsAppend(['sort' => $mybb->get_input('sort')]);
+        if ($this->mybb->get_input('sort')) {
+            $this->render_manager->urlParamsAppend(['sort' => $this->mybb->get_input('sort')]);
         }
 
-        if ($mybb->get_input('direction')) {
-            $this->render_manager->urlParamsAppend(['direction' => $mybb->get_input('direction')]);
+        if ($this->mybb->get_input('direction')) {
+            $this->render_manager->urlParamsAppend(['direction' => $this->mybb->get_input('direction')]);
         }
 
-        if ($mybb->get_input('days', MyBB::INPUT_INT) > 0) {
-            $this->render_manager->urlParamsAppend(['days' => $mybb->get_input('days', MyBB::INPUT_INT)]);
+        if ($this->mybb->get_input('days', MyBB::INPUT_INT) > 0) {
+            $this->render_manager->urlParamsAppend(['days' => $this->mybb->get_input('days', MyBB::INPUT_INT)]);
         }
 
         $templatesContext = [
             'url' => [
+                'clear_password' => $this->routing->generateUrl(
+                    Routes::Main,
+                    [
+                        'clear_password' => 1,
+                        'my_post_key' => $this->mybb->post_code
+                    ]
+                ),
                 'sort' => [
                     'subject' => $this->routing->generateUrl(
                         Routes::Main,
@@ -361,7 +410,7 @@ class EntriesController extends BaseController
 
         // Fetch each moderator from the cache and format it, appending it to the list
         foreach ($this->moderators_repository->queryModerators(query_fields: ['user_id', 'is_group']) as $moderator) {
-            if ($moderator['is_group'] && $group_data = $mybb->cache->read('usergroups')[$moderator['user_id']]) {
+            if ($moderator['is_group'] && $group_data = $this->mybb->cache->read('usergroups')[$moderator['user_id']]) {
                 $templatesContext['moderators']['groups'][$moderator['user_id']] = [
                     'title' => $group_data['title'],
                     'group_id' => $moderator['user_id'],
@@ -379,7 +428,7 @@ class EntriesController extends BaseController
         }
 
         // Get the users browsing this showcase
-        if (!empty($mybb->settings['browsingthisforum'])) {
+        if (!empty($this->mybb->settings['browsingthisforum'])) {
             $templatesContext['users_browsing_counter']['guests'] = $this->entries_repository->querySessionsCount();
 
             foreach ($this->entries_repository->querySessions() as $user_data) {
@@ -392,7 +441,7 @@ class EntriesController extends BaseController
                     }
 
                     if (empty($user_data['invisible']) ||
-                        !empty($mybb->usergroup['canviewwolinvis']) ||
+                        !empty($this->mybb->usergroup['canviewwolinvis']) ||
                         (int)$user_data['uid'] === $this->current_user->user_id) {
                         $templatesContext['users_browsing'][$user_data['uid']] = $user_data;
                     }
@@ -436,8 +485,8 @@ class EntriesController extends BaseController
         );
 
         foreach ($this->fieldset_fields as $field_id => $field_definition) {
-            if (!isset($lang->{"myshowcase_fieldset_field_{$this->fieldset_fields[$field_id]['field_key']}"})) {
-                $lang->{"myshowcase_fieldset_field_{$this->fieldset_fields[$field_id]['field_key']}"} = ucwords(
+            if (!isset($this->language->{"myshowcase_fieldset_field_{$this->fieldset_fields[$field_id]['field_key']}"})) {
+                $this->language->{"myshowcase_fieldset_field_{$this->fieldset_fields[$field_id]['field_key']}"} = ucwords(
                     $this->fieldset_fields[$field_id]['field_key']
                 );
             }
@@ -561,7 +610,7 @@ class EntriesController extends BaseController
                     $entry_data->setExtraData('modChecked', true);
 
                     if (!$entry_data->getExtraData('username')) {
-                        $entry_data->setExtraData('username', $lang->guest);
+                        $entry_data->setExtraData('username', $this->language->guest);
                     }
                 }
 
@@ -699,11 +748,9 @@ class EntriesController extends BaseController
     #[Route('/create', name: 'entry_create', methods: ['GET', 'POST'])]
     public function create(string $entry_slug = '', bool $is_update = false): string
     {
-        global $lang, $mybb, $db;
-
         if ($is_update) {
             $entry_data = $this->entries_manager->fetchEntry(
-                ["entry_slug='{$db->escape_string($entry_slug)}'"],
+                ["entry_slug='{$this->database->escape_string($entry_slug)}'"],
             );
 
             $this->entries_manager->addEntry($entry_data);
@@ -724,7 +771,7 @@ class EntriesController extends BaseController
 
         if ($is_update) {
             add_breadcrumb(
-                $lang->myShowcaseButtonEntryUpdate,
+                $this->language->myShowcaseButtonEntryUpdate,
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -734,7 +781,7 @@ class EntriesController extends BaseController
             );
         } else {
             add_breadcrumb(
-                $lang->myShowcaseButtonEntryCreate,
+                $this->language->myShowcaseButtonEntryCreate,
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryCreate,
                 ),
@@ -742,39 +789,39 @@ class EntriesController extends BaseController
         }
 
         if (!$is_update && empty($entry_data->post_hash)) {
-            if ($mybb->get_input('post_hash')) {
-                $entry_data->post_hash = $mybb->get_input('post_hash');
+            if ($this->mybb->get_input('post_hash')) {
+                $entry_data->post_hash = $this->mybb->get_input('post_hash');
             } else {
                 $entry_data->post_hash = (new UuidUtil())->generateUuidV4();
             }
         }
 
-        if ($mybb->request_method === 'post') {
-            verify_post_check($mybb->get_input('my_post_key'));
+        if ($this->mybb->request_method === 'post') {
+            verify_post_check($this->mybb->get_input('my_post_key'));
 
             foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_key => $field_definition) {
                 try {
                     $reflection_property = new ReflectionProperty(Entry::class, $field_key);
 
-                    if (!$reflection_property->isReadOnly() && isset($mybb->input[$field_key])) {
-                        $entry_data->$field_key = $mybb->input[$field_key];
+                    if (!$reflection_property->isReadOnly() && isset($this->mybb->input[$field_key])) {
+                        $entry_data->$field_key = $this->mybb->input[$field_key];
                     }
                 } catch (ReflectionException $exception) {
                 }
             }
 
             foreach ($this->fieldset_fields as $field_id => $field_definition) {
-                if (isset($mybb->input[$field_definition['field_key']])) {
+                if (isset($this->mybb->input[$field_definition['field_key']])) {
                     $entry_data->setExtraData(
                         $field_definition['field_key'],
-                        $mybb->input[$field_definition['field_key']]
+                        $this->mybb->input[$field_definition['field_key']]
                     );
                 }
             }
 
-            $isPreview = isset($mybb->input['preview']);
+            $isPreview = isset($this->mybb->input['preview']);
 
-            $entry_data->ipaddress = $mybb->session->packedip;
+            $entry_data->ipaddress = $this->mybb->session->packedip;
 
             if (!$is_update) {
                 $entry_data->user_id = $this->current_user->user_id;
@@ -821,11 +868,11 @@ class EntriesController extends BaseController
             foreach ($this->fieldset_fields as $field_id => $field_definition) {
                 $entry_data->extra_data[$field_definition['field_key']] = match ($field_definition['html_type']) {
                     /*FieldHtmlTypes::CheckBox,
-                    FieldHtmlTypes::Select => $mybb->get_input(
+                    FieldHtmlTypes::Select => $this->mybb->get_input(
                         $field_definition['field_key'],
                         MyBB::INPUT_ARRAY
                     ), */
-                    default => $mybb->get_input($field_definition['field_key']),
+                    default => $this->mybb->get_input($field_definition['field_key']),
                 };
             }
 
@@ -853,7 +900,7 @@ class EntriesController extends BaseController
 
                     redirect(
                         $mainUrl,
-                        $is_update ? $lang->myShowcaseEntryEntryUpdatedStatus : $lang->myShowcaseEntryEntryCreatedStatus
+                        $is_update ? $this->language->myShowcaseEntryEntryUpdatedStatus : $this->language->myShowcaseEntryEntryCreatedStatus
                     );
                 } else {
                     redirect(
@@ -864,7 +911,7 @@ class EntriesController extends BaseController
                                 'entry_slug_custom' => $entry_data->entry_slug_custom
                             ]
                         ),
-                        $is_update ? $lang->myShowcaseEntryEntryUpdated : $lang->myShowcaseEntryEntryCreated
+                        $is_update ? $this->language->myShowcaseEntryEntryUpdated : $this->language->myShowcaseEntryEntryCreated
                     );
                 }
 
@@ -899,7 +946,7 @@ class EntriesController extends BaseController
                     Routes::AttachmentUpload,
                     [
                         'post_hash' => $entry_data->post_hash,
-                        'my_post_key' => $mybb->post_code,
+                        'my_post_key' => $this->mybb->post_code,
                     ]
                 ),
             ],
@@ -942,7 +989,7 @@ class EntriesController extends BaseController
 
         $current_user_data = get_user($this->current_user->user_id);
 
-        $post_options = $mybb->get_input('post_options', MyBB::INPUT_ARRAY);
+        $post_options = $this->mybb->get_input('post_options', MyBB::INPUT_ARRAY);
 
         if (!isset($post_options['allow_signature']) && !empty($current_user_data['signature'])) {
             $templatesContext['post_options']['allow_signature'] = true;
@@ -1052,7 +1099,7 @@ class EntriesController extends BaseController
 
         $templatesContext['prefixes'] = build_prefix_select(
             'all',
-            $mybb->get_input('prefix_id', MyBB::INPUT_INT),
+            $this->mybb->get_input('prefix_id', MyBB::INPUT_INT),
             false,
             $entry_data->prefix_id
         );
@@ -1061,7 +1108,7 @@ class EntriesController extends BaseController
 
         $templatesContext['post_icons'] = [];
 
-        if ($mybb->settings['allowposticons'] && $this->config['entries_allow_post_icons']) {
+        if ($this->mybb->settings['allowposticons'] && $this->config['entries_allow_post_icons']) {
             $templatesContext['post_icons'] = get_post_icons();
         }
 
@@ -1080,7 +1127,7 @@ class EntriesController extends BaseController
 
         $templatesContext['show_post_options'] = $templatesContext['show_signature'] = $templatesContext['show_disable_smilies'] = $templatesContext['show_attachments'] = false;
 
-        if ($mybb->usergroup['canusesig'] && !$mybb->user['suspendsignature']) {
+        if ($this->mybb->usergroup['canusesig'] && !$this->mybb->user['suspendsignature']) {
             $templatesContext['show_post_options'] = $templatesContext['show_signature'] = true;
         }
 
@@ -1088,7 +1135,7 @@ class EntriesController extends BaseController
             $templatesContext['show_post_options'] = $templatesContext['show_disable_smilies'] = true;
         }
 
-        $templatesContext['moderator_options'] = $mybb->get_input('moderator_options', MyBB::INPUT_ARRAY);
+        $templatesContext['moderator_options'] = $this->mybb->get_input('moderator_options', MyBB::INPUT_ARRAY);
 
         $templatesContext['moderator_options']['is_closed'] ??= $entry_data->is_closed;
 
@@ -1109,13 +1156,13 @@ class EntriesController extends BaseController
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
             empty($current_user_data['suspendposting']) &&
             (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
-            !empty($mybb->settings['quickreply']) &&
+            !empty($this->mybb->settings['quickreply']) &&
             !empty($current_user_data['showquickreply']) &&
             $entry_data->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
-            if ($mybb->settings['captchaimage'] && !$this->current_user->user_id) {
+            if ($this->mybb->settings['captchaimage'] && !$this->current_user->user_id) {
                 require_once MYBB_ROOT . 'inc/class_captcha.php';
 
                 $post_captcha = new captcha(true, 'post');
@@ -1148,15 +1195,13 @@ class EntriesController extends BaseController
     /**
      * @throws RuntimeError
      * @throws LoaderError
-     * @throws SyntaxError
+     * @throws SyntaxError|RandomException
      */
     #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     public function view(string $entry_slug, string $entry_slug_custom): string
     {
-        global $mybb, $lang, $db;
-
         $entry_data = $this->entries_manager->fetchEntry(
-            ["entry_slug='{$db->escape_string($entry_slug)}'"],
+            ["entry_slug='{$this->database->escape_string($entry_slug)}'"],
         );
 
         $this->entries_manager->addEntry($entry_data);
@@ -1172,7 +1217,7 @@ class EntriesController extends BaseController
                 !$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
                 $entry_data->status !== $this->entries_manager::STATUS_VISIBLE
             )) {
-            error($lang->myshowcase_invalid_id);
+            error($this->language->myshowcase_invalid_id);
         }
 
         // we redirect invalid custom slugs to the correct canonical url
@@ -1180,7 +1225,7 @@ class EntriesController extends BaseController
             $this->redirect($entry_slug);
         }
 
-        //$lang->load('showthread');
+        //$this->language->load('showthread');
 
         $this->forcedFieldBreadcrumb();
 
@@ -1236,7 +1281,7 @@ class EntriesController extends BaseController
                         'entry_slug' => $entry_data->entry_slug,
                         'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'action' => 'subscribe',
-                        'my_post_key' => $mybb->post_code,
+                        'my_post_key' => $this->mybb->post_code,
                     ]
                 ),
                 'unsubscribe' => $this->routing->generateUrl(
@@ -1245,7 +1290,7 @@ class EntriesController extends BaseController
                         'entry_slug' => $entry_data->entry_slug,
                         'entry_slug_custom' => $entry_data->entry_slug_custom,
                         'action' => 'unsubscribe',
-                        'my_post_key' => $mybb->post_code,
+                        'my_post_key' => $this->mybb->post_code,
                     ]
                 ),
                 'oldest' => $this->routing->generateUrl(
@@ -1366,7 +1411,7 @@ class EntriesController extends BaseController
         );
 
         if (!$entry_data->getExtraData('username')) {
-            $entry_data->setExtraData('username', $lang->guest);
+            $entry_data->setExtraData('username', $this->language->guest);
         }
 
         //trick MyBB into thinking its in archive so it adds bburl to smile link inside parser
@@ -1442,7 +1487,7 @@ class EntriesController extends BaseController
                     ]
                 );
 
-                $templatesContext['formatted_message'] = htmlspecialchars_uni($mybb->get_input('message'));
+                $templatesContext['formatted_message'] = htmlspecialchars_uni($this->mybb->get_input('message'));
 
                 $templatesContext['code_buttons'] = $templatesContext['smiles_inserter'] = '';
 
@@ -1460,8 +1505,8 @@ class EntriesController extends BaseController
             (
                 !$this->current_user->user_id &&
                 (
-                    ($mybb->session->is_spider && getSetting('ViewsCountSpider')) ||
-                    (!$mybb->session->is_spider && getSetting('ViewsCountGuests'))
+                    ($this->mybb->session->is_spider && getSetting('ViewsCountSpider')) ||
+                    (!$this->mybb->session->is_spider && getSetting('ViewsCountGuests'))
                 )
             ) ||
             (
@@ -1475,13 +1520,13 @@ class EntriesController extends BaseController
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
             empty($current_user_data['suspendposting']) &&
             (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
-            !empty($mybb->settings['quickreply']) &&
+            !empty($this->mybb->settings['quickreply']) &&
             !empty($current_user_data['showquickreply']) &&
             $entry_data->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
-            if ($mybb->settings['captchaimage'] && !$this->current_user->user_id) {
+            if ($this->mybb->settings['captchaimage'] && !$this->current_user->user_id) {
                 require_once MYBB_ROOT . 'inc/class_captcha.php';
 
                 $post_captcha = new captcha(true, 'post');
@@ -1493,13 +1538,13 @@ class EntriesController extends BaseController
         }
 
         // Get users viewing this thread
-        if (!empty($mybb->settings['browsingthisthread'])) {
-            $timecut = TIME_NOW - $mybb->settings['wolcutoff'];
+        if (!empty($this->mybb->settings['browsingthisthread'])) {
+            $timecut = TIME_NOW - $this->mybb->settings['wolcutoff'];
 
             $doneusers = array();
 
-            $query = $db->simple_select(
-                "sessions s LEFT JOIN {$db->table_prefix}users u ON (s.uid=u.uid)",
+            $query = $this->database->simple_select(
+                "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
                 's.ip, s.uid, s.time, u.username, u.invisible, u.usergroup, u.displaygroup',
                 "s.uid != 0 AND s.time > '$timecut' AND location2='$tid' AND nopermission != 1",
                 [
@@ -1508,7 +1553,7 @@ class EntriesController extends BaseController
                 ]
             );
 
-            while ($user_data = $db->fetch_array($query)) {
+            while ($user_data = $this->database->fetch_array($query)) {
                 if ($user_data['uid'] == 0) {
                     ++$templatesContext['online_count']['guests'];
                 } elseif (empty($doneusers[$user_data['uid']]) || $doneusers[$user_data['uid']] < $user_data['time']) {
@@ -1522,8 +1567,8 @@ class EntriesController extends BaseController
                         ++$templatesContext['online_count']['invisible'];
                     }
 
-                    if ($user_data['invisible'] != 1 || $mybb->usergroup['canviewwolinvis'] == 1 || (int)$user_data['uid'] === $this->current_user->user_id) {
-                        $user_data['reading'] = my_date($mybb->settings['timeformat'], $user_data['time']);
+                    if ($user_data['invisible'] != 1 || $this->mybb->usergroup['canviewwolinvis'] == 1 || (int)$user_data['uid'] === $this->current_user->user_id) {
+                        $user_data['reading'] = my_date($this->mybb->settings['timeformat'], $user_data['time']);
                         ++$templatesContext['online_count']['users'];
 
                         $templatesContext['online_users'][] = $user_data;

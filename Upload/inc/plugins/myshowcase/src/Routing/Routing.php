@@ -15,11 +15,19 @@ declare(strict_types=1);
 
 namespace MyShowcase\Routing;
 
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
+use MyBB;
+use MyLanguage;
 use MyShowcase\Controller\AttachmentsController;
 use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
 use MyShowcase\Enum\Routes;
+use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Showcase;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -42,7 +50,10 @@ class Routing
 
     public function __construct(
         Showcase $showcase,
-        private readonly \MyBB $mybb,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly MyBB $mybb,
+        private readonly MyLanguage $language,
+        private readonly EventDispatcher $event_dispatcher,
     ) {
         if ($this->showcase === null) {
             $this->showcase = $showcase;
@@ -79,7 +90,10 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -117,7 +131,10 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -155,7 +172,10 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -193,7 +213,10 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -233,7 +256,10 @@ class Routing
                         output_page(
                             (new CommentsController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -272,7 +298,10 @@ class Routing
                         output_page(
                             (new CommentsController(
                                 $this,
+                                $this->database,
                                 $this->mybb,
+                                $this->language,
+                                $this->event_dispatcher,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -311,6 +340,7 @@ class Routing
 
                         (new CommentsController(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
@@ -348,6 +378,7 @@ class Routing
 
                         (new AttachmentsController(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
@@ -386,6 +417,7 @@ class Routing
                         // todo, maybe check that only the current user is trying to view ?
                         (new AttachmentsController(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
@@ -424,6 +456,7 @@ class Routing
 
                         (new AttachmentsController(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
@@ -462,6 +495,7 @@ class Routing
 
                         return (new Search(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
@@ -497,6 +531,7 @@ class Routing
 
                         return (new Search(
                             $this,
+                            $this->database,
                             $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,

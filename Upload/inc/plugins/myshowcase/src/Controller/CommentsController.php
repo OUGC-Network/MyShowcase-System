@@ -15,6 +15,9 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controller;
 
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Entity\Comment;
@@ -23,6 +26,7 @@ use MyShowcase\Entity\User;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
@@ -35,6 +39,8 @@ use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
 use MyShowcase\Service\Render;
 use MyShowcase\Util\UuidUtil;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\LoaderError;
@@ -56,7 +62,10 @@ class CommentsController extends BaseController
 
     public function __construct(
         private readonly Routing $routing,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
+        private readonly MyLanguage $language,
+        private readonly EventDispatcher $event_dispatcher,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
@@ -75,7 +84,9 @@ class CommentsController extends BaseController
     ) {
         parent::__construct(
             $routing,
+            $this->database,
             $this->mybb,
+            $this->event_dispatcher,
             $this->current_user,
             $this->entries_repository,
             $this->comments_repository,
@@ -87,6 +98,8 @@ class CommentsController extends BaseController
             $this->fieldset_fields,
             $this->filter,
         );
+
+        $this->verifyPassword();
     }
 
     public function updateEntryCommentsCount(int $entry_id): void

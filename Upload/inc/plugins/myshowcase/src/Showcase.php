@@ -52,10 +52,8 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
 
-use const MyShowcase\DEBUG;
 use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
-use const MyShowcase\VERSION_CODE;
 
 class Showcase
 {
@@ -129,7 +127,9 @@ class Showcase
 
         $this->tables_data = TABLES_DATA;
 
-        $this->routing = new Routing($this, $this->mybb);
+        $this->event_dispatcher = new EventDispatcher();
+
+        $this->routing = new Routing($this, $this->database, $this->mybb, $this->language, $this->event_dispatcher);
 
         if ($this->routing->routeIdentifier() !== false) {
             $this->route_identifier = $this->routing->routeIdentifier();
@@ -163,6 +163,21 @@ class Showcase
             throw new RuntimeException('The MyShowcase System does not exist.');
         }
 
+        $this->routing->setConfig($this->config);
+
+        $this->showcase_repository = new ShowcasesRepository($this->database, $this->config,);
+
+        $this->subscriptions_repository = new SubscriptionsRepository($this->database, $this->config,);
+
+        $this->comments_repository = new CommentsRepository($this->database, $this->config,);
+
+        $this->attachments_repository = new AttachmentsRepository($this->database, $this->config,);
+
+        $this->permissions_repository = new PermissionsRepository($this->database, $this->config);
+
+        $this->moderators_repository = new ModeratorsRepository($this->database, $this->config);
+
+
         $this->data_table_exists = $this->database->table_exists('myshowcase_data' . $this->config['showcase_id']);
 
         if (!$this->database->table_exists('myshowcase_data' . $this->config['showcase_id'])) {
@@ -172,8 +187,6 @@ class Showcase
         $this->config['showcase_url'] = rtrim($this->config['showcase_url'], '/');
 
         $this->config['showcase_url_assets'] = $this->mybb->get_asset_url($this->config['showcase_url']);
-
-        $this->routing->setConfig($this->config);
 
         $this->addUser([
             'user_id' => (int)$this->mybb->user['uid'],
@@ -225,6 +238,8 @@ class Showcase
 
         $this->mybb->binary_fields['myshowcase_data' . $this->config['showcase_id']]['ipaddress'] = true;
 
+        $this->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
+
         //loadLanguage('myshowcase_fs' . $this->config['field_set_id']);
 
         $hookArguments = [
@@ -251,39 +266,12 @@ class Showcase
 
         $this->config['attachments_display_full_images'] = false;
 
-        $this->event_dispatcher = new EventDispatcher();
-
         $this->entries_repository = new EntriesRepository(
             $this->database,
             $this->mybb,
             $this->event_dispatcher,
-            $this->cache_manager,
             $this->config,
         );
-
-        $this->showcase_repository = new ShowcasesRepository(
-            $this->database,
-            $this->config,
-        );
-
-        $this->subscriptions_repository = new SubscriptionsRepository(
-            $this->database,
-            $this->config,
-        );
-
-        $this->comments_repository = new CommentsRepository(
-            $this->database,
-            $this->config,
-        );
-
-        $this->attachments_repository = new AttachmentsRepository(
-            $this->database,
-            $this->config,
-        );
-
-        $this->permissions_repository = new PermissionsRepository($this->database, $this->config);
-
-        $this->moderators_repository = new ModeratorsRepository($this->database, $this->config);
 
         $this->userPermissionsGet($this->current_user);
 

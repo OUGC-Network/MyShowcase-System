@@ -48,6 +48,15 @@ $l['viewing_myshowcase_edit'] = 'Editing a {1} entry';
 $l['viewing_myshowcase_attach'] = 'Viewing Attachment';
 
 $l = array_merge($l, [
+    // Access page
+    'myshowcase_password_required' => 'Password Required',
+    'myshowcase_password_wrong_password' => 'The password you entered is incorrect. Please try again.',
+    'myshowcase_password_enter_password_below' => 'Enter the showcase password',
+    'myshowcase_password_note' => "You must enter this showcase's password to gain access",
+    'myshowcase_password_verify_password' => 'Verify Showcase Password',
+
+    'myshowcase_redirect_password_cleared' => 'The stored password for this showcase has been cleared.',
+
     'myshowcase_main_moderated_by' => 'Moderated by',
 
     'myshowcase_main_users_browsing' => 'Users browsing this showcase',
@@ -303,6 +312,7 @@ $l = array_merge($l, [
     ///
 
     'myShowcaseNewEditFormTitle' => 'New Entry',
+    'myShowcaseNewEditFormTitleDescription' => 'Create a new entry in the showcase.',
     'myShowcaseNewEditFormEntrySubject' => 'Post Subject',
     'myShowcaseNewEditFormEntrySubjectPlaceholder' => 'Entry subject...',
 

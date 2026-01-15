@@ -38,6 +38,7 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
     }
 
     global $db, $mybb, $lang;
+    global $showcase;
 
     $showcase = new Showcase($db, $mybb, $lang);
 

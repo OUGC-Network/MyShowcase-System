@@ -38,7 +38,15 @@
                         {{ field_data.getUserValueDisplay()|raw }}
                     {% endif %}
                 {% endfor %}
-                {{ entry_data.subject }}</h1>
+                {{ entry_data.subject }}
+            </h1>
+            <p class="page-description"
+            {% for field_data in entry_data.getFields() %}
+                {% if field_data.fieldDefinition.enable_description %}
+                    {{ field_data.getUserValue() }}
+                {% endif %}
+            {% endfor %}
+            </p>
         </header>
 
         <div class="page-controls page-controls--top">

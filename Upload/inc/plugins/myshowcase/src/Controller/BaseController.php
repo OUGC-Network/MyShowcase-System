@@ -15,8 +15,12 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controller;
 
+use DB_MySQLi;
+use DB_PgSQL;
+use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyLanguage;
 use MyShowcase\Entity\Attachment;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Entity\Entry;
@@ -24,6 +28,7 @@ use MyShowcase\Entity\User;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\CommentsRepository;
@@ -33,6 +38,12 @@ use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
 use MyShowcase\Service\Render;
 use MyShowcase\Enum\FilterFields;
+use MyShowcase\Repository\AccessLogsRepository;
+use MysqlPdoDbDriver;
+use PostgresPdoDbDriver;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
@@ -42,24 +53,26 @@ use const MyShowcase\VERSION_CODE;
 abstract class BaseController
 {
     public const HTTP_CODE_PERMANENT_REDIRECT = 301;
-
+    public const PASSWORD_IS_INVALID = 0;
+    public const PASSWORD_IS_VALID = 1;
     public const NO_PERMISSION = 0;
-
     public const HAS_PERMISSION = 1;
-
     public const INVALID_ENTRY = 3;
-
     public const INVALID_COMMENT = 4;
-
     public const INVALID_ATTACHMENT = 5;
 
     protected int $entry_id = 0;
 
     protected int $comment_id = 0;
 
+    /**
+     */
     public function __construct(
         private readonly Routing $routing,
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
+        private readonly MyLanguage $language,
+        private readonly EventDispatcher $event_dispatcher,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly CommentsRepository $comments_repository,
@@ -82,10 +95,67 @@ abstract class BaseController
         loadLanguage();
 
         loadLanguage('myshowcase' . $config['showcase_id'], false, true);
+    }
 
-        ini_set('display_errors', 1);
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
+    protected function verifyPassword(): void
+    {
+        if ($this->config['password'] === '') {
+            return;
+        }
 
-        error_reporting(E_ALL);
+        $access_logs_repository = new AccessLogsRepository($this->database, $this->config, $this->event_dispatcher);
+
+        $where_clauses = [
+            "user_id='{$this->current_user->user_id}'",
+            "is_valid='" . self::PASSWORD_IS_VALID . "'",
+            "dateline>'" . (TIME_NOW - $this->config['password_minutes_interval'] * 60) . "'",
+        ];
+
+        if ($this->config['password_minutes_interval']) {
+            $where_clauses[] = "1=1 AND ipaddress={$this->database->escape_binary($this->mybb->session->packedip)}";
+        }
+
+        $existingLogs = $access_logs_repository->queryAccessLogsCount($where_clauses);
+
+        if ($existingLogs) {
+            return;
+        }
+
+        $display_error = false;
+
+        if ($this->mybb->request_method === 'post') {
+            if (!hash_equals($this->config['password'], $this->mybb->get_input('password'))) {
+                $display_error = true;
+            } else {
+                $access_logs_repository->insertAccessLog([
+                    'user_id' => $this->current_user->user_id,
+                    'dateline' => TIME_NOW,
+                    'ipaddress' => $this->mybb->session->packedip,
+                ]);
+
+                $this->mybb->request_method = 'get';
+
+                return;
+            }
+        }
+
+        output_page(
+            $this->render_manager->templateGet(
+                'pageAccess',
+                [
+                    'display_error' => $display_error,
+                    'http_host' => $_SERVER['HTTP_HOST'],
+                    'request_uri' => $_SERVER['REQUEST_URI'],
+                ]
+            )
+        );
+
+        exit;
     }
 
     public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int

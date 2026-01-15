@@ -135,22 +135,26 @@ require_once ROOT . '/vendor/autoload.php';
 
 hooksRun('script_file_intermediate');
 
-global $db, $mybb, $lang;
+global $showcase;
 
-$showcaseObject = new Showcase($db, $mybb, $lang);
+if (!isset($showcase)) {
+    global $db, $mybb, $lang;
 
-if (!$showcaseObject->data_table_exists || !$showcaseObject->config['field_set_id']) {
+    $showcase = new Showcase($db, $mybb, $lang);
+}
+
+if (!$showcase->data_table_exists || !$showcase->config['field_set_id']) {
     error('This showcase has not been installed or activated yet.');
 }
 
-if (!$showcaseObject->current_user->hasPermission(UserPermissions::MainCanView)) {
+if (!$showcase->current_user->hasPermission(UserPermissions::MainCanView)) {
     error_no_permission();
 }
 
 hooksRun('script_file_end');
 
 try {
-    $parameters = $showcaseObject->routing->getMatch();
+    $parameters = $showcase->routing->getMatch();
 
     $controller = $parameters['_controller'];
 

@@ -23,9 +23,7 @@
 {% block body %}
     <div class="page-content">
     <header class="page-header">
-        <h1 class="title title--page">
-            {{ config.name }}
-        </h1>
+        <h1 class="title title--page"> {{ config.name }}</h1>
         {% if config.description %}
             <p class="page-description">{{ config.description }}</p>
         {% endif %}
@@ -92,7 +90,7 @@
                 {% endif %}
             </a>
             {% if config.password %}
-                <a href="{{ url.showcase }}{{ url.main }}?action=clearpass&amp;&amp;my_post_key={{ mybb.post_code }}"
+                <a href="{{ url.showcase }}{{ url.clear_password }}"
                    class="button button--medium button--secondary button--full-width">
                     {{ include('partials/icon.twig', {icon: 'key', class: 'button__icon'}, with_context = false) }}
                     {{ lang.myshowcase_main_button_clear_stored_password }}</a>

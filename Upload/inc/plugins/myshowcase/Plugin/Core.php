@@ -541,6 +541,20 @@ const TABLES_DATA = [
             'category' => 'general',
             'input_type' => FormTypes::Text,
         ],
+        'password_minutes_interval' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 15,
+            'category' => 'general',
+            'input_type' => FormTypes::Number,
+        ],
+        'password_ip_check' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'general',
+            'input_type' => FormTypes::YesNo,
+        ],
         'custom_theme_force' => [ // if force & no custom theme selected, force default theme
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -1057,6 +1071,39 @@ const TABLES_DATA = [
             'input_type' => FormTypes::Number,
             'class' => 'field150',
             'max' => 255,
+        ],
+    ],
+    'myshowcase_access_logs' => [
+        'access_log_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'auto_increment' => true,
+            'primary_key' => true
+        ],
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'user_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'dateline' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'is_valid' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 1,
+        ],
+        'ipaddress' => [
+            'type' => 'VARBINARY',
+            'size' => 16,
+            'default' => '',
         ],
     ],
     'myshowcase_fieldsets' => [
@@ -1868,6 +1915,12 @@ const TABLES_DATA = [
             'formType' => FormTypes::YesNo,
         ],
         'enable_subject' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'formType' => FormTypes::YesNo,
+        ],
+        'enable_description' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,

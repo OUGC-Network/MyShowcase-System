@@ -44,7 +44,6 @@ class EntriesRepository
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
         private readonly EventDispatcher $event_dispatcher,
-        private readonly CacheManager $cache_manager,
         private readonly array $config,
     ) {
     }
@@ -167,11 +166,10 @@ class EntriesRepository
             }
         }
 
-        foreach (
-            $this->cache_manager->get(
-                CacheDataTypes::Fields
-            )[$this->config['field_set_id']] as $field_id => $field_definition
-        ) {
+        $fields_cache = (new CacheManager($this->database, $this->mybb->cache,))
+            ->get(CacheDataTypes::Fields);
+
+        foreach ($fields_cache[$this->config['field_set_id']] ?? [] as $field_id => $field_definition) {
             if (!isset($this->entry_data->extra_data[$field_definition['field_key']]) && !$this->is_update) {
                 switch ($field_definition['default_type']) {
                     case FieldDefaultTypes::AsDefined:
