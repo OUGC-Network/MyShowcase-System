@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase\Controller;
 
 use JetBrains\PhpStorm\NoReturn;
+use MyBB;
 use MyShowcase\Entity\Attachment;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Entity\Entry;
@@ -58,6 +59,7 @@ abstract class BaseController
 
     public function __construct(
         private readonly Routing $routing,
+        private readonly MyBB $mybb,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly CommentsRepository $comments_repository,
@@ -249,12 +251,12 @@ abstract class BaseController
                 $url_params['page'] = $current_page;
             }
 
-            $redirect_url = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $redirect_url = $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryView,
                     $url_params
                 ) . '#' . $comment_slug;
         } else {
-            $redirect_url = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $redirect_url = $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryView,
                     array_merge(
                         $this->render_manager->url_params,

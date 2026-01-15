@@ -91,7 +91,7 @@
         </h3>
 
         {# Comment date & permalink #}
-        <a href="{{ url.showcase }}/{{ url.comment }}"
+        <a href="{{ url.showcase }}{{ url.comment }}"
            title="{{ comment_data.dateline|my_date|striptags }}"
            class="post__date">
             {{ comment_data.dateline|my_date }}

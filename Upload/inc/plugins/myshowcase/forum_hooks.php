@@ -15,11 +15,12 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Forum;
 
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Service\CacheManager;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -30,182 +31,23 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
  * Add global notices for unapproved and reported showcases
  *
  */
-function global_start(): bool
+#[NoReturn] function global_start(): void
 {
-    return false;
-    global $templatelist;
-
-    if (isset($templatelist)) {
-        $templatelist .= ',';
-    } else {
-        $templatelist = '';
+    if (!defined('THIS_SCRIPT') || THIS_SCRIPT !== 'showcase.php') {
+        return;
     }
 
-    if (defined('THIS_SCRIPT')) {
-        $templateObjects = [
-            'globalMessageUnapprovedEntries',
-        ];
+    global $db, $mybb, $lang;
 
-        $showcaseObjects = (new CacheManager($db, $cache))->get(CacheDataTypes::Config);
+    $showcase = new Showcase($db, $mybb, $lang);
 
-        foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-            $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
-
-            if (THIS_SCRIPT === 'showcase.php') {
-                $templateObjects = array_merge($templateObjects, [
-                    'pageEntryCommentCreateUpdateAttachmentsBox',
-                    'pageEntryCommentCreateUpdateAttachmentsBoxViewLink',
-                    'pageEntryCommentCreateUpdateContents',
-                    'pageEntryCommentCreateUpdateContentsPreview',
-                    'pageEntryCreateUpdateContents',
-                    'pageEntryCreateUpdateContentsPreview',
-
-                    'pageEntryCommentCreateUpdateAttachmentsBox',
-                    'pageEntryCommentCreateUpdateAttachmentsBoxViewLink',
-                    'pageEntryCommentCreateUpdateContents',
-                    'pageEntryCommentCreateUpdateContentsPreview',
-                    'pageEntryCreateUpdateContents',
-                    'pageEntryCreateUpdateContentsPreview',
-                    'pageEntryCreateUpdateDataField',
-                    'pageEntryCreateUpdateDataFieldCheckBox',
-                    'pageEntryCreateUpdateDataFieldCheckBoxItem',
-                    'pageEntryCreateUpdateDataFieldColor',
-                    'pageEntryCreateUpdateDataFieldDate',
-                    'pageEntryCreateUpdateDataFieldDateTimeLocal',
-                    'pageEntryCreateUpdateDataFieldDescription',
-                    'pageEntryCreateUpdateDataFieldEmail',
-                    'pageEntryCreateUpdateDataFieldFile',
-                    'pageEntryCreateUpdateDataFieldMonth',
-                    'pageEntryCreateUpdateDataFieldNumber',
-                    'pageEntryCreateUpdateDataFieldPassword',
-                    'pageEntryCreateUpdateDataFieldRadio',
-                    'pageEntryCreateUpdateDataFieldRadioItem',
-                    'pageEntryCreateUpdateDataFieldRange',
-                    'pageEntryCreateUpdateDataFieldSearch',
-                    'pageEntryCreateUpdateDataFieldSelect',
-                    'pageEntryCreateUpdateDataFieldSelectEntries',
-                    'pageEntryCreateUpdateDataFieldSelectItem',
-                    'pageEntryCreateUpdateDataFieldSelectThreads',
-                    'pageEntryCreateUpdateDataFieldSelectUsers',
-                    'pageEntryCreateUpdateDataFieldTelephone',
-                    'pageEntryCreateUpdateDataFieldText',
-                    'pageEntryCreateUpdateDataFieldTextArea',
-                    'pageEntryCreateUpdateDataFieldTime',
-                    'pageEntryCreateUpdateDataFieldUrl',
-                    'pageEntryCreateUpdateDataFieldWeek',
-                    'pageEntryCreateUpdateDataTextUrl',
-                    'pageView',
-                    'pageViewCommentsComment',
-                    'pageViewCommentsCommentButtonApprove',
-                    'pageViewCommentsCommentButtonDelete',
-                    'pageViewCommentsCommentButtonEdit',
-                    'pageViewCommentsCommentButtonEmail',
-                    'pageViewCommentsCommentButtonPrivateMessage',
-                    'pageViewCommentsCommentButtonPurgeSpammer',
-                    'pageViewCommentsCommentButtonReport',
-                    'pageViewCommentsCommentButtonRestore',
-                    'pageViewCommentsCommentButtonSoftDelete',
-                    'pageViewCommentsCommentButtonUnapprove',
-                    'pageViewCommentsCommentButtonWarn',
-                    'pageViewCommentsCommentButtonWebsite',
-                    'pageViewCommentsCommentDeletedBit',
-                    'pageViewCommentsCommentIgnoredBit',
-                    'pageViewCommentsCommentEditedBy',
-                    'pageViewCommentsCommentUrl',
-                    'pageViewCommentsCommentUserAvatar',
-                    'pageViewCommentsCommentUserDetails',
-                    'pageViewCommentsCommentUserGroupImage',
-                    'pageViewCommentsCommentUserOnlineStatusAway',
-                    'pageViewCommentsCommentUserOnlineStatusOffline',
-                    'pageViewCommentsCommentUserOnlineStatusOnline',
-                    'pageViewCommentsCommentUserReputation',
-                    'pageViewCommentsCommentUserSignature',
-                    'pageViewCommentsCommentUserStar',
-                    'pageViewCommentsCommentUserWarningLevel',
-                    'pageViewCommentsFormGuest',
-                    'pageViewCommentsFormUser',
-                    'pageViewCommentsNone',
-                    'pageViewDataFieldCheckBox',
-                    'pageViewDataFieldCheckBoxImage',
-                    'pageViewDataFieldCheckBoxValue',
-                    'pageViewDataFieldDataBase',
-                    'pageViewDataFieldDate',
-                    'pageViewDataFieldRadio',
-                    'pageViewDataFieldSelect',
-                    'pageViewDataFieldSelectValue',
-                    'pageViewDataFieldText',
-                    'pageViewDataFieldTextArea',
-                    'pageViewDataFieldTextAreaValue',
-                    'pageViewDataFieldTextBox',
-                    'pageViewDataFieldTextValue',
-                    'pageViewDataFieldUrl',
-                    'pageViewEntry',
-                    'pageViewEntryAttachments',
-                    'pageViewEntryAttachmentsFiles',
-                    'pageViewEntryAttachmentsFilesItem',
-                    'pageViewEntryAttachmentsFilesItemUnapproved',
-                    'pageViewEntryAttachmentsImages',
-                    'pageViewEntryAttachmentsImagesItem',
-                    'pageViewEntryAttachmentsThumbnails',
-                    'pageViewEntryAttachmentsThumbnailsItem',
-                    'pageViewEntryButtonApprove',
-                    'pageViewEntryButtonDelete',
-                    'pageViewEntryButtonEdit',
-                    'pageViewEntryButtonEmail',
-                    'pageViewEntryButtonPrivateMessage',
-                    'pageViewEntryButtonPurgeSpammer',
-                    'pageViewEntryButtonReport',
-                    'pageViewEntryButtonRestore',
-                    'pageViewEntryButtonSoftDelete',
-                    'pageViewEntryButtonUnapprove',
-                    'pageViewEntryButtonWarn',
-                    'pageViewEntryUrl',
-                    'pageViewEntryButtonWebsite',
-                    'pageViewEntryDeletedBit',
-                    'pageViewEntryIgnoredBit',
-                    'pageViewEntryEditedBy',
-                    'pageViewEntryUserAvatar',
-                    'pageViewEntryUserDetails',
-                    'pageViewEntryUserGroupImage',
-                    'pageViewEntryUserOnlineStatusAway',
-                    'pageViewEntryUserOnlineStatusOffline',
-                    'pageViewEntryUserOnlineStatusOnline',
-                    'pageViewEntryUserReputation',
-                    'pageViewEntryUserSignature',
-                    'pageViewEntryUserStar',
-                    'pageViewEntryUserWarningLevel'
-                ]);
-            }
-        }
-
-        if (THIS_SCRIPT === 'showthread.php') {
-            $templatelist .= ', ';
-        }
-
-        if (THIS_SCRIPT === 'editpost.php' || THIS_SCRIPT === 'newthread.php') {
-            $templatelist .= ', ';
-        }
-
-        if (THIS_SCRIPT === 'forumdisplay.php') {
-            $templatelist .= ', ';
-        }
-
-        $templatelist .= ', myShowcase_' . implode(', myShowcase_', $templateObjects);
-
-        foreach ($showcaseObjects as $showcaseID => $showcaseData) {
-            $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
-
-            //if showcase is is_enabled...
-            if ($showcaseObject->config['is_enabled']) {
-                $templatelist .= ", myShowcase{$showcaseObject->config['showcase_id']}_" . implode(
-                        ", myShowcase{$showcaseObject->config['showcase_id']}_",
-                        $templateObjects
-                    );
-            }
-        }
+    if (empty($showcase->config['custom_theme_id'])) {
+        return;
     }
 
-    return true;
+    if (empty($showcase->mybb->user['style']) || !empty($showcase->config['custom_theme_force'])) {
+        $showcase->mybb->user['style'] = (int)$showcase->config['custom_theme_id'];
+    }
 }
 
 /**

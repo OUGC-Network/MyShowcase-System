@@ -18,7 +18,7 @@ use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Repository\ShowcasesRepository;
 use MyShowcase\Security\PermissionsFactory;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use MyShowcase\Util\UrlUtil;
 use MysqlPdoDbDriver;
 use PopupMenu;
@@ -54,7 +54,7 @@ class AdminManager
 
     private int $permission_id;
 
-    private array $permissions_input;
+    private array $showcase_input;
 
     private array $showcases_cache;
 
@@ -89,7 +89,7 @@ class AdminManager
 
         $this->permission_id = $this->mybb->get_input('permission_id', MyBB::INPUT_INT);
 
-        $this->permissions_input = $this->mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
+        $this->showcase_input = $this->mybb->get_input('showcase', MyBB::INPUT_ARRAY);
 
         $this->cache_manager = new CacheManager($this->database, $this->mybb->cache,);
 
@@ -248,8 +248,8 @@ EOL;
                     continue;
                 }
 
-                if (isset($this->permissions_input[$permission_name])) {
-                    $insert_data[$permission_name] = $this->permissions_input[$permission_name];
+                if (isset($this->showcase_input[$permission_name])) {
+                    $insert_data[$permission_name] = $this->showcase_input[$permission_name];
                 }
             }
 
@@ -352,7 +352,7 @@ EOL;
                     true,
                     array_merge(
                         $group_permission_data,
-                        $this->mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY)
+                        $this->showcase_input
                     )
                 );
             }
@@ -395,8 +395,6 @@ EOL;
         $error_messages = [];
 
         if ($this->mybb->request_method === 'post') {
-            $settings_input = $this->mybb->input;
-
             switch ($this->mybb->get_input('type')) {
                 case 'general':
                 case 'main':
@@ -404,32 +402,26 @@ EOL;
                 case 'entries':
                 case 'comments':
                 case 'attachments':
-                    $insert_data = [];
+                    $showcase_data = [];
 
                     foreach (TABLES_DATA['myshowcase_config'] as $field_name => $field_definition) {
-                        if (!isset($settings_input[$field_name]) ||
-                            empty($field_definition['category']) ||
+                        if (empty($field_definition['category']) ||
                             $field_definition['category'] !== $this->mybb->get_input('type')) {
                             continue;
                         }
 
-                        if (isset($settings_input[$field_name])) {
-                            $insert_data[$field_name] = castTableFieldValue(
-                                $settings_input[$field_name],
-                                $field_definition['type']
-                            );
-                        } elseif ($field_definition['input_type'] === FormTypes::Checkbox) {
-                            $insert_data[$field_name] = $field_definition['default'];
+                        if (isset($this->showcase_input[$field_name])) {
+                            $showcase_data[$field_name] = $this->showcase_input[$field_name];
                         }
                     }
 
-                    if (isset($insert_data['field_set_id']) && showcaseDataTableExists($this->showcase_id)) {
-                        unset($insert_data['field_set_id']);
+                    if (isset($showcase_data['field_set_id']) && showcaseDataTableExists($this->showcase_id)) {
+                        unset($showcase_data['field_set_id']);
                     }
 
-                    if (isset($insert_data['name']) && (
-                            !$insert_data['name'] ||
-                            in_array($insert_data['name'], array_column($this->showcases_cache, 'name')) &&
+                    if (isset($showcase_data['name']) && (
+                            !$showcase_data['name'] ||
+                            in_array($showcase_data['name'], array_column($this->showcases_cache, 'name')) &&
                             (function (string $showcaseName): bool {
                                 $duplicatedName = false;
 
@@ -441,15 +433,15 @@ EOL;
 
                                 return $duplicatedName;
                             })(
-                                $insert_data['name']
+                                $showcase_data['name']
                             )
                         )) {
                         $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedName;
                     }
 
-                    if (!empty($insert_data['route_identifier']) && (
+                    if (!empty($showcase_data['route_identifier']) && (
                             in_array(
-                                $insert_data['route_identifier'],
+                                $showcase_data['route_identifier'],
                                 array_column($this->showcases_cache, 'route_identifier')
                             ) &&
                             (function (string $route_identifier): bool {
@@ -463,23 +455,23 @@ EOL;
 
                                 return $duplicateScript;
                             })(
-                                $insert_data['route_identifier']
+                                $showcase_data['route_identifier']
                             )
                         )) {
                         $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedScriptFile;
                     }
 
-                    if (isset($insert_data['custom_template_prefix'])) {
-                        $insert_data['custom_template_prefix'] = preg_replace(
+                    if (isset($showcase_data['custom_template_prefix'])) {
+                        $showcase_data['custom_template_prefix'] = preg_replace(
                             '/[^\da-z]/i',
                             '',
-                            my_strtolower($insert_data['custom_template_prefix'])
+                            my_strtolower($showcase_data['custom_template_prefix'])
                         );
                     }
 
-                    if (!empty($insert_data['custom_template_prefix']) && (
+                    if (!empty($showcase_data['custom_template_prefix']) && (
                             in_array(
-                                $insert_data['custom_template_prefix'],
+                                $showcase_data['custom_template_prefix'],
                                 array_column($this->showcases_cache, 'custom_template_prefix')
                             ) &&
                             (function (string $templatePrefix): bool {
@@ -493,7 +485,7 @@ EOL;
 
                                 return $duplicatedTemplatePrefix;
                             })(
-                                $insert_data['custom_template_prefix']
+                                $showcase_data['custom_template_prefix']
                             ))) {
                         $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedTemplatePrefix;
                     }
@@ -504,9 +496,9 @@ EOL;
                         if ($is_create_page) {
                             $showcase_repository = new ShowcasesRepository($this->database,);
 
-                            $this->showcase_id = $showcase_repository->insertShowcase($insert_data);
+                            $this->showcase_id = $showcase_repository->insertShowcase($showcase_data);
                         } else {
-                            $showcase->showcase_repository->updateShowcase($insert_data);
+                            $showcase->showcase_repository->updateShowcase($showcase_data);
                         }
 
                         $this->cache_manager->update(CacheDataTypes::Config);
@@ -536,9 +528,7 @@ EOL;
                     break;
                 case 'moderators':
                     if ($this->mybb->get_input('update') === 'permissions') {
-                        $moderatorPermissions = $this->mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
-
-                        foreach ($moderatorPermissions as $moderatorID => $permissions) {
+                        foreach ($this->showcase_input as $moderatorID => $permissions) {
                             $permissions = array_map('intval', $permissions);
 
                             $moderator_data = [
@@ -1075,7 +1065,7 @@ EOL;
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsername . ' <em>*</em>',
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsernameDescription,
             $form->generate_text_box(
-                'username',
+                'showcase[username]',
                 '',
                 ['id' => 'username']
             ),

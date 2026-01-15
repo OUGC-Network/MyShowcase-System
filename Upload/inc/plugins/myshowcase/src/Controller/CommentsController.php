@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase\Controller;
 
 use JetBrains\PhpStorm\NoReturn;
+use MyBB;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
@@ -55,6 +56,7 @@ class CommentsController extends BaseController
 
     public function __construct(
         private readonly Routing $routing,
+        private readonly MyBB $mybb,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
@@ -73,6 +75,7 @@ class CommentsController extends BaseController
     ) {
         parent::__construct(
             $routing,
+            $this->mybb,
             $this->current_user,
             $this->entries_repository,
             $this->comments_repository,
@@ -149,7 +152,7 @@ class CommentsController extends BaseController
 
         add_breadcrumb(
             $this->config['name'],
-            $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::Main,
             )
         );
@@ -166,7 +169,7 @@ class CommentsController extends BaseController
 
                 return implode(' ', $subject_extra);
             })() . $entry_data->subject,
-            $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
                     'entry_slug' => $entry_data->entry_slug,
@@ -178,7 +181,7 @@ class CommentsController extends BaseController
         if ($is_update) {
             add_breadcrumb(
                 $lang->myShowcaseButtonCommentUpdate,
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
                         'entry_slug' => $entry_data->entry_slug,
@@ -190,7 +193,7 @@ class CommentsController extends BaseController
         } else {
             add_breadcrumb(
                 $lang->myShowcaseButtonCommentCreate,
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::CommentCreate,
                     [
                         'entry_slug' => $entry_data->entry_slug,

@@ -36,7 +36,25 @@
     <div class="page-content">
         <header class="page-header">
             <h1 class="title title--page">{{ lang.myShowcaseNewEditFormTitle }}</h1>
+            {% if config.description %}
+                <p class="page-description">{{ config.description }}</p>
+            {% endif %}
         </header>
+
+        {# Forum rules #}
+        {% if config.rules_type > 1 and config.rules_content %}
+            <section class="container container--forum-rules">
+                {% if config.rules_type == 3 %}
+                    <strong>
+                        <a href="{{ config.rules_content }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
+                    </strong>
+                {% else %}
+                    <h4 class="title title--container">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</h4>
+                    {{ config.rules_content }}
+                {% endif %}
+            </section>
+        {% endif %}
+
         {% if is_preview_page %}
             <section class="block block--container">
                 <h1 class="title title--major title--separation">{{ lang.myShowcaseNewEditEntryPreview }}</h1>
@@ -175,7 +193,7 @@
                     </div>
                 </section>
             {% endif %}
-            {% if show_moderator_options %}
+            {% if false and show_moderator_options %}
                 <section class="section section--form compose__hidden-section compose__hidden-section--options">
                     <h2 class="title title--section">{{ lang.mod_options }}</h2>
                     <div class="section__container">

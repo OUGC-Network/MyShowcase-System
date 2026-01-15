@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Service\CacheManager;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
 

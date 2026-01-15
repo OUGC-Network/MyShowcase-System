@@ -19,7 +19,7 @@ use MyShowcase\Controller\AttachmentsController;
 use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
 use MyShowcase\Enum\Routes;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -40,8 +40,10 @@ class Routing
 
     private readonly array $config;
 
-    public function __construct(Showcase $showcase)
-    {
+    public function __construct(
+        Showcase $showcase,
+        private readonly \MyBB $mybb,
+    ) {
         if ($this->showcase === null) {
             $this->showcase = $showcase;
         }
@@ -77,6 +79,7 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -114,6 +117,7 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -151,6 +155,7 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -188,6 +193,7 @@ class Routing
                         output_page(
                             (new EntriesController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -227,6 +233,7 @@ class Routing
                         output_page(
                             (new CommentsController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -265,6 +272,7 @@ class Routing
                         output_page(
                             (new CommentsController(
                                 $this,
+                                $this->mybb,
                                 $this->showcase->current_user,
                                 $this->showcase->entries_repository,
                                 $this->showcase->attachments_repository,
@@ -303,11 +311,13 @@ class Routing
 
                         (new CommentsController(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
                             $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
@@ -338,10 +348,13 @@ class Routing
 
                         (new AttachmentsController(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
@@ -373,10 +386,13 @@ class Routing
                         // todo, maybe check that only the current user is trying to view ?
                         (new AttachmentsController(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
@@ -408,10 +424,13 @@ class Routing
 
                         (new AttachmentsController(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
+                            $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
@@ -443,11 +462,13 @@ class Routing
 
                         return (new Search(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
                             $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
@@ -476,11 +497,13 @@ class Routing
 
                         return (new Search(
                             $this,
+                            $this->mybb,
                             $this->showcase->current_user,
                             $this->showcase->entries_repository,
                             $this->showcase->attachments_repository,
                             $this->showcase->comments_repository,
                             $this->showcase->subscriptions_repository,
+                            $this->showcase->moderators_repository,
                             $this->showcase->entries_manager,
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,

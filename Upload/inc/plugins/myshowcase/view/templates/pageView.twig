@@ -46,13 +46,13 @@
 
                 {% if current_user.user_id %}
                     {% if is_subscribed %}
-                        <a href="{{ url.showcase }}/{{ url.unsubscribe }}"
+                        <a href="{{ url.showcase }}{{ url.unsubscribe }}"
                            class="button button--secondary button--medium button--full-width subscribe--remove">
                             {{ include('partials/icon.twig', {icon: 'minus', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_unsubscribe }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.showcase }}/{{ url.subscribe }}"
+                        <a href="{{ url.showcase }}{{ url.subscribe }}"
                            class="button button--secondary button--medium button--full-width subscribe--add">
                             {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_subscribe }}</span>
@@ -62,19 +62,19 @@
 
                 {% if permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
-                        <a href="{{ url.showcase }}/{{ url.comment }}"
+                        <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--full-width">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
                     {% elseif entry_data.is_closed and permissions.entries_can_view %}
-                        <a href="{{ url.showcase }}/{{ url.comment }}"
+                        <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.showcase }}/{{ url.entry }}"
+                        <a href="{{ url.showcase }}{{ url.entry }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
@@ -117,19 +117,19 @@
             <div class="page-buttons">
                 {% if permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
-                        <a href="{{ url.showcase }}/{{ url.comment }}"
+                        <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--full-width">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
                     {% elseif entry_data.is_closed and permissions.entries_can_view %}
-                        <a href="{{ url.showcase }}/{{ url.comment }}"
+                        <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.showcase }}/{{ url.entry }}"
+                        <a href="{{ url.showcase }}{{ url.entry }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_entry_closed }}</span>
@@ -286,11 +286,11 @@
                     </div>
                 {% endif %}
                 <div class="thread-nav">
-                    <a href="{{ url.showcase }}/{{ url.oldest|raw }}" class="button button--basic">
+                    <a href="{{ url.showcase }}{{ url.oldest|raw }}" class="button button--basic">
                         {{ include('partials/icon.twig', {icon: 'angle-double-left', class: 'button__icon'}, with_context = false) }}
                         <span class="button__text">{{ lang.myshowcase_view_entry_next_oldest }}</span>
                     </a>
-                    <a href="{{ url.showcase }}/{{ url.newest }}" class="button button--basic">
+                    <a href="{{ url.showcase }}{{ url.newest }}" class="button button--basic">
                         <span class="button__text">{{ lang.myshowcase_view_entry_next_newest }}</span>
                         {{ include('partials/icon.twig', {icon: 'angle-double-right', class: 'button__icon button__icon--after'}, with_context = false) }}
                     </a>
@@ -381,7 +381,7 @@
                             <span class="button__text">{{ lang.myshowcase_view_entry_mode_linear }}</span>
                         </a>
                     {% else %}
-                        <a href="{{ url.showcase }}/{{ url.threaded }}"
+                        <a href="{{ url.showcase }}{{ url.threaded }}"
                            class="button button--basic">
                             {{ include('partials/icon.twig', {icon: 'list', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_mode_threaded }}</span>

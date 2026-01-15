@@ -23,7 +23,7 @@ use MyShowcase\Entity\Permission;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Service\CacheManager;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use MyShowcase\Util\SelectableArrays;
 use Random\RandomException;
 
@@ -900,7 +900,7 @@ function buildPermissionsRow(
             }
 
             $input_code .= $form->generate_select_box(
-                "showcase_permissions[{$name}]",
+                "showcase[{$name}]",
                 [
                     Permission::BOOLEAN_TYPE_DISALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow',
                     Permission::BOOLEAN_TYPE_ALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow',
@@ -939,12 +939,7 @@ function buildPermissionsRow(
             }
 
             if ($definition['input_type'] === FormTypes::SelectTimeInterval) {
-                $select_array = [
-                    Permission::TIME_INTERVAL_TYPE_SECONDS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds',
-                    Permission::TIME_INTERVAL_TYPE_MINUTES => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes',
-                    Permission::TIME_INTERVAL_TYPE_HOURS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours',
-                    Permission::TIME_INTERVAL_TYPE_DAYS => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_days'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_days',
-                ];
+                $select_array = (new SelectableArrays($lang))->timeIntervalList($language_prefix, $section);
             } elseif ($definition['input_type'] === FormTypes::SelectFieldset) {
                 global $db, $cache;
 
@@ -954,14 +949,7 @@ function buildPermissionsRow(
                     $options['class'] .= '" disabled="disabled';
                 }
             } elseif ($definition['input_type'] === FormTypes::SelectTheme) {
-                $extension_repository = app(Repository::class);
-
-                $packages = $extension_repository->getAll();
-
-                $select_array = array_combine(
-                    array_keys($packages),
-                    array_keys($packages),
-                );
+                $select_array = (new SelectableArrays($lang))->themesList();
             } elseif ($definition['input_type'] === FormTypes::SelectFilterField) {
                 $select_array = (new SelectableArrays($lang))->filterFieldsList();
             } elseif ($definition['input_type'] === FormTypes::SelectSortField) {
@@ -984,7 +972,7 @@ function buildPermissionsRow(
             }
 
             $input_code .= $form->generate_select_box(
-                "showcase_permissions[{$name}]",
+                "showcase[{$name}]",
                 $select_array,
                 [$input[$name] ?? $mybb->get_input($name)],
                 $options
@@ -1011,13 +999,13 @@ function buildPermissionsRow(
 
             if ($definition['input_type'] === FormTypes::Text) {
                 $input_code .= $form->generate_text_box(
-                    $name,
+                    "showcase[{$name}]",
                     $input[$name] ?? $mybb->get_input($name),
                     $options
                 );
             } else {
                 $input_code .= $form->generate_text_area(
-                    $name,
+                    "showcase[{$name}]",
                     $input[$name] ?? $mybb->get_input($name),
                     $options
                 );
@@ -1052,7 +1040,7 @@ function buildPermissionsRow(
             }
 
             $input_code .= $form->generate_numeric_field(
-                "showcase_permissions[{$name}]",
+                "showcase[{$name}]",
                 $input[$name] ?? $mybb->get_input($name),
                 $options
             );
@@ -1076,7 +1064,7 @@ function buildPermissionsRow(
             }
 
             $input_code .= $form->generate_yes_no_radio(
-                $name,
+                "showcase[{$name}]",
                 $input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT),
                 $options
             );
@@ -1100,7 +1088,7 @@ function buildPermissionsRow(
             }
 
             $input_code .= $form->generate_select_box(
-                $name,
+                "showcase[{$name}]",
                 isset($definition['form_function']) ? $definition['form_function']() : $definition['form_array'],
                 [$input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT)],
                 $options
@@ -1117,7 +1105,7 @@ function buildPermissionsRow(
             $options['checked'] = $input[$name] ?? $mybb->get_input($name, MyBB::INPUT_INT);
 
             $input_code .= $form->generate_check_box(
-                $name,
+                "showcase[{$name}]",
                 1,
                 $lang->{$language_prefix . ($section ? '_' . $section : '') . '_' . $name} ?? $language_prefix . ($section ? '_' . $section : '') . '_' . $name,
                 $options

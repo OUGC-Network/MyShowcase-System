@@ -133,7 +133,7 @@ function admin_user_groups_edit_graph(): void
         array_keys(TABLES_DATA['myshowcase_permissions'])
     );
 
-    $permission_input = $mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
+    $permission_input = $mybb->get_input('showcase', MyBB::INPUT_ARRAY);
 
     $permission_objects = [];
 
@@ -183,7 +183,7 @@ function admin_user_groups_edit_commit(): void
     global $mybb, $db;
     global $usergroup;
 
-    $permission_input = $mybb->get_input('showcase_permissions', MyBB::INPUT_ARRAY);
+    $permission_input = $mybb->get_input('showcase', MyBB::INPUT_ARRAY);
 
     $tables_data = [];
 

@@ -8,7 +8,9 @@ use datacache;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyBB\Extensions\Theme\Repository;
 use MyLanguage;
+use MyShowcase\Entity\Permission;
 use MyShowcase\Enum\AttachmentsDisplayType;
 use MyShowcase\Enum\AttachmentsMainRenderType;
 use MyShowcase\Enum\CacheDataTypes;
@@ -19,6 +21,8 @@ use MyShowcase\Enum\WatermarkLocations;
 use MyShowcase\Service\CacheManager;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
+
+use function MyBB\app;
 
 readonly class SelectableArrays
 {
@@ -34,6 +38,28 @@ readonly class SelectableArrays
         return array_map(function (array $fieldsetData): string {
             return $fieldsetData['set_name'];
         }, (new CacheManager($this->database, $this->cache))->get(CacheDataTypes::Fieldsets));
+    }
+
+    public function timeIntervalList(string $language_prefix, string $section): array
+    {
+        return [
+            Permission::TIME_INTERVAL_TYPE_SECONDS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds',
+            Permission::TIME_INTERVAL_TYPE_MINUTES => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes',
+            Permission::TIME_INTERVAL_TYPE_HOURS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours',
+            Permission::TIME_INTERVAL_TYPE_DAYS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_days'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_days',
+        ];
+    }
+
+    public function themesList(): array
+    {
+        $extension_repository = app(Repository::class);
+
+        $packages = $extension_repository->getAll();
+
+        return ['' => $this->language->myshowcase_admin_summary_create_update_custom_theme_id_none] + array_combine(
+                array_keys($packages),
+                array_keys($packages),
+            );
     }
 
     public function filterFieldsList(): array

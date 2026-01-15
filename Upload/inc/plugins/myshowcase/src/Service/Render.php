@@ -724,7 +724,7 @@ class Render
             }
         } elseif (!$this->is_preview && $this->post_type === self::POST_TYPE_COMMENT && $comment_data->comment_id && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
             if ($moderatorCanManageComments && $postStatus === $this->comments_manager::STATUS_PENDING) {
-                $templatesContext['url_comment_approve'] = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $templatesContext['url_comment_approve'] = $this->config['showcase_url'] . $this->routing->generateUrl(
                         Routes::CommentView,
                         array_merge($this->url_params, [
                             'entry_slug' => $entry_data->entry_slug,

@@ -52,11 +52,11 @@
     {% endif %}
 
     {# Forum rules #}
-    {% if config.rules_type and config.rules_content %}
+    {% if config.rules_type > 0 and config.rules_content %}
         <section class="container container--forum-rules">
-            {% if config.rules_type == 2 %}
+            {% if config.rules_type == 3 %}
                 <strong>
-                    <a href="{{ url.showcase }}/{{ url.main }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
+                    <a href="{{ config.rules_content }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
                 </strong>
             {% else %}
                 <h4 class="title title--container">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</h4>
@@ -67,7 +67,7 @@
 
     {% if url_entry_create %}
         {% set button_new_entry %}
-            <a href="{{ url_entry_create }}" class="button button--medium button--full-width">
+            <a href="{{ url.showcase }}{{ url_entry_create }}" class="button button--medium button--full-width">
                 {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_entry_create }}</span>
             </a>
@@ -76,12 +76,12 @@
 
     <div class="page-controls page-controls--top">
         <div class="page-buttons">
-            <a href="{{ url.showcase }}/{{ url.main }}?action=markread&amp;{% if current_user.user_id %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
+            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if current_user.user_id %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
                class="button button--medium button--secondary button--half-width">
                 {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>
             </a>
-            <a href="{{ url.showcase }}/{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
+            <a href="{{ url.showcase }}{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
                class="button button--medium button--secondary button--half-width">
                 {% if 'add' == 'add' %}
                     {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
@@ -92,7 +92,7 @@
                 {% endif %}
             </a>
             {% if config.password %}
-                <a href="{{ url.showcase }}/{{ url.main }}?action=clearpass&amp;&amp;my_post_key={{ mybb.post_code }}"
+                <a href="{{ url.showcase }}{{ url.main }}?action=clearpass&amp;&amp;my_post_key={{ mybb.post_code }}"
                    class="button button--medium button--secondary button--full-width">
                     {{ include('partials/icon.twig', {icon: 'key', class: 'button__icon'}, with_context = false) }}
                     {{ lang.myshowcase_main_button_clear_stored_password }}</a>

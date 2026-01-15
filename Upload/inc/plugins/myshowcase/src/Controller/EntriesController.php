@@ -57,6 +57,7 @@ class EntriesController extends BaseController
 {
     public function __construct(
         private readonly Routing $routing,
+        private readonly MyBB $mybb,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
@@ -75,6 +76,7 @@ class EntriesController extends BaseController
     ) {
         parent::__construct(
             $routing,
+            $this->mybb,
             $this->current_user,
             $this->entries_repository,
             $this->comments_repository,
@@ -141,7 +143,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -158,7 +160,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             $this->render_manager->url_params
                         ),
@@ -175,7 +177,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -192,7 +194,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -212,7 +214,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -232,7 +234,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -254,7 +256,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -274,7 +276,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -291,7 +293,7 @@ class EntriesController extends BaseController
                     }
 
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::Main,
                             ['clear_selected' => 1]
                         ),
@@ -451,7 +453,7 @@ class EntriesController extends BaseController
             $this->entries_manager->addEntry($entry_data);
         }
 
-        $templatesContext['entries_count'] = $this->entries_manager->getTotalEntries();
+        $templatesContext['entries_count'] = $this->entries_manager->total_entries;
 
         if ($templatesContext['entries_count']) {
             $pagination_params = $this->render_manager->url_params;
@@ -461,8 +463,8 @@ class EntriesController extends BaseController
             $templatesContext['pagination'] = multipage(
                 $templatesContext['entries_count'],
                 $this->config['main_per_page'],
-                $this->entries_manager->getCurrentPage(),
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->mybb->input['page'],
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::Main,
                     $pagination_params
                 ),
@@ -715,7 +717,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $this->config['name'],
-            $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::Main,
             )
         );
@@ -723,7 +725,7 @@ class EntriesController extends BaseController
         if ($is_update) {
             add_breadcrumb(
                 $lang->myShowcaseButtonEntryUpdate,
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
                         'entry_slug' => $entry_data->entry_slug,
@@ -733,7 +735,7 @@ class EntriesController extends BaseController
         } else {
             add_breadcrumb(
                 $lang->myShowcaseButtonEntryCreate,
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryCreate,
                 ),
             );
@@ -855,7 +857,7 @@ class EntriesController extends BaseController
                     );
                 } else {
                     redirect(
-                        $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                        $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::EntryView,
                             [
                                 'entry_slug' => $entry_data->entry_slug,
@@ -1184,7 +1186,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $this->config['name'],
-            $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::Main,
             )
         );
@@ -1294,7 +1296,7 @@ class EntriesController extends BaseController
 
         //$templatesContext['subject'] = $this->entries_manager->buildSubject($entry_data);
 
-        $templatesContext['meta']['canonical'] = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+        $templatesContext['meta']['canonical'] = $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
                     'entry_slug' => $entry_data->entry_slug,
@@ -1305,7 +1307,7 @@ class EntriesController extends BaseController
         $templatesContext['meta']['page'] = [
             [
                 'property' => 'og:url',
-                'content' => $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                'content' => $this->config['showcase_url'] . $this->routing->generateUrl(
                         Routes::EntryView,
                         [
                             'entry_slug' => $entry_data->entry_slug,
@@ -1354,7 +1356,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $subject,
-            $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
                     'entry_slug' => $entry_data->entry_slug,
@@ -1396,7 +1398,7 @@ class EntriesController extends BaseController
                 $this->comments_manager->getTotalComments(),
                 $this->config['comments_per_page'],
                 $this->comments_manager->getCurrentPage(),
-                $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryView,
                     array_merge($pagination_params, [
                         'entry_slug' => $entry_data->entry_slug,

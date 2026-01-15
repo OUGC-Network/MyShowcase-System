@@ -23,7 +23,7 @@ use MyShowcase\Enum\FormatTypes;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\PermissionsRepository;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use Postparser;
 use ReflectionClass;
 

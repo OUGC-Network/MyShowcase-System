@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Shared;
 
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 use UserDataHandler;
 
 use function MyShowcase\Plugin\Functions\showcaseGet;

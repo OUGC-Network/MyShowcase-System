@@ -18,7 +18,7 @@ use MyShowcase\Entity\Entry;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\EntriesManager;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 
 class WeekField implements FieldsInterface
 {

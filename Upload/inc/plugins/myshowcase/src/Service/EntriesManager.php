@@ -8,6 +8,7 @@ use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
+use MyBB;
 use MyLanguage;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Entry;
@@ -51,7 +52,7 @@ class EntriesManager
 
     private const  FIRST_PAGE = 1;
 
-    private int $total_entries = 0;
+    public int $total_entries = 0;
 
     private array $where_clauses = [];
 
@@ -67,6 +68,7 @@ class EntriesManager
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly MyBB $mybb,
         private readonly MyLanguage $language,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
@@ -76,7 +78,6 @@ class EntriesManager
         private readonly array $fieldset_searchable_fields,
         private readonly array $parser_options = [],
         private readonly array $filter,
-        private int $current_page,
     ) {
         $this->entries = new Collection();
     }
@@ -128,23 +129,6 @@ class EntriesManager
     public function parseMessage(string $message, array $options = []): string
     {
         return postParser()->parse_message($message, array_merge($this->parser_options, $options));
-    }
-
-    public function setCurrentPage(int $page): void
-    {
-        if ($page > 0) {
-            $this->current_page = $page;
-        }
-    }
-
-    public function getTotalEntries(): int
-    {
-        return $this->total_entries;
-    }
-
-    public function getCurrentPage(): int
-    {
-        return $this->current_page;
     }
 
     /**
@@ -308,22 +292,22 @@ class EntriesManager
 
         hooksRun('entry_fetch_start', $this);
 
-        if ($this->query_options['limit'] > 1 && !$load_all) {
-            if ($this->current_page > ceil($this->total_entries / $this->query_options['limit'])) {
-                $this->setCurrentPage(self::FIRST_PAGE);
-            }
-
-            if ($this->current_page) {
-                $this->query_options['limit_start'] = ($this->current_page - 1) * $this->query_options['limit'];
-            } else {
-                $this->setCurrentPage(self::FIRST_PAGE);
-            }
-        }
-
         $this->total_entries = $this->entries_repository->queryEntryCount(
             $this->where_clauses,
             $this->query_tables
         );
+
+        if ($this->query_options['limit'] > 1 && !$load_all) {
+            if ($this->mybb->input['page'] > ceil($this->total_entries / $this->query_options['limit'])) {
+                $this->mybb->input['page'] = self::FIRST_PAGE;
+            }
+
+            if ($this->mybb->input['page']) {
+                $this->query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $this->query_options['limit'];
+            } else {
+                $this->mybb->input['page'] = self::FIRST_PAGE;
+            }
+        }
 
         hooksRun('entry_fetch_intermediate', $this);
 

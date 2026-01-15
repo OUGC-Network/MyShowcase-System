@@ -549,9 +549,9 @@ const TABLES_DATA = [
             'input_type' => FormTypes::YesNo,
         ],
         'custom_theme_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'VARCHAR',
+            'size' => 10,
+            'default' => '',
             'category' => 'general',
             'input_type' => FormTypes::SelectTheme,
         ],

@@ -14,7 +14,7 @@
 declare(strict_types=1);
 
 use MyShowcase\Enum\UserPermissions;
-use myshowcase\src\Showcase;
+use MyShowcase\Showcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 

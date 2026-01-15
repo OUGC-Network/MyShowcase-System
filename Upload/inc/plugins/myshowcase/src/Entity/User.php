@@ -19,6 +19,7 @@ class User
         public ?bool $suspend_signature = null,
         public ?string $avatar = null,
         public ?int $days_prune = null,
+        public ?int $style = null,
     ) {
         $this->groups = new Collection();
     }

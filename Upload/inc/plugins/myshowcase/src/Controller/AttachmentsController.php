@@ -28,6 +28,7 @@ use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Repository\ModeratorsRepository;
+use MyShowcase\Repository\SubscriptionsRepository;
 use MyShowcase\Routing\Routing;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CommentsManager;
@@ -56,10 +57,12 @@ class AttachmentsController extends BaseController
 
     public function __construct(
         private readonly Routing $routing,
+        private readonly MyBB $mybb,
         private readonly User $current_user,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly CommentsRepository $comments_repository,
+        private readonly SubscriptionsRepository $subscriptions_repository,
         private readonly ModeratorsRepository $moderators_repository,
         private readonly EntriesManager $entries_manager,
         private readonly AttachmentsManager $attachments_manager,
@@ -73,6 +76,7 @@ class AttachmentsController extends BaseController
     ) {
         parent::__construct(
             $routing,
+            $this->mybb,
             $this->current_user,
             $this->entries_repository,
             $this->comments_repository,
@@ -167,7 +171,7 @@ class AttachmentsController extends BaseController
                 $this->success([
                     'id' => $upload_attachment_result['attachment_id'],
                     'path' => $upload_attachment_result['file_name'],
-                    'url' => $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+                    'url' => $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::AttachmentDownload,
                             [
                                 'attachment_hash' => $upload_attachment_result['attachment_hash'],
@@ -342,7 +346,7 @@ class AttachmentsController extends BaseController
         );
 
         foreach ($attachmentObjects as $attachment_id => $attachment_data) {
-            $attachmentObjects[$attachment_id]['url'] = $this->config['showcase_url'] . '/' . $this->routing->generateUrl(
+            $attachmentObjects[$attachment_id]['url'] = $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::AttachmentDownload,
                     [
                         'attachment_hash' => $attachment_data['attachment_hash'],

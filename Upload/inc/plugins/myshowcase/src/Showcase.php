@@ -13,7 +13,7 @@
 
 declare(strict_types=1);
 
-namespace myshowcase\src;
+namespace MyShowcase;
 
 use _PHPStan_ea7072c0a\Symfony\Component\String\Exception\RuntimeException;
 use DB_MySQLi;
@@ -120,7 +120,7 @@ class Showcase
      */
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly MyBB $mybb,
+        public readonly MyBB $mybb,
         private readonly MyLanguage $language,
         private readonly ?int $showcase_id = null,
         private ?string $route_identifier = null,
@@ -129,7 +129,7 @@ class Showcase
 
         $this->tables_data = TABLES_DATA;
 
-        $this->routing = new Routing($this);
+        $this->routing = new Routing($this, $this->mybb);
 
         if ($this->routing->routeIdentifier() !== false) {
             $this->route_identifier = $this->routing->routeIdentifier();
@@ -144,6 +144,7 @@ class Showcase
         ) {
             if ($this->showcase_id !== null && $this->showcase_id !== $showcase_id ||
                 $this->route_identifier !== null && $this->route_identifier !== $showcase_data['route_identifier']) {
+                //_dump($showcase_data['route_identifier']);
                 continue;
             }
 
@@ -179,7 +180,8 @@ class Showcase
             'show_avatars' => !empty($this->mybb->user['showavatars']),
             'suspend_signature' => !empty($this->mybb->user['suspendsignature']),
             'avatar' => $this->mybb->user['avatar'],
-            'days_prune' => $mybb->user['daysprune'] ?? 0
+            'days_prune' => $mybb->user['daysprune'] ?? 0,
+            //'style' => $mybb->user['style'] ?? 0,
         ]);
 
         $this->current_user = $this->getUsers()->offsetGet((int)$this->mybb->user['uid']);
@@ -288,11 +290,14 @@ class Showcase
         $current_page = 1;
 
         if ($this->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
-            $current_page = $this->mybb->get_input('page', MyBB::INPUT_INT);
+            $mybb->input['page'] = $this->mybb->get_input('page', MyBB::INPUT_INT);
+        } else {
+            $mybb->input['page'] = 1;
         }
 
         $this->entries_manager = new EntriesManager(
             $this->database,
+            $this->mybb,
             $this->language,
             $this->current_user,
             $this->entries_repository,
@@ -302,7 +307,6 @@ class Showcase
             $this->fieldset_searchable_fields,
             $this->parser_options,
             $this->filter,
-            $current_page,
         );
 
         $this->subscriptions_manager = new SubscriptionsManager(
@@ -459,6 +463,13 @@ class Showcase
 
                     break;
             }
+        }
+
+        // if disabled, we keep restrictive defaults
+        if (empty($this->config['is_enabled'])) {
+            $user->setPermissions($user_permissions);
+
+            return;
         }
 
         $user_data = get_user($user->user_id);
