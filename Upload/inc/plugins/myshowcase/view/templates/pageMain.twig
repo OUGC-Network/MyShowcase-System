@@ -30,10 +30,15 @@
     </header>
 
     {# Moderated by #}
-    {% if moderators %}
+    {% if config.main_display_moderators and moderators is not empty %}
         <p>{{ lang.myshowcase_main_moderated_by }}:
             <strong>
                 {% for moderator in moderators.users %}
+                    {% set user_data = {
+                        username: moderator.username,
+                        usergroup: moderator.group_id,
+                        displaygroup: moderator.display_group_id
+                    } %}
                     <a
                     href="{{ get_profile_link(moderator.user_id) }}">{{ moderator.user_id|format_name }}</a>{% if loop.last == false %}{{ lang.comma }} {% endif %}
                 {% endfor %}
@@ -282,7 +287,11 @@
         </div>
 
         {# Users browsing #}
-        {% if mybb.settings.browsingthisforum %}
+        {% if config.main_display_users_browsing and (
+            users_browsing_counter.members > 0 or
+            (users_browsing_counter.invisible > 0 and mybb.usergroup.canviewwolinvis) or
+            users_browsing_counter.guests > 0
+            ) %}
             <div class="container container--small container--users-browsing">{{ lang.myshowcase_main_users_browsing }}
                 {% for user in users_browsing %}
                     <a
@@ -293,7 +302,7 @@
                     {% if users_browsing %}{{ lang.comma }} {% endif %}{{ trans('users_browsing_forum_guests', users_browsing_counter.guests) }}
                 {% endif %}
 
-                {% if users_browsing_counter.guests %}
+                {% if users_browsing_counter.guests > 0 %}
                     {% if users_browsing or (users_browsing_counter.invisible and mybb.usergroup.canviewwolinvis != 1) %}{{ lang.comma }} {% endif %}{{ trans('myshowcase_main_users_browsing_guests', users_browsing_counter.guests) }}
                 {% endif %}
             </div>

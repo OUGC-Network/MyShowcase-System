@@ -166,7 +166,7 @@ readonly class CacheManager
                             'moderator_id',
                             'showcase_id',
                             'user_id',
-                            'is_group',
+                            'group_id',
                             ModeratorPermissions::EntriesCanView,
                             ModeratorPermissions::EntriesCanView,
                             ModeratorPermissions::EntriesCanView,

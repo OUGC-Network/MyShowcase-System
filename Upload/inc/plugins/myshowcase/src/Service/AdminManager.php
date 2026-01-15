@@ -558,7 +558,7 @@ EOL;
                         $moderator_data = [
                             'showcase_id' => $this->showcase_id,
                             'user_id' => $this->group_id,
-                            'is_group' => MODERATOR_TYPE_GROUP,
+                            'group_id' => MODERATOR_TYPE_GROUP,
                             ModeratorPermissions::EntriesCanView => $this->mybb->get_input(
                                 ModeratorPermissions::EntriesCanView,
                                 MyBB::INPUT_INT
@@ -594,7 +594,7 @@ EOL;
                         $moderator_data = [
                             'showcase_id' => $this->showcase_id,
                             'user_id' => (int)$userData['uid'],
-                            'is_group' => MODERATOR_TYPE_USER,
+                            'group_id' => MODERATOR_TYPE_USER,
                             ModeratorPermissions::EntriesCanView => $this->mybb->get_input(
                                 ModeratorPermissions::EntriesCanView,
                                 MyBB::INPUT_INT
@@ -923,13 +923,13 @@ EOL;
                     'moderator_id',
                     'user_id',
                     'group_id',
-                    'is_group',
+                    'group_id',
                     'showcase_id',
                 ],
-                query_options: ['order_by' => 'is_group']
+                query_options: ['order_by' => 'group_id']
             ) as $moderator_data
         ) {
-            if (!empty($moderator_data['is_group'])) {
+            if (!empty($moderator_data['group_id'])) {
                 $moderator_data['img'] = "<img src=\"styles/{$this->page->style}/images/icons/group.png\" alt=\"{$this->language->myshowcase_moderators_group}\" title=\"{$this->language->myshowcase_moderators_group}\" />";
 
                 foreach ($this->groups_cache as $group_data) {

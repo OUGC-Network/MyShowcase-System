@@ -193,7 +193,7 @@ function pluginActivation(): bool
                 'mid' => 'moderator_id',
                 'id' => 'showcase_id',
                 'uid' => 'user_id',
-                'isgroup' => 'is_group',
+                'isgroup' => 'group_id',
             ],
             'myshowcase_fieldsets' => [
                 'setid' => 'set_id',

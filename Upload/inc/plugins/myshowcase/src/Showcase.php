@@ -593,11 +593,11 @@ class Showcase
 
             if (!empty($moderatorsCache[$this->config['showcase_id']])) {
                 foreach ($moderatorsCache[$this->config['showcase_id']] as $moderatorPermissions) {
-                    if ($moderatorPermissions['is_group'] && in_array(
+                    if ($moderatorPermissions['group_id'] && in_array(
                             $moderatorPermissions['user_id'],
                             $userGroupsIDs
                         ) ||
-                        !$moderatorPermissions['is_group'] && (int)$moderatorPermissions['user_id'] === $userID) {
+                        !$moderatorPermissions['group_id'] && (int)$moderatorPermissions['user_id'] === $userID) {
                         foreach ($userModeratorPermissions as $permissionKey => &$permissionValue) {
                             $userModeratorPermissions[$permissionKey] = !empty($moderatorPermissions[$permissionKey]) ||
                                 !empty($permissionValue);

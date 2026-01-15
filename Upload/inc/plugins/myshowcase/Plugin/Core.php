@@ -1136,6 +1136,11 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
+        'moderator_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
         'user_id' => [
             'type' => 'INT',
             'unsigned' => true,
@@ -1640,37 +1645,7 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0
         ],
-        'is_group' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        ModeratorPermissions::EntriesCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        ModeratorPermissions::CommentsCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        ModeratorPermissions::CanManageAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        ModeratorPermissions::CanManageReports => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        ModeratorPermissions::CanManageLogs => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0
-        ],
-        //'unique_keys' => ['id_uid_isgroup' => ['showcase_id', 'showcasuser_ide_id', 'is_group']]
+        //'unique_keys' => ['id_uid_isgroup' => ['showcase_id', 'showcasuser_ide_id', 'group_id']]
     ],
     'myshowcase_fields' => [
         'field_id' => [

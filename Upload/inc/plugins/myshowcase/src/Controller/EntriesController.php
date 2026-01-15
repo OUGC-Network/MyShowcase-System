@@ -405,30 +405,34 @@ class EntriesController extends BaseController
             'users_browsing_counter' => [
                 'members' => 0,
                 'invisible' => 0,
+                'guests' => 0,
             ],
         ];
 
         // Fetch each moderator from the cache and format it, appending it to the list
-        foreach ($this->moderators_repository->queryModerators(query_fields: ['user_id', 'is_group']) as $moderator) {
-            if ($moderator['is_group'] && $group_data = $this->mybb->cache->read('usergroups')[$moderator['user_id']]) {
-                $templatesContext['moderators']['groups'][$moderator['user_id']] = [
-                    'title' => $group_data['title'],
-                    'group_id' => $moderator['user_id'],
-                ];
-            } elseif ($user_data = get_user($moderator['user_id'])) {
-                $templatesContext['moderators']['users'][$moderator['user_id']] = [
-                    'user_id' => $moderator['user_id'],
-                    'username' => format_name(
-                        htmlspecialchars_uni($user_data['username']),
-                        $user_data['usergroup'],
-                        $user_data['displaygroup']
-                    ),
-                ];
+        if ($this->config['main_display_moderators']) {
+            foreach (
+                $this->moderators_repository->queryModerators(query_fields: ['user_id', 'group_id']) as $moderator
+            ) {
+                if ($moderator['group_id'] &&
+                    $group_data = $this->mybb->cache->read('usergroups')[$moderator['group_id']]) {
+                    $templatesContext['moderators']['groups'][$moderator['group_id']] = [
+                        'title' => $group_data['title'],
+                        'group_id' => $moderator['group_id'],
+                    ];
+                } elseif ($user_data = get_user($moderator['user_id'])) {
+                    $templatesContext['moderators']['users'][$moderator['user_id']] = [
+                        'user_id' => $moderator['user_id'],
+                        'username' => $user_data['username'],
+                        'group_id' => $user_data['usergroup'],
+                        'display_group_id' => $user_data['displaygroup'],
+                    ];
+                }
             }
         }
 
         // Get the users browsing this showcase
-        if (!empty($this->mybb->settings['browsingthisforum'])) {
+        if ($this->config['main_display_users_browsing']) {
             $templatesContext['users_browsing_counter']['guests'] = $this->entries_repository->querySessionsCount();
 
             foreach ($this->entries_repository->querySessions() as $user_data) {
@@ -448,10 +452,8 @@ class EntriesController extends BaseController
                 }
             }
 
-            $current_user_data = get_user($this->current_user->user_id);
-
             // The user was counted as invisible user --> correct the invisible_members_count
-            if (!empty($current_user_data['invisible'])) {
+            if (!empty($this->mybb->user['invisible'])) {
                 $templatesContext['users_browsing_counter']['invisible'] -= 1;
             }
         }
@@ -987,11 +989,9 @@ class EntriesController extends BaseController
             ],
         ];
 
-        $current_user_data = get_user($this->current_user->user_id);
-
         $post_options = $this->mybb->get_input('post_options', MyBB::INPUT_ARRAY);
 
-        if (!isset($post_options['allow_signature']) && !empty($current_user_data['signature'])) {
+        if (!isset($post_options['allow_signature']) && !empty($this->mybb->user['signature'])) {
             $templatesContext['post_options']['allow_signature'] = true;
         }
 
@@ -1154,10 +1154,10 @@ class EntriesController extends BaseController
         $templatesContext['captcha'] = '';
 
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
-            empty($current_user_data['suspendposting']) &&
+            empty($this->mybb->user['suspendposting']) &&
             (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
-            !empty($current_user_data['showquickreply']) &&
+            !empty($this->mybb->user['showquickreply']) &&
             $entry_data->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
@@ -1323,9 +1323,7 @@ class EntriesController extends BaseController
 
         $this->loadEntryFields($entry_data);
 
-        $current_user_data = get_user($this->current_user->user_id);
-
-        if (!empty($current_user_data['signature'])) {
+        if (!empty($this->mybb->user['signature'])) {
             $templatesContext['post_options']['allow_signature'] = true;
         }
 
@@ -1518,10 +1516,10 @@ class EntriesController extends BaseController
         }
 
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
-            empty($current_user_data['suspendposting']) &&
+            empty($this->mybb->user['suspendposting']) &&
             (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
-            !empty($current_user_data['showquickreply']) &&
+            !empty($this->mybb->user['showquickreply']) &&
             $entry_data->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
@@ -1576,7 +1574,7 @@ class EntriesController extends BaseController
                 }
             }
 
-            if (!empty($current_user_data['invisible'])) {
+            if (!empty($this->mybb->user['invisible'])) {
                 // The user was counted as invisible user --> correct the online_count.invisible
                 --$templatesContext['online_count']['invisible'];
             }
