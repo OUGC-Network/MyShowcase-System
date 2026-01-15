@@ -16,9 +16,7 @@ declare(strict_types=1);
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\FormTypes;
-
 use MyShowcase\Service\CacheManager;
-
 use MyShowcase\Util\UrlUtil;
 
 use function MyShowcase\Admin\buildDbFieldDefinition;
@@ -102,7 +100,7 @@ if (in_array($pageAction, ['viewFields', 'newField', 'editField', 'editOption'])
             'description' => $lang->myShowcaseAdminFieldsNewDescription
         ];
 
-        if ($pageAction == 'editField') {
+        if ($pageAction === 'editField') {
             $pageTabs['myShowcaseAdminFieldsEdit'] = [
                 'title' => $lang->myShowcaseAdminFieldsEdit,
                 'link' => $url->build(['action' => 'editField', 'set_id' => $fieldsetID, 'field_id' => $fieldID]),
@@ -117,7 +115,7 @@ if (in_array($pageAction, ['viewFields', 'newField', 'editField', 'editOption'])
         'description' => $lang->myShowcaseAdminFieldSetsNewDescription
     ];
 
-    if ($pageAction == 'edit') {
+    if ($pageAction === 'edit') {
         $pageTabs['myShowcaseAdminFieldSetsEdit'] = [
             'title' => $lang->myShowcaseAdminFieldSetsEdit,
             'link' => $url->build(['action' => 'edit', 'set_id' => $fieldsetID]),
@@ -671,7 +669,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $form->end();
 
     $page->output_footer();
-} elseif ($pageAction == 'viewFields') {
+} elseif ($pageAction === 'viewFields') {
     $fieldsetData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
 
     if (empty($fieldsetData)) {
@@ -886,7 +884,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     hooksRun('admin_view_fields_end');
 
     $page->output_footer();
-} elseif ($pageAction == 'delete') {
+} elseif ($pageAction === 'delete') {
     $fieldsetData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
 
     if (!$fieldsetData) {
@@ -957,7 +955,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $url->build(['action' => 'delete', 'set_id' => $fieldsetID]),
         $lang->sprintf($lang->myShowcaseAdminConfirmFieldsetDelete, $fieldsetName)
     );
-} elseif ($pageAction == 'editOption') {
+} elseif ($pageAction === 'editOption') {
     $fieldDefinition = fieldsGet(
         ["field_id='{$fieldID}'", "set_id='{$fieldsetID}'"],
         ['field_key', 'html_type'],

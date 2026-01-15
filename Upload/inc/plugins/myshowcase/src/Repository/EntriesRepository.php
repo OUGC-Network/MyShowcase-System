@@ -256,12 +256,13 @@ class EntriesRepository
 
     public function querySessions(): array
     {
+        return [];
         $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
 
         $query = $this->database->simple_select(
             "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
             's.ip, s.uid, u.username, u.avatar, s.time, u.invisible, u.usergroup, u.usergroup, u.displaygroup',
-            "s.uid != 0 AND s.time > $time_cut AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission != 1",
+            "s.uid!=='0' AND s.time>'{$time_cut}' AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission!='1'",
             ['order_by' => 'u.username ASC, s.time DESC']
         );
 
@@ -276,12 +277,14 @@ class EntriesRepository
 
     public function querySessionsCount(): int
     {
+        $session_objects = [];
+        return 0;
         $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
 
         $query = $this->database->simple_select(
             'sessions',
             'COUNT(DISTINCT ip) AS guest_count',
-            "uid = 0 AND time > $time_cut AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission != 1"
+            "uid='0' AND time>'{$time_cut}' AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission!='1'"
         );
 
         return (int)$this->database->fetch_array($query)['guest_count'];

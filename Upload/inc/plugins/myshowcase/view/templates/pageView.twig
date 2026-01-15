@@ -214,7 +214,7 @@
                         </label>
                         {{ code_buttons|raw }}
                     </div>
-                    {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.allow_smilies or permissions.entries_can_view %}
+                    {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.parser_allow_smiles or permissions.entries_can_view %}
                         <label for="show-quick-reply-options"></label>
                         <input type="checkbox" class="compose__checkbox" id="show-quick-reply-options">
                         <div class="quick-reply__options">
@@ -225,7 +225,7 @@
                                            value="1"{% if post_options.allow_signature %} checked="checked"{% endif %} /> {{ lang.myshowcase_view_entry_comment_form_allow_signature }}
                                 </label>
                             {% endif %}
-                            {% if config.allow_smilies %}
+                            {% if config.parser_allow_smiles %}
                                 <label class="quick-reply__option">
                                     <input type="checkbox" class="checkbox quick-reply__checkbox"
                                            name="postoptions[disablesmilies]"
@@ -254,7 +254,7 @@
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </button>
-                        {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.allow_smilies or permissions.entries_can_view %}
+                        {% if (mybb.usergroup.canusesig and current_user.suspend_signature != 1) or config.parser_allow_smiles or permissions.entries_can_view %}
                             <label for="show-quick-reply-options" class="button button--basic">
                                 {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.options }}</span>
@@ -280,12 +280,12 @@
             <div class="row row--simple-columns thread-actions">
                 {% if permissions.can_search_entries %}
                     <div class="thread-search inline-form">
-                        <form action="search.php" method="post">
+                        <form action="" method="post">
                             <input type="hidden" name="action" value="thread"/>
                             <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
                             <input type="text" name="keywords"
                                    placeholder="{{ lang.myshowcase_view_entry_search_keywords }}"
-                                   class="textbox textbox--large" size="25" value="{{ search.keywords }}"/>
+                                   class="textbox textbox--large" size="25" value="{{ url_params.keywords }}"/>
                             <button type="submit" class="button button--inline">
                                 {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.myshowcase_view_entry_search }}</span>

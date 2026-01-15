@@ -1,16 +1,6 @@
 <div class="inline-moderation page-tools__item">
     {{ asset('jscripts/myshowcase_inline.js', static=true) }}
     <form id="inline_moderation_form" action="{{ url.main }}" method="post">
-        <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-        <input type="hidden" name="action" value="inline_moderation"/>
-        <input type="hidden" name="field" value="{{ sorting.field }}"/>
-        <input type="hidden" name="direction" value="{{ sorting.direction }}"/>
-        <input type="hidden" name="page" value="{{ current_page }}"/>
-        <input type="hidden" name="keywords" value="{{ search.keywords }}"/>
-        <input type="hidden" name="exact" value="{{ search.exact }}"/>
-        <input type="hidden" id="selected-all-entries" name="selected_all_entries" value="">
-        <input type="hidden" id="selected-entries" name="selected_entries" value="">
-        <input type="hidden" id="unselected-entries" name="unselected_entries" value="">
         <h2 class="title title--legend">{{ lang.myshowcase_main_inline_moderation }}</h2>
         <div class="select-field">
             {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
@@ -41,6 +31,16 @@
             {{ include('partials/icon.twig', {icon: 'times', class: 'button__icon'}, with_context = false) }}
             <span class="button__text">{{ lang.myshowcase_main_inline_moderation_clear }}</span>
         </button>
+        {% if url_params is not empty %}
+            {% for param_key,param_value in url_params %}
+                <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+            {% endfor %}
+        {% endif %}
+        <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+        <input type="hidden" name="action" value="inline_moderation"/>
+        <input type="hidden" id="selected-all-entries" name="selected_all_entries" value="">
+        <input type="hidden" id="selected-entries" name="selected_entries" value="">
+        <input type="hidden" id="unselected-entries" name="unselected_entries" value="">
     </form>
     <script type="text/javascript">
         <!--

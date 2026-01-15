@@ -24,7 +24,7 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
-use MyShowcase\Util\SelectableArrays;
+use MyShowcase\Util\SelectableLists;
 use Random\RandomException;
 
 use function MyBB\app;
@@ -788,7 +788,7 @@ function languageModify(
 ): bool {
     global $lang;
 
-    if (count($languageVariablesAddition) == 0 && count($languageVariablesDelete) == 0) {
+    if (count($languageVariablesAddition) === 0 && count($languageVariablesDelete) === 0) {
         return false;
     }
 
@@ -939,29 +939,29 @@ function buildPermissionsRow(
             }
 
             if ($definition['input_type'] === FormTypes::SelectTimeInterval) {
-                $select_array = (new SelectableArrays($lang))->timeIntervalList($language_prefix, $section);
+                $select_array = (new SelectableLists($lang))->timeIntervalList($language_prefix, $section);
             } elseif ($definition['input_type'] === FormTypes::SelectFieldset) {
                 global $db, $cache;
 
-                $select_array = (new SelectableArrays($lang, $db, $cache))->fieldsetsList();
+                $select_array = (new SelectableLists($lang, $db, $cache))->fieldsetsList();
 
                 if (showcaseDataTableExists($showcase_config['showcase_id'])) {
                     $options['class'] .= '" disabled="disabled';
                 }
             } elseif ($definition['input_type'] === FormTypes::SelectTheme) {
-                $select_array = (new SelectableArrays($lang))->themesList();
+                $select_array = (new SelectableLists($lang))->themesList();
             } elseif ($definition['input_type'] === FormTypes::SelectFilterField) {
-                $select_array = (new SelectableArrays($lang))->filterFieldsList();
+                $select_array = (new SelectableLists($lang))->filterFieldsList();
             } elseif ($definition['input_type'] === FormTypes::SelectSortField) {
-                $select_array = (new SelectableArrays($lang))->sortFieldsList();
+                $select_array = (new SelectableLists($lang))->sortFieldsList();
             } elseif ($definition['input_type'] === FormTypes::SelectPrefixType) {
-                $select_array = (new SelectableArrays($lang))->prefixTypeList();
+                $select_array = (new SelectableLists($lang))->prefixTypeList();
             } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsMainRender) {
-                $select_array = (new SelectableArrays($lang))->attachmentsMainRenderList();
+                $select_array = (new SelectableLists($lang))->attachmentsMainRenderList();
             } elseif ($definition['input_type'] === FormTypes::SelectWatermarkLocation) {
-                $select_array = (new SelectableArrays($lang))->watermarkLocationsList();
+                $select_array = (new SelectableLists($lang))->watermarkLocationsList();
             } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsDisplayType) {
-                $select_array = (new SelectableArrays($lang))->attachmentsDisplayTypeList();
+                $select_array = (new SelectableLists($lang))->attachmentsDisplayTypeList();
             } else {
                 $select_array = [
                     0 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_none'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_none',

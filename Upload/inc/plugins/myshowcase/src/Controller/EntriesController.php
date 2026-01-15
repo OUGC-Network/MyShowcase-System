@@ -25,10 +25,10 @@ use MyLanguage;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FilterFields;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Event\Event\AccessLogDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Repository\AccessLogsRepository;
@@ -143,14 +143,31 @@ class EntriesController extends BaseController
     #[NoReturn] #[Route('/', name: 'main', methods: ['GET'])]
     public function main(): string
     {
+        $where_clauses = [];
+
+        if ($this->config['main_filter_force_field'] === FilterFields::UserID) {
+            if ($this->mybb->get_input('user_id', MyBB::INPUT_INT) > 0) {
+                $where_clauses[] = "user_id='" . $this->mybb->get_input('user_id', MyBB::INPUT_INT) . "'";
+
+                $this->render_manager->urlParamsAppend(
+                    ['user_id' => $this->mybb->get_input('user_id', MyBB::INPUT_INT)],
+                );
+            } else {
+                $where_clauses[] = "user_id='" . $this->current_user->user_id . "'";
+
+                $this->render_manager->urlParamsAppend(
+                    ['user_id' => $this->current_user->user_id],
+                );
+            }
+        }
+
         if ($this->mybb->get_input('action') === 'inline_moderation') {
             verify_post_check($this->mybb->get_input('my_post_key'));
 
             foreach (
                 $this->entries_manager->fetchEntries(
-                    sorting: $this->render_manager->sorting,
+                    $where_clauses,
                     url_params: $this->render_manager->url_params,
-                    search: $this->render_manager->search,
                     load_all: true,
                 ) as $entry_data
             ) {
@@ -348,12 +365,12 @@ class EntriesController extends BaseController
             error_no_permission();
         }
 
-        if ($this->mybb->get_input('sort')) {
-            $this->render_manager->urlParamsAppend(['sort' => $this->mybb->get_input('sort')]);
+        if ($this->mybb->get_input('sort_by')) {
+            $this->render_manager->urlParamsAppend(['sort_by' => $this->mybb->get_input('sort_by')]);
         }
 
-        if ($this->mybb->get_input('direction')) {
-            $this->render_manager->urlParamsAppend(['direction' => $this->mybb->get_input('direction')]);
+        if ($this->mybb->get_input('order_by')) {
+            $this->render_manager->urlParamsAppend(['order_by' => $this->mybb->get_input('order_by')]);
         }
 
         if ($this->mybb->get_input('days', MyBB::INPUT_INT) > 0) {
@@ -373,29 +390,29 @@ class EntriesController extends BaseController
                     'subject' => $this->routing->generateUrl(
                         Routes::Main,
                         array_merge($this->render_manager->url_params, [
-                            'sort' => 'subject',
-                            'direction' => $this->render_manager->sorting['direction'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                            'sort_by' => 'subject',
+                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                         ])
                     ),
                     'username' => $this->routing->generateUrl(
                         Routes::Main,
                         array_merge($this->render_manager->url_params, [
-                            'sort' => 'username',
-                            'direction' => $this->render_manager->sorting['direction'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                            'sort_by' => 'username',
+                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                         ])
                     ),
                     'comments' => $this->routing->generateUrl(
                         Routes::Main,
                         array_merge($this->render_manager->url_params, [
-                            'sort' => 'comments',
-                            'direction' => $this->render_manager->sorting['direction'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                            'sort_by' => 'comments',
+                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                         ])
                     ),
                     'last_comment' => $this->routing->generateUrl(
                         Routes::Main,
                         array_merge($this->render_manager->url_params, [
-                            'sort' => 'last_comment',
-                            'direction' => $this->render_manager->sorting['direction'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                            'sort_by' => 'last_comment',
+                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                         ])
                     ),
                 ],
@@ -460,7 +477,12 @@ class EntriesController extends BaseController
 
         hooksRun('controller_main_start', $this);
 
-        $this->forcedFieldBreadcrumb();
+        $this->forcedFieldBreadcrumb($this->render_manager->url_params['user_id'] ?? null);
+
+        add_breadcrumb(
+            $this->config['name'],
+            $this->config['showcase_url'] . $this->routing->generateUrl(Routes::Main)
+        );
 
         if ($this->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
             $templatesContext['url_entry_create'] = $this->routing->generateUrl(
@@ -473,8 +495,8 @@ class EntriesController extends BaseController
                 $templatesContext['url']['sort'][$fieldDefinition['field_key']] = $this->routing->generateUrl(
                     Routes::Main,
                     array_merge($this->render_manager->url_params, [
-                        'sort' => $fieldDefinition['field_key'],
-                        'direction' => $this->render_manager->sorting['direction'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                        'sort_by' => $fieldDefinition['field_key'],
+                        'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                     ])
                 );
 
@@ -496,9 +518,8 @@ class EntriesController extends BaseController
 
         foreach (
             $this->entries_manager->fetchEntries(
-                sorting: $this->render_manager->sorting,
+                $where_clauses,
                 url_params: $this->render_manager->url_params,
-                search: $this->render_manager->search,
             ) as $entry_data
         ) {
             $this->entries_manager->addEntry($entry_data);
@@ -672,10 +693,10 @@ class EntriesController extends BaseController
                     ->setExtraData('fields_cache', $fieldCache)
                     ->setExtraData('selected', false);
 
-                if ($this->render_manager->search['keywords']) {
+                if ($this->render_manager->url_params['keywords']) {
                     $entry_data->subject = postParser()->highlight_message(
                         postParser()->parse_badwords($entry_data->subject),
-                        $this->render_manager->search['keywords']
+                        $this->render_manager->url_params['keywords']
                     );
                 }
 
@@ -683,9 +704,9 @@ class EntriesController extends BaseController
                     $entry_data->setExtraData('selected', true);
                 }
 
-                if ($entry_data->status == $this->entries_manager::STATUS_PENDING) {
+                if ($entry_data->status === $this->entries_manager::STATUS_PENDING) {
                     $entry_data->setExtraData('background_class', 'trow_shaded');
-                } elseif ($entry_data->status == $this->entries_manager::STATUS_DELETED && $templatesContext['permissions']['entries_can_view]']) {
+                } elseif ($entry_data->status === $this->entries_manager::STATUS_DELETED && $templatesContext['permissions']['entries_can_view]']) {
                     $entry_data->setExtraData('background_class', 'trow_shaded trow_deleted');
                 }
 
@@ -1227,12 +1248,13 @@ class EntriesController extends BaseController
 
         //$this->language->load('showthread');
 
-        $this->forcedFieldBreadcrumb();
+        $this->forcedFieldBreadcrumb($entry_data->user_id);
 
         add_breadcrumb(
             $this->config['name'],
             $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::Main,
+                $this->config['main_filter_force_field'] === FilterFields::UserID ? ['user_id' => $entry_data->user_id] : []
             )
         );
 
@@ -1544,7 +1566,7 @@ class EntriesController extends BaseController
             $query = $this->database->simple_select(
                 "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
                 's.ip, s.uid, s.time, u.username, u.invisible, u.usergroup, u.displaygroup',
-                "s.uid != 0 AND s.time > '$timecut' AND location2='$tid' AND nopermission != 1",
+                "s.uid!='0' AND s.time>'{$timecut}' AND location2='{$tid}' AND nopermission!='1'",
                 [
                     'order_by' => 'u.username ASC, s.time',
                     'order_dir' => 'DESC',
@@ -1552,20 +1574,20 @@ class EntriesController extends BaseController
             );
 
             while ($user_data = $this->database->fetch_array($query)) {
-                if ($user_data['uid'] == 0) {
+                if ($user_data['uid'] === 0) {
                     ++$templatesContext['online_count']['guests'];
                 } elseif (empty($doneusers[$user_data['uid']]) || $doneusers[$user_data['uid']] < $user_data['time']) {
                     ++$templatesContext['online_count']['members'];
                     $doneusers[$user_data['uid']] = $user_data['time'];
 
                     $user_data['invisible_mark'] = '';
-                    if ($user_data['invisible'] == 1) {
+                    if ($user_data['invisible'] === 1) {
                         $user_data['invisible_mark'] = '*';
 
                         ++$templatesContext['online_count']['invisible'];
                     }
 
-                    if ($user_data['invisible'] != 1 || $this->mybb->usergroup['canviewwolinvis'] == 1 || (int)$user_data['uid'] === $this->current_user->user_id) {
+                    if ($user_data['invisible'] !== 1 || $this->mybb->usergroup['canviewwolinvis'] === 1 || (int)$user_data['uid'] === $this->current_user->user_id) {
                         $user_data['reading'] = my_date($this->mybb->settings['timeformat'], $user_data['time']);
                         ++$templatesContext['online_count']['users'];
 

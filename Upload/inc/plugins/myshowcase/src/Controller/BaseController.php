@@ -199,7 +199,7 @@ abstract class BaseController
 
             $comment_data = $this->comments_repository->queryComment(
                 ["comment_slug='{$db->escape_string($comment_slug)}'"],
-                ['entry_id', 'status', 'user_id', 'dateline'],
+                ['comment_id', 'entry_id', 'status', 'user_id', 'dateline'],
             );
 
             if (empty($comment_data)) {
@@ -278,7 +278,7 @@ abstract class BaseController
             case self::INVALID_ENTRY:
                 global $lang;
 
-                error($lang->myShowcaseReportErrorInvalidEntry);
+                error($this->language->myShowcaseReportErrorInvalidEntry);
         }
 
         /**
@@ -343,26 +343,22 @@ abstract class BaseController
         exit;
     }
 
-    public function forcedFieldBreadcrumb(): void
+    public function forcedFieldBreadcrumb(?int $user_id = null): void
     {
-        switch ($this->config['main_filter_force_field']) {
-            case FilterFields::UserID:
-                $user_data = get_user($this->filter['force_field_value']);
+        if ($this->config['main_filter_force_field'] === FilterFields::UserID && $user_id !== null) {
+            $user_data = get_user($user_id);
 
-                if (empty($user_data['uid']) || (empty($mybb->usergroup['canviewprofiles']) && (int)$user_data['uid'] !== $this->current_user->user_id)) {
-                    error_no_permission();
-                }
+            if (empty($user_data['uid']) ||
+                (empty($this->mybb->usergroup['canviewprofiles']) && (int)$user_data['uid'] !== $this->current_user->user_id)) {
+                error_no_permission();
+            }
 
-                global $mybb, $lang;
+            $this->language->load('member');
 
-                $lang->load('member');
-
-                add_breadcrumb(
-                    $lang->sprintf($lang->nav_profile, htmlspecialchars_uni($user_data['username'])),
-                    $mybb->settings['bburl'] . '/' . get_profile_link($user_data['uid'])
-                );
-
-                break;
+            add_breadcrumb(
+                $this->language->sprintf($this->language->nav_profile, htmlspecialchars_uni($user_data['username'])),
+                $this->mybb->settings['bburl'] . '/' . get_profile_link($user_data['uid'])
+            );
         }
     }
 

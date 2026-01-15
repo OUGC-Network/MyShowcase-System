@@ -144,7 +144,7 @@ function fetch_wol_activity_end(array &$user_activity): array
 
     //get file_name of location
     $split_loc = explode('.php', $user_activity['location']);
-    if ($split_loc[0] == $user['location']) {
+    if ($split_loc[0] === $user['location']) {
         $filename = '';
     } else {
         $filename = my_substr($split_loc[0], -my_strpos(strrev($split_loc[0]), '/'));
@@ -171,26 +171,26 @@ function fetch_wol_activity_end(array &$user_activity): array
         ) as $id => $myshowcase
     ) {
         $split_mainfile = explode('.php', $myshowcase['route_identifier']);
-        if ($split_mainfile[0] == $filename) {
+        if ($split_mainfile[0] === $filename) {
             //preload here so we don't need to get it in next function
             $user_activity['myshowcase_filename'] = $filename;
             $user_activity['myshowcase_name'] = $myshowcase['name'];
             $user_activity['myshowcase_id'] = $myshowcase['showcase_id'];
             $user_activity['myshowcase_mainfile'] = $myshowcase['route_identifier'];
 
-            if ($parameters['action'] == 'view') {
+            if ($parameters['action'] === 'view') {
                 $user_activity['activity'] = 'myShowcaseMainTableHeadView';
                 if (is_numeric($parameters['entry_id'])) {
                     $user_activity['entry_id'] = $parameters['entry_id'];
                 }
-            } elseif ($parameters['action'] == 'new') {
+            } elseif ($parameters['action'] === 'new') {
                 $user_activity['activity'] = 'myShowcaseLocationNewEntry';
-            } elseif ($parameters['action'] == 'attachment') {
+            } elseif ($parameters['action'] === 'attachment') {
                 $user_activity['activity'] = 'myshowcase_view_attach';
                 if (is_numeric($parameters['attachment_id'])) {
                     $user_activity['attachment_id'] = $parameters['attachment_id'];
                 }
-            } elseif ($parameters['action'] == 'edit') {
+            } elseif ($parameters['action'] === 'edit') {
                 $user_activity['activity'] = 'myshowcase_edit';
                 if (is_numeric($parameters['entry_id'])) {
                     $user_activity['entry_id'] = $parameters['entry_id'];
@@ -216,14 +216,14 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
     //get file_name of location
     $split_loc = explode('.php', $plugin_array['user_activity']['location']);
-    if ($split_loc[0] == $user['location']) {
+    if ($split_loc[0] === $user['location']) {
         $filename = '';
     } else {
         $filename = my_substr($split_loc[0], -my_strpos(strrev($split_loc[0]), '/'));
     }
 
     /* URL Definitions */
-    if ($mybb->settings['seourls'] == 'yes' || ($mybb->settings['seourls'] == 'auto' && $_SERVER['SEO_SUPPORT'] == 1)) {
+    if ($mybb->settings['seourls'] === 'yes' || ($mybb->settings['seourls'] === 'auto' && $_SERVER['SEO_SUPPORT'] === 1)) {
         $myshowcase_name = strtolower($plugin_array['user_activity']['myshowcase_name']);
 
         //clean the name and make it suitable for SEO

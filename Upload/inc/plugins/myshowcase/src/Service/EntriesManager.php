@@ -18,8 +18,6 @@ use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
-use MyShowcase\Enum\FilterFields;
-use MyShowcase\Service\CacheManager;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
 use MysqlPdoDbDriver;
@@ -157,11 +155,9 @@ class EntriesManager
     }
 
     #[NoReturn] public function fetchEntries(
-        array $sorting = [],
-        array $url_params = [],
-        array $search = [],
         array $where_clauses = [],
         array $query_options = [],
+        array $url_params = [],
         bool $load_all = false,
     ): array {
         $this->query_options = array_merge($this->query_options, $query_options);
@@ -192,13 +188,6 @@ class EntriesManager
             $this->where_clauses[] = "entry_data.user_id='{$url_params['user_id']}'";
         }
 
-        switch ($this->config['main_filter_force_field']) {
-            case FilterFields::UserID:
-                $this->where_clauses[] = "entry_data.user_id='{$this->filter['force_field_value']}'";
-
-                break;
-        }
-
         //setup joins for query and build where clause based on search_field terms
 
         $this->query_tables = ['users user_data ON (user_data.uid = entry_data.user_id)'];
@@ -207,7 +196,7 @@ class EntriesManager
 
         $keywords = array_filter(array_map(function (string $value) {
             return trim($value);
-        }, explode(' ', $search['keywords'] ?? '')));
+        }, explode(' ', $url_params['keywords'] ?? '')));
 
         $this->query_fields = array_merge(
             array_map(function (string $field_name): string {
@@ -228,9 +217,9 @@ class EntriesManager
 
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($keywords && $search['field'] === $field_definition['field_key']) {
+                if ($keywords && $url_params['sort_by'] === $field_definition['field_key']) {
                     foreach ($keywords as $keyword) {
-                        if ($search['exact']) {
+                        if ($url_params['exact_match']) {
                             $this->where_clauses[] = "(table_{$field_definition['field_key']}.value='{$this->database->escape_string($keyword)}' OR table_{$field_definition['field_key']}.display_style='{$this->database->escape_string($keyword)}')";
                         } else {
                             $this->where_clauses[] = "(table_{$field_definition['field_key']}.value LIKE '%{$this->database->escape_string($keyword)}%' OR table_{$field_definition['field_key']}.display_style LIKE '%{$this->database->escape_string($keyword)}%'";
@@ -239,14 +228,14 @@ class EntriesManager
 
                     $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->config['field_set_id']}'";
                 }
-            } elseif ($search['field'] === 'username' && !$search_done) {
+            } elseif ($url_params['sort_by'] === 'username' && !$search_done) {
                 $this->query_tables[] = 'users user_search_data ON (entry_data.user_id = user_search_data.uid)';
 
                 $this->query_fields[] = $field_definition['field_key'];
 
                 if ($keywords) {
                     foreach ($keywords as $keyword) {
-                        if ($search['exact']) {
+                        if ($url_params['exact_match']) {
                             $this->where_clauses[] = "user_search_data.username='{$this->database->escape_string($keyword)}'";
                         } else {
                             $this->where_clauses[] = "user_search_data.username LIKE '%{$this->database->escape_string($keyword)}%'";
@@ -258,9 +247,9 @@ class EntriesManager
             } else {
                 $this->query_fields[] = $field_definition['field_key'];
 
-                if ($keywords && $search['field'] === $field_definition['field_key']) {
+                if ($keywords && $url_params['sort_by'] === $field_definition['field_key']) {
                     foreach ($keywords as $keyword) {
-                        if ($search['exact']) {
+                        if ($url_params['exact_match']) {
                             $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
                         } else {
                             $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
@@ -271,7 +260,7 @@ class EntriesManager
 
             if ($keywords && isset($this->fieldset_searchable_fields[$field_definition['field_key']])) {
                 foreach ($keywords as $keyword) {
-                    if ($search['exact']) {
+                    if ($url_params['exact_match']) {
                         $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
                     } else {
                         $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
@@ -280,14 +269,16 @@ class EntriesManager
             }
         }
 
-        if (isset($sorting['field']) && $sorting['field'] !== 'dateline') {
-            $this->query_options['order_by'] = "{$this->database->escape_string($sorting['field'])} {$sorting['direction']}, is_sticky {$sorting['direction']}, entry_id";
+        if (!empty($url_params['sort_by']) && $url_params['sort_by'] !== 'dateline') {
+            $this->query_options['order_by'] = "{$this->database->escape_string($url_params['sort_by'])} {$url_params['order_by']}, is_sticky {$url_params['order_by']}, entry_id";
 
-            $this->query_options['order_dir'] = $sorting['direction'];
+            $this->query_options['order_dir'] = $url_params['order_by'];
         } else {
-            $this->query_options['order_by'] = "is_sticky {$sorting['direction']}, entry_id";
+            $this->query_options['order_by'] = 'is_sticky ' . ($url_params['order_by'] ?? '') . ', entry_id';
 
-            $this->query_options['order_dir'] = $sorting['direction'];
+            if (isset($url_params['order_by'])) {
+                $this->query_options['order_dir'] = $url_params['order_by'];
+            }
         }
 
         hooksRun('entry_fetch_start', $this);
@@ -329,9 +320,9 @@ class EntriesManager
         return $entry_objects;
     }
 
-    public function fetchEntry(array $where_clauses = []): array
+    #[NoReturn] public function fetchEntry(array $where_clauses = []): array
     {
-        return $this->fetchEntries(where_clauses: $where_clauses, query_options: ['limit' => 1])[0] ?? [];
+        return $this->fetchEntries($where_clauses, ['limit' => 1])[0] ?? [];
     }
 
     /**

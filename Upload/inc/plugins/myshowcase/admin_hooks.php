@@ -35,14 +35,14 @@ function admin_config_plugins_deactivate(): bool
     global $mybb, $page;
 
     if (
-        $mybb->get_input('action') != 'deactivate' ||
-        $mybb->get_input('plugin') != 'myshowcase' ||
+        $mybb->get_input('action') !== 'deactivate' ||
+        $mybb->get_input('plugin') !== 'myshowcase' ||
         !$mybb->get_input('uninstall', MyBB::INPUT_INT)
     ) {
         return false;
     }
 
-    if ($mybb->request_method != 'post') {
+    if ($mybb->request_method !== 'post') {
         $page->output_confirm_action(
             'index.php?module=config-plugins&amp;action=deactivate&amp;uninstall=1&amp;plugin=myshowcase'
         );

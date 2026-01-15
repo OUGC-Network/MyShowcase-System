@@ -26,14 +26,13 @@ use MyShowcase\Entity\Comment;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\Permission;
 use MyShowcase\Entity\User;
-use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Routing\Routing;
-use MyShowcase\Util\SelectableArrays;
+use MyShowcase\Util\SelectableLists;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Twig\Environment;
@@ -76,16 +75,6 @@ class Render
     public array $fieldset_display_fields = [];
 
     public array $context = [];
-    public array $sorting = [
-        'direction' => 'asc',
-        'field' => 'dateline'
-    ];
-
-    public array $search = [
-        'keywords' => '',
-        'exact' => 0,
-        'field' => '',
-    ];
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
@@ -122,7 +111,7 @@ class Render
             $this->url_params['unapproved'] = $this->mybb->get_input('unapproved', MyBB::INPUT_INT);
         }
 
-        $this->fieldset_display_fields = (new SelectableArrays($this->language))->sortFieldsList();
+        $this->fieldset_display_fields = (new SelectableLists($this->language))->sortFieldsList();
 
         foreach ($this->fieldset_fields as $field_id => $field_definition) {
             if ($field_definition['display_in_main_page']) {
@@ -130,49 +119,26 @@ class Render
             }
         }
 
-        $this->sorting['field'] = $this->mybb->get_input('sort');
-
-        if ($this->mybb->get_input('direction') === SortDirections::Descending) {
-            $this->sorting['direction'] = SortDirections::Descending;
+        if ($this->mybb->get_input('sort_by') !== SortDirections::Descending) {
+            $this->url_params['order_by'] = SortDirections::Ascending;
         } else {
-            $this->sorting['direction'] = SortDirections::Ascending;
+            $this->url_params['order_by'] = SortDirections::Descending;
         }
 
-        if (!array_key_exists($this->sorting['field'], $this->fieldset_display_fields)) {
-            $this->sorting['field'] = 'dateline';
-        }
-
-        if (array_key_exists(
-            $this->sorting['field'],
-            $this->fieldset_display_fields
-        )) {
-            $this->url_params['sort_by'] = $this->sorting['field'];
+        if (!array_key_exists($this->url_params['sort_by'], $this->fieldset_display_fields)) {
+            $this->url_params['sort_by'] = 'dateline';
         }
 
         if ($this->mybb->get_input('exact_match', MyBB::INPUT_INT) === 1) {
-            $this->search['exact'] = 1;
+            $this->url_params['exact_match'] = 1;
         }
 
-        if ($this->search['exact']) {
-            $this->url_params['exact_match'] = $this->search['exact'];
-        }
+        $this->url_params['keywords'] = $this->mybb->get_input('keywords');
 
-        if (isset($this->mybb->input['keywords'])) {
-            $this->search['keywords'] = $this->mybb->get_input('keywords');
-        }
+        $this->url_params['sort_by'] = $this->mybb->get_input('search_field');
 
-        if ($this->search['keywords']) {
-            $this->url_params['keywords'] = $this->search['keywords'];
-        }
-
-        $this->search['field'] = $this->mybb->get_input('search_field');
-
-        if (in_array($this->search['field'], array_keys($this->fieldset_searchable_fields))) {
-            $this->url_params['search_field'] = $this->search['field'];
-        }
-
-        if ($this->sorting['direction']) {
-            $this->url_params['order_by'] = $this->sorting['direction'];
+        if (!in_array($this->url_params['sort_by'], array_keys($this->fieldset_searchable_fields))) {
+            $this->url_params['sort_by'] = '';
         }
 
         if ($this->mybb->get_input('threaded', MyBB::INPUT_INT) === 1) {
@@ -200,18 +166,12 @@ class Render
                 'showcase' => $this->config['showcase_url'],
                 'main' => $this->routing->generateUrl(Routes::Main),
             ],
-            'sorting' => [
-                'direction' => $this->mybb->get_input('direction'),
-                'field' => $this->mybb->get_input('field'),
-                'sort' => $this->mybb->get_input('sort'),
-            ],
-
         ],
             array_merge([
                 'config' => $this->config,
                 'current_page' => $this->current_page,
                 'current_user' => $this->current_user,
-                'search' => $this->search,
+                'url_params' => $this->url_params,
                 'permissions' => $this->current_user->getPermissions(),
                 'error_messages' => empty($this->error_messages) ? '' : inline_error(
                     $this->error_messages
@@ -332,7 +292,7 @@ class Render
         if ($this->post_type === self::POST_TYPE_ENTRY) {
             $entry_data->subject = postParser()->highlight_message(
                 postParser()->parse_badwords($entry_data->subject),
-                $this->search['keywords']
+                $this->url_params['keywords']
             );
 
             $entry_data
@@ -903,9 +863,9 @@ class Render
                 my_inet_ntop($this->database->unescape_binary($entry_data->ipaddress))
             );
 
-            if ($this->mybb->settings['logip'] == 'show') {
+            if ($this->mybb->settings['logip'] === 'show') {
                 $entry_data->setExtraData('show_ip', true);
-            } elseif ($this->mybb->settings['logip'] == 'hide' &&
+            } elseif ($this->mybb->settings['logip'] === 'hide' &&
                 ($this->current_user->hasPermission(
                         UserPermissions::EntriesCanView
                     ) || $this->mybb->usergroup['issupermod'])) {

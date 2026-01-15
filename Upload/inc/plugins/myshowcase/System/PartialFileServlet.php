@@ -126,7 +126,7 @@ readonly class PartialFileServlet
             $fileName = basename($localPath);
         }
 
-        if ($this->range == null) {
+        if ($this->range === null) {
             // No range requested, just send the whole file
             header('HTTP/1.1 200 OK');
 

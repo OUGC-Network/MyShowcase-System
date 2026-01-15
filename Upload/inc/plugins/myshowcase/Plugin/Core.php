@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Core;
 
-use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Enum\FormTypes;
 
@@ -636,9 +635,9 @@ const TABLES_DATA = [
             'max' => 255,
         ],
         'main_filter_force_field' => [ // force view entries by uid, etc
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'VARCHAR',
+            'size' => 10,
+            'default' => '',
             'category' => 'main',
             'input_type' => FormTypes::SelectFilterField,
         ],

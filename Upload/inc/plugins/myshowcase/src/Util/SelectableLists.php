@@ -24,12 +24,12 @@ use PostgresPdoDbDriver;
 
 use function MyBB\app;
 
-readonly class SelectableArrays
+readonly class SelectableLists
 {
     public function __construct(
         private MyLanguage $language,
-        private readonly null|DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database = null,
-        private readonly ?datacache $cache = null,
+        private null|DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database = null,
+        private ?datacache $cache = null,
     ) {
     }
 

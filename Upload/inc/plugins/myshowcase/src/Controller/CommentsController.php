@@ -20,10 +20,10 @@ use DB_PgSQL;
 use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyLanguage;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
-use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\EventDispatcher;
@@ -86,6 +86,7 @@ class CommentsController extends BaseController
             $routing,
             $this->database,
             $this->mybb,
+            $this->language,
             $this->event_dispatcher,
             $this->current_user,
             $this->entries_repository,
@@ -161,7 +162,7 @@ class CommentsController extends BaseController
             $comment_data = new Comment();
         }
 
-        $this->forcedFieldBreadcrumb();
+        $this->forcedFieldBreadcrumb($entry_data->user_id);
 
         add_breadcrumb(
             $this->config['name'],

@@ -10,10 +10,10 @@ use DB_SQLite;
 use DefaultPage;
 use Form;
 use FormContainer;
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Enum\FormTypes;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Repository\ShowcasesRepository;
@@ -26,7 +26,6 @@ use PostgresPdoDbDriver;
 
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
-use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldsetGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -62,7 +61,7 @@ class AdminManager
 
     private array $groups_cache;
 
-    public function __construct(
+    #[NoReturn] public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
         private readonly MyLanguage $language,
@@ -135,11 +134,11 @@ EOL;
             $this->showcaseClearPermissions();
         } elseif ($this->mybb->get_input('action') === 'permissions') {
             $this->showcasePermissions();
-        } elseif ($this->mybb->get_input('action') === 'create' || $this->mybb->get_input('action') === 'update') {
+        } elseif (in_array($this->mybb->get_input('action'), ['create', 'update'])) {
             $this->showcaseCreateUpdate();
-        } elseif (in_array($this->mybb->get_input('action'), ['tableCreate', 'tableRebuild'])) {
+        } elseif (in_array($this->mybb->get_input('action'), ['create_table', 'rebuild_table'])) {
             $this->showcaseTableCreateRebuild();
-        } elseif ($this->mybb->get_input('action') === 'tableDrop') {
+        } elseif ($this->mybb->get_input('action') === 'drop_table') {
             $this->showcaseTableDrop();
         } elseif ($this->mybb->get_input('action') === 'delete') {
             $this->showcaseDelete();
@@ -1132,7 +1131,7 @@ EOL;
 
     private function showcaseTableCreateRebuild(): void
     {
-        $createTable = $this->mybb->get_input('action') === 'tableCreate';
+        $createTable = $this->mybb->get_input('action') === 'create_table';
 
         $showcaseData = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['field_set_id'], ['limit' => 1]);
 
@@ -1210,7 +1209,7 @@ EOL;
         }
 
         $this->page->output_confirm_action(
-            $this->url->build(['action' => 'tableDrop', 'showcase_id' => $this->showcase_id]),
+            $this->url->build(['action' => 'drop_table', 'showcase_id' => $this->showcase_id]),
             $this->language->sprintf($this->language->myShowcaseAdminConfirmTableDrop, $showcaseName)
         );
     }
@@ -1370,18 +1369,18 @@ EOL;
 
                     $popup->add_item(
                         $this->language->myshowcase_summary_createtable,
-                        $this->url->build(['action' => 'tableCreate', 'showcase_id' => $showcase_id])
+                        $this->url->build(['action' => 'create_table', 'showcase_id' => $showcase_id])
                     );
                 } else //create delete table popup item
                 {
                     $popup->add_item(
                         $this->language->myshowcase_summary_rebuildtable,
-                        $this->url->build(['action' => 'tableRebuild', 'showcase_id' => $showcase_id])
+                        $this->url->build(['action' => 'rebuild_table', 'showcase_id' => $showcase_id])
                     );
 
                     $popup->add_item(
                         $this->language->myshowcase_summary_deletetable,
-                        $this->url->build(['action' => 'tableDrop', 'showcase_id' => $showcase_id])
+                        $this->url->build(['action' => 'drop_table', 'showcase_id' => $showcase_id])
                     );
                 }
 

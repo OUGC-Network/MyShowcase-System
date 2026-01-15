@@ -57,7 +57,7 @@ function hooksAdd(string $namespace): bool
     foreach ($definedUserFunctions as $callable) {
         $namespaceWithPrefixLength = strlen($namespaceLowercase) + 1;
 
-        if (substr($callable, 0, $namespaceWithPrefixLength) == $namespaceLowercase . '\\') {
+        if (substr($callable, 0, $namespaceWithPrefixLength) === $namespaceLowercase . '\\') {
             $hookName = substr_replace($callable, '', 0, $namespaceWithPrefixLength);
 
             $priority = substr($callable, -2);

@@ -25,7 +25,6 @@ use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Permission;
 use MyShowcase\Entity\User;
 use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Enum\FilterFields;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
@@ -177,12 +176,7 @@ class Showcase
 
         $this->moderators_repository = new ModeratorsRepository($this->database, $this->config);
 
-
         $this->data_table_exists = $this->database->table_exists('myshowcase_data' . $this->config['showcase_id']);
-
-        if (!$this->database->table_exists('myshowcase_data' . $this->config['showcase_id'])) {
-            //throw new RuntimeException('The MyShowcase System does not exist.');
-        }
 
         $this->config['showcase_url'] = rtrim($this->config['showcase_url'], '/');
 
@@ -222,18 +216,6 @@ class Showcase
                     $this->fieldset_searchable_fields[$field_definition['field_key']] = $field_definition['html_type'];
                 }
             }
-        }
-
-        switch ($this->config['main_filter_force_field']) {
-            case FilterFields::UserID:
-
-                if ($this->mybb->get_input('user_id', MyBB::INPUT_INT) > 0) {
-                    $this->filter['force_field_value'] = $this->mybb->get_input('user_id', MyBB::INPUT_INT);
-                } else {
-                    $this->filter['force_field_value'] = $this->current_user->user_id;
-                }
-
-                break;
         }
 
         $this->mybb->binary_fields['myshowcase_data' . $this->config['showcase_id']]['ipaddress'] = true;
