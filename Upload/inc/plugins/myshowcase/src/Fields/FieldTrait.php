@@ -63,15 +63,15 @@ trait FieldTrait
 
     public function isViewableInEntry(): bool
     {
-        if (empty($this->fieldDefinition['is_enabled'])) {
+        if (empty($this->field_definition['is_enabled'])) {
             return false;
         }
 
-        if (empty($this->fieldDefinition['display_in_view_page'])) {
+        if (empty($this->field_definition['display_in_view_page'])) {
             return false;
         }
 
-        return (bool)is_member($this->fieldDefinition['allowed_groups_view']);
+        return (bool)is_member($this->field_definition['allowed_groups_view']);
     }
 
     public function valueSet(string|int|bool $userValue): self
@@ -81,10 +81,10 @@ trait FieldTrait
         return $this;
     }
 
-    public function valuesBuild(Entry $entry_data): void
+    public function valuesBuild(Entry $entry): void
     {
-        if (!$this->fieldDefinition['display_in_view_page'] ||
-            !is_member($this->fieldDefinition['allowed_groups_view'])) {
+        if (!$this->field_definition['display_in_view_page'] ||
+            !is_member($this->field_definition['allowed_groups_view'])) {
             return;
         }
 
@@ -98,7 +98,7 @@ trait FieldTrait
             }
 
             foreach ($userValues as $userValueKey => $userValueValue) {
-                switch ($this->fieldDefinition['html_type']) {
+                switch ($this->field_definition['html_type']) {
                     case FieldHtmlTypes::CheckBox:
                     case FieldHtmlTypes::Radio:
                     case FieldHtmlTypes::Select:
@@ -110,7 +110,7 @@ trait FieldTrait
                                 [
                                     "field_data_id='{$value_id}'",
                                     "set_id='{$this->fieldset_id}'",
-                                    "field_id='{$this->fieldDefinition['field_id']}'"
+                                    "field_id='{$this->field_definition['field_id']}'"
                                 ],
                                 [
                                     'value',
@@ -132,26 +132,26 @@ trait FieldTrait
                         break;
                 }
 
-                if (!$this->fieldDefinition['parse'] && $this->search_highlight) {
+                if (!$this->field_definition['parse'] && $this->field_definition['enable_search'] && $this->search_highlight) {
                     $userValues[$userValueKey] = postParser()->highlight_message(
                         $userValues[$userValueKey],
-                        ['highlight' => $this->search_highlight]
+                        $this->search_highlight
                     );
 
                     $user_value_display[$userValueKey] = postParser()->highlight_message(
                         $user_value_display[$userValueKey],
-                        ['highlight' => $this->search_highlight]
+                        $this->search_highlight
                     );
-                } elseif ($this->fieldDefinition['parse']) {
+                } elseif ($this->field_definition['parse']) {
                     $parser_options = array_merge($this->parser_options, [
-                        'allow_html' => !empty($this->fieldDefinition['parser_allow_html']),
-                        'allow_mycode' => !empty($this->fieldDefinition['parser_allow_mycode']),
-                        'allow_smilies' => !empty($this->fieldDefinition['parser_allow_smiles']),
-                        'allow_imgcode' => !empty($this->fieldDefinition['parser_allow_image_code']),
-                        'allow_videocode' => !empty($this->fieldDefinition['parser_allow_video_code'])
+                        'allow_html' => !empty($this->field_definition['parser_allow_html']),
+                        'allow_mycode' => !empty($this->field_definition['parser_allow_mycode']),
+                        'allow_smilies' => !empty($this->field_definition['parser_allow_smiles']),
+                        'allow_imgcode' => !empty($this->field_definition['parser_allow_image_code']),
+                        'allow_videocode' => !empty($this->field_definition['parser_allow_video_code'])
                     ]);
 
-                    if ($this->search_highlight) {
+                    if ($this->field_definition['enable_search'] && $this->search_highlight) {
                         $parser_options['highlight'] = $this->search_highlight;
                     }
 
@@ -184,19 +184,19 @@ trait FieldTrait
             $this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
-        $this->attachmentsFetch($entry_data);
+        $this->attachmentsFetch($entry);
     }
 
-    public function attachmentsFetch(Entry $entry_data): void
+    public function attachmentsFetch(Entry $entry): void
     {
-        $where_clauses = ["field_id='{$this->fieldDefinition['field_id']}'"];
+        $where_clauses = ["field_id='{$this->field_definition['field_id']}'"];
 
-        if (!empty($entry_data->entry_id)) {
-            $where_clauses[] = "entry_id='{$entry_data->entry_id}'";
+        if (!empty($entry->entry_id)) {
+            $where_clauses[] = "entry_id='{$entry->entry_id}'";
         } else {
             global $db;
 
-            $where_clauses[] = "post_hash='{$db->escape_string($entry_data->post_hash)}'";
+            $where_clauses[] = "post_hash='{$db->escape_string($entry->post_hash)}'";
         }
 
         foreach (
@@ -244,10 +244,10 @@ trait FieldTrait
     {
         global $lang;
 
-        $fieldDescription = $this->fieldDefinition['description'] ?? ($lang->{'myshowcase_fieldset_field_' . $this->fieldDefinition['field_key'] . '_description'} ?? '');
+        $fieldDescription = $this->field_definition['description'] ?? ($lang->{'myshowcase_fieldset_field_' . $this->field_definition['field_key'] . '_description'} ?? '');
 
         if ($fieldDescription) {
-            if ($this->fieldDefinition['allow_multiple_values']) {
+            if ($this->field_definition['allow_multiple_values']) {
                 // todo, add description for comma/line multiple separator
             }
         }
@@ -259,14 +259,14 @@ trait FieldTrait
     {
         return false;
         // todo, allow only html compatible fields
-        return fieldTypeMatchText($this->fieldDefinition['field_type']) &&
-            $this->fieldDefinition['allow_multiple_values'];
+        return fieldTypeMatchText($this->field_definition['field_type']) &&
+            $this->field_definition['allow_multiple_values'];
     }
 
     public function renderMain(): string
     {
-        if (!$this->fieldDefinition['display_in_main_page'] || !is_member(
-                $this->fieldDefinition['allowed_groups_view']
+        if (!$this->field_definition['display_in_main_page'] || !is_member(
+                $this->field_definition['allowed_groups_view']
             )) {
             return '';
         }
@@ -315,7 +315,7 @@ trait FieldTrait
             fieldDataGet(
                 [
                     "set_id='{$this->fieldset_id}'",
-                    "field_id='{$this->fieldDefinition['field_id']}'"
+                    "field_id='{$this->field_definition['field_id']}'"
                 ],
                 [
                     'field_data_id',

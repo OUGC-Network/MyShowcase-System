@@ -182,13 +182,13 @@ class CommentsManager
     /**
      * Sets the data to be used for the data handler
      *
-     * @param Comment $entry_data
+     * @param Comment $entry
      * @param string $method
      * @return void
      */
-    public function validateSet(Comment $entry_data, string $method = self::VALIDATION_METHOD_INSERT): void
+    public function validateSet(Comment $entry, string $method = self::VALIDATION_METHOD_INSERT): void
     {
-        $this->validation_data = $entry_data;
+        $this->validation_data = $entry;
 
         $this->validation_method = $method;
     }

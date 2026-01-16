@@ -56,8 +56,8 @@ class PermissionsRepository
             $query_options
         );
 
-        while ($entry_data = $this->db->fetch_array($query)) {
-            yield $entry_data;
+        while ($entry = $this->db->fetch_array($query)) {
+            yield $entry;
         }
     }
 
@@ -75,9 +75,9 @@ class PermissionsRepository
                 $where_clauses,
                 $query_fields,
                 $query_options,
-            ) as $entry_data
+            ) as $entry
         ) {
-            $entry_object = $entry_data;
+            $entry_object = $entry;
 
             break;
         }

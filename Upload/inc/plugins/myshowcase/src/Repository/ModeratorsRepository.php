@@ -37,7 +37,7 @@ class ModeratorsRepository
         array $query_options = []
     ): array {
         $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
-        
+
         $query = $this->db->simple_select(
             'myshowcase_moderators',
             implode(',', array_merge(['moderator_id'], $query_fields)),
@@ -62,11 +62,11 @@ class ModeratorsRepository
     {
         $this->insert_data = [];
 
-        foreach (TABLES_DATA['myshowcase_moderators'] as $fieldName => $fieldDefinition) {
-            if (isset($moderator_data[$fieldName])) {
-                $this->insert_data[$fieldName] = sanitizeTableFieldValue(
-                    $moderator_data[$fieldName],
-                    $fieldDefinition['type']
+        foreach (TABLES_DATA['myshowcase_moderators'] as $field_name => $field_definition) {
+            if (isset($moderator_data[$field_name])) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $moderator_data[$field_name],
+                    $field_definition['type']
                 );
             }
         }

@@ -80,9 +80,9 @@ function global_intermediate(): bool
     foreach (
         $cache_manager->get(
             CacheDataTypes::Config
-        ) as $showcaseID => $showcaseData
+        ) as $showcase_id => $showcase_data
     ) {
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         //if showcase is is_enabled...
         if ($showcaseObject->config['is_enabled']) {
@@ -273,11 +273,11 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
         case 'myshowcase_view':
             if (array_key_exists('entry_id', $plugin_array['user_activity'])) {
-                $showcaseID = (int)$plugin_array['user_activity']['myshowcase_id'];
+                $showcase_id = (int)$plugin_array['user_activity']['myshowcase_id'];
 
                 $entryID = $plugin_array['user_activity']['entry_id'];
 
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
                 $showcaseObjects = $showcase->entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
 
@@ -364,8 +364,8 @@ function showthread_start(): bool
 
         //get myshowcase counts for users in thread
         if (count($uids)) {
-            foreach ($showcase_objects as $showcaseID) {
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+            foreach ($showcase_objects as $showcase_id) {
+                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
                 foreach (
                     $showcase->entries_repository->queryEntries(
@@ -374,7 +374,7 @@ function showthread_start(): bool
                         ['group_by' => 'user_id']
                     ) as $entryFieldID => $entryFieldData
                 ) {
-                    $showcase_objects[$showcaseID]['uids'][$entryFieldData['user_id']] = $entryFieldData['total_user_entries'];
+                    $showcase_objects[$showcase_id]['uids'][$entryFieldData['user_id']] = $entryFieldData['total_user_entries'];
                 }
             }
         }
@@ -414,7 +414,7 @@ function postbit(array &$post): array
             foreach (
                 $cache_manager->get(
                     CacheDataTypes::Config
-                ) as $showcase_id => $showcaseData
+                ) as $showcase_id => $showcase_data
             ) {
                 $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
@@ -459,13 +459,13 @@ function postbit(array &$post): array
                             'entry_slug',
                             'entry_slug_custom',
                         ],
-                    ) as $entry_id => $entry_data
+                    ) as $entry_id => $entry
                 ) {
-                    $showcase->entries_manager->addEntry($entry_data);
+                    $showcase->entries_manager->addEntry($entry);
                 }
 
                 foreach ($showcase->attachments_manager->getAttachments() as $attachment_data) {
-                    $entry_data = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+                    $entry = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
 
                     $attachment_data
                         ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
@@ -503,14 +503,14 @@ function postbit(array &$post): array
                         $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
                     }
 
-                    $entry_data->addAttachment($attachment_data);
+                    $entry->addAttachment($attachment_data);
                 }
             }
 
             foreach (
                 $cache_manager->get(
                     CacheDataTypes::Config
-                ) as $showcase_id => $showcaseData
+                ) as $showcase_id => $showcase_data
             ) {
                 $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
@@ -522,9 +522,9 @@ function postbit(array &$post): array
                         continue;
                     }
 
-                    $entry_data = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+                    $entry = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
 
-                    if (!$entry_data) {
+                    if (!$entry) {
                         continue;
                     }
 
@@ -582,9 +582,9 @@ function report_type(): void
 
         $entryID = $mybb->get_input('pid', MyBB::INPUT_INT);
 
-        $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
+        $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         $entryData = $showcase->entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
@@ -621,9 +621,9 @@ function report_type(): void
 
         $commentID = $mybb->get_input('pid', MyBB::INPUT_INT);
 
-        $showcaseID = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
+        $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         $commentData = $showcase->comments_repository->queryComment(["comment_id='{$commentID}'"],
             ['entry_id', 'user_id']
@@ -664,11 +664,11 @@ function modcp_reports_report(): void
     if ($report['type'] === 'showcase_entries') {
         loadLanguage();
 
-        $showcaseID = (int)$report['id'];
+        $showcase_id = (int)$report['id'];
 
         $entryID = (int)$report['id2'];
 
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         $entryData = $showcaseObject->entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
@@ -694,11 +694,11 @@ function modcp_reports_report(): void
     if ($report['type'] === 'showcase_comments') {
         loadLanguage();
 
-        $showcaseID = (int)$report['id'];
+        $showcase_id = (int)$report['id'];
 
         $commentID = (int)$report['id2'];
 
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         $commentData = $showcaseObject->comments_repository->queryComment(
             ["comment_id='{$commentID}'"],

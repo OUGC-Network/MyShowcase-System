@@ -36,7 +36,7 @@ class EntriesRepository
 
     private array $insert_data = [];
 
-    private Entry $entry_data;
+    private Entry $entry;
 
     private bool $is_update;
 
@@ -70,8 +70,8 @@ class EntriesRepository
             $query_options
         );
 
-        while ($entry_data = $this->database->fetch_array($query)) {
-            yield $entry_data;
+        while ($entry = $this->database->fetch_array($query)) {
+            yield $entry;
         }
     }
 
@@ -91,9 +91,9 @@ class EntriesRepository
                 $query_fields,
                 $query_options,
                 $query_tables
-            ) as $entry_data
+            ) as $entry
         ) {
-            $entry_object = $entry_data;
+            $entry_object = $entry;
 
             break;
         }
@@ -142,11 +142,11 @@ class EntriesRepository
     /**
      * @throws RandomException
      */
-    public function insertEntry(Entry $entry_data, bool $is_update = false): int
+    public function insertEntry(Entry $entry, bool $is_update = false): int
     {
-        $this->entry_data = $entry_data;
+        $this->entry_data = $entry;
 
-        $this->entry_id = $entry_data->entry_id;
+        $this->entry_id = $entry->entry_id;
 
         $this->insert_data = [];
 
@@ -213,24 +213,24 @@ class EntriesRepository
             $this->database->update_query(
                 'myshowcase_data' . $this->config['showcase_id'],
                 $this->insert_data,
-                "entry_id='{$entry_data->entry_id}'"
+                "entry_id='{$entry->entry_id}'"
             );
         } else {
-            $entry_data->entry_id = (int)$this->database->insert_query(
+            $entry->entry_id = (int)$this->database->insert_query(
                 'myshowcase_data' . $this->config['showcase_id'],
                 $this->insert_data
             );
         }
 
-        return $entry_data->entry_id;
+        return $entry->entry_id;
     }
 
     /**
      * @throws RandomException
      */
-    public function updateEntry(Entry $entry_data): int
+    public function updateEntry(Entry $entry): int
     {
-        return $this->insertEntry($entry_data, true);
+        return $this->insertEntry($entry, true);
     }
 
     public function deleteEntry(int $entry_id): void

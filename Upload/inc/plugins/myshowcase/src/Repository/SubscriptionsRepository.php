@@ -54,8 +54,8 @@ class SubscriptionsRepository
             $query_options
         );
 
-        while ($entry_data = $this->database->fetch_array($query)) {
-            yield $entry_data;
+        while ($entry = $this->database->fetch_array($query)) {
+            yield $entry;
         }
     }
 
@@ -73,9 +73,9 @@ class SubscriptionsRepository
                 $where_clauses,
                 $query_fields,
                 $query_options,
-            ) as $entry_data
+            ) as $entry
         ) {
-            $entry_object = $entry_data;
+            $entry_object = $entry;
 
             break;
         }

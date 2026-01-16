@@ -243,13 +243,13 @@ function pluginActivation(): bool
         }
 
         if ($tableName === 'myshowcase_data') {
-            foreach (showcaseGet() as $showcaseID => $showcaseData) {
-                if (showcaseDataTableExists($showcaseID)) {
+            foreach (showcaseGet() as $showcase_id => $showcase_data) {
+                if (showcaseDataTableExists($showcase_id)) {
                     foreach ($tableData as $oldColumnName => $newColumnName) {
-                        if ($db->field_exists($oldColumnName, 'myshowcase_data' . $showcaseID) &&
-                            !$db->field_exists($newColumnName, 'myshowcase_data' . $showcaseID)) {
+                        if ($db->field_exists($oldColumnName, 'myshowcase_data' . $showcase_id) &&
+                            !$db->field_exists($newColumnName, 'myshowcase_data' . $showcase_id)) {
                             $db->rename_column(
-                                'myshowcase_data' . $showcaseID,
+                                'myshowcase_data' . $showcase_id,
                                 $oldColumnName,
                                 $newColumnName,
                                 buildDbFieldDefinition(DATA_TABLE_STRUCTURE[$tableName][$newColumnName])
@@ -289,8 +289,8 @@ function pluginActivation(): bool
 
     global $lang;
 
-    foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+    foreach (showcaseGet() as $showcase_id => $showcase_data) {
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         foreach (
             $showcase->comments_repository->queryComments(["comment_slug=''"],
@@ -305,12 +305,12 @@ function pluginActivation(): bool
 
     /*~*~* RUN UPDATES END *~*~*/
 
-    foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+    foreach (showcaseGet() as $showcase_id => $showcase_data) {
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
-        $dataTableStructure = dataTableStructureGet($showcaseID);
+        $dataTableStructure = dataTableStructureGet($showcase_id);
 
-        dbVerifyTables(["myshowcase_data{$showcaseID}" => $dataTableStructure]);
+        dbVerifyTables(["myshowcase_data{$showcase_id}" => $dataTableStructure]);
 
         foreach (
             $showcase->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData
@@ -376,9 +376,9 @@ function pluginUninstallation(): bool
 
     //drop tables but only if setting specific to allow uninstall is is_enabled
     if (!empty($mybb->settings['myshowcase_delete_tables_on_uninstall'])) {
-        foreach (showcaseGet() as $showcaseID => $showcaseData) {
-            if (showcaseDataTableExists($showcaseID)) {
-                showcaseDataTableDrop($showcaseID);
+        foreach (showcaseGet() as $showcase_id => $showcase_data) {
+            if (showcaseDataTableExists($showcase_id)) {
+                showcaseDataTableDrop($showcase_id);
             }
         }
 
@@ -387,8 +387,8 @@ function pluginUninstallation(): bool
         }
 
         foreach (FIELDS_DATA as $tableName => $tableData) {
-            foreach ($tableData as $fieldName => $fieldDefinition) {
-                !$db->field_exists($fieldName, $tableName) || $db->drop_column($tableName, $fieldName);
+            foreach ($tableData as $field_name => $field_definition) {
+                !$db->field_exists($field_name, $tableName) || $db->drop_column($tableName, $field_name);
             }
         }
     }
@@ -527,23 +527,23 @@ function dbTables(array $tableObjects = TABLES_DATA): array
     $tablesData = [];
 
     foreach ($tableObjects as $tableName => $tableData) {
-        foreach ($tableData as $fieldName => $fieldDefinition) {
-            if (!isset($fieldDefinition['type'])) {
+        foreach ($tableData as $field_name => $field_definition) {
+            if (!isset($field_definition['type'])) {
                 continue;
             }
 
-            $tablesData[$tableName][$fieldName] = buildDbFieldDefinition($fieldDefinition);
+            $tablesData[$tableName][$field_name] = buildDbFieldDefinition($field_definition);
         }
 
-        foreach ($tableData as $fieldName => $fieldDefinition) {
-            if (isset($fieldDefinition['primary_key'])) {
-                $tablesData[$tableName]['primary_key'] = $fieldName;
+        foreach ($tableData as $field_name => $field_definition) {
+            if (isset($field_definition['primary_key'])) {
+                $tablesData[$tableName]['primary_key'] = $field_name;
             }
 
-            if ($fieldName === 'unique_keys') {
+            if ($field_name === 'unique_keys') {
                 $tablesData[$tableName]['unique_keys'] = array_merge(
                     $tablesData[$tableName]['unique_keys'] ?? [],
-                    $fieldDefinition
+                    $field_definition
                 );
             }
         }
@@ -562,15 +562,15 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
 
     foreach (dbTables($tableObjects) as $tableName => $tableData) {
         if ($db->table_exists($tableName)) {
-            foreach ($tableData as $fieldName => $fieldDefinition) {
-                if ($fieldName === 'primary_key' || $fieldName === 'unique_keys') {
+            foreach ($tableData as $field_name => $field_definition) {
+                if ($field_name === 'primary_key' || $field_name === 'unique_keys') {
                     continue;
                 }
 
-                if ($db->field_exists($fieldName, $tableName)) {
-                    $db->modify_column($tableName, "`{$fieldName}`", $fieldDefinition);
+                if ($db->field_exists($field_name, $tableName)) {
+                    $db->modify_column($tableName, "`{$field_name}`", $field_definition);
                 } else {
-                    $db->add_column($tableName, $fieldName, $fieldDefinition);
+                    $db->add_column($tableName, $field_name, $field_definition);
                 }
             }
         } else {
@@ -578,11 +578,11 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
 
             $fields = [];
 
-            foreach ($tableData as $fieldName => $fieldDefinition) {
-                if ($fieldName === 'primary_key') {
-                    $fields[] = "PRIMARY KEY (`{$fieldDefinition}`)";
-                } elseif ($fieldName !== 'unique_keys') {
-                    $fields[] = "`{$fieldName}` {$fieldDefinition}";
+            foreach ($tableData as $field_name => $field_definition) {
+                if ($field_name === 'primary_key') {
+                    $fields[] = "PRIMARY KEY (`{$field_definition}`)";
+                } elseif ($field_name !== 'unique_keys') {
+                    $fields[] = "`{$field_name}` {$field_definition}";
                 }
             }
 
@@ -669,15 +669,15 @@ function dbVerifyColumns(array $fieldObjects = FIELDS_DATA): bool
     global $db;
 
     foreach ($fieldObjects as $tableName => $tableData) {
-        foreach ($tableData as $fieldName => $fieldDefinition) {
-            if (!isset($fieldDefinition['type'])) {
+        foreach ($tableData as $field_name => $field_definition) {
+            if (!isset($field_definition['type'])) {
                 continue;
             }
 
-            if ($db->field_exists($fieldName, $tableName)) {
-                $db->modify_column($tableName, "`{$fieldName}`", buildDbFieldDefinition($fieldDefinition));
+            if ($db->field_exists($field_name, $tableName)) {
+                $db->modify_column($tableName, "`{$field_name}`", buildDbFieldDefinition($field_definition));
             } else {
-                $db->add_column($tableName, $fieldName, buildDbFieldDefinition($fieldDefinition));
+                $db->add_column($tableName, $field_name, buildDbFieldDefinition($field_definition));
             }
         }
     }
@@ -711,59 +711,59 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
             continue;
         }
 
-        foreach ($tableData as $fieldName => $fieldDefinition) {
-            if (!isset($fieldDefinition['type'])) {
+        foreach ($tableData as $field_name => $field_definition) {
+            if (!isset($field_definition['type'])) {
                 continue;
             }
 
-            $isInstalledEach = $db->field_exists($fieldName, $tableName) && $isInstalledEach;
+            $isInstalledEach = $db->field_exists($field_name, $tableName) && $isInstalledEach;
         }
     }
 
     return $isInstalledEach;
 }
 
-function buildDbFieldDefinition(array $fieldDefinition): string
+function buildDbFieldDefinition(array $field_definition): string
 {
     $definitionString = '';
 
-    $definitionString .= $fieldDefinition['type'];
+    $definitionString .= $field_definition['type'];
 
-    if (isset($fieldDefinition['size']) && (
-            !fieldTypeMatchText($fieldDefinition['type']) ||
-            !fieldTypeMatchDateTime($fieldDefinition['type'])
+    if (isset($field_definition['size']) && (
+            !fieldTypeMatchText($field_definition['type']) ||
+            !fieldTypeMatchDateTime($field_definition['type'])
         )) {
-        $definitionString .= "({$fieldDefinition['size']})";
+        $definitionString .= "({$field_definition['size']})";
     }
 
-    if (isset($fieldDefinition['unsigned']) && (
-            !fieldTypeMatchChar($fieldDefinition['type']) ||
-            !fieldTypeMatchText($fieldDefinition['type']) ||
-            !fieldTypeMatchDateTime($fieldDefinition['type']) ||
-            !fieldTypeMatchBinary($fieldDefinition['type'])
+    if (isset($field_definition['unsigned']) && (
+            !fieldTypeMatchChar($field_definition['type']) ||
+            !fieldTypeMatchText($field_definition['type']) ||
+            !fieldTypeMatchDateTime($field_definition['type']) ||
+            !fieldTypeMatchBinary($field_definition['type'])
         )) {
-        if ($fieldDefinition['unsigned'] === true) {
+        if ($field_definition['unsigned'] === true) {
             $definitionString .= ' UNSIGNED';
         } else {
             $definitionString .= ' SIGNED';
         }
     }
 
-    if (!isset($fieldDefinition['null'])) {
+    if (!isset($field_definition['null'])) {
         $definitionString .= ' NOT';
     }
 
     $definitionString .= ' NULL';
 
-    if (isset($fieldDefinition['auto_increment'])) {
+    if (isset($field_definition['auto_increment'])) {
         $definitionString .= ' AUTO_INCREMENT';
     }
 
-    if (isset($fieldDefinition['default'])) {
-        if (in_array($fieldDefinition['default'], ['TIMESTAMP', 'UUID'])) {
-            $definitionString .= " DEFAULT {$fieldDefinition['default']}";
+    if (isset($field_definition['default'])) {
+        if (in_array($field_definition['default'], ['TIMESTAMP', 'UUID'])) {
+            $definitionString .= " DEFAULT {$field_definition['default']}";
         } else {
-            $definitionString .= " DEFAULT '{$fieldDefinition['default']}'";
+            $definitionString .= " DEFAULT '{$field_definition['default']}'";
         }
     }
 

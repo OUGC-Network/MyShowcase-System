@@ -149,22 +149,22 @@ class AttachmentsController extends BaseController
         $entry_id = null;
 
         if ($post_hash === null) {
-            $entry_data = $this->entries_repository->queryEntry(
+            $entry = $this->entries_repository->queryEntry(
                 ["entry_slug='{$entry_slug}'"],
                 ['entry_id', 'post_hash', 'status', 'user_id'],
             );
 
-            if (!$entry_data) {
+            if (!$entry) {
                 $this->errorNoPermission();
             }
 
-            $this->entries_manager->addEntry($entry_data);
+            $this->entries_manager->addEntry($entry);
 
-            $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+            $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
 
-            $entry_id = $entry_data->entry_id;
+            $entry_id = $entry->entry_id;
         } else {
-            $entry_data = new Entry(post_hash: $post_hash, user_id: $this->current_user->user_id);
+            $entry = new Entry(post_hash: $post_hash, user_id: $this->current_user->user_id);
         }
 
         if ($mybb->request_method === 'post') {
@@ -172,7 +172,7 @@ class AttachmentsController extends BaseController
 
             $upload_attachment_result = $this->attachments_manager->uploadAttachment(
                 $_FILES[$field_key],
-                $entry_data,
+                $entry,
                 field_id: $field_id,
                 field_definition: $field_id ? $this->fieldset_fields[$field_id] : [],
                 do_watermark: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
@@ -407,14 +407,14 @@ class AttachmentsController extends BaseController
             array_keys(TABLES_DATA['myshowcase_attachments']),
         );
 
-        $entry_data = $this->entries_repository->queryEntry(
+        $entry = $this->entries_repository->queryEntry(
             ["entry_id='{$this->attachment_data['entry_id']}'"],
             ['entry_id', 'user_id', 'post_hash', 'status']
         );
 
-        $this->entries_manager->addEntry($entry_data);
+        $this->entries_manager->addEntry($entry);
 
-        $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+        $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
 
         hooksRun('controller_attachments_download_start', $this);
 
@@ -464,7 +464,7 @@ class AttachmentsController extends BaseController
             if (!$this->current_user->hasPermission(UserPermissions::CanManageAttachments) &&
                 (
                     (int)$this->attachment_data['status'] !== $this->attachments_manager::STATUS_VISIBLE ||
-                    $entry_data->status !== $this->entries_manager::STATUS_VISIBLE
+                    $entry->status !== $this->entries_manager::STATUS_VISIBLE
                 )
             ) {
                 $this->error($lang->error_invalidattachment);

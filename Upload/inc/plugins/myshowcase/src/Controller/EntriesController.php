@@ -228,15 +228,6 @@ class EntriesController extends BaseController
             $where_clauses[] = "({$search_where_clauses})";
         }
 
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-
         if ($this->mybb->get_input('action') === 'inline_moderation') {
             verify_post_check($this->mybb->get_input('my_post_key'));
 
@@ -245,23 +236,23 @@ class EntriesController extends BaseController
                     $where_clauses,
                     $query_options,
                     $this->render_manager->url_params,
-                ) as $entry_data
+                ) as $entry
             ) {
-                $this->entries_manager->addEntry($entry_data);
+                $this->entries_manager->addEntry($entry);
             }
 
             $selected_entries = $this->entries_manager->getEntries()->filter(
-                fn(Entry $entry_data) => (
+                fn(Entry $entry) => (
                         $this->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         !in_array(
-                            $entry_data->entry_slug,
+                            $entry->entry_slug,
                             (array)json_decode($this->mybb->get_input('unselected_entries'), true),
                             true
                         )
                     ) || (
                         !$this->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         in_array(
-                            $entry_data->entry_slug,
+                            $entry->entry_slug,
                             (array)json_decode($this->mybb->get_input('selected_entries'), true),
                             true
                         )
@@ -271,10 +262,10 @@ class EntriesController extends BaseController
             switch ($this->mybb->get_input('moderate')) {
                 case 'open':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
-                        $this->entries_repository->updateEntry(['is_closed' => 0], $entry_data->entry_id);
+                    foreach ($selected_entries as $entry) {
+                        $this->entries_repository->updateEntry(['is_closed' => 0], $entry->entry_id);
                     }
 
                     redirect(
@@ -288,10 +279,10 @@ class EntriesController extends BaseController
                     break;
                 case 'close':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
-                        $this->entries_repository->updateEntry(['is_closed' => 1], $entry_data->entry_id);
+                    foreach ($selected_entries as $entry) {
+                        $this->entries_repository->updateEntry(['is_closed' => 1], $entry->entry_id);
                     }
 
                     redirect(
@@ -305,10 +296,10 @@ class EntriesController extends BaseController
                     break;
                 case 'stick':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
-                        $this->entries_repository->updateEntry(['is_sticky' => 1], $entry_data->entry_id);
+                    foreach ($selected_entries as $entry) {
+                        $this->entries_repository->updateEntry(['is_sticky' => 1], $entry->entry_id);
                     }
 
                     redirect(
@@ -322,10 +313,10 @@ class EntriesController extends BaseController
                     break;
                 case 'unstick':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
-                        $this->entries_repository->updateEntry(['is_sticky' => 0], $entry_data->entry_id);
+                    foreach ($selected_entries as $entry) {
+                        $this->entries_repository->updateEntry(['is_sticky' => 0], $entry->entry_id);
                     }
 
                     redirect(
@@ -339,12 +330,12 @@ class EntriesController extends BaseController
                     break;
                 case 'approve':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
+                    foreach ($selected_entries as $entry) {
                         $this->entries_repository->updateEntry(
                             ['status' => $this->entries_manager::STATUS_VISIBLE],
-                            $entry_data->entry_id
+                            $entry->entry_id
                         );
                     }
 
@@ -359,12 +350,12 @@ class EntriesController extends BaseController
                     break;
                 case 'unapprove':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
+                    foreach ($selected_entries as $entry) {
                         $this->entries_repository->updateEntry(
                             ['status' => $this->entries_manager::STATUS_PENDING],
-                            $entry_data->entry_id
+                            $entry->entry_id
                         );
                     }
 
@@ -381,12 +372,12 @@ class EntriesController extends BaseController
                     break;
                 case 'soft_delete':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
+                    foreach ($selected_entries as $entry) {
                         $this->entries_repository->updateEntry(
                             ['status' => $this->entries_manager::STATUS_DELETED],
-                            $entry_data->entry_id
+                            $entry->entry_id
                         );
                     }
 
@@ -401,12 +392,12 @@ class EntriesController extends BaseController
                     break;
                 case 'restore':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
+                    foreach ($selected_entries as $entry) {
                         $this->entries_repository->updateEntry(
                             ['status' => $this->entries_manager::STATUS_VISIBLE],
-                            $entry_data->entry_id
+                            $entry->entry_id
                         );
                     }
 
@@ -421,10 +412,10 @@ class EntriesController extends BaseController
                     break;
                 case 'delete':
                     /**
-                     * @var Entry $entry_data
+                     * @var Entry $entry
                      */
-                    foreach ($selected_entries as $entry_data) {
-                        $this->entries_repository->deleteEntry($entry_data->entry_id);
+                    foreach ($selected_entries as $entry) {
+                        $this->entries_repository->deleteEntry($entry->entry_id);
                     }
 
                     redirect(
@@ -442,12 +433,12 @@ class EntriesController extends BaseController
         }
 
         $order_dir_param = [
-            'order_dir' => SortDirections::Ascending
+            'order_dir' => SortDirections::Descending
         ];
 
-        if (empty($this->render_manager->url_params['order_dir']) || $this->render_manager->url_params['order_dir'] === SortDirections::Ascending) {
+        if (empty($this->render_manager->url_params['order_dir']) || $this->render_manager->url_params['order_dir'] === SortDirections::Descending) {
             $order_dir_param = [
-                'order_dir' => SortDirections::Descending
+                'order_dir' => SortDirections::Ascending
             ];
         }
 
@@ -463,19 +454,19 @@ class EntriesController extends BaseController
                 'sort' => [
                     'subject' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, ['order_by' => 'subject'], $order_dir_param)
+                        ['order_by' => 'subject'] + $order_dir_param + $this->render_manager->url_params,
                     ),
                     'username' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, ['order_by' => 'username'], $order_dir_param)
+                        ['order_by' => 'username'] + $order_dir_param + $this->render_manager->url_params,
                     ),
                     'comments' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, ['order_by' => 'comments'], $order_dir_param)
+                        ['order_by' => 'comments'] + $order_dir_param + $this->render_manager->url_params,
                     ),
                     'last_comment' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, ['order_by' => 'last_comment'], $order_dir_param)
+                        ['order_by' => 'last_comment'] + $order_dir_param + $this->render_manager->url_params,
                     ),
                 ],
             ],
@@ -580,9 +571,9 @@ class EntriesController extends BaseController
                 $where_clauses,
                 $query_options,
                 $this->render_manager->url_params,
-            ) as $entry_data
+            ) as $entry
         ) {
-            $this->entries_manager->addEntry($entry_data);
+            $this->entries_manager->addEntry($entry);
         }
 
         $templatesContext['entries_count'] = $this->entries_manager->total_entries;
@@ -642,7 +633,7 @@ class EntriesController extends BaseController
             }
 
             foreach ($this->attachments_manager->getAttachments() as $attachment_data) {
-                $entry_data = $this->entries_manager->getEntryByID($attachment_data->entry_id);
+                $entry = $this->entries_manager->getEntryByID($attachment_data->entry_id);
 
                 $attachment_data
                     ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
@@ -680,38 +671,38 @@ class EntriesController extends BaseController
                     $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
                 }
 
-                $entry_data->addAttachment($attachment_data);
+                $entry->addAttachment($attachment_data);
             }
 
-            foreach ($this->entries_manager->getEntries() as $entry_id => $entry_data) {
-                $this->loadEntryFields($entry_data);
+            foreach ($this->entries_manager->getEntries() as $entry_id => $entry) {
+                $this->loadEntryFields($entry);
 
-                $entry_data->setExtraData('unread_comments', false)
+                $entry->setExtraData('unread_comments', false)
                     ->setExtraData('modChecked', false);
 
                 if ($this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-                    $entry_data->setExtraData('modChecked', true);
+                    $entry->setExtraData('modChecked', true);
 
-                    if (!$entry_data->getExtraData('username')) {
-                        $entry_data->setExtraData('username', $this->language->guest);
+                    if (!$entry->getExtraData('username')) {
+                        $entry->setExtraData('username', $this->language->guest);
                     }
                 }
 
-                if ($entry_data->last_comment_id) {
+                if ($entry->last_comment_id) {
                     $last_comment_data = $this->comments_repository->queryComment(
-                        ["comment_id='{$entry_data->last_comment_id}'"],
+                        ["comment_id='{$entry->last_comment_id}'"],
                         'comment_slug'
                     );
                 }
 
-                $entry_data
+                $entry
                     ->setExtraData(
                         'url',
                         $this->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry_data->entry_slug,
-                                'entry_slug_custom' => $entry_data->entry_slug_custom
+                                'entry_slug' => $entry->entry_slug,
+                                'entry_slug_custom' => $entry->entry_slug_custom
                             ],
                             $this->render_manager->url_params
                         )
@@ -726,8 +717,8 @@ class EntriesController extends BaseController
                         ) : $this->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry_data->entry_slug,
-                                'entry_slug_custom' => $entry_data->entry_slug_custom,
+                                'entry_slug' => $entry->entry_slug,
+                                'entry_slug_custom' => $entry->entry_slug_custom,
                                 'action' => 'last_comment'
                             ],
                         )
@@ -735,12 +726,12 @@ class EntriesController extends BaseController
 
                 $fieldCache = [];
 
-                foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
-                    $entryFieldText = $entry_data->getExtraData($fieldDefinition['field_key']) ?? '';
+                foreach ($this->fieldset_fields as $field_id => $field_definition) {
+                    $entryFieldText = $entry->getExtraData($field_definition['field_key']) ?? '';
 
-                    if (!$fieldDefinition['parse'] && $entryFieldText !== false) {
+                    if (!$field_definition['parse'] && $entryFieldText !== false) {
                         // todo, remove this legacy updating the database and updating the format field to TINYINT
-                        formatField((int)$fieldDefinition['format'], $entryFieldText);
+                        formatField((int)$field_definition['format'], $entryFieldText);
                     } elseif ($entryFieldText !== false) {
                         $entryFieldText = $this->render_manager->parseMessage((string)$entryFieldText);
                     }
@@ -749,29 +740,29 @@ class EntriesController extends BaseController
                 }
 
                 // todo, subject should be main, additional fields concatenated
-                $entry_data
+                $entry
                     ->setExtraData('fields_cache', $fieldCache)
                     ->setExtraData('selected', false);
 
                 if ($this->render_manager->url_params['keywords']) {
-                    $entry_data->subject = postParser()->highlight_message(
-                        postParser()->parse_badwords($entry_data->subject),
+                    $entry->subject = postParser()->highlight_message(
+                        postParser()->parse_badwords($entry->subject),
                         $this->render_manager->url_params['keywords']
                     );
                 }
 
                 if ($this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-                    $entry_data->setExtraData('selected', true);
+                    $entry->setExtraData('selected', true);
                 }
 
-                if ($entry_data->status === $this->entries_manager::STATUS_PENDING) {
-                    $entry_data->setExtraData('background_class', 'trow_shaded');
-                } elseif ($entry_data->status === $this->entries_manager::STATUS_DELETED && $templatesContext['permissions']['entries_can_view]']) {
-                    $entry_data->setExtraData('background_class', 'trow_shaded trow_deleted');
+                if ($entry->status === $this->entries_manager::STATUS_PENDING) {
+                    $entry->setExtraData('background_class', 'trow_shaded');
+                } elseif ($entry->status === $this->entries_manager::STATUS_DELETED && $templatesContext['permissions']['entries_can_view]']) {
+                    $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
                 }
 
                 $comment_data = $this->comments_repository->queryComment(
-                    ["entry_id={$entry_data->entry_id}"],
+                    ["entry_id={$entry->entry_id}"],
                     ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline'],
                     [
                         'order_by' => 'dateline',
@@ -779,7 +770,7 @@ class EntriesController extends BaseController
                     ]
                 );
 
-                $entry_data
+                $entry
                     ->setExtraData('last_commenter_user_data', get_user($comment_data['user_id'] ?? 0))
                     ->setExtraData(
                         'last_comment_url',
@@ -794,23 +785,23 @@ class EntriesController extends BaseController
                     ->setExtraData(
                         'attachments_count',
                         $this->attachments_repository->queryAttachmentCount(
-                            ["entry_id='{$entry_data->entry_id}'",]
+                            ["entry_id='{$entry->entry_id}'",]
                         )
                     )
                     ->setExtraData(
                         'comments_by_you',
                         $this->comments_repository->queryCommentCount(
                             [
-                                "entry_id='{$entry_data->entry_id}'",
+                                "entry_id='{$entry->entry_id}'",
                                 "user_id='{$this->current_user->user_id}'",
                             ]
                         )
                     );
 
-                if (empty($entry_data->is_sticky)) {
-                    $templatesContext['entry_normal_objects'][$entry_id] = $entry_data;
+                if (empty($entry->is_sticky)) {
+                    $templatesContext['entry_normal_objects'][$entry_id] = $entry;
                 } else {
-                    $templatesContext['entry_sticky_objects'][$entry_id] = $entry_data;
+                    $templatesContext['entry_sticky_objects'][$entry_id] = $entry;
                 }
             }
         }
@@ -832,15 +823,15 @@ class EntriesController extends BaseController
     public function create(string $entry_slug = '', bool $is_update = false): string
     {
         if ($is_update) {
-            $entry_data = $this->entries_manager->fetchEntry(
+            $entry = $this->entries_manager->fetchEntry(
                 ["entry_data.entry_slug='{$this->database->escape_string($entry_slug)}'"],
             );
 
-            $this->entries_manager->addEntry($entry_data);
+            $this->entries_manager->addEntry($entry);
 
-            $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+            $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
         } else {
-            $entry_data = new Entry();
+            $entry = new Entry();
         }
 
         $this->forcedFieldBreadcrumb();
@@ -858,7 +849,7 @@ class EntriesController extends BaseController
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                     ]
                 )
             );
@@ -871,11 +862,11 @@ class EntriesController extends BaseController
             );
         }
 
-        if (!$is_update && empty($entry_data->post_hash)) {
+        if (!$is_update && empty($entry->post_hash)) {
             if ($this->mybb->get_input('post_hash')) {
-                $entry_data->post_hash = $this->mybb->get_input('post_hash');
+                $entry->post_hash = $this->mybb->get_input('post_hash');
             } else {
-                $entry_data->post_hash = (new UuidUtil())->generateUuidV4();
+                $entry->post_hash = (new UuidUtil())->generateUuidV4();
             }
         }
 
@@ -887,7 +878,7 @@ class EntriesController extends BaseController
                     $reflection_property = new ReflectionProperty(Entry::class, $field_key);
 
                     if (!$reflection_property->isReadOnly() && isset($this->mybb->input[$field_key])) {
-                        $entry_data->$field_key = $this->mybb->input[$field_key];
+                        $entry->$field_key = $this->mybb->input[$field_key];
                     }
                 } catch (ReflectionException $exception) {
                 }
@@ -895,7 +886,7 @@ class EntriesController extends BaseController
 
             foreach ($this->fieldset_fields as $field_id => $field_definition) {
                 if (isset($this->mybb->input[$field_definition['field_key']])) {
-                    $entry_data->setExtraData(
+                    $entry->setExtraData(
                         $field_definition['field_key'],
                         $this->mybb->input[$field_definition['field_key']]
                     );
@@ -904,30 +895,30 @@ class EntriesController extends BaseController
 
             $isPreview = isset($this->mybb->input['preview']);
 
-            $entry_data->ipaddress = $this->mybb->session->packedip;
+            $entry->ipaddress = $this->mybb->session->packedip;
 
             if (!$is_update) {
-                $entry_data->user_id = $this->current_user->user_id;
+                $entry->user_id = $this->current_user->user_id;
 
-                $entry_data->dateline = TIME_NOW;
+                $entry->dateline = TIME_NOW;
             }
 
             if ($is_update &&
                 $this->current_user->hasPermission(UserPermissions::EntriesModerateUpdates)) {
-                $entry_data->status = $this->entries_manager::STATUS_PENDING;
+                $entry->status = $this->entries_manager::STATUS_PENDING;
             } elseif (!$is_update &&
                 $this->current_user->hasPermission(UserPermissions::EntriesModerateNew)
             ) {
-                $entry_data->status = $this->entries_manager::STATUS_PENDING;
+                $entry->status = $this->entries_manager::STATUS_PENDING;
             }
 
             // Set up a showcase handler.
             //Require_once MYBB_ROOT . 'inc/datahandlers/myshowcase_dh.php';
 
-            if ($entry_data->entry_id) {
-                $where_clauses = ["entry_id='{$entry_data->entry_id}'"];
+            if ($entry->entry_id) {
+                $where_clauses = ["entry_id='{$entry->entry_id}'"];
             } else {
-                $where_clauses = ["post_hash='{$entry_data->post_hash}'"];
+                $where_clauses = ["post_hash='{$entry->post_hash}'"];
             }
 
             foreach (
@@ -936,20 +927,20 @@ class EntriesController extends BaseController
                     ['attachment_id', 'field_id'],
                 ) as $attachment_id => $attachment_data
             ) {
-                $entry_data->addAttachment($attachment_data);
+                $entry->addAttachment($attachment_data);
             }
 
             if (!$is_update) {
-                $entry_data->dateline = TIME_NOW;
+                $entry->dateline = TIME_NOW;
             }
 
             $this->entries_manager->validateSet(
-                $entry_data,
+                $entry,
                 $is_update ? $this->entries_manager::VALIDATION_METHOD_UPDATE : $this->entries_manager::VALIDATION_METHOD_INSERT
             );
 
             foreach ($this->fieldset_fields as $field_id => $field_definition) {
-                $entry_data->extra_data[$field_definition['field_key']] = match ($field_definition['html_type']) {
+                $entry->extra_data[$field_definition['field_key']] = match ($field_definition['html_type']) {
                     /*FieldHtmlTypes::CheckBox,
                     FieldHtmlTypes::Select => $this->mybb->get_input(
                         $field_definition['field_key'],
@@ -970,12 +961,12 @@ class EntriesController extends BaseController
 
             if (!$isPreview && !$this->render_manager->error_messages) {
                 if ($is_update) {
-                    $entry_data = $this->entries_manager->validationEntryInsert();
+                    $entry = $this->entries_manager->validationEntryInsert();
                 } else {
-                    $entry_data = $this->entries_manager->validationEntryUpdate();
+                    $entry = $this->entries_manager->validationEntryUpdate();
                 }
 
-                if (isset($entry_data->status) && $entry_data->status === $this->entries_manager::STATUS_DELETED) {
+                if (isset($entry->status) && $entry->status === $this->entries_manager::STATUS_DELETED) {
                     $mainUrl = $this->routing->generateUrl(
                         Routes::Main,
                         $this->render_manager->url_params
@@ -990,8 +981,8 @@ class EntriesController extends BaseController
                         $this->config['showcase_url'] . $this->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry_data->entry_slug,
-                                'entry_slug_custom' => $entry_data->entry_slug_custom
+                                'entry_slug' => $entry->entry_slug,
+                                'entry_slug_custom' => $entry->entry_slug_custom
                             ]
                         ),
                         $is_update ? $this->language->myShowcaseEntryEntryUpdated : $this->language->myShowcaseEntryEntryCreated
@@ -1002,7 +993,7 @@ class EntriesController extends BaseController
             }
 
             if ($isPreview) {
-                $templatesContext['entry_preview'] = $this->render_manager->buildEntry($entry_data);
+                $templatesContext['entry_preview'] = $this->render_manager->buildEntry($entry);
 
                 $templatesContext['is_preview_page'] = true;
             }
@@ -1019,7 +1010,7 @@ class EntriesController extends BaseController
                 'crate_update' => $is_update ? $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     array_merge($this->render_manager->url_params, [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                     ])
                 ) : $this->routing->generateUrl(
                     Routes::EntryCreate,
@@ -1028,7 +1019,7 @@ class EntriesController extends BaseController
                 'upload' => $this->routing->generateUrl(
                     Routes::AttachmentUpload,
                     [
-                        'post_hash' => $entry_data->post_hash,
+                        'post_hash' => $entry->post_hash,
                         'my_post_key' => $this->mybb->post_code,
                     ]
                 ),
@@ -1036,10 +1027,10 @@ class EntriesController extends BaseController
             'is_update_page' => $is_update,
             'is_preview_page' => false,
             'entry_preview' => '',
-            'entry_data' => &$entry_data,
+            'entry_data' => &$entry,
             'attachment_objects' => $this->attachments_repository->queryAttachments(
                 [
-                    "entry_id='{$entry_data->entry_id}' OR post_hash='{$entry_data->post_hash}'"
+                    "entry_id='{$entry->entry_id}' OR post_hash='{$entry->post_hash}'"
                 ],// todo, status clause
                 [
                     'attachment_id',
@@ -1090,7 +1081,7 @@ class EntriesController extends BaseController
 
         hooksRun('controller_create_start', $this);
 
-        $this->loadEntryFields($entry_data, verify_fill_permission: true);
+        $this->loadEntryFields($entry, verify_fill_permission: true);
 
         $templatesContext['attachmentsUpload'] = '';
         //$templatesContext['attachmentsUpload'] = $this->render_manager->buildAttachmentsUpload($isEditPage);
@@ -1099,7 +1090,7 @@ class EntriesController extends BaseController
             'all',
             $this->mybb->get_input('prefix_id', MyBB::INPUT_INT),
             false,
-            $entry_data->prefix_id
+            $entry->prefix_id
         );
 
         $templatesContext['login_box'] = template('misc/changeuserbox.twig');
@@ -1135,9 +1126,9 @@ class EntriesController extends BaseController
 
         $templatesContext['moderator_options'] = $this->mybb->get_input('moderator_options', MyBB::INPUT_ARRAY);
 
-        $templatesContext['moderator_options']['is_closed'] ??= $entry_data->is_closed;
+        $templatesContext['moderator_options']['is_closed'] ??= $entry->is_closed;
 
-        $templatesContext['moderator_options']['is_sticky'] ??= $entry_data->is_sticky;
+        $templatesContext['moderator_options']['is_sticky'] ??= $entry->is_sticky;
 
         $templatesContext['show_moderator_options'] = $templatesContext['show_close_options'] = $templatesContext['show_sticky_options'] = false;
 
@@ -1153,10 +1144,10 @@ class EntriesController extends BaseController
 
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
             empty($this->mybb->user['suspendposting']) &&
-            (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
+            (!$entry->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
             !empty($this->mybb->user['showquickreply']) &&
-            $entry_data->user_id === $this->current_user->user_id) {
+            $entry->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
@@ -1195,43 +1186,43 @@ class EntriesController extends BaseController
      * @throws LoaderError
      * @throws SyntaxError|RandomException
      */
-    #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
+    #[NoReturn] #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     public function view(string $entry_slug, string $entry_slug_custom): string
     {
-        $entry_data = $this->entries_manager->fetchEntry(
+        $entry = $this->entries_manager->fetchEntry(
             ["entry_data.entry_slug='{$this->database->escape_string($entry_slug)}'"],
         );
 
-        $this->entries_manager->addEntry($entry_data);
+        $this->entries_manager->addEntry($entry);
 
         /**
-         * @var Entry $entry_data
+         * @var Entry $entry
          */
-        $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+        $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
 
-        if (empty($entry_data->entry_id) ||
+        if (empty($entry->entry_id) ||
             (
-                $this->current_user->user_id !== $entry_data->user_id &&
+                $this->current_user->user_id !== $entry->user_id &&
                 !$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
-                $entry_data->status !== $this->entries_manager::STATUS_VISIBLE
+                $entry->status !== $this->entries_manager::STATUS_VISIBLE
             )) {
             error($this->language->myshowcase_invalid_id);
         }
 
         // we redirect invalid custom slugs to the correct canonical url
-        if ($entry_data->entry_slug_custom !== $entry_slug_custom) {
+        if ($entry->entry_slug_custom !== $entry_slug_custom) {
             $this->redirect($entry_slug);
         }
 
         //$this->language->load('showthread');
 
-        $this->forcedFieldBreadcrumb($entry_data->user_id);
+        $this->forcedFieldBreadcrumb($entry->user_id);
 
         add_breadcrumb(
             $this->config['name'],
             $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::Main,
-                $this->config['main_filter_force_field'] === FilterFields::UserID ? ['user_id' => $entry_data->user_id] : []
+                $this->config['main_filter_force_field'] === FilterFields::UserID ? ['user_id' => $entry->user_id] : []
             )
         );
 
@@ -1241,7 +1232,7 @@ class EntriesController extends BaseController
         );
 
         $templatesContext = [
-            'entry_data' => &$entry_data,
+            'entry_data' => &$entry,
             'captcha' => '',
             'online_count' => [
                 'users' => 0,
@@ -1255,30 +1246,30 @@ class EntriesController extends BaseController
                 'entry' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom
                     ]
                 ),
                 'comment' => $this->routing->generateUrl(
                     Routes::CommentCreate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                     ]
                 ),
                 'threaded' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'threaded' => 1
                     ]
                 ),
                 'subscribe' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'subscribe',
                         'my_post_key' => $this->mybb->post_code,
                     ]
@@ -1286,8 +1277,8 @@ class EntriesController extends BaseController
                 'unsubscribe' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'unsubscribe',
                         'my_post_key' => $this->mybb->post_code,
                     ]
@@ -1295,16 +1286,16 @@ class EntriesController extends BaseController
                 'oldest' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'oldest',
                     ]
                 ),
                 'newest' => $this->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'newest',
                     ]
                 ),
@@ -1320,14 +1311,14 @@ class EntriesController extends BaseController
 
         hooksRun('controller_view_start', $this);
 
-        $this->loadEntryFields($entry_data);
+        $this->loadEntryFields($entry);
 
         if (!empty($this->mybb->user['signature'])) {
             $templatesContext['post_options']['allow_signature'] = true;
         }
 
         if ($this->current_user->user_id && $this->subscriptions_repository->queryEntryCount(
-                ["entry_id='{$entry_data->entry_id}'", "user_id='{$this->current_user->user_id}'"]
+                ["entry_id='{$entry->entry_id}'", "user_id='{$this->current_user->user_id}'"]
             )) {
             $templatesContext['is_subscribed'] = true;
         }
@@ -1336,13 +1327,13 @@ class EntriesController extends BaseController
             $templatesContext['threaded_mode'] = true;
         }
 
-        //$templatesContext['subject'] = $this->entries_manager->buildSubject($entry_data);
+        //$templatesContext['subject'] = $this->entries_manager->buildSubject($entry);
 
         $templatesContext['meta']['canonical'] = $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom
                 ],
             );
 
@@ -1352,8 +1343,8 @@ class EntriesController extends BaseController
                 'content' => $this->config['showcase_url'] . $this->routing->generateUrl(
                         Routes::EntryView,
                         [
-                            'entry_slug' => $entry_data->entry_slug,
-                            'entry_slug_custom' => $entry_data->entry_slug_custom
+                            'entry_slug' => $entry->entry_slug,
+                            'entry_slug_custom' => $entry->entry_slug_custom
                         ],
                     ),
             ],
@@ -1363,7 +1354,7 @@ class EntriesController extends BaseController
             ],
             [
                 'property' => 'og:description',
-                'content' => $showcaseDescription,
+                'content' => $entry->subject,
             ],
             /*
              [
@@ -1377,21 +1368,21 @@ class EntriesController extends BaseController
             */
         ];
 
-        $subject = (function () use ($entry_data): string {
+        $subject = (function () use ($entry): string {
                 $subject_extra = [];
 
-                foreach ($entry_data->getFields() as $field_data) {
+                foreach ($entry->getFields() as $field_data) {
                     if ($field_data->fieldDefinition['enable_subject']) {
                         $subject_extra[] = $field_data->getUserValue();
                     }
                 }
 
                 return implode(' ', $subject_extra);
-            })() . $entry_data->subject;
+            })() . $entry->subject;
 
         $this->entries_repository->updateEntry(
             new Entry(
-                entry_id: $entry_data->entry_id,
+                entry_id: $entry->entry_id,
                 entry_slug_custom: (new StringUtil())->createSlug($subject)->lower()->toString()
             )
         );
@@ -1401,31 +1392,31 @@ class EntriesController extends BaseController
             $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom
                 ],
             )
         );
 
-        if (!$entry_data->getExtraData('username')) {
-            $entry_data->setExtraData('username', $this->language->guest);
+        if (!$entry->getExtraData('username')) {
+            $entry->setExtraData('username', $this->language->guest);
         }
 
         //trick MyBB into thinking its in archive so it adds bburl to smile link inside parser
         //doing this now should not impact anyhting. no issues with gomobile beta4
         define('IN_ARCHIVE', 1);
 
-        $entry_data->setRenderEntry(
-            $this->render_manager->buildEntry($entry_data)
+        $entry->setRenderEntry(
+            $this->render_manager->buildEntry($entry)
         );
 
-        $entry = $this->entries_manager->getEntryByID($entry_data->entry_id);
+        $entry = $this->entries_manager->getEntryByID($entry->entry_id);
 
         $templatesContext['commentsForm'] = '';
 
         if ($this->config['comments_enable'] && $this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            foreach ($this->comments_manager->fetchComments($entry_data->entry_id) as $comment_data) {
-                $entry_data->addComment($comment_data);
+            foreach ($this->comments_manager->fetchComments($entry->entry_id) as $comment_data) {
+                $entry->addComment($comment_data);
             }
 
             $templatesContext['commentObjects'] = [];
@@ -1443,15 +1434,15 @@ class EntriesController extends BaseController
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryView,
                     array_merge($pagination_params, [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                     ])
                 )
             );
 
-            foreach ($entry_data->getComments() as $comment_data) {
+            foreach ($entry->getComments() as $comment_data) {
                 $comment_data->setRenderComment(
-                    $this->render_manager->buildComment($entry_data, $comment_data)
+                    $this->render_manager->buildComment($entry, $comment_data)
                 );
 
                 $templatesContext['commentObjects'][$comment_data->comment_id] = $comment_data;
@@ -1479,8 +1470,8 @@ class EntriesController extends BaseController
                 $templatesContext['createUpdateUrl'] = $this->routing->generateUrl(
                     Routes::CommentCreate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                     ]
                 );
 
@@ -1508,18 +1499,18 @@ class EntriesController extends BaseController
             ) ||
             (
                 $this->current_user->user_id && (getSetting('ViewsCountAuthor') ||
-                    $this->current_user->user_id !== $entry_data->user_id)
+                    $this->current_user->user_id !== $entry->user_id)
             )
         ) {
-            $this->entries_repository->shutDownQueryIncrementViews($entry_data->entry_id);
+            $this->entries_repository->shutDownQueryIncrementViews($entry->entry_id);
         }
 
         if ($this->current_user->hasPermission(UserPermissions::CommentsCanPost) &&
             empty($this->mybb->user['suspendposting']) &&
-            (!$entry_data->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
+            (!$entry->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
             !empty($this->mybb->user['showquickreply']) &&
-            $entry_data->user_id === $this->current_user->user_id) {
+            $entry->user_id === $this->current_user->user_id) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
@@ -1543,7 +1534,7 @@ class EntriesController extends BaseController
             $query = $this->database->simple_select(
                 "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
                 's.ip, s.uid, s.time, u.username, u.invisible, u.usergroup, u.displaygroup',
-                "s.uid!='0' AND s.time>'{$timecut}' AND location2='{$tid}' AND nopermission!='1'",
+                "s.uid!='0' AND s.time>'{$timecut}' AND nopermission!='1'",
                 [
                     'order_by' => 'u.username ASC, s.time',
                     'order_dir' => SortDirections::Descending,

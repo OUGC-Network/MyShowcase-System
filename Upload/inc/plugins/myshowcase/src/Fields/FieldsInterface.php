@@ -27,9 +27,9 @@ interface FieldsInterface
 
     public function valueSet(string|int|bool $userValue): self;
 
-    public function valuesBuild(Entry $entry_data): void;
+    public function valuesBuild(Entry $entry): void;
 
-    public function attachmentsFetch(Entry $entry_data): void;
+    public function attachmentsFetch(Entry $entry): void;
 
     public function getUserValue(): string;
 

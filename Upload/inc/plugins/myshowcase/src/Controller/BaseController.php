@@ -174,18 +174,18 @@ abstract class BaseController
         }
 
         if ($entry_slug !== null) {
-            $entry_data = $this->entries_manager->fetchEntry(
+            $entry = $this->entries_manager->fetchEntry(
                 ["entry_data.entry_slug='{$db->escape_string($entry_slug)}'"],
             );
 
-            $this->entries_manager->addEntry($entry_data);
+            $this->entries_manager->addEntry($entry);
 
             /**
-             * @var Entry $entry_data
+             * @var Entry $entry
              */
-            $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+            $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
 
-            $this->entry_id = $entry_data->entry_id;
+            $this->entry_id = $entry->entry_id;
         }
 
         if ($comment_slug !== null) {
@@ -208,41 +208,41 @@ abstract class BaseController
 
             $this->comment_id = (int)$comment_data['comment_id'];
 
-            if (empty($entry_data)) {
-                $entry_data = $this->entries_manager->fetchEntry(
+            if (empty($entry)) {
+                $entry = $this->entries_manager->fetchEntry(
                     ["entry_data.entry_id='{$comment_data['entry_id']}'"],
                 );
 
-                $this->entries_manager->addEntry($entry_data);
+                $this->entries_manager->addEntry($entry);
 
                 /**
-                 * @var Entry $entry_data
+                 * @var Entry $entry
                  */
-                $entry_data = $this->entries_manager->getEntryByID($entry_data['entry_id']);
+                $entry = $this->entries_manager->getEntryByID($entry['entry_id']);
 
-                $this->entry_id = $entry_data->entry_id;
+                $this->entry_id = $entry->entry_id;
             }
 
-            $entry_data->addComment($comment_data);
+            $entry->addComment($comment_data);
 
             /**
              * @var Comment $comment_data
              */
-            $comment_data = $entry_data->getComments()->offsetGet($this->comment_id);
+            $comment_data = $entry->getComments()->offsetGet($this->comment_id);
         }
 
-        if (empty($entry_data->entry_id)) {
+        if (empty($entry->entry_id)) {
             return self::INVALID_ENTRY;
         }
 
         if (
-            (int)$entry_data->status !== $this->entries_manager::STATUS_VISIBLE &&
+            (int)$entry->status !== $this->entries_manager::STATUS_VISIBLE &&
             ((
-                    (int)$entry_data->status === $this->entries_manager::STATUS_PENDING &&
-                    $this->current_user->user_id !== (int)$entry_data->user_id
+                    (int)$entry->status === $this->entries_manager::STATUS_PENDING &&
+                    $this->current_user->user_id !== (int)$entry->user_id
                 ) ||
                 (
-                    (int)$entry_data->status === $this->entries_manager::STATUS_DELETED &&
+                    (int)$entry->status === $this->entries_manager::STATUS_DELETED &&
                     !$this->current_user->hasPermission(UserPermissions::EntriesCanView)
                 ))) {
             return self::INVALID_ENTRY;
@@ -282,18 +282,18 @@ abstract class BaseController
         }
 
         /**
-         * @var Entry $entry_data
+         * @var Entry $entry
          */
-        $entry_data = $this->entries_manager->getEntryByID($this->entry_id);
+        $entry = $this->entries_manager->getEntryByID($this->entry_id);
 
         /**
          * @var Comment $comment_data
          */
-        $comment_data = $entry_data->getComments()->offsetGet($this->comment_id);
+        $comment_data = $entry->getComments()->offsetGet($this->comment_id);
 
         if ($comment_slug) {
             $where_clauses = [
-                "entry_id='{$entry_data->entry_id}'",
+                "entry_id='{$entry->entry_id}'",
                 "showcase_id='{$this->config['showcase_id']}'",
                 "dateline<='" . $comment_data->dateline . "'",
             ];
@@ -312,8 +312,8 @@ abstract class BaseController
             }
 
             $url_params = [
-                'entry_slug' => $entry_data->entry_slug,
-                'entry_slug_custom' => $entry_data->entry_slug_custom,
+                'entry_slug' => $entry->entry_slug,
+                'entry_slug_custom' => $entry->entry_slug_custom,
                 'comment_hash' => $comment_slug,
             ];
 
@@ -331,11 +331,11 @@ abstract class BaseController
                     array_merge(
                         $this->render_manager->url_params,
                         [
-                            'entry_slug' => $entry_data->entry_slug,
-                            'entry_slug_custom' => $entry_data->entry_slug_custom,
+                            'entry_slug' => $entry->entry_slug,
+                            'entry_slug_custom' => $entry->entry_slug_custom,
                         ]
                     ),
-                ) . '#' . $entry_data->entry_slug;
+                ) . '#' . $entry->entry_slug;
         }
 
         header("Location: {$redirect_url}", response_code: self::HTTP_CODE_PERMANENT_REDIRECT);
@@ -362,13 +362,13 @@ abstract class BaseController
         }
     }
 
-    protected function loadEntryFields(Entry $entry_data, bool $verify_fill_permission = false): void
+    protected function loadEntryFields(Entry $entry, bool $verify_fill_permission = false): void
     {
         foreach ($this->fieldset_fields as $field_id => $field_definition) {
-            $entry_data->addField(
+            $entry->addField(
                 $this->field_factory->create(
                     $field_definition,
-                    $entry_data
+                    $entry
                 )
             );
         }
@@ -376,15 +376,15 @@ abstract class BaseController
         /**
          * @var FieldsInterface $field_data
          */
-        foreach ($entry_data->getFields() as $field_data) {
+        foreach ($entry->getFields() as $field_data) {
             if (!$field_data->isViewableInEntry()) {
                 continue;
             }
 
             foreach (
-                $entry_data->getAttachments()->filter(
+                $entry->getAttachments()->filter(
                     function (Attachment $attachment) use ($field_data): bool {
-                        return $attachment->field_id === $field_data->fieldDefinition['field_id'];
+                        return $attachment->field_id === $field_data->field_definition['field_id'];
                     }
                 ) as $attachment_data
             ) {
@@ -394,12 +394,12 @@ abstract class BaseController
             $field_data->fetchSelectableValues($verify_fill_permission);
 
             $field_data
-                ->valueSet($entry_data->getExtraData($field_data->fieldDefinition['field_key']) ?? '')
-                ->valuesBuild($entry_data);
+                ->valueSet($entry->getExtraData($field_data->field_definition['field_key']) ?? '')
+                ->valuesBuild($entry);
 
             $field_data->attachmentsBuild($this->render_manager);
 
-            switch ($field_data->fieldDefinition['html_type']) {
+            switch ($field_data->field_definition['html_type']) {
                 case FieldHtmlTypes::File:
                     $field_data->setExtraData(
                         'accept_element',
@@ -413,13 +413,13 @@ abstract class BaseController
                     );
             }
 
-            if ($field_data->fieldDefinition['enable_editor']) {
+            if ($field_data->field_definition['enable_editor']) {
                 $code_buttons = $smiles_inserter = '';
 
                 $this->render_manager->editorBuild(
                     $code_buttons,
                     $smiles_inserter,
-                    $field_data->fieldDefinition['field_key']
+                    $field_data->field_definition['field_key']
                 );
 
                 $field_data->setExtraData('code_buttons', $code_buttons);

@@ -134,19 +134,19 @@ function showcaseDefaultModeratorPermissions(): array
     ];
 }
 
-function showcaseDelete(int $showcaseID): bool
+function showcaseDelete(int $showcase_id): bool
 {
     global $db, $mybb, $lang;
 
     $hookArguments = [
-        'showcaseID' => &$showcaseID,
+        'showcaseID' => &$showcase_id,
     ];
 
-    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
-    $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcaseID]);
+    $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcase_id]);
 
     foreach ($permissions_repository->queryPermissions() as $permissionID => $permissionData) {
         $permissions_repository->deletePermission($permissionID);
@@ -166,11 +166,11 @@ function showcaseDelete(int $showcaseID): bool
         $showcase->attachments_repository->deleteAttachment($attachmentID);
     }
 
-    if (showcaseDataTableExists($showcaseID)) {
-        showcaseDataTableDrop($showcaseID);
+    if (showcaseDataTableExists($showcase_id)) {
+        showcaseDataTableDrop($showcase_id);
     }
 
-    $db->delete_query('myshowcase_config', "showcase_id='{$showcaseID}'");
+    $db->delete_query('myshowcase_config', "showcase_id='{$showcase_id}'");
 
     return true;
 }
@@ -192,68 +192,68 @@ function showcaseGet(array $whereClauses = [], array $queryFields = [], array $q
 
     $showcaseObjects = [];
 
-    while ($showcaseData = $db->fetch_array($query)) {
-        $showcaseObjects[(int)$showcaseData['showcase_id']] = $showcaseData;
+    while ($showcase_data = $db->fetch_array($query)) {
+        $showcaseObjects[(int)$showcase_data['showcase_id']] = $showcase_data;
     }
 
     return $showcaseObjects;
 }
 
-function showcaseDataTableExists(int $showcaseID): bool
+function showcaseDataTableExists(int $showcase_id): bool
 {
     static $dataTableExists = [];
 
-    if (!isset($dataTableExists[$showcaseID])) {
+    if (!isset($dataTableExists[$showcase_id])) {
         global $db;
 
-        $dataTableExists[$showcaseID] = (bool)$db->table_exists('myshowcase_data' . $showcaseID);
+        $dataTableExists[$showcase_id] = (bool)$db->table_exists('myshowcase_data' . $showcase_id);
     }
 
-    return $dataTableExists[$showcaseID];
+    return $dataTableExists[$showcase_id];
 }
 
-function showcaseDataTableFieldExists(int $showcaseID, string $fieldName): bool
+function showcaseDataTableFieldExists(int $showcase_id, string $field_name): bool
 {
     global $db;
 
-    return $db->field_exists($fieldName, 'myshowcase_data' . $showcaseID);
+    return $db->field_exists($field_name, 'myshowcase_data' . $showcase_id);
 }
 
 function showcaseDataTableFieldRename(
-    int $showcaseID,
+    int $showcase_id,
     string $oldFieldName,
     string $newFieldName,
     string $newDefinition
 ): bool {
     global $db;
-    return $db->rename_column('myshowcase_data' . $showcaseID, $oldFieldName, $newFieldName, $newDefinition);
+    return $db->rename_column('myshowcase_data' . $showcase_id, $oldFieldName, $newFieldName, $newDefinition);
 }
 
-function showcaseDataTableDrop(int $showcaseID): bool
+function showcaseDataTableDrop(int $showcase_id): bool
 {
     global $db;
 
     $hookArguments = [
-        'showcaseID' => &$showcaseID,
+        'showcaseID' => &$showcase_id,
     ];
 
     $hookArguments = hooksRun('showcase_data_table_drop_start', $hookArguments);
 
-    $db->drop_table('myshowcase_data' . $showcaseID);
+    $db->drop_table('myshowcase_data' . $showcase_id);
 
     return true;
 }
 
-function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
+function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
 {
     global $db, $mybb, $lang;
 
     $hookArguments = [
-        'showcaseID' => &$showcaseID,
-        'fieldName' => &$fieldName,
+        'showcaseID' => &$showcase_id,
+        'fieldName' => &$field_name,
     ];
 
-    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
@@ -261,7 +261,7 @@ function showcaseDataTableFieldDrop(int $showcaseID, string $fieldName): bool
         $showcase->entries_repository->deleteEntry($entryID);
     }
 
-    $db->drop_column('myshowcase_data' . $showcaseID, $fieldName);
+    $db->drop_column('myshowcase_data' . $showcase_id, $field_name);
 
     return true;
 }
@@ -282,9 +282,9 @@ function fieldsetInsert(array $fieldsetData, bool $isUpdate = false, $fieldsetID
         'tableData' => &$tablesData,
     ];
 
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($fieldsetData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($fieldsetData[$fieldName], $fieldDefinition['type']);
+    foreach ($tablesData as $field_name => $field_definition) {
+        if (isset($fieldsetData[$field_name])) {
+            $insertData[$field_name] = sanitizeTableFieldValue($fieldsetData[$field_name], $field_definition['type']);
         }
     }
 
@@ -349,7 +349,7 @@ function fieldsetDelete(int $fieldsetID): bool
     return true;
 }
 
-function fieldsInsert(array $fieldData, bool $isUpdate = false, int $fieldID = 0): int
+function fieldsInsert(array $field_data, bool $isUpdate = false, int $field_id = 0): int
 {
     global $db;
 
@@ -359,36 +359,36 @@ function fieldsInsert(array $fieldData, bool $isUpdate = false, int $fieldID = 0
 
     $hookArguments = [
         'insertData' => &$insertData,
-        'fieldData' => &$fieldData,
+        'fieldData' => &$field_data,
         'isUpdate' => $isUpdate,
-        'fieldID' => &$fieldID,
+        'fieldID' => &$field_id,
         'tableData' => &$tablesData,
     ];
 
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($fieldData[$fieldName])) {
-            if (is_array($fieldData[$fieldName])) {
-                $fieldData[$fieldName] = implode(',', $fieldData[$fieldName]);
+    foreach ($tablesData as $field_name => $field_definition) {
+        if (isset($field_data[$field_name])) {
+            if (is_array($field_data[$field_name])) {
+                $field_data[$field_name] = implode(',', $field_data[$field_name]);
             }
 
-            $insertData[$fieldName] = sanitizeTableFieldValue($fieldData[$fieldName], $fieldDefinition['type']);
+            $insertData[$field_name] = sanitizeTableFieldValue($field_data[$field_name], $field_definition['type']);
         }
     }
 
     $hookArguments = hooksRun('field_insert_update_end', $hookArguments);
 
     if ($isUpdate) {
-        $db->update_query('myshowcase_fields', $insertData, "field_id='{$fieldID}'");
+        $db->update_query('myshowcase_fields', $insertData, "field_id='{$field_id}'");
     } else {
         $db->insert_query('myshowcase_fields', $insertData);
     }
 
-    return $fieldID;
+    return $field_id;
 }
 
-function fieldsUpdate(array $fieldDefinition, int $fieldID): int
+function fieldsUpdate(array $field_definition, int $field_id): int
 {
-    return fieldsInsert($fieldDefinition, true, $fieldID);
+    return fieldsInsert($field_definition, true, $field_id);
 }
 
 function fieldsGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
@@ -406,35 +406,35 @@ function fieldsGet(array $whereClauses = [], array $queryFields = [], array $que
         return (array)$db->fetch_array($query);
     }
 
-    $fieldDefinition = [];
+    $field_definition = [];
 
     while ($field = $db->fetch_array($query)) {
-        $fieldDefinition[(int)$field['field_id']] = $field;
+        $field_definition[(int)$field['field_id']] = $field;
     }
 
-    return $fieldDefinition;
+    return $field_definition;
 }
 
-function fieldsDelete(int $fieldID): bool
+function fieldsDelete(int $field_id): bool
 {
     global $db;
 
     $hookArguments = [
-        'fieldID' => &$fieldID,
+        'fieldID' => &$field_id,
     ];
 
     $hookArguments = hooksRun('field_delete_start', $hookArguments);
 
-    foreach (fieldDataGet(["field_id='{$fieldID}'"]) as $fieldDataID => $fieldDataData) {
+    foreach (fieldDataGet(["field_id='{$field_id}'"]) as $fieldDataID => $fieldDataData) {
         fieldDataDelete($fieldDataID);
     }
 
-    $db->delete_query('myshowcase_fields', "field_id='{$fieldID}'");
+    $db->delete_query('myshowcase_fields', "field_id='{$field_id}'");
 
     return true;
 }
 
-function fieldDataInsert(array $fieldData, bool $isUpdate = false, int $fieldDataID = 0): int
+function fieldDataInsert(array $field_data, bool $isUpdate = false, int $fieldDataID = 0): int
 {
     global $db;
 
@@ -444,15 +444,15 @@ function fieldDataInsert(array $fieldData, bool $isUpdate = false, int $fieldDat
 
     $hookArguments = [
         'insertData' => &$insertData,
-        'fieldData' => &$fieldData,
+        'fieldData' => &$field_data,
         'isUpdate' => $isUpdate,
-        'fieldID' => &$fieldID,
+        'fieldID' => &$field_id,
         'tableData' => &$tablesData,
     ];
 
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($fieldData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($fieldData[$fieldName], $fieldDefinition['type']);
+    foreach ($tablesData as $field_name => $field_definition) {
+        if (isset($field_data[$field_name])) {
+            $insertData[$field_name] = sanitizeTableFieldValue($field_data[$field_name], $field_definition['type']);
         }
     }
 
@@ -469,9 +469,9 @@ function fieldDataInsert(array $fieldData, bool $isUpdate = false, int $fieldDat
     return $fieldDataID;
 }
 
-function fieldDataUpdate(array $fieldData, int $fieldDataID): int
+function fieldDataUpdate(array $field_data, int $fieldDataID): int
 {
-    return fieldDataInsert($fieldData, true, $fieldDataID);
+    return fieldDataInsert($field_data, true, $fieldDataID);
 }
 
 function fieldDataGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
@@ -489,13 +489,13 @@ function fieldDataGet(array $whereClauses = [], array $queryFields = [], array $
         return (array)$db->fetch_array($query);
     }
 
-    $fieldDefinition = [];
+    $field_definition = [];
 
     while ($field = $db->fetch_array($query)) {
-        $fieldDefinition[(int)$field['field_data_id']] = $field;
+        $field_definition[(int)$field['field_data_id']] = $field;
     }
 
-    return $fieldDefinition;
+    return $field_definition;
 }
 
 function fieldDataDelete(int $fieldDataID): bool
@@ -513,114 +513,114 @@ function fieldDataDelete(int $fieldDataID): bool
     return true;
 }
 
-function dataTableStructureGet(int $showcaseID = 0): array
+function dataTableStructureGet(int $showcase_id = 0): array
 {
     global $db;
 
     $dataTableStructure = DATA_TABLE_STRUCTURE['myshowcase_data'];
 
-    if ($showcaseID &&
-        ($showcaseData = showcaseGet(["showcase_id='{$showcaseID}'"], ['field_set_id'], ['limit' => 1]))) {
-        $fieldsetID = (int)$showcaseData['field_set_id'];
+    if ($showcase_id &&
+        ($showcase_data = showcaseGet(["showcase_id='{$showcase_id}'"], ['field_set_id'], ['limit' => 1]))) {
+        $fieldsetID = (int)$showcase_data['field_set_id'];
 
         foreach (
             fieldsGet(
                 ["set_id='{$fieldsetID}'"],
                 ['field_key', 'field_type', 'maximum_length', 'is_required', 'default_value', 'default_type']
-            ) as $fieldID => $fieldDefinition
+            ) as $field_id => $field_definition
         ) {
-            $dataTableStructure[$fieldDefinition['field_key']] = [];
+            $dataTableStructure[$field_definition['field_key']] = [];
 
-            if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+            if (fieldTypeMatchInt($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
-                $dataTableStructure[$fieldDefinition['field_key']]['size'] = (int)$fieldDefinition['maximum_length'];
+                $dataTableStructure[$field_definition['field_key']]['size'] = (int)$field_definition['maximum_length'];
 
-                if ($fieldDefinition['default_value'] !== '') {
-                    $defaultValue = (int)$fieldDefinition['default_value'];
+                if ($field_definition['default_value'] !== '') {
+                    $defaultValue = (int)$field_definition['default_value'];
                 } else {
                     $defaultValue = 0;
                 }
-            } elseif (fieldTypeMatchFloat($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+            } elseif (fieldTypeMatchFloat($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
-                $dataTableStructure[$fieldDefinition['field_key']]['size'] = (float)$fieldDefinition['maximum_length'];
+                $dataTableStructure[$field_definition['field_key']]['size'] = (float)$field_definition['maximum_length'];
 
-                if ($fieldDefinition['default_value'] !== '') {
-                    $defaultValue = (float)$fieldDefinition['default_value'];
+                if ($field_definition['default_value'] !== '') {
+                    $defaultValue = (float)$field_definition['default_value'];
                 } else {
                     $defaultValue = 0;
                 }
-            } elseif (fieldTypeMatchChar($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+            } elseif (fieldTypeMatchChar($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
-                $dataTableStructure[$fieldDefinition['field_key']]['size'] = (int)$fieldDefinition['maximum_length'];
+                $dataTableStructure[$field_definition['field_key']]['size'] = (int)$field_definition['maximum_length'];
 
-                if ($fieldDefinition['default_value'] !== '') {
-                    $defaultValue = $db->escape_string($fieldDefinition['default_value']);
+                if ($field_definition['default_value'] !== '') {
+                    $defaultValue = $db->escape_string($field_definition['default_value']);
                 } else {
                     $defaultValue = '';
                 }
-            } elseif (fieldTypeMatchText($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+            } elseif (fieldTypeMatchText($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
                 // todo, TEXT fields cannot have default values, should validate in front end
-                $fieldDefinition['default_type'] = FieldDefaultTypes::IsNull;
-            } elseif (fieldTypeMatchDateTime($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+                $field_definition['default_type'] = FieldDefaultTypes::IsNull;
+            } elseif (fieldTypeMatchDateTime($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
-                if ($fieldDefinition['default_value'] !== '') {
-                    $defaultValue = $db->escape_string($fieldDefinition['default_value']);
+                if ($field_definition['default_value'] !== '') {
+                    $defaultValue = $db->escape_string($field_definition['default_value']);
                 } else {
                     $defaultValue = '';
                 }
-            } elseif (fieldTypeMatchBinary($fieldDefinition['field_type'])) {
-                $dataTableStructure[$fieldDefinition['field_key']]['type'] = $fieldDefinition['field_type'];
+            } elseif (fieldTypeMatchBinary($field_definition['field_type'])) {
+                $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
-                $dataTableStructure[$fieldDefinition['field_key']]['size'] = (int)$fieldDefinition['maximum_length'];
+                $dataTableStructure[$field_definition['field_key']]['size'] = (int)$field_definition['maximum_length'];
 
-                if ($fieldDefinition['default_value'] !== '') {
-                    $defaultValue = $db->escape_string($fieldDefinition['default_value']);
+                if ($field_definition['default_value'] !== '') {
+                    $defaultValue = $db->escape_string($field_definition['default_value']);
                 } else {
                     $defaultValue = '';
                 }
             }
 
-            switch ($fieldDefinition['default_type']) {
+            switch ($field_definition['default_type']) {
                 case FieldDefaultTypes::AsDefined:
-                    if ($fieldDefinition['default_value'] !== '' && isset($defaultValue)) {
-                        $dataTableStructure[$fieldDefinition['field_key']]['default'] = $defaultValue;
+                    if ($field_definition['default_value'] !== '' && isset($defaultValue)) {
+                        $dataTableStructure[$field_definition['field_key']]['default'] = $defaultValue;
                     }
                     break;
                 case FieldDefaultTypes::IsNull:
-                    unset($dataTableStructure[$fieldDefinition['field_key']]['default']);
+                    unset($dataTableStructure[$field_definition['field_key']]['default']);
 
-                    $dataTableStructure[$fieldDefinition['field_key']]['null'] = true;
+                    $dataTableStructure[$field_definition['field_key']]['null'] = true;
                     break;
                 case FieldDefaultTypes::CurrentTimestamp:
-                    unset($dataTableStructure[$fieldDefinition['field_key']]['default']);
+                    unset($dataTableStructure[$field_definition['field_key']]['default']);
 
-                    $dataTableStructure[$fieldDefinition['field_key']]['default'] = 'TIMESTAMP';
+                    $dataTableStructure[$field_definition['field_key']]['default'] = 'TIMESTAMP';
                     break;
                 case FieldDefaultTypes::UUID:
-                    unset($dataTableStructure[$fieldDefinition['field_key']]['default']);
+                    unset($dataTableStructure[$field_definition['field_key']]['default']);
 
-                    $dataTableStructure[$fieldDefinition['field_key']]['default'] = 'UUID';
+                    $dataTableStructure[$field_definition['field_key']]['default'] = 'UUID';
                     break;
             }
 
-            if (!empty($fieldDefinition['is_required'])) {
+            if (!empty($field_definition['is_required'])) {
                 global $mybb;
 
-                if (fieldTypeSupportsFullText($fieldDefinition['field_type']) &&
+                if (fieldTypeSupportsFullText($field_definition['field_type']) &&
                     $mybb->settings['searchtype'] === 'fulltext') {
                     isset($dataTableStructure['full_keys']) || $dataTableStructure['full_keys'] = [];
 
-                    $dataTableStructure['full_keys'][$fieldDefinition['field_key']] = $fieldDefinition['field_key'];
+                    $dataTableStructure['full_keys'][$field_definition['field_key']] = $field_definition['field_key'];
                 } else {
                     isset($dataTableStructure['keys']) || $dataTableStructure['keys'] = [];
 
-                    $dataTableStructure['keys'][$fieldDefinition['field_key']] = $fieldDefinition['field_key'];
+                    $dataTableStructure['keys'][$field_definition['field_key']] = $field_definition['field_key'];
                 }
                 // todo: add key for uid & approved
             }
@@ -827,9 +827,9 @@ function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID 
         'tableData' => &$tablesData,
     ];
 
-    foreach ($tablesData as $fieldName => $fieldDefinition) {
-        if (isset($logData[$fieldName])) {
-            $insertData[$fieldName] = sanitizeTableFieldValue($logData[$fieldName], $fieldDefinition['type']);
+    foreach ($tablesData as $field_name => $field_definition) {
+        if (isset($logData[$field_name])) {
+            $insertData[$field_name] = sanitizeTableFieldValue($logData[$field_name], $field_definition['type']);
         }
     }
 

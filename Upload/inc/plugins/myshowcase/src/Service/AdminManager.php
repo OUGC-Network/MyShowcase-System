@@ -424,8 +424,8 @@ EOL;
                             (function (string $showcaseName): bool {
                                 $duplicatedName = false;
 
-                                foreach ($this->showcases_cache as $showcaseData) {
-                                    if ($showcaseData['name'] === $showcaseName && $showcaseData['showcase_id'] !== $this->showcase_id) {
+                                foreach ($this->showcases_cache as $showcase_data) {
+                                    if ($showcase_data['name'] === $showcaseName && $showcase_data['showcase_id'] !== $this->showcase_id) {
                                         $duplicatedName = true;
                                     }
                                 }
@@ -446,8 +446,8 @@ EOL;
                             (function (string $route_identifier): bool {
                                 $duplicateScript = false;
 
-                                foreach ($this->showcases_cache as $showcaseData) {
-                                    if ($showcaseData['route_identifier'] === $route_identifier && $showcaseData['showcase_id'] !== $this->showcase_id) {
+                                foreach ($this->showcases_cache as $showcase_data) {
+                                    if ($showcase_data['route_identifier'] === $route_identifier && $showcase_data['showcase_id'] !== $this->showcase_id) {
                                         $duplicateScript = true;
                                     }
                                 }
@@ -476,8 +476,8 @@ EOL;
                             (function (string $templatePrefix): bool {
                                 $duplicatedTemplatePrefix = false;
 
-                                foreach ($this->showcases_cache as $showcaseData) {
-                                    if ($showcaseData['custom_template_prefix'] === $templatePrefix && $showcaseData['showcase_id'] !== $this->showcase_id) {
+                                foreach ($this->showcases_cache as $showcase_data) {
+                                    if ($showcase_data['custom_template_prefix'] === $templatePrefix && $showcase_data['showcase_id'] !== $this->showcase_id) {
                                         $duplicatedTemplatePrefix = true;
                                     }
                                 }
@@ -1133,9 +1133,9 @@ EOL;
     {
         $createTable = $this->mybb->get_input('action') === 'create_table';
 
-        $showcaseData = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['field_set_id'], ['limit' => 1]);
+        $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['field_set_id'], ['limit' => 1]);
 
-        if (!$showcaseData || $createTable && showcaseDataTableExists($this->showcase_id)) {
+        if (!$showcase_data || $createTable && showcaseDataTableExists($this->showcase_id)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->url->build());
@@ -1164,9 +1164,9 @@ EOL;
 
     private function showcaseTableDrop(): void
     {
-        $showcaseData = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['name'], ['limit' => 1]);
+        $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['name'], ['limit' => 1]);
 
-        if (!$showcaseData) {
+        if (!$showcase_data) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->url->build());
@@ -1174,7 +1174,7 @@ EOL;
 
         hooksRun('admin_summary_table_drop_start');
 
-        $showcaseName = $showcaseData['name'];
+        $showcaseName = $showcase_data['name'];
 
         $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $this->showcase_id);
 
@@ -1216,9 +1216,9 @@ EOL;
 
     private function showcaseDelete(): void
     {
-        $showcaseData = showcaseGet(["showcase_id='{$this->showcase_id}'"], [], ['limit' => 1]);
+        $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], [], ['limit' => 1]);
 
-        if (!$showcaseData) {
+        if (!$showcase_data) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->url->build());
@@ -1226,7 +1226,7 @@ EOL;
 
         hooksRun('admin_summary_delete_start');
 
-        $showcaseName = $showcaseData['name'];
+        $showcaseName = $showcase_data['name'];
 
         if ($this->mybb->request_method === 'post') {
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
@@ -1325,12 +1325,12 @@ EOL;
 
             $form_container->construct_row();
         } else {
-            foreach ($showcaseObjects as $showcase_id => $showcaseData) {
+            foreach ($showcaseObjects as $showcase_id => $showcase_data) {
                 $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $showcase_id);
 
                 $showcaseTotalEntries = $showcaseTotalAttachments = $showcaseTotalFilesSize = $showcaseTotalComments = 0;
 
-                $fieldsetID = (int)$showcaseData['field_set_id'];
+                $fieldsetID = (int)$showcase_data['field_set_id'];
 
                 if ($showcase->data_table_exists) {
                     $showcaseTotalEntries = $showcase->entries_repository->queryEntryCount();
@@ -1351,7 +1351,7 @@ EOL;
                 );
 
                 //grab status images at same time
-                if (!empty($showcaseData['is_enabled'])) {
+                if (!empty($showcase_data['is_enabled'])) {
                     $statusImage = "styles/{$this->page->style}/images/icons/bullet_on.png";
 
                     $statusText = $this->language->myshowcase_summary_status_enabled;
@@ -1386,7 +1386,7 @@ EOL;
 
                 $popup->add_item(
                     $this->language->myshowcase_summary_seo,
-                    $this->url->build(['action' => 'viewRewrites', 'showcase_id' => $showcaseData['showcase_id']])
+                    $this->url->build(['action' => 'viewRewrites', 'showcase_id' => $showcase_data['showcase_id']])
                 );
 
                 $popup->add_item(
@@ -1394,11 +1394,11 @@ EOL;
                     $this->url->build(['action' => 'delete', 'showcase_id' => $showcase_id])
                 );
 
-                $showcaseData['attachments_uploads_path'] = $showcaseData['attachments_uploads_path'] ?? $this->language->myshowcase_summary_not_specified;
+                $showcase_data['attachments_uploads_path'] = $showcase_data['attachments_uploads_path'] ?? $this->language->myshowcase_summary_not_specified;
 
                 $form_container->output_cell($showcase_id, ['class' => 'align_center']);
 
-                $form_container->output_cell($showcaseData['name']);
+                $form_container->output_cell($showcase_data['name']);
 
                 $form_container->output_cell($showcaseTotalEntries, ['class' => 'align_center']);
 

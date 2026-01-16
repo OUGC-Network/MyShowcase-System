@@ -62,13 +62,13 @@ readonly class CacheManager
                     queryOptions: ['order_by' => 'display_order']
                 );
 
-                foreach ($showcaseObjects as $showcase_id => $showcaseData) {
+                foreach ($showcaseObjects as $showcase_id => $showcase_data) {
                     $cache_data[$showcase_id] = [];
 
                     foreach ($tablesData['myshowcase_config'] as $field_name => $field_definition) {
-                        if (isset($showcaseData[$field_name])) {
+                        if (isset($showcase_data[$field_name])) {
                             $cache_data[$showcase_id][$field_name] = castTableFieldValue(
-                                $showcaseData[$field_name],
+                                $showcase_data[$field_name],
                                 $field_definition['type']
                             );
                         }
@@ -101,7 +101,7 @@ readonly class CacheManager
                         ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
                 );
 
-                foreach (showcaseGet() as $showcase_id => $showcaseData) {
+                foreach (showcaseGet() as $showcase_id => $showcase_data) {
                     $function(
                         (new PermissionsRepository($this->database, ['showcase_id' => $showcase_id]))
                             ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
@@ -134,11 +134,11 @@ readonly class CacheManager
                     ['order_by' => 'display_order']
                 );
 
-                foreach ($fieldObjects as $fieldID => $fieldData) {
+                foreach ($fieldObjects as $field_id => $field_data) {
                     foreach ($tablesData['myshowcase_fields'] as $field_name => $field_definition) {
-                        if (isset($fieldData[$field_name])) {
-                            $cache_data[(int)$fieldData['set_id']][$fieldID][$field_name] = castTableFieldValue(
-                                $fieldData[$field_name],
+                        if (isset($field_data[$field_name])) {
+                            $cache_data[(int)$field_data['set_id']][$field_id][$field_name] = castTableFieldValue(
+                                $field_data[$field_name],
                                 $field_definition['type']
                             );
                         }

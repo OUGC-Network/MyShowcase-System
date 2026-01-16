@@ -149,20 +149,20 @@ class CommentsController extends BaseController
         }
 
         /**
-         * @var Entry $entry_data
+         * @var Entry $entry
          */
-        $entry_data = $this->entries_manager->getEntryByID($this->entry_id);
+        $entry = $this->entries_manager->getEntryByID($this->entry_id);
 
         if ($is_update) {
             /**
              * @var Comment $comment_data
              */
-            $comment_data = $entry_data->getComments()->offsetGet($this->comment_id);
+            $comment_data = $entry->getComments()->offsetGet($this->comment_id);
         } else {
             $comment_data = new Comment();
         }
 
-        $this->forcedFieldBreadcrumb($entry_data->user_id);
+        $this->forcedFieldBreadcrumb($entry->user_id);
 
         add_breadcrumb(
             $this->config['name'],
@@ -172,22 +172,22 @@ class CommentsController extends BaseController
         );
 
         add_breadcrumb(
-            (function () use ($entry_data): string {
+            (function () use ($entry): string {
                 $subject_extra = [];
 
-                foreach ($entry_data->getFields() as $field_data) {
+                foreach ($entry->getFields() as $field_data) {
                     if ($field_data->fieldDefinition['enable_subject']) {
                         $subject_extra[] = $field_data->getUserValue();
                     }
                 }
 
                 return implode(' ', $subject_extra);
-            })() . $entry_data->subject,
+            })() . $entry->subject,
             $this->config['showcase_url'] . $this->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom
                 ]
             )
         );
@@ -198,8 +198,8 @@ class CommentsController extends BaseController
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                         'comment_slug' => $comment_slug
                     ]
                 )
@@ -210,8 +210,8 @@ class CommentsController extends BaseController
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::CommentCreate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
                     ],
                 ),
             );
@@ -219,9 +219,9 @@ class CommentsController extends BaseController
 
         if (!$is_update && empty($comment_data->post_hash)) {
             if ($mybb->get_input('post_hash')) {
-                $entry_data->post_hash = $mybb->get_input('post_hash');
+                $entry->post_hash = $mybb->get_input('post_hash');
             } else {
-                $entry_data->post_hash = (new UuidUtil())->generateUuidV4();
+                $entry->post_hash = (new UuidUtil())->generateUuidV4();
             }
         }
 
@@ -278,13 +278,13 @@ class CommentsController extends BaseController
                     $comment_data = $this->comments_manager->validationCommentInsert();
                 }
 
-                $this->updateEntryCommentsCount($entry_data->entry_id);
+                $this->updateEntryCommentsCount($entry->entry_id);
 
                 // we redirect only if soft-deleted (plugin?) because users can see their own unapproved content
                 if (isset($comment_data->status) && $comment_data->status === self::STATUS_SOFT_DELETE) {
                     $entryUrl = $this->showcase->urlGetEntry(
-                        $entry_data->entry_slug,
-                        $entry_data->entry_slug_custom,
+                        $entry->entry_slug,
+                        $entry->entry_slug_custom,
                     );
 
                     redirect(
@@ -303,7 +303,7 @@ class CommentsController extends BaseController
 
             if ($isPreview) {
                 $commentPreview = $this->render_manager->buildComment(
-                    $entry_data,
+                    $entry,
                     $this->comment_data,
                     $this->parser_options,
                     true,
@@ -352,8 +352,8 @@ class CommentsController extends BaseController
             $createUpdateUrl = $this->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom,
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom,
                     'comment_slug' => $comment_slug
                 ]
             );
@@ -361,8 +361,8 @@ class CommentsController extends BaseController
             $createUpdateUrl = $this->routing->generateUrl(
                 Routes::CommentCreate,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom,
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom,
                 ],
             );
         }

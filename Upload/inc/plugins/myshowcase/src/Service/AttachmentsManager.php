@@ -164,7 +164,7 @@ class AttachmentsManager
      */
     public function uploadAttachment(
         array $attachment_data,
-        Entry $entry_data,
+        Entry $entry,
         ?int $field_id = null,
         ?array $field_definition = null,
         bool $is_update = false, // todo ?
@@ -250,7 +250,7 @@ class AttachmentsManager
         }
 
         if ($this->current_user->hasPermission(UserPermissions::AttachmentsLimitUploadQuotaAmount) > 0) {
-            $user_total_usage = $this->attachments_repository->queryAttachmentSum(["user_id='{$entry_data->user_id}'"]);
+            $user_total_usage = $this->attachments_repository->queryAttachmentSum(["user_id='{$entry->user_id}'"]);
 
             $user_total_usage = $user_total_usage + $attachment_data['size'];
 
@@ -270,10 +270,10 @@ class AttachmentsManager
             }
         }
 
-        if (!empty($entry_data->entry_id)) {
-            $where_clause = "entry_id='{$entry_data->entry_id}'";
+        if (!empty($entry->entry_id)) {
+            $where_clause = "entry_id='{$entry->entry_id}'";
         } else {
-            $where_clause = "post_hash='{$this->database->escape_string($entry_data->post_hash)}'";
+            $where_clause = "post_hash='{$this->database->escape_string($entry->post_hash)}'";
         }
 
         $existing_attachment = $this->queryAttachment(
@@ -307,11 +307,11 @@ class AttachmentsManager
 
         // All seems to be good, lets move the attachment!
 
-        if (!empty($entry_data->entry_id)) {
-            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->entry_id}_" . TIME_NOW . '_' . (new UuidUtil(
+        if (!empty($entry->entry_id)) {
+            $file_name = "attachment_{$entry->user_id}_{$entry->entry_id}_" . TIME_NOW . '_' . (new UuidUtil(
                 ))->generateUuidV4() . '.attach';
         } else {
-            $file_name = "attachment_{$entry_data->user_id}_{$entry_data->post_hash}_" . TIME_NOW . '_' . (new UuidUtil(
+            $file_name = "attachment_{$entry->user_id}_{$entry->post_hash}_" . TIME_NOW . '_' . (new UuidUtil(
                 ))->generateUuidV4() . '.attach';
         }
 
@@ -351,7 +351,7 @@ class AttachmentsManager
         $this->insert_data = [
             'showcase_id' => $this->config['showcase_id'],
             'attachment_hash' => (new UuidUtil())->generateUuidV4(),
-            'user_id' => $entry_data->user_id,
+            'user_id' => $entry->user_id,
             'file_name' => $file_name,
             'mime_type' => my_strtolower($file_upload_result['type']),
             'file_size' => $file_upload_result['size'],
@@ -368,10 +368,10 @@ class AttachmentsManager
 
         $this->return_data['file_size'] = $this->insert_data['file_size'];
 
-        if (!empty($entry_data->entry_id)) {
-            $this->insert_data['entry_id'] = $entry_data->entry_id;
+        if (!empty($entry->entry_id)) {
+            $this->insert_data['entry_id'] = $entry->entry_id;
         } else {
-            $this->insert_data['post_hash'] = $entry_data->post_hash;
+            $this->insert_data['post_hash'] = $entry->post_hash;
         }
 
         if ($is_update) {

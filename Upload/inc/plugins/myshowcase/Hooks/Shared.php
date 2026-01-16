@@ -34,8 +34,8 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
 
     global $db, $mybb, $lang;
 
-    foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+    foreach (showcaseGet() as $showcase_id => $showcase_data) {
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         foreach ($userIDs as $userID) {
             foreach (

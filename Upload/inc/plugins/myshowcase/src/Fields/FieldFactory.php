@@ -52,7 +52,7 @@ class FieldFactory
 
     public function create(
         array $field_definition,
-        Entry $entry_data,
+        Entry $entry,
     ): FieldsInterface {
         if (!isset($this->field_objects_cache[$field_definition['field_key']])) {
             if (!isset(self::$field_class_map[$field_definition['html_type']])) {
@@ -69,7 +69,7 @@ class FieldFactory
                 $this->parser_options,
                 $this->search_highlight,
                 $field_definition,
-                $entry_data
+                $entry
             );
         }
 

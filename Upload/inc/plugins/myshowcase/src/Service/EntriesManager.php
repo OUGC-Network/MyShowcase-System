@@ -96,29 +96,29 @@ class EntriesManager
         return $this->entries->offsetGet($entry_id);
     }
 
-    public function addEntry(array $entry_data): void
+    public function addEntry(array $entry): void
     {
         $extra_data = [];
 
-        foreach ($entry_data as $field_key => $field_value) {
+        foreach ($entry as $field_key => $field_value) {
             if (!in_array($field_key, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']))) {
                 $extra_data[$field_key] = $field_value;
 
-                unset($entry_data[$field_key]);
+                unset($entry[$field_key]);
             }
         }
 
         if (!empty($extra_data)) {
-            $entry_data['extra_data'] = $extra_data;
+            $entry['extra_data'] = $extra_data;
         }
 
-        if (!$this->entries->contains($entry_data)) {
-            if (!empty($entry_data['entry_id'])) {
-                $this->entries[$entry_data['entry_id']] = new Entry(...$entry_data);
-            } elseif (!empty($entry_data['post_hash'])) {
-                $this->entries[$entry_data['post_hash']] = new Entry(...$entry_data);
+        if (!$this->entries->contains($entry)) {
+            if (!empty($entry['entry_id'])) {
+                $this->entries[$entry['entry_id']] = new Entry(...$entry);
+            } elseif (!empty($entry['post_hash'])) {
+                $this->entries[$entry['post_hash']] = new Entry(...$entry);
             } else {
-                $this->entries[] = new Entry(...$entry_data);
+                $this->entries[] = new Entry(...$entry);
             }
         }
     }
@@ -229,9 +229,9 @@ class EntriesManager
                 $this->query_fields,
                 $query_options,
                 $this->query_tables
-            ) as $entry_data
+            ) as $entry
         ) {
-            $entry_objects[] = $entry_data;
+            $entry_objects[] = $entry;
         }
 
         hooksRun('entry_fetch_end', $this);
@@ -247,13 +247,13 @@ class EntriesManager
     /**
      * Sets the data to be used for the data handler
      *
-     * @param Entry $entry_data
+     * @param Entry $entry
      * @param string $method
      * @return void
      */
-    public function validateSet(Entry $entry_data, string $method = self::VALIDATION_METHOD_INSERT): void
+    public function validateSet(Entry $entry, string $method = self::VALIDATION_METHOD_INSERT): void
     {
-        $this->validation_data = $entry_data;
+        $this->validation_data = $entry;
 
         $this->validation_method = $method;
     }
@@ -342,99 +342,99 @@ class EntriesManager
             $this->validateSetError('invalid_edit_stamp');
         }
 
-        foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
-            if (!$fieldDefinition['is_enabled'] ||
-                $fieldDefinition['read_only'] ||
-                !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
-                !is_member($fieldDefinition['allowed_groups_fill'])) {
+        foreach ($this->fieldset_fields as $field_id => $field_definition) {
+            if (!$field_definition['is_enabled'] ||
+                $field_definition['read_only'] ||
+                !isset($this->validation_data->extra_data[$field_definition['field_key']]) ||
+                !is_member($field_definition['allowed_groups_fill'])) {
                 // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            if ($fieldDefinition['regular_expression'] &&
-                preg_match($fieldDefinition['regular_expression'], '') !== false &&
+            if ($field_definition['regular_expression'] &&
+                preg_match($field_definition['regular_expression'], '') !== false &&
                 preg_match(
-                    $fieldDefinition['regular_expression'],
-                    $this->validation_data->extra_data[$fieldDefinition['field_key']]
+                    $field_definition['regular_expression'],
+                    $this->validation_data->extra_data[$field_definition['field_key']]
                 ) === 1) {
                 $this->validateSetError(
                     'invalid_value',
-                    [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                    [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                 );
             }
 
-            if ($fieldDefinition['is_required'] && empty($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
-                if ($fieldDefinition['html_type'] === FieldHtmlTypes::File) {
-                    if ($this->validation_data->getAttachmentsByFieldID($fieldID)->count() < 1) {
+            if ($field_definition['is_required'] && empty($this->validation_data->extra_data[$field_definition['field_key']])) {
+                if ($field_definition['html_type'] === FieldHtmlTypes::File) {
+                    if ($this->validation_data->getAttachmentsByFieldID($field_id)->count() < 1) {
                         $this->validateSetError(
                             'required_field',
-                            [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                            [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                         );
                     }
                 } else {
                     $this->validateSetError(
                         'required_field',
-                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                        [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                     );
                 }
             }
 
-            if (empty($this->validation_data->extra_data[$fieldDefinition['field_key']]) && $fieldDefinition['default_value'] !== '') {
-                $this->validation_data->extra_data[$fieldDefinition['field_key']] = $fieldDefinition['default_value'];
+            if (empty($this->validation_data->extra_data[$field_definition['field_key']]) && $field_definition['default_value'] !== '') {
+                $this->validation_data->extra_data[$field_definition['field_key']] = $field_definition['default_value'];
             }
 
-            if (fieldTypeMatchInt($fieldDefinition['field_type'])) {
-                if (is_array($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
-                    foreach ($this->validation_data->extra_data[$fieldDefinition['field_key']] as $fieldValue) {
+            if (fieldTypeMatchInt($field_definition['field_type'])) {
+                if (is_array($this->validation_data->extra_data[$field_definition['field_key']])) {
+                    foreach ($this->validation_data->extra_data[$field_definition['field_key']] as $fieldValue) {
                         if (!is_numeric($fieldValue)) {
                             $this->validateSetError(
                                 'invalid_value',
-                                [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                                [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                             );
                         }
                     }
-                } elseif (!is_numeric($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+                } elseif (!is_numeric($this->validation_data->extra_data[$field_definition['field_key']])) {
                     $this->validateSetError(
                         'invalid_value',
-                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                        [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                     );
                 }
-            } elseif (fieldTypeMatchChar($fieldDefinition['field_type']) ||
-                fieldTypeMatchText($fieldDefinition['field_type'])) {
-                if (!is_scalar($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
+            } elseif (fieldTypeMatchChar($field_definition['field_type']) ||
+                fieldTypeMatchText($field_definition['field_type'])) {
+                if (!is_scalar($this->validation_data->extra_data[$field_definition['field_key']])) {
                     $this->validateSetError(
                         'invalid_value',
-                        [$this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label']]
+                        [$this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label']]
                     );
                 }
 
-                if ($fieldDefinition['html_type'] !== FieldHtmlTypes::Date) {
-                    if ($fieldDefinition['minimum_length'] &&
+                if ($field_definition['html_type'] !== FieldHtmlTypes::Date) {
+                    if ($field_definition['minimum_length'] &&
                         my_strlen(
-                            $this->validation_data->extra_data[$fieldDefinition['field_key']]
-                        ) < $fieldDefinition['minimum_length']) {
+                            $this->validation_data->extra_data[$field_definition['field_key']]
+                        ) < $field_definition['minimum_length']) {
                         $this->validateSetError(
                             'invalid_length_minimum',
                             [
-                                $this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
-                                my_strlen($this->validation_data->extra_data[$fieldDefinition['field_key']]),
-                                my_number_format($fieldDefinition['minimum_length']),
-                                my_number_format($fieldDefinition['maximum_length']),
+                                $this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label'],
+                                my_strlen($this->validation_data->extra_data[$field_definition['field_key']]),
+                                my_number_format($field_definition['minimum_length']),
+                                my_number_format($field_definition['maximum_length']),
                             ]
                         );
                     }
 
-                    if ($fieldDefinition['maximum_length'] &&
+                    if ($field_definition['maximum_length'] &&
                         my_strlen(
-                            $this->validation_data->extra_data[$fieldDefinition['field_key']]
-                        ) > $fieldDefinition['maximum_length']) {
+                            $this->validation_data->extra_data[$field_definition['field_key']]
+                        ) > $field_definition['maximum_length']) {
                         $this->validateSetError(
                             'invalid_length_maximum',
                             [
-                                $this->language->{'myshowcase_fieldset_field_' . $fieldDefinition['field_key']} ?? $fieldDefinition['field_label'],
-                                my_strlen($this->validation_data->extra_data[$fieldDefinition['field_key']]),
-                                my_number_format($fieldDefinition['minimum_length']),
-                                my_number_format($fieldDefinition['maximum_length']),
+                                $this->language->{'myshowcase_fieldset_field_' . $field_definition['field_key']} ?? $field_definition['field_label'],
+                                my_strlen($this->validation_data->extra_data[$field_definition['field_key']]),
+                                my_number_format($field_definition['minimum_length']),
+                                my_number_format($field_definition['maximum_length']),
                             ]
                         );
                     }
@@ -442,17 +442,17 @@ class EntriesManager
             }
         }
 
-        foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
-            if (!$fieldDefinition['is_enabled'] ||
-                !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
-                !is_member($fieldDefinition['allowed_groups_fill'])) {
+        foreach ($this->fieldset_fields as $field_id => $field_definition) {
+            if (!$field_definition['is_enabled'] ||
+                !isset($this->validation_data->extra_data[$field_definition['field_key']]) ||
+                !is_member($field_definition['allowed_groups_fill'])) {
                 continue;
             }
 
-            if ($fieldDefinition['filter_on_save']) {
-                $this->validation_data->extra_data[$fieldDefinition['field_key']] = match ($fieldDefinition['filter_on_save']) {
+            if ($field_definition['filter_on_save']) {
+                $this->validation_data->extra_data[$field_definition['field_key']] = match ($field_definition['filter_on_save']) {
                     FilterTypes::UUID => (new UuidUtil())->generateUuidV4(),
-                    default => $this->validation_data->extra_data[$fieldDefinition['field_key']],
+                    default => $this->validation_data->extra_data[$field_definition['field_key']],
                 };
             }
         }
@@ -461,13 +461,13 @@ class EntriesManager
         if ($this->validation_method !== self::VALIDATION_METHOD_UPDATE) {
             $entry_slug_custom = [];
 
-            foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
-                if (!$fieldDefinition['enable_slug']) {
+            foreach ($this->fieldset_fields as $field_id => $field_definition) {
+                if (!$field_definition['enable_slug']) {
                     continue;
                 }
 
-                if (is_array($this->validation_data->extra_data[$fieldDefinition['field_key']])) {
-                    foreach ($this->validation_data->extra_data[$fieldDefinition['field_key']] as $field_data_id) {
+                if (is_array($this->validation_data->extra_data[$field_definition['field_key']])) {
+                    foreach ($this->validation_data->extra_data[$field_definition['field_key']] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;
 
                         if (!isset($this->fieldset_fields[$field_data_id])) {
@@ -488,8 +488,8 @@ class EntriesManager
                             }
                         }
                     }
-                } elseif (is_member($fieldDefinition['allowed_groups_fill'])) {
-                    $entry_slug_custom[] = $this->validation_data->extra_data[$fieldDefinition['field_key']];
+                } elseif (is_member($field_definition['allowed_groups_fill'])) {
+                    $entry_slug_custom[] = $this->validation_data->extra_data[$field_definition['field_key']];
                 }
             }
 

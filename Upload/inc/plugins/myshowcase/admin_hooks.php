@@ -65,8 +65,8 @@ function admin_user_groups_delete_commit(): bool
 
     $groupID = (int)$usergroup['gid'];
 
-    foreach (showcaseGet() as $showcaseID => $showcaseData) {
-        $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcaseID]);
+    foreach (showcaseGet() as $showcase_id => $showcase_data) {
+        $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcase_id]);
 
         foreach (
             $permissions_repository->queryPermission(["group_id='{$groupID}'"]) as $permissionID => $permissionData
@@ -301,8 +301,8 @@ function admin_formcontainer_output_row(array &$hookArguments): array
 
     loadLanguage();
 
-    $selectOptions = array_map(function ($showcaseData) {
-        return htmlspecialchars_uni($showcaseData['name']);
+    $selectOptions = array_map(function ($showcase_data) {
+        return htmlspecialchars_uni($showcase_data['name']);
     }, showcaseGet(queryFields: ['name']));
 
     $hookArguments['this']->output_row(

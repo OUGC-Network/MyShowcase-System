@@ -26,14 +26,14 @@ function task_myshowcase(array $taskData): array
     foreach (
         (new CacheManager($db, $mybb->cache))->get(
             CacheDataTypes::Config
-        ) as $showcaseID => $showcaseData
+        ) as $showcase_id => $showcase_data
     ) {
-        $showcasePruneTime = explode('|', $showcaseData['prune_time']);
+        $showcasePruneTime = explode('|', $showcase_data['prune_time']);
 
-        if ($showcasePruneTime[0] > 0 && $showcaseData['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
+        if ($showcasePruneTime[0] > 0 && $showcase_data['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
             $pruneTime = (int)strtotime('-' . $showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
 
-            $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcaseID);
+            $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
             foreach (
                 $showcase->entries_repository->queryEntries(

@@ -234,8 +234,8 @@ class Render
      * @throws LoaderError
      */
     private function buildPost(
-        ?Entry $entry_data = null,
-        ?Comment $comment_data = null,
+        ?Entry $entry = null,
+        ?Comment $comment = null,
     ): string {
         $this->attachments_type = $this->post_type;
 
@@ -249,10 +249,10 @@ class Render
             }
         }
 
-        if ($this->post_type === self::POST_TYPE_ENTRY && $entry_data->user_id) {
-            $this->user_id = $entry_data->user_id;
-        } elseif ($this->post_type === self::POST_TYPE_COMMENT && $comment_data->user_id) {
-            $this->user_id = $comment_data->user_id;
+        if ($this->post_type === self::POST_TYPE_ENTRY && $entry->user_id) {
+            $this->user_id = $entry->user_id;
+        } elseif ($this->post_type === self::POST_TYPE_COMMENT && $comment->user_id) {
+            $this->user_id = $comment->user_id;
         } else {
             $this->user_id = $this->current_user->user_id;
         }
@@ -262,8 +262,8 @@ class Render
         hooksRun('render_build_entry_comment_start', $this);
 
         $templatesContext = [
-            'entry_data' => $entry_data,
-            'comment_data' => $comment_data,
+            'entry_data' => $entry,
+            'comment_data' => $comment,
             'url' => [
                 'entry' => '',
                 'update' => '',
@@ -289,12 +289,12 @@ class Render
         }
 
         if ($this->post_type === self::POST_TYPE_ENTRY) {
-            $entry_data->subject = postParser()->highlight_message(
-                postParser()->parse_badwords($entry_data->subject),
+            $entry->subject = postParser()->highlight_message(
+                postParser()->parse_badwords($entry->subject),
                 $this->url_params['keywords']
             );
 
-            $entry_data
+            $entry
                 ->setExtraData('is_deleted', false)
                 ->setExtraData('moderator_check', false);
         }
@@ -306,20 +306,20 @@ class Render
         }
 
         // todo, will be empty when preview a new entry/comment
-        if (!empty($entry_data->entry_slug)) {
+        if (!empty($entry->entry_slug)) {
             $templatesContext['url']['entry'] = $this->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom
                 ]
             );
         }
 
-        if ($entry_data->entry_id) {
-            $where_clauses = ["entry_id='{$entry_data->entry_id}'"];
+        if ($entry->entry_id) {
+            $where_clauses = ["entry_id='{$entry->entry_id}'"];
         } else {
-            $where_clauses = ["post_hash='{$entry_data->post_hash}'"];
+            $where_clauses = ["post_hash='{$entry->post_hash}'"];
         }
 
         foreach (
@@ -353,7 +353,7 @@ class Render
         }
 
         foreach ($this->attachments_manager->getAttachments() as $attachment_data) {
-            $entry_data = $this->entries_manager->getEntryByID($attachment_data->entry_id);
+            $entry = $this->entries_manager->getEntryByID($attachment_data->entry_id);
 
             $attachment_data
                 ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
@@ -391,12 +391,12 @@ class Render
                 $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
             }
 
-            $entry_data->addAttachment($attachment_data);
+            $entry->addAttachment($attachment_data);
         }
 
         if ($this->post_type === self::POST_TYPE_COMMENT) {
             $templatesContext['formatted_message'] = $this->entries_manager->parseMessage(
-                $comment_data->message,
+                $comment->message,
                 $this->parser_options
             );
 
@@ -404,7 +404,7 @@ class Render
                 $templatesContext['url']['comment'] = $this->routing->generateUrl(
                     Routes::CommentView,
                     [
-                        'comment_slug' => $comment_data->comment_slug
+                        'comment_slug' => $comment->comment_slug
                     ]
                 );
             }
@@ -414,8 +414,8 @@ class Render
             if ($this->config['attachments_allow_in_entries'] &&
                 $this->current_user->hasPermission(UserPermissions::AttachmentsCanView)) {
                 $templatesContext['entry_attachments'] = $this->buildAttachments(
-                    $entry_data,
-                    $entry_data->getAttachments()->filter(
+                    $entry,
+                    $entry->getAttachments()->filter(
                         fn(Attachment $attachment) => empty($attachment->field_id)
                     ),
                 );
@@ -506,20 +506,20 @@ class Render
                 UserPermissions::CommentsCanDelete
             );
 
-        if (!$this->is_preview && $this->post_type === self::POST_TYPE_ENTRY && $entry_data->entry_id && ($moderatorCanManageEntries || $userCanUpdateEntries)) {
+        if (!$this->is_preview && $this->post_type === self::POST_TYPE_ENTRY && $entry->entry_id && ($moderatorCanManageEntries || $userCanUpdateEntries)) {
             $templatesContext['url']['update'] = $this->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
+                    'entry_slug' => $entry->entry_slug,
                 ]
             );
-        } elseif (!$this->is_preview && $this->post_type === self::POST_TYPE_COMMENT && $comment_data->comment_id && ($moderatorCanManageComments || $userCanUpdateComments)) {
+        } elseif (!$this->is_preview && $this->post_type === self::POST_TYPE_COMMENT && $comment->comment_id && ($moderatorCanManageComments || $userCanUpdateComments)) {
             $templatesContext['url']['update'] = $this->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
-                    'entry_slug_custom' => $entry_data->entry_slug_custom,
-                    'comment_slug' => $comment_data->comment_slug,
+                    'entry_slug' => $entry->entry_slug,
+                    'entry_slug_custom' => $entry->entry_slug_custom,
+                    'comment_slug' => $comment->comment_slug,
                 ]
             );
         }
@@ -587,11 +587,11 @@ class Render
         }
 
         if ($moderatorCanManageEntries && (
-                $this->post_type === self::POST_TYPE_ENTRY && !empty($entry_data->edit_user_id) ||
-                $this->post_type === self::POST_TYPE_COMMENT && !empty($comment_data->edit_user_id)
+                $this->post_type === self::POST_TYPE_ENTRY && !empty($entry->edit_user_id) ||
+                $this->post_type === self::POST_TYPE_COMMENT && !empty($comment->edit_user_id)
             )) {
             $editUserData = get_user(
-                $this->post_type === self::POST_TYPE_ENTRY ? $entry_data->edit_user_id : $comment_data->edit_user_id
+                $this->post_type === self::POST_TYPE_ENTRY ? $entry->edit_user_id : $comment->edit_user_id
             );
         }
 
@@ -629,17 +629,17 @@ class Render
         }
 
         if ($this->post_type === self::POST_TYPE_ENTRY) {
-            $postStatus = (int)$entry_data->status;
+            $postStatus = (int)$entry->status;
         } else {
-            $postStatus = $comment_data->status;
+            $postStatus = $comment->status;
         }
 
-        if (!$this->is_preview && $this->post_type === self::POST_TYPE_ENTRY && $entry_data->entry_id && ($moderatorCanManageEntries || $userCanSoftDeleteEntries)) {
+        if (!$this->is_preview && $this->post_type === self::POST_TYPE_ENTRY && $entry->entry_id && ($moderatorCanManageEntries || $userCanSoftDeleteEntries)) {
             if ($moderatorCanManageEntries && $postStatus === $this->entries_manager::STATUS_PENDING) {
                 $approveUrl = $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                         'action' => 'approve',
                     ]
                 );
@@ -647,7 +647,7 @@ class Render
                 $unapproveUrl = $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                         'action' => 'unapprove',
                     ]
                 );
@@ -657,7 +657,7 @@ class Render
                 $restoreUrl = $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                         'action' => 'restore',
                     ]
                 );
@@ -665,7 +665,7 @@ class Render
                 $softDeleteUrl = $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                         'action' => 'soft_delete',
                     ]
                 );
@@ -676,19 +676,19 @@ class Render
                 $deleteUrl = $this->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
+                        'entry_slug' => $entry->entry_slug,
                         'action' => 'delete',
                     ]
                 );
             }
-        } elseif (!$this->is_preview && $this->post_type === self::POST_TYPE_COMMENT && $comment_data->comment_id && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
+        } elseif (!$this->is_preview && $this->post_type === self::POST_TYPE_COMMENT && $comment->comment_id && ($moderatorCanManageComments || $userCanSoftDeleteComments)) {
             if ($moderatorCanManageComments && $postStatus === $this->comments_manager::STATUS_PENDING) {
                 $templatesContext['url_comment_approve'] = $this->config['showcase_url'] . $this->routing->generateUrl(
                         Routes::CommentView,
                         array_merge($this->url_params, [
-                            'entry_slug' => $entry_data->entry_slug,
-                            'entry_slug_custom' => $entry_data->entry_slug_custom,
-                            'comment_slug' => $comment_data->comment_slug,
+                            'entry_slug' => $entry->entry_slug,
+                            'entry_slug_custom' => $entry->entry_slug_custom,
+                            'comment_slug' => $comment->comment_slug,
                             'action' => 'approve',
                         ])
                     );
@@ -696,9 +696,9 @@ class Render
                 $templatesContext['url_comment_unapprove'] = $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
-                        'comment_slug' => $comment_data->comment_slug,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
+                        'comment_slug' => $comment->comment_slug,
                         'action' => 'unapprove',
                     ]
                 );
@@ -708,9 +708,9 @@ class Render
                 $templatesContext['url_comment_restore'] = $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
-                        'comment_slug' => $comment_data->comment_slug,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
+                        'comment_slug' => $comment->comment_slug,
                         'action' => 'restore',
                     ]
                 );
@@ -718,9 +718,9 @@ class Render
                 $templatesContext['url_comment_soft_delete'] = $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
-                        'comment_slug' => $comment_data->comment_slug,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
+                        'comment_slug' => $comment->comment_slug,
                         'action' => 'soft_delete',
                     ]
                 );
@@ -731,9 +731,9 @@ class Render
                 $templatesContext['url_comment_delete'] = $this->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry_data->entry_slug,
-                        'entry_slug_custom' => $entry_data->entry_slug_custom,
-                        'comment_slug' => $comment_data->comment_slug,
+                        'entry_slug' => $entry->entry_slug,
+                        'entry_slug_custom' => $entry->entry_slug_custom,
+                        'comment_slug' => $comment->comment_slug,
                         'action' => 'delete',
                     ]
                 );
@@ -811,18 +811,18 @@ class Render
         }
 
         // todo, the entry query should fetch this from the reports table
-        if ($entry_data->getExtraData('reporters_list') === false) {
-            $entry_data->setExtraData(
+        if ($entry->getExtraData('reporters_list') === false) {
+            $entry->setExtraData(
                 'reporters_list',
-                $this->entries_repository->getContentReports($entry_data->entry_id)
+                $this->entries_repository->getContentReports($entry->entry_id)
             );
         }
 
         if ($this->post_type === self::POST_TYPE_COMMENT) {
-            if ($comment_data->getExtraData('reporters_list') === false) {
-                $comment_data->setExtraData(
+            if ($comment->getExtraData('reporters_list') === false) {
+                $comment->setExtraData(
                     'reporters_list',
-                    $this->entries_repository->getContentReports($comment_data->entry_id)
+                    $this->entries_repository->getContentReports($comment->entry_id)
                 );
             }
         }
@@ -836,7 +836,7 @@ class Render
         $templatesContext['show_edited_message'] = false;
 
         // Figure out if we need to show an "edited by" message
-        if ($entry_data->edit_user_id && $entry_data->edit_stamp && (
+        if ($entry->edit_user_id && $entry->edit_stamp && (
                 !empty($this->mybb->settings['showeditedby']) ||
                 (!empty($this->mybb->settings['showeditedbyadmin']) && $this->current_user->hasPermission(
                         UserPermissions::EntriesCanView
@@ -844,43 +844,53 @@ class Render
             )) {
             $templatesContext['show_edited_message'] = true;
 
-            $entry_data->setExtraData('edit_user_data', get_user($entry_data->edit_user_id));
+            $entry->setExtraData('edit_user_data', get_user($entry->edit_user_id));
 
-            if ($entry_data->edit_note) {
-                $entry_data->edit_note = postParser()->parse_badwords($entry_data->edit_note ?? '');
+            if ($entry->edit_note) {
+                $entry->edit_note = postParser()->parse_badwords($entry->edit_note ?? '');
             }
         }
 
-        $entry_data
+        $entry
             ->setExtraData('show_ip', false)
             ->setExtraData('hide_ip', false)
             ->setExtraData('can_edit', false);
 
-        if ($this->mybb->settings['logip'] !== 'no' && !empty($entry_data->ipaddress)) {
-            $entry_data->setExtraData(
+        if ($this->mybb->settings['logip'] !== 'no' && !empty($entry->ipaddress)) {
+            $entry->setExtraData(
                 'ip_address',
-                my_inet_ntop($this->database->unescape_binary($entry_data->ipaddress))
+                my_inet_ntop($this->database->unescape_binary($entry->ipaddress))
             );
 
             if ($this->mybb->settings['logip'] === 'show') {
-                $entry_data->setExtraData('show_ip', true);
+                $entry->setExtraData('show_ip', true);
             } elseif ($this->mybb->settings['logip'] === 'hide' &&
                 ($this->current_user->hasPermission(
                         UserPermissions::EntriesCanView
                     ) || $this->mybb->usergroup['issupermod'])) {
-                $entry_data->setExtraData('show_ip', true);
+                $entry->setExtraData('show_ip', true);
             }
         }
 
-        $entry_data->message = $this->entries_manager->parseMessage($entry_data->message ?? '', $this->parser_options);
+        if ($this->post_type === self::POST_TYPE_ENTRY) {
+            $entry->message = $this->entries_manager->parseMessage(
+                $entry->message,
+                ['me_username' => $this->user_data['username'] ?? ''] + $this->parser_options
+            );
+        } else {
+            $comment->message = $this->entries_manager->parseMessage(
+                $comment->message,
+                ['me_username' => $this->user_data['username'] ?? ''] + $this->parser_options
+            );
+        }
 
         if ($this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            ($this->current_user->user_id === $entry_data->user_id && !$thread['closed'] && (
+            ($this->current_user->user_id === $entry->user_id && !$thread['closed'] && (
                     empty($this->mybb->usergroup['edittimelimit']) ||
                     $post['dateline'] > (TIME_NOW - ($this->mybb->usergroup['edittimelimit'] * 60))
                 )) &&
             $this->current_user->user_id) {
-            $entry_data->setExtraData('can_edit', true);
+            $entry->setExtraData('can_edit', true);
         }
 
         hooksRun('render_build_entry_comment_end', $this);
@@ -911,7 +921,7 @@ class Render
      * @throws LoaderError
      */
     public function buildComment(
-        Entry $entry_data,
+        Entry $entry,
         Comment $comment_data,
         bool $is_preview = false,
     ): string {
@@ -919,7 +929,7 @@ class Render
 
         $this->is_preview = $is_preview;
 
-        return $this->buildPost($entry_data, $comment_data);
+        return $this->buildPost($entry, $comment_data);
     }
 
     /**
@@ -928,7 +938,7 @@ class Render
      * @throws SyntaxError
      */
     public function buildAttachments(
-        Entry $entry_data,
+        Entry $entry,
         Collection $attachment_objects,
         array &$entry_fields = [],
     ): string {
@@ -968,7 +978,7 @@ class Render
 
             // todo, maybe all attachments should be accessible from the same route, with entry_slug or post_hash optional
             if ($this->attachments_type === self::ATTACHMENT_TYPE_ENTRY || $this->attachments_type === self::ATTACHMENT_TYPE_FIELD) {
-                if ($entry_data->entry_id) {
+                if ($entry->entry_id) {
                     $attachment_data->setExtraData(
                         'url',
                         $this->routing->generateUrl(
@@ -1016,12 +1026,12 @@ class Render
                 // Support for [attachment=attachment_hash] code
                 $attachmentInField = false;
 
-                foreach ($entry_fields as $field_header => &$fieldDefinition) {
+                foreach ($entry_fields as $field_header => &$field_definition) {
                     if (str_contains(
-                            $fieldDefinition['value'],
+                            $field_definition['value'],
                             '[attachment=' . $attachment_data->attachment_hash . ']'
                         ) || str_contains(
-                            $fieldDefinition['value_display'],
+                            $field_definition['value_display'],
                             '[attachment=' . $attachment_data->attachment_hash . ']'
                         )) {
                         $attachmentInField = true;
@@ -1037,24 +1047,24 @@ class Render
                         );
 
                         if (str_contains(
-                            $fieldDefinition['value'],
+                            $field_definition['value'],
                             '[attachment=' . $attachment_data->attachment_hash . ']'
                         )) {
-                            $fieldDefinition['value'] = preg_replace(
+                            $field_definition['value'] = preg_replace(
                                 '#\[attachment=' . $attachment_data->attachment_hash . ']#si',
                                 $attachmentBit,
-                                $fieldDefinition['value']
+                                $field_definition['value']
                             );
                         }
 
                         if (str_contains(
-                            $fieldDefinition['value_display'],
+                            $field_definition['value_display'],
                             '[attachment=' . $attachment_data->attachment_hash . ']'
                         )) {
-                            $fieldDefinition['value'] = preg_replace(
+                            $field_definition['value'] = preg_replace(
                                 '#\[attachment=' . $attachment_data->attachment_hash . ']#si',
                                 $attachmentBit,
-                                $fieldDefinition['value']
+                                $field_definition['value']
                             );
                         }
                     }
@@ -1135,7 +1145,7 @@ class Render
             $createUpdateUrl = $this->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry_data->entry_slug,
+                    'entry_slug' => $entry->entry_slug,
                 ],
                 $this->url_params
             );
