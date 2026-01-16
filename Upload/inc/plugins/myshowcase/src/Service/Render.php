@@ -18,6 +18,7 @@ namespace MyShowcase\Service;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Collection\Collection;
@@ -76,7 +77,7 @@ class Render
 
     public array $context = [];
 
-    public function __construct(
+    #[NoReturn] public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
         private readonly MyLanguage $language,
@@ -90,7 +91,6 @@ class Render
         private readonly array $config,
         private readonly array $attachment_types,
         private readonly array $fieldset_fields,
-        private readonly array $fieldset_searchable_fields,
         private readonly array $parser_options,
     ) {
         $this->current_page = 1;
@@ -119,14 +119,16 @@ class Render
             }
         }
 
-        if ($this->mybb->get_input('sort_by') !== SortDirections::Descending) {
-            $this->url_params['order_by'] = SortDirections::Ascending;
-        } else {
-            $this->url_params['order_by'] = SortDirections::Descending;
+        $this->url_params['order_dir'] = $this->mybb->get_input('order_dir');
+
+        if (!in_array($this->url_params['order_dir'], [SortDirections::Ascending, SortDirections::Descending])) {
+            unset($this->url_params['order_dir']);
         }
 
-        if (!array_key_exists($this->url_params['sort_by'], $this->fieldset_display_fields)) {
-            $this->url_params['sort_by'] = 'dateline';
+        $this->url_params['order_by'] = $this->mybb->get_input('order_by');
+
+        if (!array_key_exists($this->url_params['order_by'], $this->fieldset_display_fields)) {
+            unset($this->url_params['order_by']);
         }
 
         if ($this->mybb->get_input('exact_match', MyBB::INPUT_INT) === 1) {
@@ -135,14 +137,16 @@ class Render
 
         $this->url_params['keywords'] = $this->mybb->get_input('keywords');
 
-        $this->url_params['sort_by'] = $this->mybb->get_input('search_field');
-
-        if (!in_array($this->url_params['sort_by'], array_keys($this->fieldset_searchable_fields))) {
-            $this->url_params['sort_by'] = '';
-        }
-
         if ($this->mybb->get_input('threaded', MyBB::INPUT_INT) === 1) {
             $this->url_params['threaded'] = 1;
+        }
+
+        $this->url_params['threshold'] = array_filter(
+            array_map('intval', $this->mybb->get_input('threshold', MyBB::INPUT_ARRAY))
+        );
+
+        if (empty($this->url_params['threshold'])) {
+            unset($this->url_params['threshold']);
         }
     }
 
@@ -205,11 +209,6 @@ class Render
         $loader = $twig->getLoader();
 
         return $loader->exists("@ext.myshowcase/{$template_name}.twig");
-    }
-
-    public function urlParamsAppend(array $params): void
-    {
-        $this->url_params = array_merge($this->url_params, $params);
     }
 
     public function groupUserTitlesGet(): array
@@ -876,7 +875,7 @@ class Render
         $entry_data->message = $this->entries_manager->parseMessage($entry_data->message ?? '', $this->parser_options);
 
         if ($this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            ($this->current_user->user_id === $entry_data->user_id && empty($thread['closed']) && (
+            ($this->current_user->user_id === $entry_data->user_id && !$thread['closed'] && (
                     empty($this->mybb->usergroup['edittimelimit']) ||
                     $post['dateline'] > (TIME_NOW - ($this->mybb->usergroup['edittimelimit'] * 60))
                 )) &&

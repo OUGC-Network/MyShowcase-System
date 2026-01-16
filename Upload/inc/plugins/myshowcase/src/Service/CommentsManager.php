@@ -8,6 +8,7 @@ use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
 use MyShowcase\Entity\User;
+use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
@@ -55,7 +56,11 @@ class CommentsManager
         'edit_user_id',
     ];
 
-    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0];
+    private array $query_options = [
+        'order_by' => 'dateline',
+        'order_dir' => SortDirections::Ascending,
+        'limit_start' => 0
+    ];
 
     private array $comments = [];
 

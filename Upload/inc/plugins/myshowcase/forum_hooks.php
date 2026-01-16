@@ -558,7 +558,7 @@ function postbit(array &$post): array
             )[$showcase_id] ?? [];
 
             if ($showcase_data['uids'][$post['uid']] > 0) {
-                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['showcase_url'] . $showcase_data['route_identifier'] . '?search_field=username&keywords=' . rawurlencode(
+                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['showcase_url'] . $showcase_data['route_identifier'] . '?order_by=username&keywords=' . rawurlencode(
                         $post['username']
                     ) . '&exact_match=1">' . $showcase_data['uids'][$post['uid']] . '</a>';
             }

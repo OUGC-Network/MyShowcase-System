@@ -206,7 +206,8 @@ $l = array_merge([
     'myshowcase_admin_summary_create_update_main_filter_sort_field_dateline' => 'Date Created',
     'myshowcase_admin_summary_create_update_main_filter_sort_field_username' => 'Username',
     'myshowcase_admin_summary_create_update_main_filter_sort_field_views' => 'Views',
-    'myshowcase_admin_summary_create_update_main_filter_sort_field_comments_approved' => 'Comments',
+    'myshowcase_admin_summary_create_update_main_filter_sort_field_comments_approved' => 'Approved Comments',
+    'myshowcase_admin_summary_create_update_main_filter_sort_field_last_comment' => 'Last Comment',
 
     'myshowcase_admin_summary_create_update_main_sort_default_field_description' => 'The default field used for sorting entries in the showcase.',
     'myshowcase_admin_summary_create_update_main_sort_direction' => 'Ascending Sort Direction',

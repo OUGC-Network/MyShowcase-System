@@ -143,23 +143,99 @@ class EntriesController extends BaseController
     #[NoReturn] #[Route('/', name: 'main', methods: ['GET'])]
     public function main(): string
     {
-        $where_clauses = [];
+        $query_options = $where_clauses = [];
 
-        if ($this->config['main_filter_force_field'] === FilterFields::UserID) {
-            if ($this->mybb->get_input('user_id', MyBB::INPUT_INT) > 0) {
-                $where_clauses[] = "user_id='" . $this->mybb->get_input('user_id', MyBB::INPUT_INT) . "'";
+        $query_options['order_by'] = $this->render_manager->url_params['order_by'] ?? $this->config['main_sort_default_field'];
 
-                $this->render_manager->urlParamsAppend(
-                    ['user_id' => $this->mybb->get_input('user_id', MyBB::INPUT_INT)],
-                );
+        if (empty($this->render_manager->url_params['order_dir'])) {
+            if ($this->config['main_sort_direction']) {
+                $query_options['order_dir'] = SortDirections::Ascending;
             } else {
-                $where_clauses[] = "user_id='" . $this->current_user->user_id . "'";
-
-                $this->render_manager->urlParamsAppend(
-                    ['user_id' => $this->current_user->user_id],
-                );
+                $query_options['order_dir'] = SortDirections::Descending;
             }
+        } else {
+            $query_options['order_dir'] = $this->render_manager->url_params['order_dir'];
         }
+
+        if (!empty($this->render_manager->url_params['order_by'])) {
+            $query_options['order_by'] = $this->render_manager->url_params['order_by'];
+        }
+
+        if (isset($this->render_manager->url_params['user_id'])) {
+            $where_clauses[] = "entry_data.user_id='" . $this->render_manager->url_params['user_id'] . "'";
+        } elseif ($this->config['main_filter_force_field'] === FilterFields::UserID) {
+            $where_clauses[] = "entry_data.user_id='" . $this->current_user->user_id . "'";
+        }
+
+        if (empty($this->render_manager->url_params['threshold']['days']) && !empty($this->current_user->days_prune)) {
+            $where_clauses[] = "entry_data.dateline>='" . (TIME_NOW - ($this->current_user->days_prune * 86400)) . "'";
+        } elseif (!empty($this->render_manager->url_params['threshold']['days'])) {
+            $where_clauses[] = "entry_data.dateline>='" . (TIME_NOW - ($this->render_manager->url_params['threshold']['days'] * 86400)) . "'";
+        }
+
+        ///
+        ///
+        ///
+        ///
+        ///
+        ///
+        ///
+
+
+        $search_done = false;
+
+        $keywords = array_filter(array_map('trim', explode(' ', $this->render_manager->url_params['keywords'] ?? '')));
+
+        if ($keywords) {
+            $search_where_clauses = [];
+
+            foreach ($keywords as $keyword) {
+                if (empty($this->render_manager->url_params['exact_match'])) {
+                    $search_where_clauses[] = "user_data.username LIKE '%{$this->database->escape_string($keyword)}%'";
+                } else {
+                    $search_where_clauses[] = "user_data.username='{$this->database->escape_string($keyword)}'";
+                }
+            }
+
+            foreach ($this->fieldset_fields as $field_id => $field_definition) {
+                foreach ($keywords as $keyword) {
+                    if (!$field_definition['enable_search']) {
+                        continue;
+                    }
+
+                    if ($field_definition['html_type'] === FieldHtmlTypes::CheckBox ||
+                        $field_definition['html_type'] === FieldHtmlTypes::Radio ||
+                        $field_definition['html_type'] === FieldHtmlTypes::Select) {
+                        if (empty($this->render_manager->url_params['exact_match'])) {
+                            $search_where_clauses[] = "(table_{$field_definition['field_key']}.value LIKE '%{$this->database->escape_string($keyword)}%' OR table_{$field_definition['field_key']}.display_style LIKE '%{$this->database->escape_string($keyword)}%')";
+                        } else {
+                            $search_where_clauses[] = "(table_{$field_definition['field_key']}.value='{$this->database->escape_string($keyword)}' OR table_{$field_definition['field_key']}.display_style='{$this->database->escape_string($keyword)}')";
+                        }
+                        //$search_where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->config['field_set_id']}'";
+                    } elseif (empty($this->render_manager->url_params['exact_match'])) {
+                        $search_where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
+                    } else {
+                        $search_where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
+                    }
+                }
+            }
+            if (empty($this->render_manager->url_params['exact_match'])) {
+                $search_where_clauses = implode(' OR ', $search_where_clauses);
+            } else {
+                $search_where_clauses = implode(' AND ', $search_where_clauses);
+            }
+
+            $where_clauses[] = "({$search_where_clauses})";
+        }
+
+        ///
+        ///
+        ///
+        ///
+        ///
+        ///
+        ///
+        ///
 
         if ($this->mybb->get_input('action') === 'inline_moderation') {
             verify_post_check($this->mybb->get_input('my_post_key'));
@@ -167,8 +243,8 @@ class EntriesController extends BaseController
             foreach (
                 $this->entries_manager->fetchEntries(
                     $where_clauses,
-                    url_params: $this->render_manager->url_params,
-                    load_all: true,
+                    $query_options,
+                    $this->render_manager->url_params,
                 ) as $entry_data
             ) {
                 $this->entries_manager->addEntry($entry_data);
@@ -365,16 +441,14 @@ class EntriesController extends BaseController
             error_no_permission();
         }
 
-        if ($this->mybb->get_input('sort_by')) {
-            $this->render_manager->urlParamsAppend(['sort_by' => $this->mybb->get_input('sort_by')]);
-        }
+        $order_dir_param = [
+            'order_dir' => SortDirections::Ascending
+        ];
 
-        if ($this->mybb->get_input('order_by')) {
-            $this->render_manager->urlParamsAppend(['order_by' => $this->mybb->get_input('order_by')]);
-        }
-
-        if ($this->mybb->get_input('days', MyBB::INPUT_INT) > 0) {
-            $this->render_manager->urlParamsAppend(['days' => $this->mybb->get_input('days', MyBB::INPUT_INT)]);
+        if (empty($this->render_manager->url_params['order_dir']) || $this->render_manager->url_params['order_dir'] === SortDirections::Ascending) {
+            $order_dir_param = [
+                'order_dir' => SortDirections::Descending
+            ];
         }
 
         $templatesContext = [
@@ -389,31 +463,19 @@ class EntriesController extends BaseController
                 'sort' => [
                     'subject' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, [
-                            'sort_by' => 'subject',
-                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
-                        ])
+                        array_merge($this->render_manager->url_params, ['order_by' => 'subject'], $order_dir_param)
                     ),
                     'username' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, [
-                            'sort_by' => 'username',
-                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
-                        ])
+                        array_merge($this->render_manager->url_params, ['order_by' => 'username'], $order_dir_param)
                     ),
                     'comments' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, [
-                            'sort_by' => 'comments',
-                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
-                        ])
+                        array_merge($this->render_manager->url_params, ['order_by' => 'comments'], $order_dir_param)
                     ),
                     'last_comment' => $this->routing->generateUrl(
                         Routes::Main,
-                        array_merge($this->render_manager->url_params, [
-                            'sort_by' => 'last_comment',
-                            'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
-                        ])
+                        array_merge($this->render_manager->url_params, ['order_by' => 'last_comment'], $order_dir_param)
                     ),
                 ],
             ],
@@ -490,23 +552,18 @@ class EntriesController extends BaseController
             );
         }
 
-        $templatesContext['fieldSetCache'] = array_map(
-            function (array &$fieldDefinition) use (&$templatesContext): array {
-                $templatesContext['url']['sort'][$fieldDefinition['field_key']] = $this->routing->generateUrl(
+        foreach ($this->fieldset_fields as $field_id => $field_definition) {
+            if ($field_definition['display_in_create_update_page'] &&
+                is_member($field_definition['allowed_groups_view'])) {
+                $templatesContext['url']['sort'][$field_definition['field_key']] = $this->routing->generateUrl(
                     Routes::Main,
                     array_merge($this->render_manager->url_params, [
-                        'sort_by' => $fieldDefinition['field_key'],
-                        'order_by' => $this->render_manager->url_params['order_by'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
+                        'order_by' => $field_definition['field_key'],
+                        'order_dir' => $this->render_manager->url_params['order_dir'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
                     ])
                 );
-
-                return $fieldDefinition;
-            },
-            array_filter($this->fieldset_fields, function ($fieldDefinition): bool {
-                return $fieldDefinition['display_in_create_update_page'] &&
-                    is_member($fieldDefinition['allowed_groups_fill']);
-            })
-        );
+            }
+        }
 
         foreach ($this->fieldset_fields as $field_id => $field_definition) {
             if (!isset($this->language->{"myshowcase_fieldset_field_{$this->fieldset_fields[$field_id]['field_key']}"})) {
@@ -516,10 +573,13 @@ class EntriesController extends BaseController
             }
         }
 
+        $query_options['limit'] = $this->config['main_per_page'];
+
         foreach (
             $this->entries_manager->fetchEntries(
                 $where_clauses,
-                url_params: $this->render_manager->url_params,
+                $query_options,
+                $this->render_manager->url_params,
             ) as $entry_data
         ) {
             $this->entries_manager->addEntry($entry_data);
@@ -773,7 +833,7 @@ class EntriesController extends BaseController
     {
         if ($is_update) {
             $entry_data = $this->entries_manager->fetchEntry(
-                ["entry_slug='{$this->database->escape_string($entry_slug)}'"],
+                ["entry_data.entry_slug='{$this->database->escape_string($entry_slug)}'"],
             );
 
             $this->entries_manager->addEntry($entry_data);
@@ -1032,89 +1092,6 @@ class EntriesController extends BaseController
 
         $this->loadEntryFields($entry_data, verify_fill_permission: true);
 
-        if (false) {
-            $templatesContext['fieldSetCache'] = array_map(
-                function (array &$field_definition) use (&$entry_data): array {
-                    $field_id = (int)$field_definition['field_id'];
-
-                    $fieldObject = $this->field_factory->create(
-                        $field_definition,
-                        $entry_data
-                    );
-
-                    $field_definition['description'] = $fieldObject->getFieldDescription();
-
-                    $field_definition['code_buttons'] = $field_definition['smiles_inserter'] = '';
-
-                    if (in_array($field_definition['html_type'], [
-                        FieldHtmlTypes::Text,
-                        //FieldHtmlTypes::Search,
-                        FieldHtmlTypes::TextArea,
-                    ])) {
-                        if ($field_definition['enable_editor']) {
-                            $this->render_manager->editorBuild(
-                                $field_definition['code_buttons'],
-                                $field_definition['smiles_inserter'],
-                                $field_definition['field_key']
-                            );
-                        }
-                    }
-
-                    switch ($field_definition['html_type']) {
-                        case FieldHtmlTypes::CheckBox:
-                        case FieldHtmlTypes::Radio:
-                        case FieldHtmlTypes::Select:
-                            $field_definition['fieldDataObjects'] = [];
-
-                            foreach (
-                                fieldDataGet(
-                                    ["field_id='{$field_id}'"],
-                                    ['value', 'allowed_groups_fill'],
-                                    ['order_by' => 'display_order']
-                                ) as $field_data_id => $field_data_data
-                            ) {
-                                if (is_member($field_definition['allowed_groups_fill'])) {
-                                    $field_definition['fieldDataObjects'][$field_data_id] = $field_data_data;
-                                }
-                            }
-
-                            break;
-                        case FieldHtmlTypes::File:
-                            $acceptElement = implode(
-                                ',',
-                                array_merge(
-                                    array_column($this->attachment_types, 'mime_type'),
-                                    array_column($this->attachment_types, 'file_extension')
-                                )
-                            );
-
-                            $field_definition['acceptElement'] = $acceptElement;
-
-                            switch ($field_definition['file_capture']) {
-                                case 1:
-                                    $field_definition['captureElement'] = 'user';
-
-                                    break;
-                                case 2:
-                                    $field_definition['captureElement'] = 'environment';
-
-                                    break;
-                            }
-                    }
-
-                    $fieldObject->attachmentsFetch($entry_data);
-
-                    $field_definition['attachment_objects'] = $fieldObject->getAttachments();
-
-                    return $field_definition;
-                },
-                array_filter($this->fieldset_fields, function ($fieldDefinition): bool {
-                    return $fieldDefinition['display_in_create_update_page'] &&
-                        is_member($fieldDefinition['allowed_groups_fill']);
-                })
-            );
-        }
-
         $templatesContext['attachmentsUpload'] = '';
         //$templatesContext['attachmentsUpload'] = $this->render_manager->buildAttachmentsUpload($isEditPage);
 
@@ -1222,7 +1199,7 @@ class EntriesController extends BaseController
     public function view(string $entry_slug, string $entry_slug_custom): string
     {
         $entry_data = $this->entries_manager->fetchEntry(
-            ["entry_slug='{$this->database->escape_string($entry_slug)}'"],
+            ["entry_data.entry_slug='{$this->database->escape_string($entry_slug)}'"],
         );
 
         $this->entries_manager->addEntry($entry_data);
@@ -1569,7 +1546,7 @@ class EntriesController extends BaseController
                 "s.uid!='0' AND s.time>'{$timecut}' AND location2='{$tid}' AND nopermission!='1'",
                 [
                     'order_by' => 'u.username ASC, s.time',
-                    'order_dir' => 'DESC',
+                    'order_dir' => SortDirections::Descending,
                 ]
             );
 

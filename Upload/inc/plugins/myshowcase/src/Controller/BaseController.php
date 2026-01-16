@@ -175,7 +175,7 @@ abstract class BaseController
 
         if ($entry_slug !== null) {
             $entry_data = $this->entries_manager->fetchEntry(
-                ["entry_slug='{$db->escape_string($entry_slug)}'"],
+                ["entry_data.entry_slug='{$db->escape_string($entry_slug)}'"],
             );
 
             $this->entries_manager->addEntry($entry_data);
@@ -210,7 +210,7 @@ abstract class BaseController
 
             if (empty($entry_data)) {
                 $entry_data = $this->entries_manager->fetchEntry(
-                    ["entry_id='{$comment_data['entry_id']}'"],
+                    ["entry_data.entry_id='{$comment_data['entry_id']}'"],
                 );
 
                 $this->entries_manager->addEntry($entry_data);

@@ -15,6 +15,7 @@ use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
@@ -58,7 +59,6 @@ class EntriesManager
 
     private array $query_fields = [];
 
-    private array $query_options = ['order_by' => 'dateline', 'order_dir' => 'asc', 'limit_start' => 0];
     private array $validation_errors = [];
     private Entry $validation_data;
     private bool $validation_data_is_valid = true;
@@ -72,8 +72,7 @@ class EntriesManager
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly array $config,
-        private readonly array $fields_cache,
-        private readonly array $fieldset_searchable_fields,
+        private readonly array $fieldset_fields,
         private readonly array $parser_options = [],
         private readonly array $filter,
     ) {
@@ -154,49 +153,19 @@ class EntriesManager
         return $generated_slug;
     }
 
-    #[NoReturn] public function fetchEntries(
-        array $where_clauses = [],
-        array $query_options = [],
-        array $url_params = [],
-        bool $load_all = false,
-    ): array {
-        $this->query_options = array_merge($this->query_options, $query_options);
-
-        if (!isset($this->query_options['limit']) && !$load_all) {
-            $this->query_options['limit'] = $this->config['main_per_page'];
-        }
-
+    #[NoReturn] public function fetchEntries(array $where_clauses = [], array $query_options = []): array
+    {
         $this->where_clauses = $where_clauses;
 
         if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
             $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user->user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
         }
 
-        // First, the date cut for the entries.
-        if (empty($url_params['days']) && !empty($this->current_user->days_prune)) {
-            $days_cut = $this->current_user->days_prune;
-        } else {
-            $days_cut = $url_params['days'] ?? 0;
-        }
-
-        if ($days_cut > 0) {
-            $this->where_clauses[] = "(entry_data.dateline>='" . (TIME_NOW - ($days_cut * 86400)) . "' OR entry_data.is_sticky='1') ";
-            // todo, add setting to force showing featured entries regardless of date filter
-        }
-
-        if (!empty($url_params['user_id'])) {
-            $this->where_clauses[] = "entry_data.user_id='{$url_params['user_id']}'";
-        }
-
-        //setup joins for query and build where clause based on search_field terms
+        //setup joins for query and build where clause based on keywords terms
 
         $this->query_tables = ['users user_data ON (user_data.uid = entry_data.user_id)'];
 
         $search_done = false;
-
-        $keywords = array_filter(array_map(function (string $value) {
-            return trim($value);
-        }, explode(' ', $url_params['keywords'] ?? '')));
 
         $this->query_fields = array_merge(
             array_map(function (string $field_name): string {
@@ -209,77 +178,27 @@ class EntriesManager
             ]
         );
 
-        foreach ($this->fields_cache as $field_id => $field_definition) {
+        foreach ($this->fieldset_fields as $field_id => $field_definition) {
             if ($field_definition['html_type'] === FieldHtmlTypes::CheckBox ||
                 $field_definition['html_type'] === FieldHtmlTypes::Radio ||
                 $field_definition['html_type'] === FieldHtmlTypes::Select) {
                 $this->query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
 
                 $this->query_fields[] = $field_definition['field_key'];
-
-                if ($keywords && $url_params['sort_by'] === $field_definition['field_key']) {
-                    foreach ($keywords as $keyword) {
-                        if ($url_params['exact_match']) {
-                            $this->where_clauses[] = "(table_{$field_definition['field_key']}.value='{$this->database->escape_string($keyword)}' OR table_{$field_definition['field_key']}.display_style='{$this->database->escape_string($keyword)}')";
-                        } else {
-                            $this->where_clauses[] = "(table_{$field_definition['field_key']}.value LIKE '%{$this->database->escape_string($keyword)}%' OR table_{$field_definition['field_key']}.display_style LIKE '%{$this->database->escape_string($keyword)}%'";
-                        }
-                    }
-
-                    $this->where_clauses[] = "table_{$field_definition['field_key']}.set_id='{$this->config['field_set_id']}'";
-                }
-            } elseif ($url_params['sort_by'] === 'username' && !$search_done) {
-                $this->query_tables[] = 'users user_search_data ON (entry_data.user_id = user_search_data.uid)';
-
+            } elseif ($query_options['order_by'] === 'username' && !$search_done) {
                 $this->query_fields[] = $field_definition['field_key'];
-
-                if ($keywords) {
-                    foreach ($keywords as $keyword) {
-                        if ($url_params['exact_match']) {
-                            $this->where_clauses[] = "user_search_data.username='{$this->database->escape_string($keyword)}'";
-                        } else {
-                            $this->where_clauses[] = "user_search_data.username LIKE '%{$this->database->escape_string($keyword)}%'";
-                        }
-                    }
-                }
 
                 $search_done = true;
             } else {
                 $this->query_fields[] = $field_definition['field_key'];
-
-                if ($keywords && $url_params['sort_by'] === $field_definition['field_key']) {
-                    foreach ($keywords as $keyword) {
-                        if ($url_params['exact_match']) {
-                            $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
-                        } else {
-                            $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
-                        }
-                    }
-                }
-            }
-
-            if ($keywords && isset($this->fieldset_searchable_fields[$field_definition['field_key']])) {
-                foreach ($keywords as $keyword) {
-                    if ($url_params['exact_match']) {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']}='{$this->database->escape_string($keyword)}'";
-                    } else {
-                        $this->where_clauses[] = "entry_data.{$field_definition['field_key']} LIKE '%{$this->database->escape_string($keyword)}%'";
-                    }
-                }
             }
         }
 
-        if (!empty($url_params['sort_by']) && $url_params['sort_by'] !== 'dateline') {
-            $this->query_options['order_by'] = "{$this->database->escape_string($url_params['sort_by'])} {$url_params['order_by']}, is_sticky {$url_params['order_by']}, entry_id";
-
-            $this->query_options['order_dir'] = $url_params['order_by'];
-        } else {
-            $this->query_options['order_by'] = 'is_sticky ' . ($url_params['order_by'] ?? '') . ', entry_id';
-
-            if (isset($url_params['order_by'])) {
-                $this->query_options['order_dir'] = $url_params['order_by'];
-            }
+        if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
+            $query_options['order_dir'] = SortDirections::Ascending;
         }
+
+        $query_options['order_by'] = "entry_data.{$query_options['order_by']} " . ($query_options['order_dir'] ?? '') . ', entry_data.is_sticky ' . ($query_options['order_dir'] ?? '') . ', entry_data.entry_id';
 
         hooksRun('entry_fetch_start', $this);
 
@@ -288,13 +207,13 @@ class EntriesManager
             $this->query_tables
         );
 
-        if ($this->query_options['limit'] > 1 && !$load_all) {
-            if ($this->mybb->input['page'] > ceil($this->total_entries / $this->query_options['limit'])) {
+        if (isset($query_options['limit']) && $query_options['limit'] > 0) {
+            if ($this->mybb->input['page'] > ceil($this->total_entries / $query_options['limit'])) {
                 $this->mybb->input['page'] = self::FIRST_PAGE;
             }
 
             if ($this->mybb->input['page']) {
-                $this->query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $this->query_options['limit'];
+                $query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $query_options['limit'];
             } else {
                 $this->mybb->input['page'] = self::FIRST_PAGE;
             }
@@ -308,7 +227,7 @@ class EntriesManager
             $this->entries_repository->queryEntries(
                 $this->where_clauses,
                 $this->query_fields,
-                $this->query_options,
+                $query_options,
                 $this->query_tables
             ) as $entry_data
         ) {
@@ -423,7 +342,7 @@ class EntriesManager
             $this->validateSetError('invalid_edit_stamp');
         }
 
-        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+        foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['is_enabled'] ||
                 $fieldDefinition['read_only'] ||
                 !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
@@ -523,7 +442,7 @@ class EntriesManager
             }
         }
 
-        foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+        foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
             if (!$fieldDefinition['is_enabled'] ||
                 !isset($this->validation_data->extra_data[$fieldDefinition['field_key']]) ||
                 !is_member($fieldDefinition['allowed_groups_fill'])) {
@@ -542,7 +461,7 @@ class EntriesManager
         if ($this->validation_method !== self::VALIDATION_METHOD_UPDATE) {
             $entry_slug_custom = [];
 
-            foreach ($this->fields_cache as $fieldID => $fieldDefinition) {
+            foreach ($this->fieldset_fields as $fieldID => $fieldDefinition) {
                 if (!$fieldDefinition['enable_slug']) {
                     continue;
                 }
@@ -551,7 +470,7 @@ class EntriesManager
                     foreach ($this->validation_data->extra_data[$fieldDefinition['field_key']] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;
 
-                        if (!isset($this->fields_cache[$field_data_id])) {
+                        if (!isset($this->fieldset_fields[$field_data_id])) {
                             continue;
                         }
 

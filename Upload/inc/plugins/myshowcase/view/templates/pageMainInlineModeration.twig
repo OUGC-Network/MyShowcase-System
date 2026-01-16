@@ -33,7 +33,13 @@
         </button>
         {% if url_params is not empty %}
             {% for param_key,param_value in url_params %}
-                <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                {% if param_value is iterable %}
+                    {% for nested_param_key,nested_param_value in param_value %}
+                        <input type="hidden" name="{{ nested_param_key }}" value="{{ nested_param_value }}"/>
+                    {% endfor %}
+                {% else %}
+                    <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                {% endif %}
             {% endfor %}
         {% endif %}
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>

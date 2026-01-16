@@ -643,7 +643,7 @@ const TABLES_DATA = [
         ],
         'main_sort_default_field' => [
             'type' => 'VARCHAR',
-            'size' => 10,
+            'size' => 30,
             'default' => '',
             'category' => 'main',
             'input_type' => FormTypes::SelectSortField,

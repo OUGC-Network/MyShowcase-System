@@ -77,6 +77,7 @@ readonly class SelectableLists
             SortFields::Username => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_username ?? '',
             SortFields::Views => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_views ?? '',
             SortFields::CommentsApproved => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_comments_approved ?? '',
+            SortFields::LastComment => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_last_comment ?? '',
         ];
     }
 

@@ -108,37 +108,37 @@
         {# Sorting #}
         {% set ascDesc %}
             <span class="sort-threads__order">
-                        {% if url_params.order_by == 'desc' %}
-                            {{ include('partials/icon.twig', {icon: 'chevron-circle-up', class: '', title: url_params.order_by}, with_context = false) }}
+                        {% if url_params.order_dir is not defined or url_params.order_dir == 'desc' %}
+                            {{ include('partials/icon.twig', {icon: 'chevron-circle-up', class: '', title: 'asc'}, with_context = false) }}
                         {% else %}
-                            {{ include('partials/icon.twig', {icon: 'chevron-circle-down', class: '', title: url_params.order_by}, with_context = false) }}
+                            {{ include('partials/icon.twig', {icon: 'chevron-circle-down', class: '', title: 'desc'}, with_context = false) }}
                         {% endif %}
                     </span>
         {% endset %}
         <div class="sort-threads">
             <div class="sort-threads__column sort-threads__column--primary">
                         <span class="sort-threads__subject"><a
-                                    href="{{ url.sort.subject }}"
-                                    class="sort-threads__link sort-threads__link--subject">{{ lang.myshowcase_main_table_head_entry }}{% if url_params.sort_by == 'subject' %}{{ ascDesc }}{% endif %}</a></span>
+                                    href="{{ config.showcase_url }}{{ url.sort.subject }}"
+                                    class="sort-threads__link sort-threads__link--subject">{{ lang.myshowcase_main_table_head_entry }}{% if url_params.order_by is defined and url_params.order_by == 'subject' %}{{ ascDesc }}{% endif %}</a></span>
                 <span class="sort-threads__author">&mdash; <a
-                            href="{{ url.sort.username }}"
-                            class="sort-threads__link sort-threads__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.sort_by == 'username' %}{{ ascDesc }}{% endif %}</a></span>
+                            href="{{ config.showcase_url }}{{ url.sort.username }}"
+                            class="sort-threads__link sort-threads__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.order_by is defined and url_params.order_by == 'username' %}{{ ascDesc }}{% endif %}</a></span>
             </div>
             {% for field_data in showcase.fieldset_fields %}
                 {% if field_data.display_in_main_page %}
                     <div class="sort-threads__column sort-threads__column--replies">
                         <a href="{{ url.sort[field_data.field_key] }}"
-                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ field_data.field_key) }}</a> {% if url_params.sort_by == field_data.field_key %}{{ ascDesc }}{% endif %}
+                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ field_data.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == field_data.field_key %}{{ ascDesc }}{% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
             <div class="sort-threads__column sort-threads__column--replies">
-                <a href="{{ url.sort.comments }}"
-                   class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if url_params.sort_by == 'comments_approved' %}{{ ascDesc }}{% endif %}</a>
+                <a href="{{ config.showcase_url }}{{ url.sort.comments }}"
+                   class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments_approved' %}{{ ascDesc }}{% endif %}</a>
             </div>
             <div class="sort-threads__column sort-threads__column--latest">
-                <a href="{{ url.sort.last_comment }}"
-                   class="sort-threads__link sort-threads__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.sort_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
+                <a href="{{ config.showcase_url }}{{ url.sort.last_comment }}"
+                   class="sort-threads__link sort-threads__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.order_by is defined and url_params.order_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
             </div>
             {% if permissions.entries_can_view %}
                 <span class="sort-threads__column sort-threads__column--checkbox">
@@ -221,7 +221,7 @@
                     <label>
                         <select name="sort">
                             {% for field_key, field_display_name in showcase.fieldset_display_fields %}
-                                <option value="{{ field_key }}"{% if field_key == url_params.sort_by %} selected{% endif %}>{{ lang.myshowcase_main_sort_field }}
+                                <option value="{{ field_key }}"{% if url_params.order_by is defined and field_key == url_params.order_by %} selected{% endif %}>{{ lang.myshowcase_main_sort_field }}
                                     : {% if attribute(lang, 'myshowcase_main_sort_field_' ~ field_key) is defined %}{{ attribute(lang, 'myshowcase_main_sort_field_' ~ field_key) }}{% else %}{{ field_key }}{% endif %}</option>
                             {% endfor %}
                         </select>
@@ -230,9 +230,9 @@
                 <div class="select-field">
                     {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
                     <label>
-                        <select name="order_by">
+                        <select name="order_dir">
                             {% for field in ['asc', 'desc'] %}
-                                <option value="{{ field }}"{% if url_params.order_by is defined and field == url_params.order_by %} selected="selected"{% endif %}>
+                                <option value="{{ field }}"{% if url_params.order_dir is defined and field == url_params.order_dir %} selected="selected"{% endif %}>
                                     {{ lang.myshowcase_main_sort_direction }}
                                     : {{ attribute(lang, 'myshowcase_main_sort_direction_' ~ field) }}</option>
                             {% endfor %}
@@ -242,10 +242,10 @@
                 <div class="select-field">
                     {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
                     <label>
-                        <select name="days">
-                            <option value="1"{% if mybb.input.days is defined and mybb.input.days == 1 %} selected{% endif %}>{{ lang.myshowcase_main_sort_days_1 }}</option>
+                        <select name="threshold[days]">
+                            <option value="1"{% if url_params.threshold.days is defined and url_params.threshold.days == 1 %} selected{% endif %}>{{ lang.myshowcase_main_sort_days_1 }}</option>
                             {% for field in [5, 25, 100] %}
-                                <option value="{{ field }}"{% if mybb.input.days is defined and mybb.input.days == field %} selected{% endif %}>{{ attribute(lang, 'myshowcase_main_sort_days_' ~ field ) }}</option>
+                                <option value="{{ field }}"{% if url_params.threshold.days is defined and url_params.threshold.days == field %} selected{% endif %}>{{ attribute(lang, 'myshowcase_main_sort_days_' ~ field ) }}</option>
                             {% endfor %}
                         </select>
                     </label>
@@ -256,7 +256,13 @@
                 </button>
                 {% if url_params is not empty %}
                     {% for param_key,param_value in url_params %}
-                        <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                        {% if param_value is iterable %}
+                            {% for nested_param_key,nested_param_value in param_value %}
+                                <input type="hidden" name="{{ nested_param_key }}" value="{{ nested_param_value }}"/>
+                            {% endfor %}
+                        {% else %}
+                            <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             </form>
@@ -283,7 +289,14 @@
                     </button>
                     {% if url_params is not empty %}
                         {% for param_key,param_value in url_params %}
-                            <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                            {% if param_value is iterable %}
+                                {% for nested_param_key,nested_param_value in param_value %}
+                                    <input type="hidden" name="{{ nested_param_key }}"
+                                           value="{{ nested_param_value }}"/>
+                                {% endfor %}
+                            {% else %}
+                                <input type="hidden" name="{{ param_key }}" value="{{ param_value }}"/>
+                            {% endif %}
                         {% endfor %}
                     {% endif %}
                 </form>

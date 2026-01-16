@@ -96,8 +96,6 @@ class Showcase
 
     public array $fieldset_fields = [];
 
-    private array $fieldset_searchable_fields = [];
-
     public array $attachment_types = [];
 
     private array $parser_options = [
@@ -208,12 +206,6 @@ class Showcase
             foreach ($this->fieldset_fields as $field_id => $field_definition) {
                 if (!$field_definition['is_enabled']) {
                     unset($this->fieldset_fields[$field_id]);
-
-                    continue;
-                }
-
-                if ($field_definition['enable_search']) {
-                    $this->fieldset_searchable_fields[$field_definition['field_key']] = $field_definition['html_type'];
                 }
             }
         }
@@ -274,7 +266,6 @@ class Showcase
             $this->attachments_repository,
             $this->config,
             $this->fieldset_fields,
-            $this->fieldset_searchable_fields,
             $this->parser_options,
             $this->filter,
         );
@@ -326,7 +317,6 @@ class Showcase
             $this->config,
             $this->attachment_types,
             $this->fieldset_fields,
-            $this->fieldset_searchable_fields,
             $this->parser_options,
         );
     }

@@ -8,4 +8,5 @@ enum SortFields
     public const Username = 'username';
     public const Views = 'views';
     public const CommentsApproved = 'comments_approved';
+    public const LastComment = 'last_comment';
 }
