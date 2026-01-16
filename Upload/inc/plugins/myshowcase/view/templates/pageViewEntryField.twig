@@ -1,50 +1,50 @@
-<h5><u>{{ field_data.fieldDefinition.field_label }}:</u></h5>
+<h5><u>{{ field_data.field_definition.field_label }}:</u></h5>
 <p>
-    {% if field_data.fieldDefinition.html_type == 'checkbox' %}
+    {% if field_data.field_definition.html_type == 'checkbox' %}
         {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'color' %}
+    {% elseif field_data.field_definition.html_type == 'color' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'date' %}
+    {% elseif field_data.field_definition.html_type == 'date' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'datetime-local' %}
+    {% elseif field_data.field_definition.html_type == 'datetime-local' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'email' %}
+    {% elseif field_data.field_definition.html_type == 'email' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'file' %}
+    {% elseif field_data.field_definition.html_type == 'file' %}
         {{ field_data.getUserValue()|raw }}
         {# Attachments #}
         {{ field_data.attachments_rendered|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'month' %}
+    {% elseif field_data.field_definition.html_type == 'month' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'number' %}
+    {% elseif field_data.field_definition.html_type == 'number' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'password' %}
+    {% elseif field_data.field_definition.html_type == 'password' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'radio' %}
+    {% elseif field_data.field_definition.html_type == 'radio' %}
         {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'range' %}
+    {% elseif field_data.field_definition.html_type == 'range' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'search' %}
+    {% elseif field_data.field_definition.html_type == 'search' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'tel' %}
+    {% elseif field_data.field_definition.html_type == 'tel' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'text' %}
+    {% elseif field_data.field_definition.html_type == 'text' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'time' %}
+    {% elseif field_data.field_definition.html_type == 'time' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'url' %}
+    {% elseif field_data.field_definition.html_type == 'url' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'week' %}
+    {% elseif field_data.field_definition.html_type == 'week' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'textarea' %}
+    {% elseif field_data.field_definition.html_type == 'textarea' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'select' %}
+    {% elseif field_data.field_definition.html_type == 'select' %}
         {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'select2_users' %}
+    {% elseif field_data.field_definition.html_type == 'select2_users' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'select2_entries' %}
+    {% elseif field_data.field_definition.html_type == 'select2_entries' %}
         {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.fieldDefinition.html_type == 'select2_threads' %}
+    {% elseif field_data.field_definition.html_type == 'select2_threads' %}
         {{ field_data.getUserValue()|raw }}
     {% else %}
         {{ field_data.getUserValue()|raw }}

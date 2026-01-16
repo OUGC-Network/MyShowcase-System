@@ -1,111 +1,111 @@
 <div class="row row--form field">
     <h3 class="field__name visually-hidden">
-        <label for="{{ field_data.fieldDefinition.field_key }}">{{ field_data.fieldDefinition.field_label }}</label>
+        <label for="{{ field_data.field_definition.field_key }}">{{ field_data.field_definition.field_label }}</label>
     </h3>
-    {% if field_data.fieldDefinition.description is not empty %}
-        <p class="field__description">{{ field_data.fieldDefinition.description }}</p>
+    {% if field_data.field_definition.description is not empty %}
+        <p class="field__description">{{ field_data.field_definition.description }}</p>
     {% endif %}
-    <div class="{% if field_data.fieldDefinition.enable_subject %}compose__subject{% else %}compose__container{% endif %}">
-        {% if field_data.fieldDefinition.html_type in ['text', 'search', 'textarea'] and field_data.fieldDefinition.enable_editor %}
-        <div class="compose__message compose__{{ field_data.fieldDefinition.field_key }}">
+    <div class="{% if field_data.field_definition.enable_subject %}compose__subject{% else %}compose__container{% endif %}">
+        {% if field_data.field_definition.html_type in ['text', 'search', 'textarea'] and field_data.field_definition.enable_editor %}
+        <div class="compose__message compose__{{ field_data.field_definition.field_key }}">
             {% endif %}
-            {% if field_data.fieldDefinition.html_type == 'checkbox' %}
-                <div id="{{ field_data.fieldDefinition.field_key }}">
+            {% if field_data.field_definition.html_type == 'checkbox' %}
+                <div id="{{ field_data.field_definition.field_key }}">
                     {% for field_data_id, field_data_data in field_data.getSelectableValues() %}
                         <p class="option-field option-field--compact">
                             <label>
                                 <input type="checkbox"
-                                       name="{{ field_data.fieldDefinition.field_key }}"
+                                       name="{{ field_data.field_definition.field_key }}"
                                        value="{{ field_data_id }}"
                                        tabindex="{{ loop.index + 10 }}"
                                        form="contentForm"
-                                       {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                                        {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                                        {% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined and entry_data.extra_data[field_data.fieldDefinition.field_key] == field_data_id %}checked="checked"{% endif %}
+                                       {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                                        {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                                        {% if entry_data.extra_data[field_data.field_definition.field_key] is defined and entry_data.extra_data[field_data.field_definition.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
                         </p>
                     {% endfor %}
                 </div>
-                {% elseif field_data.fieldDefinition.html_type == 'color' %}
+                {% elseif field_data.field_definition.html_type == 'color' %}
             <input type="color"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="color"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'date' %}
+                {% elseif field_data.field_definition.html_type == 'date' %}
             <input type="date"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="date"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'datetime-local' %}
+                {% elseif field_data.field_definition.html_type == 'datetime-local' %}
             <input type="datetime-local"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="datetime-local"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'email' %}
+                {% elseif field_data.field_definition.html_type == 'email' %}
             <input type="email"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="email"
                    inputmode="email"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.allow_multiple_values %}multiple="multiple"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.allow_multiple_values %}multiple="multiple"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'file' %}
+                {% elseif field_data.field_definition.html_type == 'file' %}
             <input type="file"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    class="textbox"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.extra_data.accept_element %}accept="{{ field_data.extra_data.accept_element }}"{% endif %}
-                    {% if field_data.fieldDefinition.file_capture == 1 %}capture="user"{% endif %}
-                    {% if field_data.fieldDefinition.file_capture == 2 %}capture="environment"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.allow_multiple_values %}multiple="multiple"{% endif %}
+                    {% if field_data.field_definition.file_capture == 1 %}capture="user"{% endif %}
+                    {% if field_data.field_definition.file_capture == 2 %}capture="environment"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.allow_multiple_values %}multiple="multiple"{% endif %}
             />
                 <script>
                     FilePond.registerPlugin(
@@ -123,13 +123,13 @@
                     );
 
                     // Create a FilePond instance
-                    const pond = FilePond.create(document.querySelector('#{{ field_data.fieldDefinition.field_key }}'), {
+                    const pond = FilePond.create(document.querySelector('#{{ field_data.field_definition.field_key }}'), {
                         // Core properties
                         className: 'filepond--my-custom-class',
-                        {% if field_data.fieldDefinition.is_required %}
+                        {% if field_data.field_definition.is_required %}
                         required: true,
                         {% endif %}
-                        {% if field_data.fieldDefinition.read_only %}
+                        {% if field_data.field_definition.read_only %}
                         disabled: true,
                         captureMethod: null,
                         {% endif %}
@@ -185,7 +185,7 @@
                         // Server
                         server: {
                             process: {
-                                url: '{{ config.showcase_url }}/{{ url.upload }}&field_key={{ field_data.fieldDefinition.field_key }}',
+                                url: '{{ config.showcase_url }}/{{ url.upload }}&field_key={{ field_data.field_definition.field_key }}',
                                 method: 'POST',
                                 withCredentials: false,
                                 onerror: (response) => {
@@ -415,236 +415,236 @@
                 </script>
 
 
-                {% elseif field_data.fieldDefinition.html_type == 'month' %}
+                {% elseif field_data.field_definition.html_type == 'month' %}
             <input type="month"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="month"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'number' %}
+                {% elseif field_data.field_definition.html_type == 'number' %}
             <input type="number"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="number"
                    inputmode="numeric"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'password' %}
+                {% elseif field_data.field_definition.html_type == 'password' %}
             <input type="password"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="password"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'radio' %}
-                <div id="{{ field_data.fieldDefinition.field_key }}">
+                {% elseif field_data.field_definition.html_type == 'radio' %}
+                <div id="{{ field_data.field_definition.field_key }}">
                     {% for field_data_id, field_data_data in field_data.getSelectableValues() %}
                         <p class="option-field option-field--compact">
                             <label>
                                 <input type="radio"
-                                       name="{{ field_data.fieldDefinition.field_key }}"
+                                       name="{{ field_data.field_definition.field_key }}"
                                        value="{{ field_data_id }}"
                                        tabindex="{{ loop.index + 10 }}"
                                        form="contentForm"
-                                       {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                                        {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                                        {% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined and entry_data.extra_data[field_data.fieldDefinition.field_key] == field_data_id %}checked="checked"{% endif %}
+                                       {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                                        {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                                        {% if entry_data.extra_data[field_data.field_definition.field_key] is defined and entry_data.extra_data[field_data.field_definition.field_key] == field_data_id %}checked="checked"{% endif %}
                                 />
                                 {{ field_data_data.value }}
                             </label>
                         </p>
                     {% endfor %}
                 </div>
-                {% elseif field_data.fieldDefinition.html_type == 'range' %}
+                {% elseif field_data.field_definition.html_type == 'range' %}
             <input type="range"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="range"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'search' %}
+                {% elseif field_data.field_definition.html_type == 'search' %}
             <input type="search"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="search"
                    inputmode="search"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'tel' %}
+                {% elseif field_data.field_definition.html_type == 'tel' %}
             <input type="tel"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="tel"
                    inputmode="tel"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'text' %}
+                {% elseif field_data.field_definition.html_type == 'text' %}
             <input type="text"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="text"
                    inputmode="text"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'time' %}
+                {% elseif field_data.field_definition.html_type == 'time' %}
             <input type="time"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="time"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'url' %}
+                {% elseif field_data.field_definition.html_type == 'url' %}
             <input type="url"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="url"
                    inputmode="url"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.placeholder %}placeholder="{{ field_data.fieldDefinition.placeholder }}"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_pattern %}pattern="{{ field_data.fieldDefinition.input_pattern }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.placeholder %}placeholder="{{ field_data.field_definition.placeholder }}"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
+                    {% if field_data.field_definition.input_pattern %}pattern="{{ field_data.field_definition.input_pattern }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'week' %}
+                {% elseif field_data.field_definition.html_type == 'week' %}
             <input type="week"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    autocomplete="week"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.read_only %}readonly="readonly"{% endif %}
-                    {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}min="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}max="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
+                   {% if field_data.field_definition.read_only %}readonly="readonly"{% endif %}
+                    {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}min="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}max="{{ field_data.field_definition.maximum_length }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
             />
-                {% elseif field_data.fieldDefinition.html_type == 'textarea' %}
-                <textarea name="{{ field_data.fieldDefinition.field_key }}"
+                {% elseif field_data.field_definition.html_type == 'textarea' %}
+                <textarea name="{{ field_data.field_definition.field_key }}"
                           tabindex="{{ loop.index + 10 }}"
-                          placeholder="{{ field_data.fieldDefinition.placeholder }}"
+                          placeholder="{{ field_data.field_definition.placeholder }}"
                           rows="20"
                           cols="70"
-                          id="{{ field_data.fieldDefinition.field_key }}"
+                          id="{{ field_data.field_definition.field_key }}"
                           form="contentForm"
-                          {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                        {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                        {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                >{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}</textarea>
-                {% elseif field_data.fieldDefinition.html_type == 'select' %}
-                <select name="{{ field_data.fieldDefinition.field_key }}"
+                          {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                        {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                        {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                >{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}</textarea>
+                {% elseif field_data.field_definition.html_type == 'select' %}
+                <select name="{{ field_data.field_definition.field_key }}"
                         tabindex="{{ loop.index + 10 }}"
-                        id="{{ field_data.fieldDefinition.field_key }}"
+                        id="{{ field_data.field_definition.field_key }}"
                         form="contentForm"
-                        {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                        {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
+                        {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                        {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
                 >
                     {% for field_data_id, field_data_data in field_data.getSelectableValues() %}
                         <option value="{{ field_data_id }}"
-                                {% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined and entry_data.extra_data[field_data.fieldDefinition.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
+                                {% if entry_data.extra_data[field_data.field_definition.field_key] is defined and entry_data.extra_data[field_data.field_definition.field_key] == field_data_id %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
                     {% endfor %}
                 </select>
-                {% elseif field_data.fieldDefinition.html_type == 'select2_users' %}
+                {% elseif field_data.field_definition.html_type == 'select2_users' %}
             <input type="text"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
+                   {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
             />
                 <script type="text/javascript">
                     <!--
                     if (use_xmlhttprequest == "1") {
                         MyBB.select2();
-                        $("#{{ field_data.fieldDefinition.field_key }}").select2({
+                        $("#{{ field_data.field_definition.field_key }}").select2({
                                 placeholder: "{{ lang.search_user }}",
                                 minimumInputLength: 2,
                                 multiple: false,
@@ -685,26 +685,26 @@
                     }
                     // -->
                 </script>
-                {% elseif field_data.fieldDefinition.html_type == 'select2_entries' %}
+                {% elseif field_data.field_definition.html_type == 'select2_entries' %}
             <input type="text"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
+                   {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
             />
 
                 <script type="text/javascript">
                     <!--
                     if (use_xmlhttprequest == "1") {
                         MyBB.select2();
-                        $("#{{ field_data.fieldDefinition.field_key }}").select2({
+                        $("#{{ field_data.field_definition.field_key }}").select2({
                             placeholder: "{{ lang.search_user }}",
                             minimumInputLength: 2,
                             multiple: false,
@@ -735,25 +735,25 @@
                     }
                     // -->
                 </script>
-                {% elseif field_data.fieldDefinition.html_type == 'select2_threads' %}
+                {% elseif field_data.field_definition.html_type == 'select2_threads' %}
             <input type="text"
-                   name="{{ field_data.fieldDefinition.field_key }}"
-                   value="{% if entry_data.extra_data[field_data.fieldDefinition.field_key] is defined %}{{ entry_data.extra_data[field_data.fieldDefinition.field_key] }}{% endif %}"
+                   name="{{ field_data.field_definition.field_key }}"
+                   value="{% if entry_data.extra_data[field_data.field_definition.field_key] is defined %}{{ entry_data.extra_data[field_data.field_definition.field_key] }}{% endif %}"
                    tabindex="{{ loop.index + 10 }}"
                    inputmode="text"
-                   class="textbox {% if field_data.fieldDefinition.enable_subject %}textbox--subject{% endif %}"
-                   id="{{ field_data.fieldDefinition.field_key }}"
+                   class="textbox {% if field_data.field_definition.enable_subject %}textbox--subject{% endif %}"
+                   id="{{ field_data.field_definition.field_key }}"
                    form="contentForm"
-                   {% if field_data.fieldDefinition.is_required %}required="required"{% endif %}
-                    {% if field_data.fieldDefinition.minimum_length %}minlength="{{ field_data.fieldDefinition.minimum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.maximum_length %}maxlength="{{ field_data.fieldDefinition.maximum_length }}"{% endif %}
-                    {% if field_data.fieldDefinition.input_size %}size="{{ field_data.fieldDefinition.input_size }}"{% endif %}
+                   {% if field_data.field_definition.is_required %}required="required"{% endif %}
+                    {% if field_data.field_definition.minimum_length %}minlength="{{ field_data.field_definition.minimum_length }}"{% endif %}
+                    {% if field_data.field_definition.maximum_length %}maxlength="{{ field_data.field_definition.maximum_length }}"{% endif %}
+                    {% if field_data.field_definition.input_size %}size="{{ field_data.field_definition.input_size }}"{% endif %}
             />
                 <script type="text/javascript">
                     <!--
                     if (use_xmlhttprequest == "1") {
                         MyBB.select2();
-                        $("#{{ field_data.fieldDefinition.field_key }}").select2({
+                        $("#{{ field_data.field_definition.field_key }}").select2({
                             placeholder: "{{ lang.search_user }}",
                             minimumInputLength: 2,
                             multiple: false,
@@ -785,19 +785,19 @@
                     // -->
                 </script>
             {% endif %}
-            {% if field_data.fieldDefinition.html_type in ['text', 'search', 'textarea'] and field_data.fieldDefinition.enable_editor %}
+            {% if field_data.field_definition.html_type in ['text', 'search', 'textarea'] and field_data.field_definition.enable_editor %}
         </div>
         {% endif %}
-        {% if field_data.fieldDefinition.html_type in ['text', 'search', 'textarea'] and field_data.fieldDefinition.enable_editor %}
+        {% if field_data.field_definition.html_type in ['text', 'search', 'textarea'] and field_data.field_definition.enable_editor %}
             {{ field_data.extra_data.smiles_inserter|raw }}
         {% endif %}
     </div>
 
-    {% if field_data.fieldDefinition.html_type in ['text', 'search', 'textarea'] and field_data.fieldDefinition.enable_editor %}
+    {% if field_data.field_definition.html_type in ['text', 'search', 'textarea'] and field_data.field_definition.enable_editor %}
         {{ field_data.extra_data.code_buttons|raw }}
     {% endif %}
 </div>
-{% if field_data.fieldDefinition.html_type == 'file' and field_data.getAttachments() is not empty %}
+{% if field_data.field_definition.html_type == 'file' and field_data.getAttachments() is not empty %}
     <div class="row row--form field smalltext" style="overflow: auto; max-height: 20em;">
         <h2 class="field__name visually-hidden">
             {{ lang.attachments }}

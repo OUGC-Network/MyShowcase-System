@@ -169,7 +169,7 @@
 
         {# Entry fields #}
         {% for field_data in entry_data.getFields() %}
-            {% if field_data.fieldDefinition.is_enabled %}
+            {% if field_data.field_definition.is_enabled %}
                 {% include '@ext.myshowcase/pageViewEntryField.twig' %}
             {% endif %}
         {% endfor %}

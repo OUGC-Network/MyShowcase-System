@@ -4,7 +4,7 @@
     <title>{{ config.name }} - {{ mybb.settings.bbname }}</title>
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
-    {% if meta.canonical %}
+    {% if meta.canonical is defined and meta.canonical %}
         <link rel="canonical" href="{{ meta.canonical }}"/>
     {% endif %}
 
@@ -172,7 +172,7 @@
         {# Threads – errors #}
         {% if not entries_count %}
             <div class="alert alert--no-results">
-                {% if url_params.keywords %}
+                {% if url_params.keywords is defined and url_params.keywords %}
                     {{ lang.myshowcase_main_table_empty_search }}
                 {% else %}
                     {{ lang.myshowcase_main_table_empty }}
@@ -280,7 +280,8 @@
                     <label>
                         <input type="text" name="keywords"
                                placeholder="{{ lang.myshowcase_main_search_keywords }}"
-                               class="textbox textbox--large" value="{{ url_params.keywords }}"/>
+                               class="textbox textbox--large"
+                               value="{{ url_params.keywords is defined and url_params.keywords }}"/>
                     </label>
                     <input type="hidden" name="page" value="{{ current_page }}"/>
                     <button type="submit" class="button button--inline">

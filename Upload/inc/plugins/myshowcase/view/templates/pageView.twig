@@ -3,14 +3,14 @@
 {% block head %}
     <title>
         {% for field_data in entry_data.getFields() %}
-            {% if field_data.fieldDefinition.enable_subject %}
+            {% if field_data.field_definition.enable_subject %}
                 {{ field_data.getUserValue() }}
             {% endif %}
         {% endfor %}
         {{ entry_data.subject }} - {{ mybb.settings.bbname }}</title>
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
-    {% if meta.canonical %}
+    {% if meta.canonical is defined and meta.canonical %}
         <link rel="canonical" href="{{ meta.canonical }}"/>
     {% endif %}
 
@@ -34,7 +34,7 @@
             {% endif %}
             <h1 class="title title--page">
                 {% for field_data in entry_data.getFields() %}
-                    {% if field_data.fieldDefinition.enable_subject %}
+                    {% if field_data.field_definition.enable_subject %}
                         {{ field_data.getUserValueDisplay()|raw }}
                     {% endif %}
                 {% endfor %}
@@ -42,7 +42,7 @@
             </h1>
             <p class="page-description"
             {% for field_data in entry_data.getFields() %}
-                {% if field_data.fieldDefinition.enable_description %}
+                {% if field_data.field_definition.enable_description %}
                     {{ field_data.getUserValue() }}
                 {% endif %}
             {% endfor %}
@@ -285,7 +285,8 @@
                             <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
                             <input type="text" name="keywords"
                                    placeholder="{{ lang.myshowcase_view_entry_search_keywords }}"
-                                   class="textbox textbox--large" size="25" value="{{ url_params.keywords }}"/>
+                                   class="textbox textbox--large" size="25"
+                                   value="{{ url_params.keywords is defined and url_params.keywords }}"/>
                             <button type="submit" class="button button--inline">
                                 {{ include('partials/icon.twig', {icon: 'search', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.myshowcase_view_entry_search }}</span>

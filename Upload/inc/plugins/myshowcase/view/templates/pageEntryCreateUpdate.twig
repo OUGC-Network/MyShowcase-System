@@ -156,7 +156,7 @@
             <section class="section section--form compose__primary-section">
 
                 {% for field_data in entry_data.getFields() %}
-                    {% if field_data.fieldDefinition.display_in_create_update_page %}
+                    {% if field_data.field_definition.display_in_create_update_page %}
                         {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
                     {% endif %}
                 {% endfor %}

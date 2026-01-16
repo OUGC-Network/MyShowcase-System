@@ -13,9 +13,9 @@
             {% endif %}
 
             {# Entry title #}
-            <a href="{{ entry_data.extra_data.url }}">
+            <a href="{{ config.showcase_url }}{{ entry_data.extra_data.url }}">
                 {% for field_data in entry_data.getFields() %}
-                    {% if field_data.fieldDefinition.enable_subject %}
+                    {% if field_data.field_definition.enable_subject %}
                         {{ field_data.getUserValueDisplay()|raw }}
                     {% endif %}
                 {% endfor %}
@@ -100,7 +100,7 @@
         </p>
     </div>
     {% for field_data in entry_data.getFields() %}
-        {% if field_data.fieldDefinition.display_in_main_page %}
+        {% if field_data.field_definition.display_in_main_page %}
             <div class="thread__column thread__column--replies">
                 <p class="thread__replies">
                     {{ field_data.getUserValueDisplay()|raw }}
@@ -121,7 +121,8 @@
         <p class="thread__latest-post">
             {% if entry_data.extra_data.last_commenter_user_data %}
                 <span class="thread__latest-post__text">{{ lang.myshowcase_main_table_row_last_comment_by }}</span>
-                <a href="{{ entry_data.extra_data.entryUrlLastComment }}" class="avatar-profile-link">
+                <a href="{{ config.showcase_url }}{{ entry_data.extra_data.entryUrlLastComment }}"
+                   class="avatar-profile-link">
                     {{ render_avatar(url=entry_data.extra_data.last_commenter_user_data.avatar, alt=entry_data.extra_data.last_commenter_user_data.username, class='avatar--smallest') }}
                 </a>
                 <span class="thread__latest-post__author">
@@ -131,7 +132,7 @@
                         {{ lang.guest }}
                     {% endif %}
                 </span>
-                <a href="{{ entry_data.extra_data.last_comment_url }}"
+                <a href="{{ config.showcase_url }}{{ entry_data.extra_data.last_comment_url }}"
                    class="thread__latest-post__date">{{ entry_data.extra_data.last_comment_date|my_date }}</a>
             {% else %}
                 {{ lang.na }}
