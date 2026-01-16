@@ -31,6 +31,7 @@ use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
+use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Routing\Routing;
@@ -79,10 +80,8 @@ abstract class BaseController
         private readonly EntriesManager $entries_manager,
         private readonly CommentsManager $comments_manager,
         private readonly Render $render_manager,
-        private readonly FieldFactory $field_factory,
         private readonly array $config,
         private readonly array $fieldset_fields,
-        private readonly array $filter,
     ) {
         //make sure this file is current
         if (SHOWCASE_FILE_VERSION_CODE < VERSION_CODE) {
@@ -111,7 +110,7 @@ abstract class BaseController
         $access_logs_repository = new AccessLogsRepository($this->database, $this->config, $this->event_dispatcher);
 
         $where_clauses = [
-            "user_id='{$this->current_user->user_id}'",
+            "user_id='{$this->current_user->uid}'",
             "is_valid='" . self::PASSWORD_IS_VALID . "'",
             "dateline>'" . (TIME_NOW - $this->config['password_minutes_interval'] * 60) . "'",
         ];
@@ -133,7 +132,7 @@ abstract class BaseController
                 $display_error = true;
             } else {
                 $access_logs_repository->insertAccessLog([
-                    'user_id' => $this->current_user->user_id,
+                    'user_id' => $this->current_user->uid,
                     'dateline' => TIME_NOW,
                     'ipaddress' => $this->mybb->session->packedip,
                 ]);
@@ -239,7 +238,7 @@ abstract class BaseController
             (int)$entry->status !== $this->entries_manager::STATUS_VISIBLE &&
             ((
                     (int)$entry->status === $this->entries_manager::STATUS_PENDING &&
-                    $this->current_user->user_id !== (int)$entry->user_id
+                    $this->current_user->uid !== (int)$entry->user_id
                 ) ||
                 (
                     (int)$entry->status === $this->entries_manager::STATUS_DELETED &&
@@ -253,7 +252,7 @@ abstract class BaseController
                 $comment_data->status !== $this->comments_manager::STATUS_VISIBLE &&
                 ((
                         $comment_data->status === $this->comments_manager::STATUS_PENDING &&
-                        $this->current_user->user_id !== $comment_data->user_id
+                        $this->current_user->uid !== $comment_data->user_id
                     ) ||
                     (
                         $comment_data->status === $this->comments_manager::STATUS_DELETED &&
@@ -300,7 +299,7 @@ abstract class BaseController
 
             if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
                 !$this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-                $where_clauses[] = "(status='" . $this->comments_manager::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->user_id}' AND status='" . $this->comments_manager::STATUS_PENDING . "'))";
+                $where_clauses[] = "(status='" . $this->comments_manager::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->uid}' AND status='" . $this->comments_manager::STATUS_PENDING . "'))";
             }
 
             $total_comments = $this->comments_repository->queryCommentCount($where_clauses);
@@ -349,7 +348,7 @@ abstract class BaseController
             $user_data = get_user($user_id);
 
             if (empty($user_data['uid']) ||
-                (empty($this->mybb->usergroup['canviewprofiles']) && (int)$user_data['uid'] !== $this->current_user->user_id)) {
+                (empty($this->mybb->usergroup['canviewprofiles']) && (int)$user_data['uid'] !== $this->current_user->uid)) {
                 error_no_permission();
             }
 
@@ -362,11 +361,23 @@ abstract class BaseController
         }
     }
 
-    protected function loadEntryFields(Entry $entry, bool $verify_fill_permission = false): void
+    protected function loadEntryFields(Entry $entry, bool $is_create_update_page = false): void
     {
+        static $fields_factory = null;
+
+        if ($fields_factory === null) {
+            $fields_factory = new FieldFactory(
+                $this->mybb,
+                new AttachmentsRepository($this->database, $this->config),
+                $this->entries_manager,
+                $this->attachments_manager,
+                $this->config,
+            );
+        }
+
         foreach ($this->fieldset_fields as $field_id => $field_definition) {
             $entry->addField(
-                $this->field_factory->create(
+                $fields_factory->create(
                     $field_definition,
                     $entry
                 )
@@ -391,7 +402,7 @@ abstract class BaseController
                 $field_data->addAttachment($attachment_data);
             }
 
-            $field_data->fetchSelectableValues($verify_fill_permission);
+            $field_data->fetchSelectableValues($is_create_update_page);
 
             $field_data
                 ->valueSet($entry->getExtraData($field_data->field_definition['field_key']) ?? '')
@@ -413,7 +424,7 @@ abstract class BaseController
                     );
             }
 
-            if ($field_data->field_definition['enable_editor']) {
+            if ($field_data->field_definition['enable_editor'] and $is_create_update_page) {
                 $code_buttons = $smiles_inserter = '';
 
                 $this->render_manager->editorBuild(
@@ -422,9 +433,13 @@ abstract class BaseController
                     $field_data->field_definition['field_key']
                 );
 
-                $field_data->setExtraData('code_buttons', $code_buttons);
-
-                $field_data->setExtraData('smiles_inserter', $smiles_inserter);
+                $field_data
+                    ->setExtraData('code_buttons', $code_buttons)
+                    ->setExtraData('smiles_inserter', $smiles_inserter);
+            } else {
+                $field_data
+                    ->setExtraData('code_buttons', '')
+                    ->setExtraData('smiles_inserter', '');
             }
         }
     }

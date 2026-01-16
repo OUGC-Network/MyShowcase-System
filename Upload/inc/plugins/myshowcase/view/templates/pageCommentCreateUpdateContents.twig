@@ -15,8 +15,10 @@
         </td>
         <td class="{{ background_class }}">
             <div style="width: 95%">
-                    <textarea style="width: 100%; padding: 4px; margin: 0;" rows="8" cols="80" name="message"
-                              id="comment" tabindex="1" form="contentForm">{{ formatted_message|raw }}</textarea>
+                <label for="comment"></label>
+                <textarea style="width: 100%; padding: 4px; margin: 0;" rows="8" cols="80" name="message" id="comment"
+                          tabindex="1"
+                          form="contentForm">{% if mybb.input.message is defined %}{{ mybb.input.message }}{% endif %}</textarea>
                 {{ code_buttons|raw }}
             </div>
             <div class="editor_control_bar" style="width: 95%; padding: 4px; margin-top: 3px;">

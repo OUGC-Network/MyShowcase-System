@@ -185,7 +185,7 @@
                         // Server
                         server: {
                             process: {
-                                url: '{{ config.showcase_url }}/{{ url.upload }}&field_key={{ field_data.field_definition.field_key }}',
+                                url: '{{ config.showcase_url }}{{ url.upload }}&field_key={{ field_data.field_definition.field_key }}',
                                 method: 'POST',
                                 withCredentials: false,
                                 onerror: (response) => {

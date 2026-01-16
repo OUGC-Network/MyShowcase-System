@@ -173,7 +173,7 @@ $mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true
 $mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
 
 if (!function_exists('_dump')) {
-    #[NoReturn] function _dump(): void
+    #[NoReturn] function _dump(): never
     {
         echo '<pre>';
 

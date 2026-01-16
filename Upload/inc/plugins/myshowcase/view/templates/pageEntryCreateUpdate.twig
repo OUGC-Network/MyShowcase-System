@@ -36,7 +36,7 @@
     <div class="page-content">
         <header class="page-header">
             <h1 class="title title--page">{{ lang.myShowcaseNewEditFormTitle }}</h1>
-            <p class="page-description">{{ config.myShowcaseNewEditFormTitleDescription }}</p>
+            <p class="page-description">{{ lang.myShowcaseNewEditFormTitleDescription }}</p>
         </header>
 
         {# Forum rules #}
@@ -64,7 +64,7 @@
             </section>
         {% endif %}
         {{ error_messages|raw }}
-        <form action="{{ config.showcase_url }}/{{ url.crate_update }}" method="post"
+        <form action="{{ config.showcase_url }}{{ url.crate_update }}" method="post"
               enctype="multipart/form-data" name="input" id="contentForm"></form>
         <div class="form form--compose compose">
             <section class="section section--form compose__primary-section">
@@ -75,17 +75,20 @@
                         {% if config.entries_allow_prefixes %}
                             <div class="select-field select-field--subject">
                                 {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
-                                <select name="threadprefix">
-                                    <option value="0">{{ lang.myShowcaseNewEditFormEntryPrefixesNoPrefix }}</option>
-                                    {% for prefix in prefixes %}
-                                        <option value="{{ prefix.pid }}"{% if prefix.selected %} selected="selected"{% endif %}>{{ prefix.prefix }}</option>
-                                    {% endfor %}
-                                </select>
+                                <label>
+                                    <select name="prefix_id" form="contentForm">
+                                        <option value="0">{{ lang.myShowcaseNewEditFormEntryPrefixesNoPrefix }}</option>
+                                        {% for prefix in prefixes %}
+                                            <option value="{{ prefix.pid }}"
+                                                    {% if prefix.selected %} selected="selected"{% endif %}>{{ prefix.prefix }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
                             </div>
                         {% endif %}
                         <input type="text" class="textbox textbox--subject" name="subject" maxlength="120" id="subject"
                                placeholder="{{ lang.myShowcaseNewEditFormEntrySubjectPlaceholder }}"
-                               value="{{ entry_data.subject }}" tabindex="1"/>
+                               value="{{ entry_data.subject }}" tabindex="1" form="contentForm"/>
                     </div>
                 </div>
 
@@ -104,7 +107,7 @@
 
 
                             <textarea name="message" id="message" rows="20" cols="70"
-                                      tabindex="2">{{ entry_data.message }}</textarea>
+                                      tabindex="2" form="contentForm">{{ entry_data.message }}</textarea>
                             {{ code_buttons|raw }}
                             {% if multi_quote %}
                                 <div id="multiquote_unloaded">
@@ -135,7 +138,7 @@
                                     </label>
                                 {% endif %}
 
-                                {% if current_user.user_id %}
+                                {% if current_user.uid %}
                                     <button type="submit" name="savedraft" value="draft" class="button button--basic">
                                         {{ include('partials/icon.twig', {icon: 'file', class: 'button__icon'}, with_context = false) }}
                                         <span class="button__text">{{ lang.save_draft }}</span>
@@ -172,7 +175,8 @@
                                     <label>
                                         <input type="checkbox" class="checkbox" name="post_options[allow_signature]"
                                                value="1"
-                                               tabindex="7" {% if post_options.allow_signature %} checked="checked"{% endif %} />
+                                               tabindex="7" {% if post_options.allow_signature %} checked="checked"{% endif %}
+                                               form="contentForm"/>
                                         <strong>{{ lang.myshowcase_create_update_entry_post_options_signature }}</strong>{{ lang.myshowcase_create_update_entry_post_options_signature_description }}
                                     </label>
                                 </p>
@@ -182,7 +186,8 @@
                                     <label>
                                         <input type="checkbox" class="checkbox" name="post_options[disable_smilies]"
                                                value="1"
-                                               tabindex="9" {% if post_options.disable_smilies %} checked="checked"{% endif %} />
+                                               tabindex="9" {% if post_options.disable_smilies %} checked="checked"{% endif %}
+                                               form="contentForm"/>
                                         <strong>{{ lang.myshowcase_create_update_entry_post_options_disable_smilies }}</strong>{{ lang.myshowcase_create_update_entry_post_options_disable_smilies_description }}
                                     </label>
                                 </p>
@@ -200,7 +205,8 @@
                                 <p class="option-field option-field--compact">
                                     <label>
                                         <input type="checkbox" class="checkbox" name="moderator_options[is_closed]"
-                                               value="1"{% if moderator_options.is_closed %} checked="checked"{% endif %} />
+                                               value="1"{% if moderator_options.is_closed %} checked="checked"{% endif %}
+                                               form="contentForm"/>
                                         {{ lang.close_thread|raw }}
                                     </label>
                                 </p>
@@ -209,7 +215,8 @@
                                 <p class="option-field option-field--compact">
                                     <label>
                                         <input type="checkbox" class="checkbox" name="moderator_options[is_sticky]"
-                                               value="1"{% if moderator_options.is_sticky %} checked="checked"{% endif %} />
+                                               value="1"{% if moderator_options.is_sticky %} checked="checked"{% endif %}
+                                               form="contentForm"/>
                                         {{ lang.stick_thread|raw }}
                                     </label>
                                 </p>
@@ -219,7 +226,7 @@
                 </section>
             {% endif %}
 
-            {% if current_user.user_id %}
+            {% if current_user.uid %}
                 {% include '@ext.myshowcase/pageEntryCreateUpdateSubscription.twig' %}
             {% endif %}
 

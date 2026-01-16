@@ -42,6 +42,7 @@ $l = [
     'MyShowcaseAttachmentTypesMaximumImageDimensionsDescription' => 'Largest acceptable image dimensions, in WxH format, eg 1920x1080.',
 
     'myshowcase_admin_permissions_category_main' => 'Main Page',
+    'myshowcase_admin_permissions_category_parser' => 'Parser',
     'myshowcase_admin_permissions_category_entries' => 'Entries',
     'myshowcase_admin_permissions_category_comments' => 'Comments',
     'myshowcase_admin_permissions_category_attachments' => 'Attachments',
@@ -67,6 +68,12 @@ $l = [
     'myshowcase_admin_permissions_main_can_view' => 'Can View Main Page',
     'myshowcase_admin_permissions_main_can_view_dragging' => 'Can view main page?',
     'myshowcase_admin_permissions_main_can_view_description' => 'Allows users to view the showcase main page.',
+
+    // Parser
+    'myshowcase_admin_permissions_entries_parser_allow_html' => 'Allow HTML in Entries',
+    'myshowcase_admin_permissions_entries_parser_allow_html_description' => 'Allow HTML in messages.',
+    'myshowcase_admin_permissions_comments_parser_allow_html' => 'Allow HTML in Comments',
+    'myshowcase_admin_permissions_comments_parser_allow_html_description' => 'Allow HTML in messages.',
 
     // Entries
     'myshowcase_admin_permissions_entries_can_view' => 'Can View Entries',

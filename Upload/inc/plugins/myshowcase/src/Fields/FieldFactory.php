@@ -3,6 +3,7 @@
 namespace MyShowcase\Fields;
 
 use InvalidArgumentException;
+use MyBB;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Repository\AttachmentsRepository;
@@ -41,12 +42,11 @@ class FieldFactory
     private array $field_objects_cache = [];
 
     public function __construct(
+        public readonly MyBB $mybb,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly EntriesManager $entries_manager,
         private readonly AttachmentsManager $attachments_manager,
         private readonly array $config,
-        private readonly array $parser_options,
-        private readonly string $search_highlight,
     ) {
     }
 
@@ -62,12 +62,11 @@ class FieldFactory
             $field_class = self::$field_class_map[$field_definition['html_type']];
 
             $this->field_objects_cache[$field_definition['field_key']] = new $field_class(
+                $this->mybb,
                 $this->attachments_repository,
                 $this->entries_manager,
                 $this->attachments_manager,
-                $this->config['field_set_id'],
-                $this->parser_options,
-                $this->search_highlight,
+                $this->config,
                 $field_definition,
                 $entry
             );

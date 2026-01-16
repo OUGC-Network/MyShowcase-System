@@ -655,42 +655,84 @@ const TABLES_DATA = [
             'category' => 'main',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_html' => [
+        'parser_allow_html_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_mycode' => [
+        'parser_allow_mycode_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_smiles' => [
+        'parser_allow_smiles_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_image_code' => [
+        'parser_allow_image_code_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_video_code' => [
+        'parser_allow_video_code_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_affects_message_length' => [ // todo, strip all tags using preview function
+        'parser_affects_message_length_in_entries' => [ // todo, strip all tags using preview function
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_html_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_mycode_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_smiles_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_image_code_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_video_code_in_comments' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_affects_message_length_in_comments' => [ // todo, strip all tags using preview function
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -1180,6 +1222,11 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1,
         ],
+        UserPermissions::ParserAllowHtmlInEntries => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
         UserPermissions::EntriesCanOpen => [
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -1329,6 +1376,11 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
+        ],
+        UserPermissions::ParserAllowHtmlInComments => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
         ],
         UserPermissions::CommentsCanApprove => [
             'type' => 'TINYINT',
@@ -1846,31 +1898,31 @@ const TABLES_DATA = [
             'default' => 0,
             'formType' => FormTypes::YesNo,
         ],
-        'parser_allow_html' => [
+        'parser_allow_html_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::YesNo,
         ],
-        'parser_allow_mycode' => [
+        'parser_allow_mycode_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::YesNo,
         ],
-        'parser_allow_smiles' => [
+        'parser_allow_smiles_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::YesNo,
         ],
-        'parser_allow_image_code' => [
+        'parser_allow_image_code_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
             'formType' => FormTypes::YesNo,
         ],
-        'parser_allow_video_code' => [
+        'parser_allow_video_code_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,

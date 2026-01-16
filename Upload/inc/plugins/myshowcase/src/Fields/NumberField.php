@@ -13,6 +13,7 @@
 
 namespace MyShowcase\Fields;
 
+use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Repository\AttachmentsRepository;
@@ -25,12 +26,11 @@ class NumberField implements FieldsInterface
     use SingleFieldTrait;
 
     public function __construct(
+        public readonly MyBB $mybb,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly EntriesManager $entries_manager,
         private readonly AttachmentsManager $attachments_manager,
-        private readonly int $fieldset_id,
-        private readonly array $parser_options,
-        private readonly string $search_highlight,
+        private readonly array $config,
         public readonly array $field_definition,
         private readonly Entry $entry,
         protected string $entryFieldValue = '',

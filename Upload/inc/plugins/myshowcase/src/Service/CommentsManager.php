@@ -13,9 +13,9 @@ use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Event\Listener\EntryDeletedCommentListener;
-use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Entity\Comment;
 use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Util\StringUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
@@ -32,7 +32,7 @@ class CommentsManager
 
     public const STATUS_DELETED = 2;
 
-    private const  FIRST_PAGE = 1;
+    public const  FIRST_PAGE = 1;
 
     private int $total_comments = 0;
 
@@ -102,11 +102,6 @@ class CommentsManager
         }
     }
 
-    public function getCurrentPage(): int
-    {
-        return $this->current_page;
-    }
-
     /**
      * @throws RandomException
      */
@@ -139,7 +134,7 @@ class CommentsManager
 
         if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
             !$this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->user_id}' AND status='" . self::STATUS_PENDING . "'))";
+            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->uid}' AND status='" . self::STATUS_PENDING . "'))";
         }
 
         $this->query_options['limit'] = $this->config['comments_per_page'];
@@ -234,19 +229,45 @@ class CommentsManager
             $this->set_error('invalid user identifier');
         }
 
-        if (isset($commentData['message']) || $this->method === self::METHOD_INSERT) {
-            if (getSetting('parserMyCodeAffectsLength')) {
-                $commentLength = my_strlen($this->data['message']);
+        if (isset($this->validation_data->subject) && !$this->config['comments_enable_subject']) {
+            unset($this->validation_data->subject);
+        }
+
+        if (isset($this->validation_data->subject)) {
+            $subject_length = my_strlen($this->validation_data->subject);
+
+            if ($subject_length < $this->config['comments_subject_minimum_length'] ||
+                $subject_length > $this->config['comments_subject_maximum_length']) {
+                $this->validateSetError(
+                    $this->language->myshowcase_validation_errors_comment_invalid_subject_length,
+                    [
+                        my_number_format($this->config['comments_subject_minimum_length']),
+                        my_number_format($this->config['comments_subject_maximum_length'])
+                    ]
+                );
+            }
+        }
+
+        if (isset($this->validation_data->message) && !$this->config['comments_enable_message']) {
+            unset($this->validation_data->message);
+        }
+
+        if (isset($this->validation_data->message)) {
+            if ($this->config['parser_affects_message_length_in_entries']) {
+                $message_length = my_strlen($this->validation_data->message);
             } else {
-                $commentLength = my_strlen(postParser()->text_parse_message($this->data['message']));
+                $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_data->message));
             }
 
-            if ($commentLength < $this->config['comments_message_minimum_length']) {
-                $this->set_error('the message is too short');
-            }
-
-            if ($commentLength > $this->config['comments_message_maximum_length']) {
-                $this->set_error('the message is too large');
+            if ($message_length < $this->config['comments_message_minimum_length'] ||
+                $message_length > $this->config['comments_message_maximum_length']) {
+                $this->validateSetError(
+                    $this->language->myshowcase_validation_errors_comment_invalid_message_length,
+                    [
+                        my_number_format($this->config['comments_message_minimum_length']),
+                        my_number_format($this->config['comments_message_maximum_length'])
+                    ]
+                );
             }
         }
 

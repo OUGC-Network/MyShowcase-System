@@ -73,13 +73,11 @@ class CommentsController extends BaseController
         private readonly SubscriptionsRepository $subscriptions_repository,
         private readonly ModeratorsRepository $moderators_repository,
         private readonly EntriesManager $entries_manager,
-        private readonly AttachmentsManager $attachments_manager,
+        protected readonly AttachmentsManager $attachments_manager,
         private readonly CommentsManager $comments_manager,
         private readonly Render $render_manager,
-        private readonly FieldFactory $field_factory,
         private readonly array $config,
         private readonly array $fieldset_fields,
-        private readonly array $filter,
         protected readonly array $attachment_types,
     ) {
         parent::__construct(
@@ -94,10 +92,8 @@ class CommentsController extends BaseController
             $this->entries_manager,
             $this->comments_manager,
             $this->render_manager,
-            $this->field_factory,
             $this->config,
             $this->fieldset_fields,
-            $this->filter,
         );
 
         $this->verifyPassword();
@@ -176,7 +172,7 @@ class CommentsController extends BaseController
                 $subject_extra = [];
 
                 foreach ($entry->getFields() as $field_data) {
-                    if ($field_data->fieldDefinition['enable_subject']) {
+                    if ($field_data->field_definition['enable_subject']) {
                         $subject_extra[] = $field_data->getUserValue();
                     }
                 }
@@ -236,7 +232,7 @@ class CommentsController extends BaseController
             ];
 
             if (!$is_update) {
-                $insertData['user_id'] = $this->current_user->user_id;
+                $insertData['user_id'] = $this->current_user->uid;
 
                 $insertData['post_hash'] = $mybb->get_input('post_hash');
 
@@ -319,7 +315,6 @@ class CommentsController extends BaseController
 
         $template_context = [
             'commentPreview' => $commentPreview,
-            'formatted_message' => $commentMessage,
             'code_buttons' => $editorCodeButtons,
             'buttonText' => $buttonText,
             'createUpdateUrl' => $createUpdateUrl,

@@ -165,7 +165,7 @@ function admin_user_groups_edit_graph(): void
         }
 
         $formContainer->output_row(
-            $lang->{'myshowcase_admin_permissions_category_' . $category} ?? $category,
+            $lang->{'myshowcase_admin_permissions_category_' . $category} ?? 'myshowcase_admin_permissions_category_' . $category,
             '',
             $setting_code
         );

@@ -14,14 +14,23 @@ class User
     private ?Permission $permissions = null;
 
     public function __construct(
-        public ?int $user_id = null,
-        public ?bool $show_avatars = null,
-        public ?bool $suspend_signature = null,
-        public ?string $avatar = null,
-        public ?int $days_prune = null,
-        public ?int $style = null,
+        public $user_id = null,
+        public $show_avatars = null,
+        public $suspend_signature = null,
+        public $avatar = null,
+        public $days_prune = null,
+        public $style = null,
     ) {
         $this->groups = new Collection();
+    }
+
+    public function __call(string $name, array $arguments)
+    {
+        _dump('__call', $name);
+        if (isset($this->methods[$name]) && is_callable($this->methods[$name])) {
+            return call_user_func_array($this->methods[$name], $arguments);
+        }
+        throw new BadMethodCallException("Method $name does not exist");
     }
 
     public function getGroups(): Collection

@@ -19,11 +19,8 @@ use DataHandler as CoreDataHandler;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\CommentsManager;
 use MyShowcase\Repository\CommentsRepository;
-use Random\RandomException;
 
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\postParser;
 
 /**
  * MyShowcase handling class, provides common structure to handle post data.

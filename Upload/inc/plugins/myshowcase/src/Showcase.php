@@ -41,6 +41,7 @@ use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
+use MyShowcase\Service\UsersManager;
 use MyShowcase\Service\Render;
 use MyShowcase\Service\SubscriptionsManager;
 use MysqlPdoDbDriver;
@@ -56,8 +57,6 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class Showcase
 {
-    private Collection $users;
-
     public Routing $routing;
 
     private EventDispatcher $event_dispatcher;
@@ -77,6 +76,8 @@ class Showcase
 
     public CacheManager $cache_manager;
 
+    public UsersManager $users_manager;
+
     public EntriesManager $entries_manager;
 
     private SubscriptionsManager $subscriptions_manager;
@@ -85,8 +86,6 @@ class Showcase
 
     public AttachmentsManager $attachments_manager;
     public Render $render_manager;
-
-    public FieldFactory $field_factory;
 
     public readonly User $current_user;
 
@@ -104,10 +103,6 @@ class Showcase
         'nl2br' => true
     ];
 
-    public array $filter = [];
-
-    private string $search_highlight = '';
-
     public bool $data_table_exists;
 
     /**
@@ -120,8 +115,6 @@ class Showcase
         private readonly ?int $showcase_id = null,
         private ?string $route_identifier = null,
     ) {
-        $this->users = new Collection();
-
         $this->tables_data = TABLES_DATA;
 
         $this->event_dispatcher = new EventDispatcher();
@@ -180,22 +173,22 @@ class Showcase
 
         $this->config['showcase_url_assets'] = $this->mybb->get_asset_url($this->config['showcase_url']);
 
-        $this->addUser([
-            'user_id' => (int)$this->mybb->user['uid'],
-            'show_avatars' => !empty($this->mybb->user['showavatars']),
-            'suspend_signature' => !empty($this->mybb->user['suspendsignature']),
-            'avatar' => $this->mybb->user['avatar'],
-            'days_prune' => $mybb->user['daysprune'] ?? 0,
-            //'style' => $mybb->user['style'] ?? 0,
-        ]);
+        $this->users_manager = new UsersManager($this->database, $this->mybb, $this->config);
 
-        $this->current_user = $this->getUsers()->offsetGet((int)$this->mybb->user['uid']);
+        $this->users_manager->addUser($this->mybb->user);
+
+        $this->current_user = $this->users_manager->getUserByID((int)$this->mybb->user['uid']);
 
         $this->parser_options = array_merge($this->parser_options, [
-            'allow_html' => $this->config['parser_allow_html'],
-            'allow_mycode' => $this->config['parser_allow_mycode'],
-            'me_username' => $this->mybb->user['username'] ?? '',
-            'allow_smilies' => $this->config['parser_allow_smiles']
+            'allow_html' => !empty($this->config['parser_allow_html_in_entries']),
+            'allow_mycode' => !empty($this->config['parser_allow_mycode_in_entries']),
+            'allow_smilies' => !empty($this->config['parser_allow_smiles_in_entries']),
+            'allow_imgcode' => !empty($this->config['parser_allow_image_code_in_entries']),
+            'allow_videocode' => !empty($this->config['parser_allow_video_code_in_entries']),
+            'me_username' => '',
+            'filter_badwords' => true,
+            'shorten_urls' => false,
+            'highlight' => false,
         ]);
 
         if ($this->config['field_set_id']) {
@@ -220,12 +213,6 @@ class Showcase
             'showcaseObject' => &$this,
         ];
 
-        if (isset($this->mybb->input['highlight'])) {
-            $this->search_highlight = $this->mybb->get_input('highlight');
-
-            $this->parser_options['highlight'] = $this->search_highlight;
-        }
-
         $this->attachment_types = $this->cache_manager->get(
             CacheDataTypes::AttachmentTypes
         )[$this->config['showcase_id']] ?? [];
@@ -247,8 +234,6 @@ class Showcase
             $this->config,
         );
 
-        $this->userPermissionsGet($this->current_user);
-
         $current_page = 1;
 
         if ($this->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
@@ -267,7 +252,6 @@ class Showcase
             $this->config,
             $this->fieldset_fields,
             $this->parser_options,
-            $this->filter,
         );
 
         $this->subscriptions_manager = new SubscriptionsManager(
@@ -294,15 +278,6 @@ class Showcase
             $this->config,
         );
 
-        $this->field_factory = new FieldFactory(
-            $this->attachments_repository,
-            $this->entries_manager,
-            $this->attachments_manager,
-            $this->config,
-            $this->parser_options,
-            $this->search_highlight,
-        );
-
         $this->render_manager = new Render(
             $this->database,
             $this->mybb,
@@ -311,6 +286,7 @@ class Showcase
             $this->routing,
             $this->entries_repository,
             $this->attachments_repository,
+            $this->users_manager,
             $this->entries_manager,
             $this->attachments_manager,
             $this->comments_manager,
@@ -381,163 +357,6 @@ class Showcase
         return $showcaseGroupPermissions[$groupID];
     }
 
-    /**
-     * get user permissions for a specific showcase
-     *
-     * @param User $user The user to build permissions for
-     * @return void user permissions for the specific showcase
-     */
-    public function userPermissionsGet(User $user): void
-    {
-        if ($user->getPermissions() !== null) {
-            return;
-        }
-
-        static $permissions_cache = [];
-
-        if (isset($permissions_cache[$user->user_id])) {
-            return;
-        }
-
-        $permissions_cache[$user->user_id] = [];
-
-        $user_permissions = &$permissions_cache[$user->user_id];
-
-        // we apply the more restrictive permissions by default
-        foreach (PermissionsFactory::$permission_options_map as $permission_name => $permission_definition) {
-            switch ($permission_definition['input_type']) {
-                case FormTypes::PermissionBoolean:
-                    $user_permissions[$permission_name] = Permission::BOOLEAN_TYPE_DISALLOW;
-
-                    break;
-                case FormTypes::Number:
-                    if (empty($permission_definition['highest'])) {
-                        $user_permissions[$permission_name] = Permission::NUMERIC_TYPE_INFINITY;
-                    } else {
-                        $user_permissions[$permission_name] = Permission::NUMERIC_TYPE_LOWER;
-                    }
-
-                    break;
-                case FormTypes::SelectTimeInterval:
-                    $user_permissions[$permission_name] = Permission::TIME_INTERVAL_TYPE_DAYS;
-
-                    break;
-            }
-        }
-
-        // if disabled, we keep restrictive defaults
-        if (empty($this->config['is_enabled'])) {
-            $user->setPermissions($user_permissions);
-
-            return;
-        }
-
-        $user_data = get_user($user->user_id);
-
-        // we follow with global group permissions
-        if (empty($user_data['uid'])) {
-            $user_groups_ids = Permission::GROUP_GUESTS;
-        } else {
-            $user_groups_ids = array_filter(
-                array_unique(
-                    array_map(
-                        'intval',
-                        explode(',', "{$user_data['usergroup']},{$user_data['additionalgroups']}")
-                    )
-                )
-            );
-        }
-
-        $user_groups_ids = implode("','", $user_groups_ids);
-
-        $group_permissions_cache = [];
-
-        static $permissions_repository = null;
-
-        if ($permissions_repository === null) {
-            $permissions_repository = new PermissionsRepository($this->database);
-        }
-
-        foreach (
-            $permissions_repository->queryPermissions(
-                ["group_id IN ('{$user_groups_ids}')"],
-                array_keys(TABLES_DATA['myshowcase_permissions'])
-            ) as $permission_id => $permission_data
-        ) {
-            $group_permissions_cache[$permission_data['group_id']] = $permission_data;
-        }
-
-        foreach (
-            $this->permissions_repository->queryPermissions(
-                ["group_id IN ('{$user_groups_ids}')"],
-                array_keys(TABLES_DATA['myshowcase_permissions'])
-            ) as $permission_id => $permission_data
-        ) {
-            $group_permissions_cache[$permission_data['group_id']] = $permission_data;
-        }
-
-        foreach ($group_permissions_cache as $group_id => $permission_data) {
-            foreach (PermissionsFactory::$permission_options_map as $permission_name => $permission_definition) {
-                if (empty($permission_definition['is_group_permission'])) {
-                    continue;
-                }
-
-                switch ($permission_definition['input_type']) {
-                    case FormTypes::PermissionBoolean:
-                        if ($user_permissions[$permission_name] === Permission::BOOLEAN_TYPE_NEVER) {
-                            break;
-                        }
-
-                        switch ($permission_data[$permission_name]) {
-                            case Permission::BOOLEAN_TYPE_NEVER:
-                                $user_permissions[$permission_name] = Permission::BOOLEAN_TYPE_NEVER;
-
-                                break;
-                            case Permission::BOOLEAN_TYPE_ALLOW:
-                                $user_permissions[$permission_name] = Permission::BOOLEAN_TYPE_ALLOW;
-
-                                break;
-                            case Permission::BOOLEAN_TYPE_DISALLOW:
-                                $user_permissions[$permission_name] = max(
-                                    $user_permissions[$permission_name],
-                                    Permission::BOOLEAN_TYPE_DISALLOW
-                                );
-
-                                break;
-                        }
-
-                        break;
-                    case FormTypes::Number:
-                    case FormTypes::SelectTimeInterval:
-                        if (!empty($permission_definition['zero_unlimited']) &&
-                            $permission_data[$permission_name] === Permission::NUMERIC_TYPE_UNLIMITED) {
-                            $user_permissions[$permission_name] = Permission::NUMERIC_TYPE_UNLIMITED;
-
-                            break;
-                        }
-
-                        if (empty($permission_definition['highest'])) {
-                            $user_permissions[$permission_name] = min(
-                                $user_permissions[$permission_name],
-                                $permission_data[$permission_name]
-                            );
-                        } else {
-                            $user_permissions[$permission_name] = max(
-                                $user_permissions[$permission_name],
-                                $permission_data[$permission_name]
-                            );
-                        }
-                }
-            }
-        }
-
-        // todo, get user specific permissions
-
-        // todo, get moderator permissions
-
-        $user->setPermissions($user_permissions);
-    }
-
     public function moderatorPermissionsGet(int $userID): array
     {
         $userData = get_user($userID);
@@ -580,21 +399,5 @@ class Showcase
         }
 
         return $userModeratorPermissions;
-    }
-
-    public function getUsers(): Collection
-    {
-        return $this->users;
-    }
-
-    public function addUser(array $user_data): void
-    {
-        if (!$this->users->contains($user_data)) {
-            if (!empty($user_data['user_id'])) {
-                $this->users[$user_data['user_id']] = new User(...$user_data);
-            } else {
-                $this->users[] = new User(...$user_data);
-            }
-        }
     }
 }

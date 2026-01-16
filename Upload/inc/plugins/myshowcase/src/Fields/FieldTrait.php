@@ -18,16 +18,13 @@ use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\Attachment;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Enum\FieldHtmlTypes;
-
 use MyShowcase\Service\Render;
-
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-
 use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -109,7 +106,7 @@ trait FieldTrait
                             fieldDataGet(
                                 [
                                     "field_data_id='{$value_id}'",
-                                    "set_id='{$this->fieldset_id}'",
+                                    "set_id='{$this->config['field_set_id']}'",
                                     "field_id='{$this->field_definition['field_id']}'"
                                 ],
                                 [
@@ -132,35 +129,43 @@ trait FieldTrait
                         break;
                 }
 
-                if (!$this->field_definition['parse'] && $this->field_definition['enable_search'] && $this->search_highlight) {
+                if (!$this->field_definition['parse'] && $this->field_definition['enable_search'] && isset($this->mybb->input['highlight'])) {
                     $userValues[$userValueKey] = postParser()->highlight_message(
                         $userValues[$userValueKey],
-                        $this->search_highlight
+                        $this->mybb->input['highlight']
                     );
 
                     $user_value_display[$userValueKey] = postParser()->highlight_message(
                         $user_value_display[$userValueKey],
-                        $this->search_highlight
+                        $this->mybb->input['highlight']
                     );
                 } elseif ($this->field_definition['parse']) {
-                    $parser_options = array_merge($this->parser_options, [
-                        'allow_html' => !empty($this->field_definition['parser_allow_html']),
-                        'allow_mycode' => !empty($this->field_definition['parser_allow_mycode']),
-                        'allow_smilies' => !empty($this->field_definition['parser_allow_smiles']),
-                        'allow_imgcode' => !empty($this->field_definition['parser_allow_image_code']),
-                        'allow_videocode' => !empty($this->field_definition['parser_allow_video_code'])
-                    ]);
+                    static $parser_options = null;
 
-                    if ($this->field_definition['enable_search'] && $this->search_highlight) {
-                        $parser_options['highlight'] = $this->search_highlight;
+                    if ($parser_options === null) {
+                        $parser_options = [
+                            'allow_html' => !empty($this->field_definition['parser_allow_html_in_entries']),
+                            'allow_mycode' => !empty($this->field_definition['parser_allow_mycode_in_entries']),
+                            'allow_smilies' => !empty($this->field_definition['parser_allow_smiles_in_entries']),
+                            'allow_imgcode' => !empty($this->field_definition['parser_allow_image_code_in_entries']),
+                            'allow_videocode' => !empty($this->field_definition['parser_allow_video_code_in_entries']),
+                            'me_username' => $entry->username,
+                            'filter_badwords' => true,
+                            'shorten_urls' => false,
+                            'highlight' => false,
+                        ];
                     }
 
-                    $userValues[$userValueKey] = $this->entries_manager->parseMessage(
+                    if ($this->field_definition['enable_search'] && isset($this->mybb->input['highlight'])) {
+                        $parser_options['highlight'] = $this->mybb->input['highlight'];
+                    }
+
+                    $userValues[$userValueKey] = postParser()->parse_message(
                         $userValues[$userValueKey] ?? '',
                         $parser_options
                     );
 
-                    $user_value_display[$userValueKey] = $this->entries_manager->parseMessage(
+                    $user_value_display[$userValueKey] = postParser()->parse_message(
                         $user_value_display[$userValueKey] ?? '',
                         $parser_options
                     );
@@ -172,13 +177,13 @@ trait FieldTrait
             $this->user_value_display = implode($this->multipleConcatenator, $user_value_display);
         }
 
-        if (!$this->user_value && $this->fieldset_id) {
+        if (!$this->user_value && $this->config['field_set_id']) {
             global $lang;
 
             $this->user_value = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
-        if (!$this->user_value_display && $this->fieldset_id) {
+        if (!$this->user_value_display && $this->config['field_set_id']) {
             global $lang;
 
             $this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
@@ -314,7 +319,7 @@ trait FieldTrait
         foreach (
             fieldDataGet(
                 [
-                    "set_id='{$this->fieldset_id}'",
+                    "set_id='{$this->config['field_set_id']}'",
                     "field_id='{$this->field_definition['field_id']}'"
                 ],
                 [
@@ -351,6 +356,6 @@ trait FieldTrait
     {
         $render_manager->attachments_type = $render_manager::ATTACHMENT_TYPE_FIELD;
 
-        $this->attachments_rendered = $render_manager->buildAttachments($this->entry_data, $this->getAttachments());
+        $this->attachments_rendered = $render_manager->buildAttachments($this->entry, $this->getAttachments());
     }
 }

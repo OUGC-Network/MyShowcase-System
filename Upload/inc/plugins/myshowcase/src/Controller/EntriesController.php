@@ -83,13 +83,11 @@ class EntriesController extends BaseController
         private readonly SubscriptionsRepository $subscriptions_repository,
         private readonly ModeratorsRepository $moderators_repository,
         private readonly EntriesManager $entries_manager,
-        private readonly AttachmentsManager $attachments_manager,
+        protected readonly AttachmentsManager $attachments_manager,
         private readonly CommentsManager $comments_manager,
         private readonly Render $render_manager,
-        private readonly FieldFactory $field_factory,
         private readonly array $config,
         private readonly array $fieldset_fields,
-        private readonly array $filter,
         protected readonly array $attachment_types,
     ) {
         parent::__construct(
@@ -104,10 +102,8 @@ class EntriesController extends BaseController
             $this->entries_manager,
             $this->comments_manager,
             $this->render_manager,
-            $this->field_factory,
             $this->config,
             $this->fieldset_fields,
-            $this->filter,
         );
 
         $this->verifyPassword();
@@ -125,7 +121,7 @@ class EntriesController extends BaseController
 
         $access_logs_repository->updateAccessLogs(
             ['is_valid' => parent::PASSWORD_IS_INVALID],
-            ['user_id' => $this->current_user->user_id]
+            ['user_id' => $this->current_user->uid]
         );
 
         redirect(
@@ -157,32 +153,17 @@ class EntriesController extends BaseController
             $query_options['order_dir'] = $this->render_manager->url_params['order_dir'];
         }
 
-        if (!empty($this->render_manager->url_params['order_by'])) {
-            $query_options['order_by'] = $this->render_manager->url_params['order_by'];
-        }
-
         if (isset($this->render_manager->url_params['user_id'])) {
             $where_clauses[] = "entry_data.user_id='" . $this->render_manager->url_params['user_id'] . "'";
         } elseif ($this->config['main_filter_force_field'] === FilterFields::UserID) {
-            $where_clauses[] = "entry_data.user_id='" . $this->current_user->user_id . "'";
+            $where_clauses[] = "entry_data.user_id='" . $this->current_user->uid . "'";
         }
 
-        if (empty($this->render_manager->url_params['threshold']['days']) && !empty($this->current_user->days_prune)) {
-            $where_clauses[] = "entry_data.dateline>='" . (TIME_NOW - ($this->current_user->days_prune * 86400)) . "'";
+        if (empty($this->render_manager->url_params['threshold']['days']) && !empty($this->current_user->daysprune)) {
+            $where_clauses[] = "entry_data.dateline>='" . (TIME_NOW - ($this->current_user->daysprune * 86400)) . "'";
         } elseif (!empty($this->render_manager->url_params['threshold']['days'])) {
             $where_clauses[] = "entry_data.dateline>='" . (TIME_NOW - ($this->render_manager->url_params['threshold']['days'] * 86400)) . "'";
         }
-
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-
-
-        $search_done = false;
 
         $keywords = array_filter(array_map('trim', explode(' ', $this->render_manager->url_params['keywords'] ?? '')));
 
@@ -516,7 +497,7 @@ class EntriesController extends BaseController
 
                     if (empty($user_data['invisible']) ||
                         !empty($this->mybb->usergroup['canviewwolinvis']) ||
-                        (int)$user_data['uid'] === $this->current_user->user_id) {
+                        (int)$user_data['uid'] === $this->current_user->uid) {
                         $templatesContext['users_browsing'][$user_data['uid']] = $user_data;
                     }
                 }
@@ -548,10 +529,7 @@ class EntriesController extends BaseController
                 is_member($field_definition['allowed_groups_view'])) {
                 $templatesContext['url']['sort'][$field_definition['field_key']] = $this->routing->generateUrl(
                     Routes::Main,
-                    array_merge($this->render_manager->url_params, [
-                        'order_by' => $field_definition['field_key'],
-                        'order_dir' => $this->render_manager->url_params['order_dir'] === SortDirections::Ascending ? SortDirections::Descending : SortDirections::Ascending
-                    ])
+                    ['order_by' => $field_definition['field_key']] + $order_dir_param + $this->render_manager->url_params,
                 );
             }
         }
@@ -727,16 +705,32 @@ class EntriesController extends BaseController
                 $fieldCache = [];
 
                 foreach ($this->fieldset_fields as $field_id => $field_definition) {
+                    $parser_options = [
+                        'allow_html' => !empty($field_definition['parser_allow_html_in_entries']),
+                        'allow_mycode' => !empty($field_definition['parser_allow_mycode_in_entries']),
+                        'allow_smilies' => !empty($field_definition['parser_allow_smiles_in_entries']),
+                        'allow_imgcode' => !empty($field_definition['parser_allow_image_code_in_entries']),
+                        'allow_videocode' => !empty($field_definition['parser_allow_video_code_in_entries']),
+                        'me_username' => $entry->username,
+                        'filter_badwords' => true,
+                        'shorten_urls' => false,
+                        'highlight' => false,
+                    ];
+
+                    if ($field_definition['enable_search'] && isset($this->mybb->input['highlight'])) {
+                        $parser_options['highlight'] = $this->mybb->input['highlight'];
+                    }
+
                     $entryFieldText = $entry->getExtraData($field_definition['field_key']) ?? '';
 
                     if (!$field_definition['parse'] && $entryFieldText !== false) {
                         // todo, remove this legacy updating the database and updating the format field to TINYINT
                         formatField((int)$field_definition['format'], $entryFieldText);
                     } elseif ($entryFieldText !== false) {
-                        $entryFieldText = $this->render_manager->parseMessage((string)$entryFieldText);
+                        $entryFieldText = postParser()->parse_message((string)$entryFieldText, $parser_options);
                     }
 
-                    $fieldCache[$fieldID] = $entryFieldText;
+                    $fieldCache[$field_id] = $entryFieldText;
                 }
 
                 // todo, subject should be main, additional fields concatenated
@@ -744,11 +738,10 @@ class EntriesController extends BaseController
                     ->setExtraData('fields_cache', $fieldCache)
                     ->setExtraData('selected', false);
 
-                if ($this->render_manager->url_params['keywords']) {
-                    $entry->subject = postParser()->highlight_message(
-                        postParser()->parse_badwords($entry->subject),
-                        $this->render_manager->url_params['keywords']
-                    );
+                $entry->subject = postParser()->parse_badwords($entry->subject);
+
+                if (isset($this->mybb->input['keywords'])) {
+                    $entry->subject = postParser()->highlight_message($entry->subject, $this->mybb->input['keywords']);
                 }
 
                 if ($this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
@@ -793,7 +786,7 @@ class EntriesController extends BaseController
                         $this->comments_repository->queryCommentCount(
                             [
                                 "entry_id='{$entry->entry_id}'",
-                                "user_id='{$this->current_user->user_id}'",
+                                "user_id='{$this->current_user->uid}'",
                             ]
                         )
                     );
@@ -898,7 +891,7 @@ class EntriesController extends BaseController
             $entry->ipaddress = $this->mybb->session->packedip;
 
             if (!$is_update) {
-                $entry->user_id = $this->current_user->user_id;
+                $entry->user_id = $this->current_user->uid;
 
                 $entry->dateline = TIME_NOW;
             }
@@ -1081,7 +1074,7 @@ class EntriesController extends BaseController
 
         hooksRun('controller_create_start', $this);
 
-        $this->loadEntryFields($entry, verify_fill_permission: true);
+        $this->loadEntryFields($entry, is_create_update_page: true);
 
         $templatesContext['attachmentsUpload'] = '';
         //$templatesContext['attachmentsUpload'] = $this->render_manager->buildAttachmentsUpload($isEditPage);
@@ -1103,7 +1096,7 @@ class EntriesController extends BaseController
 
         $templatesContext['code_buttons'] = $templatesContext['smiles_inserter'] = '';
 
-        if ($this->config['comments_message_build_editor']) {
+        if ($this->config['entries_message_build_editor']) {
             $this->render_manager->editorBuild(
                 $templatesContext['code_buttons'],
                 $templatesContext['smiles_inserter']
@@ -1120,7 +1113,7 @@ class EntriesController extends BaseController
             $templatesContext['show_post_options'] = $templatesContext['show_signature'] = true;
         }
 
-        if ($this->config['parser_allow_smiles']) {
+        if ($this->config['parser_allow_smiles_in_entries']) {
             $templatesContext['show_post_options'] = $templatesContext['show_disable_smilies'] = true;
         }
 
@@ -1147,11 +1140,11 @@ class EntriesController extends BaseController
             (!$entry->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
             !empty($this->mybb->user['showquickreply']) &&
-            $entry->user_id === $this->current_user->user_id) {
+            $entry->user_id === $this->current_user->uid) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
-            if ($this->mybb->settings['captchaimage'] && !$this->current_user->user_id) {
+            if ($this->mybb->settings['captchaimage'] && !$this->current_user->uid) {
                 require_once MYBB_ROOT . 'inc/class_captcha.php';
 
                 $post_captcha = new captcha(true, 'post');
@@ -1202,7 +1195,7 @@ class EntriesController extends BaseController
 
         if (empty($entry->entry_id) ||
             (
-                $this->current_user->user_id !== $entry->user_id &&
+                $this->current_user->uid !== $entry->user_id &&
                 !$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
                 $entry->status !== $this->entries_manager::STATUS_VISIBLE
             )) {
@@ -1317,8 +1310,8 @@ class EntriesController extends BaseController
             $templatesContext['post_options']['allow_signature'] = true;
         }
 
-        if ($this->current_user->user_id && $this->subscriptions_repository->queryEntryCount(
-                ["entry_id='{$entry->entry_id}'", "user_id='{$this->current_user->user_id}'"]
+        if ($this->current_user->uid && $this->subscriptions_repository->queryEntryCount(
+                ["entry_id='{$entry->entry_id}'", "user_id='{$this->current_user->uid}'"]
             )) {
             $templatesContext['is_subscribed'] = true;
         }
@@ -1372,7 +1365,7 @@ class EntriesController extends BaseController
                 $subject_extra = [];
 
                 foreach ($entry->getFields() as $field_data) {
-                    if ($field_data->fieldDefinition['enable_subject']) {
+                    if ($field_data->field_definition['enable_subject']) {
                         $subject_extra[] = $field_data->getUserValue();
                     }
                 }
@@ -1430,7 +1423,7 @@ class EntriesController extends BaseController
             $templatesContext['pagination'] = multipage(
                 $this->comments_manager->getTotalComments(),
                 $this->config['comments_per_page'],
-                $this->comments_manager->getCurrentPage(),
+                $this->render_manager->url_params['page'] ?? CommentsManager::FIRST_PAGE,
                 $this->config['showcase_url'] . $this->routing->generateUrl(
                     Routes::EntryView,
                     array_merge($pagination_params, [
@@ -1475,8 +1468,6 @@ class EntriesController extends BaseController
                     ]
                 );
 
-                $templatesContext['formatted_message'] = htmlspecialchars_uni($this->mybb->get_input('message'));
-
                 $templatesContext['code_buttons'] = $templatesContext['smiles_inserter'] = '';
 
                 if ($this->config['comments_message_build_editor']) {
@@ -1491,15 +1482,15 @@ class EntriesController extends BaseController
         // Update view count
         if (
             (
-                !$this->current_user->user_id &&
+                !$this->current_user->uid &&
                 (
                     ($this->mybb->session->is_spider && getSetting('ViewsCountSpider')) ||
                     (!$this->mybb->session->is_spider && getSetting('ViewsCountGuests'))
                 )
             ) ||
             (
-                $this->current_user->user_id && (getSetting('ViewsCountAuthor') ||
-                    $this->current_user->user_id !== $entry->user_id)
+                $this->current_user->uid && (getSetting('ViewsCountAuthor') ||
+                    $this->current_user->uid !== $entry->user_id)
             )
         ) {
             $this->entries_repository->shutDownQueryIncrementViews($entry->entry_id);
@@ -1510,11 +1501,11 @@ class EntriesController extends BaseController
             (!$entry->is_closed || $this->current_user->hasPermission(UserPermissions::EntriesCanView)) &&
             !empty($this->mybb->settings['quickreply']) &&
             !empty($this->mybb->user['showquickreply']) &&
-            $entry->user_id === $this->current_user->user_id) {
+            $entry->user_id === $this->current_user->uid) {
             $templatesContext['showquickreply'] = true;
 
             // Show captcha image for guests if is_enabled
-            if ($this->mybb->settings['captchaimage'] && !$this->current_user->user_id) {
+            if ($this->mybb->settings['captchaimage'] && !$this->current_user->uid) {
                 require_once MYBB_ROOT . 'inc/class_captcha.php';
 
                 $post_captcha = new captcha(true, 'post');
@@ -1555,7 +1546,7 @@ class EntriesController extends BaseController
                         ++$templatesContext['online_count']['invisible'];
                     }
 
-                    if ($user_data['invisible'] !== 1 || $this->mybb->usergroup['canviewwolinvis'] === 1 || (int)$user_data['uid'] === $this->current_user->user_id) {
+                    if ($user_data['invisible'] !== 1 || $this->mybb->usergroup['canviewwolinvis'] === 1 || (int)$user_data['uid'] === $this->current_user->uid) {
                         $user_data['reading'] = my_date($this->mybb->settings['timeformat'], $user_data['time']);
                         ++$templatesContext['online_count']['users'];
 

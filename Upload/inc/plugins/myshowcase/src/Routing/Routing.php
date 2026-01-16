@@ -104,10 +104,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->main(...$parameters)
                         );
@@ -145,10 +143,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->create(...$parameters)
                         );
@@ -186,10 +182,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->update(...$parameters)
                         );
@@ -227,10 +221,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->view(...$parameters)
                         );
@@ -270,10 +262,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->create(...$parameters)
                         );
@@ -312,10 +302,8 @@ class Routing
                                 $this->showcase->attachments_manager,
                                 $this->showcase->comments_manager,
                                 $this->showcase->render_manager,
-                                $this->showcase->field_factory,
                                 $this->config,
                                 $this->showcase->fieldset_fields,
-                                $this->showcase->filter,
                                 $this->showcase->attachment_types,
                             ))->update(...$parameters)
                         );
@@ -354,10 +342,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->redirect(...$parameters);
                     },
@@ -394,10 +380,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->uploadAttachment(...$parameters);
                     },
@@ -435,10 +419,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->downloadAttachment(...$parameters);
                     },
@@ -476,10 +458,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->viewThumbnail(...$parameters);
                     },
@@ -515,10 +495,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->mainSearch(...$parameters);
                     },
@@ -551,10 +529,8 @@ class Routing
                             $this->showcase->attachments_manager,
                             $this->showcase->comments_manager,
                             $this->showcase->render_manager,
-                            $this->showcase->field_factory,
                             $this->config,
                             $this->showcase->fieldset_fields,
-                            $this->showcase->filter,
                             $this->showcase->attachment_types,
                         ))->mainSearch(...$parameters);
                     },

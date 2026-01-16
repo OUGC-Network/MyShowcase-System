@@ -79,7 +79,7 @@
 
     <div class="page-controls page-controls--top">
         <div class="page-buttons">
-            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if current_user.user_id %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
+            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if current_user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
                class="button button--medium button--secondary button--half-width">
                 {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>

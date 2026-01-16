@@ -67,7 +67,7 @@ class Render
 
     private int $user_id = 0;
 
-    private array $user_data = [];
+    private User $user_data;
     public array $error_messages = [];
 
     public array $url_params = [];
@@ -85,6 +85,7 @@ class Render
         private readonly Routing $routing,
         private readonly EntriesRepository $entries_repository,
         private readonly AttachmentsRepository $attachments_repository,
+        private readonly UsersManager $users_manager,
         private readonly EntriesManager $entries_manager,
         private readonly AttachmentsManager $attachments_manager,
         private readonly CommentsManager $comments_manager,
@@ -135,7 +136,9 @@ class Render
             $this->url_params['exact_match'] = 1;
         }
 
-        $this->url_params['keywords'] = $this->mybb->get_input('keywords');
+        if ($this->mybb->get_input('keywords') !== '') {
+            $this->url_params['keywords'] = $this->mybb->get_input('keywords');
+        }
 
         if ($this->mybb->get_input('threaded', MyBB::INPUT_INT) === 1) {
             $this->url_params['threaded'] = 1;
@@ -144,6 +147,14 @@ class Render
         $this->url_params['threshold'] = array_filter(
             array_map('intval', $this->mybb->get_input('threshold', MyBB::INPUT_ARRAY))
         );
+
+        if (!empty($this->mybb->input['highlight'])) {
+            $this->url_params['threshold'] = trim($this->mybb->get_input('highlight'));
+        }
+
+        if (empty($this->url_params['threshold'])) {
+            unset($this->url_params['threshold']);
+        }
 
         if (empty($this->url_params['threshold'])) {
             unset($this->url_params['threshold']);
@@ -163,7 +174,6 @@ class Render
                 'fieldset_display_fields' => $this->fieldset_display_fields,
             ],
             'meta' => [
-                'canonical' => '',
                 'page' => [],
             ],
             'url' => [
@@ -244,7 +254,7 @@ class Render
         if ($user_ignored_objects === null) {
             $user_ignored_objects = [];
 
-            if ($this->current_user->user_id > 0 && !empty($this->mybb->user['ignorelist'])) {
+            if ($this->current_user->uid > 0 && !empty($this->mybb->user['ignorelist'])) {
                 $user_ignored_objects = array_filter(array_flip(explode(',', $this->mybb->user['ignorelist'])));
             }
         }
@@ -254,10 +264,18 @@ class Render
         } elseif ($this->post_type === self::POST_TYPE_COMMENT && $comment->user_id) {
             $this->user_id = $comment->user_id;
         } else {
-            $this->user_id = $this->current_user->user_id;
+            $this->user_id = $this->current_user->uid;
         }
 
-        $this->user_data = get_user($this->user_id);
+        if (!$this->users_manager->getUserByID($this->user_id)) {
+            $this->users_manager->addUser((array)get_user($this->user_id));
+        }
+
+        $this->user_data = $this->users_manager->getUserByID($this->user_id);
+
+        if ($this->user_id !== 1) {
+            // _dump($this->user_id, $this->user_data);
+        }
 
         hooksRun('render_build_entry_comment_start', $this);
 
@@ -289,10 +307,11 @@ class Render
         }
 
         if ($this->post_type === self::POST_TYPE_ENTRY) {
-            $entry->subject = postParser()->highlight_message(
-                postParser()->parse_badwords($entry->subject),
-                $this->url_params['keywords']
-            );
+            $entry->subject = postParser()->parse_badwords($entry->subject);
+
+            if (isset($this->url_params['keywords'])) {
+                $entry->subject = postParser()->highlight_message($entry->subject, $this->url_params['keywords']);
+            }
 
             $entry
                 ->setExtraData('is_deleted', false)
@@ -394,21 +413,7 @@ class Render
             $entry->addAttachment($attachment_data);
         }
 
-        if ($this->post_type === self::POST_TYPE_COMMENT) {
-            $templatesContext['formatted_message'] = $this->entries_manager->parseMessage(
-                $comment->message,
-                $this->parser_options
-            );
-
-            if (!$this->is_preview) {
-                $templatesContext['url']['comment'] = $this->routing->generateUrl(
-                    Routes::CommentView,
-                    [
-                        'comment_slug' => $comment->comment_slug
-                    ]
-                );
-            }
-        } else {
+        if ($this->post_type === self::POST_TYPE_ENTRY) {
             $this->attachments_type = $this->post_type;
 
             if ($this->config['attachments_allow_in_entries'] &&
@@ -420,21 +425,30 @@ class Render
                     ),
                 );
             }
+        } else {
+            if (!$this->is_preview) {
+                $templatesContext['url']['comment'] = $this->routing->generateUrl(
+                    Routes::CommentView,
+                    [
+                        'comment_slug' => $comment->comment_slug
+                    ]
+                );
+            }
         }
 
         // todo, this should probably account for additional groups, but I just took it from post bit logic for now
-        if (!empty($this->user_data['uid'])) {
-            $templatesContext['user_permissions'] = user_permissions($this->user_data['uid']);
+        if (!empty($this->user_data->uid)) {
+            $templatesContext['user_permissions'] = user_permissions($this->user_data->uid);
         } else {
             $templatesContext['user_permissions'] = usergroup_permissions(1);
         }
 
-        $userName = htmlspecialchars_uni($this->user_data['username'] ?? $this->language->guest);
+        $userName = htmlspecialchars_uni($this->user_data->username ?? $this->language->guest);
 
         $userNameFormatted = format_name(
             $userName,
-            $this->user_data['usergroup'] ?? 0,
-            $this->user_data['displaygroup'] ?? 0
+            $this->user_data->usergroup ?? 0,
+            $this->user_data->displaygroup ?? 0
         );
 
         $templatesContext['user_avatar'] = '';
@@ -444,25 +458,25 @@ class Render
                 $this->post_type === self::POST_TYPE_COMMENT && $this->config['comments_display_avatars']
             ) &&
             (
-                isset($this->user_data['avatar']) &&
+                isset($this->user_data->avatar) &&
                 isset($this->mybb->user['showavatars']) &&
                 !empty($this->mybb->user['showavatars']) ||
-                !$this->current_user->user_id
+                !$this->current_user->uid
             )) {
             $templatesContext['user_avatar'] = $userAvatar = format_avatar(
-                $this->user_data['avatar'],
-                $this->user_data['avatardimensions'],
+                $this->user_data->avatar,
+                $this->user_data->avatardimensions,
             );
         }
 
-        if (!empty($groupPermissions['usertitle']) && empty($this->user_data['usertitle'])) {
-            $this->user_data['usertitle'] = $groupPermissions['usertitle'] ?? '';
+        if (!empty($groupPermissions['usertitle']) && empty($this->user_data->usertitle)) {
+            $this->user_data->usertitle = $groupPermissions['usertitle'] ?? '';
         } elseif (empty($groupPermissions['usertitle']) &&
             ($userTitlesCache = $this->groupUserTitlesGet())) {
             foreach ($userTitlesCache as $postNumber => $titleinfo) {
-                if ($this->user_data['postnum'] >= $postNumber) {
-                    if (empty($this->user_data['usertitle'])) {
-                        $this->user_data['usertitle'] = $titleinfo['title'];
+                if ($this->user_data->postnum >= $postNumber) {
+                    if (empty($this->user_data->usertitle)) {
+                        $this->user_data->usertitle = $titleinfo['title'];
                     }
 
                     $groupPermissions['stars'] = $titleinfo['stars'];
@@ -490,19 +504,19 @@ class Render
 
         $moderatorCanManageComments = $this->current_user->hasPermission(UserPermissions::CommentsCanView);
 
-        $userCanUpdateEntries = $this->user_id === $this->current_user->user_id && $this->current_user->hasPermission(
+        $userCanUpdateEntries = $this->user_id === $this->current_user->uid && $this->current_user->hasPermission(
                 UserPermissions::EntriesCanUpdate
             );
 
-        $userCanSoftDeleteEntries = $this->user_id === $this->current_user->user_id && $this->current_user->hasPermission(
+        $userCanSoftDeleteEntries = $this->user_id === $this->current_user->uid && $this->current_user->hasPermission(
                 UserPermissions::EntriesCanDelete
             );
 
-        $userCanUpdateComments = $this->user_id === $this->current_user->user_id && $this->current_user->hasPermission(
+        $userCanUpdateComments = $this->user_id === $this->current_user->uid && $this->current_user->hasPermission(
                 UserPermissions::CommentsCanUpdate
             );
 
-        $userCanSoftDeleteComments = $this->user_id === $this->current_user->user_id && $this->current_user->hasPermission(
+        $userCanSoftDeleteComments = $this->user_id === $this->current_user->uid && $this->current_user->hasPermission(
                 UserPermissions::CommentsCanDelete
             );
 
@@ -526,13 +540,13 @@ class Render
 
         if (!empty($this->mybb->settings['enablewarningsystem']) &&
             !empty($groupPermissions['canreceivewarnings']) &&
-            (!empty($this->mybb->usergroup['canwarnusers']) || ($this->current_user->user_id === $this->user_id && !empty($this->mybb->settings['canviewownwarning'])))) {
+            (!empty($this->mybb->usergroup['canwarnusers']) || ($this->current_user->uid === $this->user_id && !empty($this->mybb->settings['canviewownwarning'])))) {
             if ($this->mybb->settings['maxwarningpoints'] < 1) {
                 $this->mybb->settings['maxwarningpoints'] = 10;
             }
 
             $warningLevel = round(
-                $this->user_data['warningpoints'] / $this->mybb->settings['maxwarningpoints'] * 100
+                $this->user_data->warningpoints / $this->mybb->settings['maxwarningpoints'] * 100
             );
 
             if ($warningLevel > 100) {
@@ -542,7 +556,7 @@ class Render
             $warningLevel = get_colored_warning_level($warningLevel);
 
             // If we can warn them, it's not the same person, and we're in a PM or a post.
-            if (!empty($this->mybb->usergroup['canwarnusers']) && $this->user_id !== $this->current_user->user_id) {
+            if (!empty($this->mybb->usergroup['canwarnusers']) && $this->user_id !== $this->current_user->uid) {
                 $templatesContext['show_warn_button'] = true;
 
                 $warningUrl = "warnings.php?uid={$this->user_id}";
@@ -557,32 +571,32 @@ class Render
 
         if (($this->post_type === self::POST_TYPE_ENTRY && $this->config['entries_display_signatures'] ||
                 $this->post_type === self::POST_TYPE_COMMENT && $this->config['comments_display_signatures']) &&
-            !empty($this->user_data['username']) &&
-            !empty($this->user_data['signature']) &&
-            (!$this->current_user->user_id || !empty($this->mybb->user['showsigs'])) &&
-            (empty($this->user_data['suspendsignature']) || !empty($this->user_data['suspendsignature']) && !empty($this->user_data['suspendsigtime']) && $this->user_data['suspendsigtime'] < TIME_NOW) &&
+            $this->user_data->username &&
+            $this->user_data->signature &&
+            (!$this->current_user->uid || !empty($this->mybb->user['showsigs'])) &&
+            (!$this->user_data->suspendsignature || $this->user_data->suspendsignature && $this->user_data->suspendsigtime && $this->user_data->suspendsigtime < TIME_NOW) &&
             !empty($groupPermissions['canusesig']) &&
-            (empty($groupPermissions['canusesigxposts']) || $groupPermissions['canusesigxposts'] > 0 && $this->user_data['postnum'] > $groupPermissions['canusesigxposts']) &&
+            (empty($groupPermissions['canusesigxposts']) || $groupPermissions['canusesigxposts'] > 0 && $this->user_data->postnum > $groupPermissions['canusesigxposts']) &&
             !is_member($this->mybb->settings['hidesignatures'])) {
-            $signatureParserOptions = [
+            $parser_options = [
                 'allow_html' => !empty($this->mybb->settings['sightml']),
                 'allow_mycode' => !empty($this->mybb->settings['sigmycode']),
                 'allow_smilies' => !empty($this->mybb->settings['sigsmilies']),
                 'allow_imgcode' => !empty($this->mybb->settings['sigimgcode']),
-                'me_username' => $this->user_data['username']
+                'me_username' => $this->user_data->username
             ];
 
             if ($groupPermissions['signofollow']) {
-                $signatureParserOptions['nofollow_on'] = true;
+                $parser_options['nofollow_on'] = true;
             }
 
-            if ($this->current_user->user_id && empty($this->mybb->user['showimages']) || empty($this->mybb->settings['guestimages']) && !$this->current_user->user_id) {
-                $signatureParserOptions['allow_imgcode'] = false;
+            if ($this->current_user->uid && empty($this->mybb->user['showimages']) || empty($this->mybb->settings['guestimages']) && !$this->current_user->uid) {
+                $parser_options['allow_imgcode'] = false;
             }
 
-            $templatesContext['user_signature'] = $this->entries_manager->parseMessage(
-                $this->user_data['signature'],
-                $signatureParserOptions
+            $templatesContext['user_signature'] = postParser()->parse_message(
+                $this->user_data->signature,
+                $parser_options
             );
         }
 
@@ -595,16 +609,16 @@ class Render
             );
         }
 
-        if (!empty($this->user_data['website']) &&
+        if ($this->user_data->website &&
             !is_member($this->mybb->settings['hidewebsite']) &&
             !empty($groupPermissions['canchangewebsite'])) {
-            $userWebsite = htmlspecialchars_uni($this->user_data['website']);
+            $userWebsite = htmlspecialchars_uni($this->user_data->website);
         }
 
         require_once MYBB_ROOT . 'inc/functions_user.php';
 
         if (!$this->is_preview && $this->user_id &&
-            purgespammer_show($this->user_data['postnum'] ?? 0, $this->user_data['usergroup'], $this->user_id)) {
+            purgespammer_show($this->user_data->postnum ?? 0, $this->user_data->usergroup, $this->user_id)) {
             $templatesContext['show_purge_spammer_button'] = true;
         }
 
@@ -622,7 +636,7 @@ class Render
         $userPermissions = user_permissions($this->user_id);
 
         if (!in_array(
-                $this->current_user->user_id,
+                $this->current_user->uid,
                 $reportUserIDs
             ) && !empty($userPermissions['canbereported'])) {
             $templatesContext['show_report_button'] = true;
@@ -742,14 +756,14 @@ class Render
 
         if ($this->post_type === self::POST_TYPE_ENTRY && $this->config['entries_display_details'] ||
             $this->post_type === self::POST_TYPE_COMMENT && $this->config['comments_display_details']) {
-            $userPostNumber = my_number_format($this->user_data['postnum'] ?? 0);
+            $userPostNumber = my_number_format($this->user_data->postnum ?? 0);
 
-            $userThreadNumber = my_number_format($this->user_data['threadnum'] ?? 0);
+            $userThreadNumber = my_number_format($this->user_data->threadnum ?? 0);
 
-            $userRegistrationDate = my_date($this->mybb->settings['regdateformat'], $this->user_data['regdate'] ?? 0);
+            $userRegistrationDate = my_date($this->mybb->settings['regdateformat'], $this->user_data->regdate ?? 0);
 
-            if (!empty($groupPermissions['usereputationsystem']) && !empty($this->mybb->settings['enablereputation'])) {
-                $userReputation = get_reputation($this->user_data['reputation'], $this->user_id);
+            if (!empty($groupPermissions['usereputationsystem']) && !empty($this->mybb->settings->enablereputation)) {
+                $userReputation = get_reputation($this->user_data->reputation, $this->user_id);
             }
         }
 
@@ -778,12 +792,12 @@ class Render
         }
 
         // Is the user (not moderator) logged in and have unapproved posts?
-        if (!$this->is_preview && ($this->current_user->user_id &&
+        if (!$this->is_preview && ($this->current_user->uid &&
                 (
                     $this->post_type === self::POST_TYPE_ENTRY && $postStatus === $this->entries_manager::STATUS_PENDING ||
                     $this->post_type === self::POST_TYPE_COMMENT && $postStatus === $this->comments_manager::STATUS_PENDING
                 ) &&
-                $this->user_id === $this->current_user->user_id &&
+                $this->user_id === $this->current_user->uid &&
                 !(
                     $this->post_type === self::POST_TYPE_ENTRY && $moderatorCanManageEntries ||
                     $this->post_type === self::POST_TYPE_COMMENT && $moderatorCanManageComments
@@ -828,9 +842,9 @@ class Render
         }
 
         $templatesContext['show_purge_spammer_button'] = purgespammer_show(
-            $this->user_data['postnum'],
-            $this->user_data['usergroup'],
-            $this->user_data['uid']
+            $this->user_data->postnum,
+            $this->user_data->usergroup,
+            $this->user_data->uid
         );
 
         $templatesContext['show_edited_message'] = false;
@@ -873,23 +887,59 @@ class Render
         }
 
         if ($this->post_type === self::POST_TYPE_ENTRY) {
-            $entry->message = $this->entries_manager->parseMessage(
+            $parser_options = [
+                'allow_html' => !empty($this->config['parser_allow_html_in_entries']) ||
+                    $this->user_data->hasPermission(UserPermissions::ParserAllowHtmlInEntries),
+                'allow_mycode' => !empty($this->config['parser_allow_mycode_in_entries']),
+                'allow_smilies' => !empty($this->config['parser_allow_smiles_in_entries']),
+                'allow_imgcode' => !empty($this->config['parser_allow_image_code_in_entries']),
+                'allow_videocode' => !empty($this->config['parser_allow_video_code_in_entries']),
+                'filter_badwords' => true,
+                'shorten_urls' => false,
+                'highlight' => false,
+            ];
+
+            if (isset($this->url_params['highlight'])) {
+                $parser_options['highlight'] = $this->url_params['highlight'];
+            }
+
+            $entry->message = postParser()->parse_message(
                 $entry->message,
-                ['me_username' => $this->user_data['username'] ?? ''] + $this->parser_options
+                ['me_username' => $this->user_data->username ?? $entry->username] + $parser_options
             );
         } else {
-            $comment->message = $this->entries_manager->parseMessage(
+            static $parser_options = null;
+
+            if ($parser_options === null) {
+                $parser_options = [
+                    'allow_html' => !empty($this->config['parser_allow_html_in_comments']) ||
+                        $this->user_data->hasPermission(UserPermissions::ParserAllowHtmlInComments),
+                    'allow_mycode' => !empty($this->config['parser_allow_mycode_in_comments']),
+                    'allow_smilies' => !empty($this->config['parser_allow_smiles_in_comments']),
+                    'allow_imgcode' => !empty($this->config['parser_allow_image_code_in_comments']),
+                    'allow_videocode' => !empty($this->config['parser_affects_message_length_in_comments']),
+                    'filter_badwords' => true,
+                    'shorten_urls' => false,
+                    'highlight' => false,
+                ];
+
+                if (isset($this->url_params['highlight'])) {
+                    $parser_options['highlight'] = $this->url_params['highlight'];
+                }
+            }
+
+            $comment->message = postParser()->parse_message(
                 $comment->message,
-                ['me_username' => $this->user_data['username'] ?? ''] + $this->parser_options
+                ['me_username' => $this->user_data->username ?? $comment->username] + $parser_options
             );
         }
 
         if ($this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            ($this->current_user->user_id === $entry->user_id && !$thread['closed'] && (
+            ($this->current_user->uid === $entry->user_id && !$thread['closed'] && (
                     empty($this->mybb->usergroup['edittimelimit']) ||
                     $post['dateline'] > (TIME_NOW - ($this->mybb->usergroup['edittimelimit'] * 60))
                 )) &&
-            $this->current_user->user_id) {
+            $this->current_user->uid) {
             $entry->setExtraData('can_edit', true);
         }
 
@@ -1178,7 +1228,7 @@ class Render
         }
 
         $totalUserUsage = $this->attachments_repository->queryAttachmentSum(
-            ["user_id='{$this->current_user->user_id}'"]
+            ["user_id='{$this->current_user->uid}'"]
         );
 
         $usageDetails = $viewMyAttachmentsLink = '';
@@ -1211,22 +1261,16 @@ class Render
         ]);
     }
 
-    public function parseMessage(string $message, array $options = []): string
-    {
-        return postParser()->parse_message($message, array_merge($this->parser_options, $options));
-    }
-
     public function editorBuild(string &$code_buttons, string &$smiles_inserter, string $identifier = 'comment'): void
     {
-        if (!empty($this->mybb->settings['bbcodeinserter']) &&
-            $this->config['parser_allow_mycode'] &&
-            (!$this->current_user->user_id || !empty($this->mybb->user['showcodebuttons']))) {
+        if ($this->config['parser_allow_mycode_in_entries'] &&
+            (!$this->current_user->uid || !empty($this->mybb->user['showcodebuttons']))) {
             $code_buttons = build_mycode_inserter(
                 $identifier,
-                $this->config['parser_allow_smiles']
+                $this->config['parser_allow_smiles_in_entries']
             );
 
-            if ($this->config['parser_allow_smiles']) {
+            if ($this->config['parser_allow_smiles_in_entries']) {
                 $smiles_inserter = build_clickable_smilies();
             }
         }

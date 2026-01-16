@@ -23,7 +23,7 @@ class Comment
         public readonly ?int $user_id = null,
         public readonly ?string $username = null,
         public readonly ?int $parent_comment_id = null,
-        public readonly ?string $message = null,
+        public ?string $message = null,
         public readonly ?int $icon_id = null,
         public readonly ?int $dateline = null,
         public readonly ?int $status = null,

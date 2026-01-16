@@ -144,7 +144,7 @@ class EntriesRepository
      */
     public function insertEntry(Entry $entry, bool $is_update = false): int
     {
-        $this->entry_data = $entry;
+        $this->entry = $entry;
 
         $this->entry_id = $entry->entry_id;
 
@@ -153,9 +153,9 @@ class EntriesRepository
         $this->is_update = $is_update;
 
         foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
-            if (isset($this->entry_data->$field_name)) {
+            if (isset($this->entry->$field_name)) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $this->entry_data->$field_name,
+                    $this->entry->$field_name,
                     $field_definition['type']
                 );
             } elseif (!$this->is_update) {
@@ -170,38 +170,37 @@ class EntriesRepository
             ->get(CacheDataTypes::Fields);
 
         foreach ($fields_cache[$this->config['field_set_id']] ?? [] as $field_id => $field_definition) {
-            if (!isset($this->entry_data->extra_data[$field_definition['field_key']]) && !$this->is_update) {
+            if (!isset($this->entry->extra_data[$field_definition['field_key']]) && !$this->is_update) {
                 switch ($field_definition['default_type']) {
                     case FieldDefaultTypes::AsDefined:
-                        $this->entry_data->extra_data[$field_definition['field_key']] = $field_definition['default_value'];
+                        $this->entry->extra_data[$field_definition['field_key']] = $field_definition['default_value'];
 
                         break;
                     case FieldDefaultTypes::CurrentTimestamp:
-                        $this->entry_data->extra_data[$field_definition['field_key']] = date('Y-m-d H:i:s', TIME_NOW);
+                        $this->entry->extra_data[$field_definition['field_key']] = date('Y-m-d H:i:s', TIME_NOW);
 
                         break;
                     case FieldDefaultTypes::UUID:
-                        $this->entry_data->extra_data[$field_definition['field_key']] = (new UuidUtil(
-                        ))->generateUuidV4();
+                        $this->entry->extra_data[$field_definition['field_key']] = (new UuidUtil())->generateUuidV4();
 
                         break;
                 }
             }
 
-            if (isset($this->entry_data->extra_data[$field_definition['field_key']])) {
+            if (isset($this->entry->extra_data[$field_definition['field_key']])) {
                 if (fieldTypeMatchInt($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (int)$this->entry_data->extra_data[$field_definition['field_key']];
+                    $this->insert_data[$field_definition['field_key']] = (int)$this->entry->extra_data[$field_definition['field_key']];
                 } elseif (fieldTypeMatchFloat($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (float)$this->entry_data->extra_data[$field_definition['field_key']];
+                    $this->insert_data[$field_definition['field_key']] = (float)$this->entry->extra_data[$field_definition['field_key']];
                 } elseif (fieldTypeMatchChar($field_definition['field_type']) ||
                     fieldTypeMatchText($field_definition['field_type']) ||
                     fieldTypeMatchDateTime($field_definition['field_type'])) {
                     $this->insert_data[$field_definition['field_key']] = $this->database->escape_string(
-                        $this->entry_data->extra_data[$field_definition['field_key']]
+                        $this->entry->extra_data[$field_definition['field_key']]
                     );
                 } elseif (fieldTypeMatchBinary($field_definition['field_type'])) {
                     $this->insert_data[$field_definition['field_key']] = $this->database->escape_binary(
-                        $this->entry_data->extra_data[$field_definition['field_key']]
+                        $this->entry->extra_data[$field_definition['field_key']]
                     );
                 }
             }

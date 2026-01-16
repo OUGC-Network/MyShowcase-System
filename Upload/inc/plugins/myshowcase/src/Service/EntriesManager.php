@@ -31,7 +31,6 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
-use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
@@ -74,7 +73,6 @@ class EntriesManager
         private readonly array $config,
         private readonly array $fieldset_fields,
         private readonly array $parser_options = [],
-        private readonly array $filter,
     ) {
         $this->entries = new Collection();
     }
@@ -123,11 +121,6 @@ class EntriesManager
         }
     }
 
-    public function parseMessage(string $message, array $options = []): string
-    {
-        return postParser()->parse_message($message, array_merge($this->parser_options, $options));
-    }
-
     /**
      * @throws RandomException
      */
@@ -158,14 +151,12 @@ class EntriesManager
         $this->where_clauses = $where_clauses;
 
         if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user->user_id}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
+            $this->where_clauses[] = "(entry_data.status='" . self::STATUS_VISIBLE . "' OR (entry_data.user_id='{$this->current_user->uid}' AND entry_data.status='" . self::STATUS_PENDING . "'))";
         }
 
         //setup joins for query and build where clause based on keywords terms
 
         $this->query_tables = ['users user_data ON (user_data.uid = entry_data.user_id)'];
-
-        $search_done = false;
 
         $this->query_fields = array_merge(
             array_map(function (string $field_name): string {
@@ -183,20 +174,16 @@ class EntriesManager
                 $field_definition['html_type'] === FieldHtmlTypes::Radio ||
                 $field_definition['html_type'] === FieldHtmlTypes::Select) {
                 $this->query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
-
-                $this->query_fields[] = $field_definition['field_key'];
-            } elseif ($query_options['order_by'] === 'username' && !$search_done) {
-                $this->query_fields[] = $field_definition['field_key'];
-
-                $search_done = true;
-            } else {
-                $this->query_fields[] = $field_definition['field_key'];
             }
+
+            $this->query_fields[] = $field_definition['field_key'];
         }
 
         if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
             $query_options['order_dir'] = SortDirections::Ascending;
         }
+
+        $query_options['order_by'] = $query_options['order_by'] ?? $this->config['main_sort_default_field'];
 
         $query_options['order_by'] = "entry_data.{$query_options['order_by']} " . ($query_options['order_dir'] ?? '') . ', entry_data.is_sticky ' . ($query_options['order_dir'] ?? '') . ', entry_data.entry_id';
 
@@ -261,12 +248,12 @@ class EntriesManager
     /**
      * Add an error to the error array.
      *
-     * @param string $error The error name.
+     * @param string $message The error name.
      * @param array $data
      */
-    public function validateSetError(string $error, array $data = []): void
+    public function validateSetError(string $message, array $data = []): void
     {
-        $this->validation_errors[$error] = $this->language->sprintf($error, ...$data);
+        $this->validation_errors[$message] = $this->language->sprintf($message, ...$data);
     }
 
     /**
@@ -308,6 +295,48 @@ class EntriesManager
 
         if (!empty($this->validation_data->user_id) && empty(get_user($this->validation_data->user_id)['uid'])) {
             $this->validateSetError('invalid_user');
+        }
+
+        if (isset($this->validation_data->subject) && !$this->config['entries_enable_subject']) {
+            unset($this->validation_data->subject);
+        }
+
+        if (isset($this->validation_data->subject)) {
+            $subject_length = my_strlen($this->validation_data->subject);
+
+            if ($subject_length < $this->config['entries_subject_minimum_length'] ||
+                $subject_length > $this->config['entries_subject_maximum_length']) {
+                $this->validateSetError(
+                    $this->language->myshowcase_validation_errors_entry_invalid_subject_length,
+                    [
+                        my_number_format($this->config['entries_subject_minimum_length']),
+                        my_number_format($this->config['entries_subject_maximum_length'])
+                    ]
+                );
+            }
+        }
+
+        if (isset($this->validation_data->message) && !$this->config['entries_enable_message']) {
+            unset($this->validation_data->message);
+        }
+
+        if (isset($this->validation_data->message)) {
+            if ($this->config['parser_affects_message_length_in_entries']) {
+                $message_length = my_strlen($this->validation_data->message);
+            } else {
+                $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_data->message));
+            }
+
+            if ($message_length < $this->config['entries_message_minimum_length'] ||
+                $message_length > $this->config['entries_message_maximum_length']) {
+                $this->validateSetError(
+                    $this->language->myshowcase_validation_errors_entry_invalid_message_length,
+                    [
+                        my_number_format($this->config['entries_message_minimum_length']),
+                        my_number_format($this->config['entries_message_maximum_length'])
+                    ]
+                );
+            }
         }
 
         if (isset($this->validation_data->views) && $this->validation_data->views < 0) {

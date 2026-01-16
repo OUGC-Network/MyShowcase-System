@@ -20,6 +20,7 @@ use DB_PgSQL;
 use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyLanguage;
 use MyShowcase\Entity\Entry;
 use MyShowcase\Entity\User;
 use MyShowcase\Enum\FieldHtmlTypes;
@@ -74,19 +75,18 @@ class AttachmentsController extends BaseController
         private readonly SubscriptionsRepository $subscriptions_repository,
         private readonly ModeratorsRepository $moderators_repository,
         private readonly EntriesManager $entries_manager,
-        private readonly AttachmentsManager $attachments_manager,
+        protected readonly AttachmentsManager $attachments_manager,
         private readonly CommentsManager $comments_manager,
         private readonly Render $render_manager,
-        private readonly FieldFactory $field_factory,
         private readonly array $config,
         private readonly array $fieldset_fields,
-        private readonly array $filter,
         protected readonly array $attachment_types,
     ) {
         parent::__construct(
             $routing,
             $this->database,
             $this->mybb,
+            $this->language,
             $this->event_dispatcher,
             $this->current_user,
             $this->entries_repository,
@@ -94,10 +94,8 @@ class AttachmentsController extends BaseController
             $this->entries_manager,
             $this->comments_manager,
             $this->render_manager,
-            $this->field_factory,
             $this->config,
             $this->fieldset_fields,
-            $this->filter,
         );
 
         $this->verifyPassword();
@@ -164,7 +162,7 @@ class AttachmentsController extends BaseController
 
             $entry_id = $entry->entry_id;
         } else {
-            $entry = new Entry(post_hash: $post_hash, user_id: $this->current_user->user_id);
+            $entry = new Entry(post_hash: $post_hash, user_id: $this->current_user->uid);
         }
 
         if ($mybb->request_method === 'post') {
@@ -430,7 +428,7 @@ class AttachmentsController extends BaseController
             !$this->current_user->hasPermission(UserPermissions::MainCanView) ||
             !$this->current_user->hasPermission(UserPermissions::EntriesCanView) ||
             (
-                $this->current_user->user_id !== (int)$this->attachment_data['user_id'] &&
+                $this->current_user->uid !== (int)$this->attachment_data['user_id'] &&
                 !$this->current_user->hasPermission(UserPermissions::AttachmentsCanView)
             )
         ) {
@@ -455,7 +453,7 @@ class AttachmentsController extends BaseController
         }
 
         // Don't check the permissions on preview
-        if ($this->current_user->user_id !== (int)$this->attachment_data['user_id']) {
+        if ($this->current_user->uid !== (int)$this->attachment_data['user_id']) {
             if (!$this->current_user->hasPermission(UserPermissions::AttachmentsCanDownload) && !$this->is_thumbnail) {
                 $this->errorNoPermission();
             }
@@ -472,7 +470,7 @@ class AttachmentsController extends BaseController
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($this->download_count_increase && !$this->is_thumbnail && $this->current_user->user_id !== (int)$this->attachment_data['user_id']) {
+        if ($this->download_count_increase && !$this->is_thumbnail && $this->current_user->uid !== (int)$this->attachment_data['user_id']) {
             if (!is_member($attachment_type_data['allowed_groups'])) {
                 $this->errorNoPermission();
             }
@@ -580,7 +578,7 @@ class AttachmentsController extends BaseController
                 header('HTTP/1.1 500 Internal Server Error');
             } finally {
                 attachmentLogInsert([
-                    'user_id' => $this->current_user->user_id,
+                    'user_id' => $this->current_user->uid,
                     'attachment_id' => $this->attachment_data['attachment_id'],
                     'ipaddress' => $mybb->session->packedip,
                     'dateline' => TIME_NOW,

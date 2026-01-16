@@ -2,13 +2,8 @@
 
 namespace MyShowcase\Security;
 
-use InvalidArgumentException;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Fields\FieldsInterface;
-use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Service\AttachmentsManager;
-use MyShowcase\Service\EntriesManager;
 
 class PermissionsFactory
 {
@@ -20,6 +15,19 @@ class PermissionsFactory
             'category' => 'main',
             'input_type' => FormTypes::PermissionBoolean,
             'dragging' => true,
+        ],
+        UserPermissions::ParserAllowHtmlInEntries => [
+            'is_group_permission' => true,
+            'is_user_permission' => true,
+            'category' => 'parser',
+            'input_type' => FormTypes::PermissionBoolean,
+        ],
+        UserPermissions::ParserAllowHtmlInComments => [
+            'is_group_permission' => true,
+            'is_user_permission' => true,
+            'is_moderator_permission' => true,
+            'category' => 'parser',
+            'input_type' => FormTypes::PermissionBoolean,
         ],
         UserPermissions::EntriesCanView => [
             'is_group_permission' => true,
@@ -53,6 +61,7 @@ class PermissionsFactory
         UserPermissions::EntriesCanPost => [
             'is_group_permission' => true,
             'is_user_permission' => true,
+            'is_moderator_permission' => true,
             'show_user_notice' => true,
             'category' => 'entries',
             'input_type' => FormTypes::PermissionBoolean,
@@ -717,48 +726,4 @@ class PermissionsFactory
             'input_type' => FormTypes::PermissionBoolean,
         ],
     ];
-
-    private array $field_objects_cache = [];
-
-    public function __construct(
-        private readonly AttachmentsRepository $attachments_repository,
-        private readonly EntriesManager $entries_manager,
-        private readonly AttachmentsManager $attachments_manager,
-        private readonly int $fieldset_id,
-        private readonly array $parser_options,
-        private readonly string $search_highlight,
-    ) {
-    }
-
-    public function create(
-        array $field_definition,
-        ?int $entry_id = null,
-        ?string $post_hash = null
-    ): FieldsInterface {
-        $cacheKey = $field_definition['field_key'];
-
-        if (!isset($this->field_objects_cache[$cacheKey])) {
-            $fieldType = $field_definition['html_type'];
-
-            if (!isset(self::$permission_options_map[$fieldType])) {
-                throw new InvalidArgumentException("Unknown field type: {$fieldType}");
-            }
-
-            $fieldClass = self::$permission_options_map[$fieldType];
-
-            $this->field_objects_cache[$cacheKey] = new $fieldClass(
-                $this->attachments_repository,
-                $this->entries_manager,
-                $this->attachments_manager,
-                $this->fieldset_id,
-                $this->parser_options,
-                $this->search_highlight,
-                $field_definition,
-                $entry_id,
-                $post_hash
-            );
-        }
-
-        return $this->field_objects_cache[$cacheKey];
-    }
 }

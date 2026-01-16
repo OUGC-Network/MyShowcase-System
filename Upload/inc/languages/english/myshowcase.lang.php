@@ -461,4 +461,10 @@ $l = array_merge($l, [
 
     'myShowcaseReportErrorInvalidEntry' => 'This entry does not exist.',
     'myShowcaseReportErrorInvalidComment' => 'This comment does not exist.',
+
+    'myshowcase_validation_errors_entry_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long.',
+    'myshowcase_validation_errors_entry_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long.',
+
+    'myshowcase_validation_errors_comment_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long.',
+    'myshowcase_validation_errors_comment_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long.',
 ]);
