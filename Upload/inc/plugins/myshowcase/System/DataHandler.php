@@ -17,8 +17,9 @@ namespace MyShowcase\System;
 
 use DataHandler as CoreDataHandler;
 use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Service\CommentsManager;
 use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Service\CommentsManager;
+use MyShowcase\Entity\ShowcaseEntity;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 
@@ -35,7 +36,7 @@ class DataHandler extends CoreDataHandler
         private readonly CommentsRepository $comments_repository,
         private readonly AttachmentsRepository $attachments_repository,
         private readonly CommentsManager $comments_manager,
-        private readonly array $config,
+        private readonly ShowcaseEntity $config,
         public $method = self::METHOD_INSERT,
         /**
          * The language file used in the data handler.

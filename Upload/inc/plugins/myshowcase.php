@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Enum\CacheDataTypes;
-
 use MyShowcase\Service\CacheManager;
 
 use function MyShowcase\Admin\pluginActivation;
@@ -91,6 +90,8 @@ if (defined('IN_ADMINCP')) {
 
     hooksAdd('MyShowcase\Hooks\Forum');
 }
+
+require_once ROOT . '/vendor/autoload.php';
 
 require_once ROOT . '/Hooks/Shared.php';
 
@@ -177,7 +178,7 @@ if (!function_exists('_dump')) {
     {
         echo '<pre>';
 
-        var_dump(func_get_args());
+        var_dump(generate_backtrace(), func_get_args());
 
         echo '</pre>';
 
@@ -189,7 +190,7 @@ if (!function_exists('_dump')) {
 {
     echo '<pre>';
 
-    var_dump(func_get_args());
+    var_dump(generate_backtrace(), func_get_args());
 
     echo '</pre>';
 }

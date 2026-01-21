@@ -19,12 +19,12 @@ class EntryDeletedCommentListener
         $entry_id = $event->getEntryID();
 
         foreach (
-            $this->comments_repository->queryComments(
+            $this->context->comments_repository->queryComments(
                 ["entry_id='{$entry_id}'"],
                 'comment_id'
             ) as $comment_id => $comment_data
         ) {
-            $this->comments_repository->deleteComment($comment_id);
+            $this->context->comments_repository->deleteComment($comment_id);
         }
     }
 }

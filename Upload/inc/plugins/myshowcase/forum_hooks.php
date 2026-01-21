@@ -17,15 +17,23 @@ namespace MyShowcase\Hooks\Forum;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyShowcase\Enum\AttachmentsDisplayType;
 use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\Routes;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
+use MyShowcase\Util\buildShowcase;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function MyShowcase\Plugin\Functions\loadLanguage;
+
+use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 /**
  * Add global notices for unapproved and reported showcases
@@ -33,6 +41,7 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
  */
 #[NoReturn] function global_start(): void
 {
+    return;
     if (!defined('THIS_SCRIPT') || THIS_SCRIPT !== 'showcase.php') {
         return;
     }
@@ -42,12 +51,12 @@ use function MyShowcase\Plugin\Functions\loadLanguage;
 
     $showcase = new Showcase($db, $mybb, $lang);
 
-    if (empty($showcase->config['custom_theme_id'])) {
+    if (empty($showcase->context->showcase['custom_theme_id'])) {
         return;
     }
 
-    if (empty($showcase->mybb->user['style']) || !empty($showcase->config['custom_theme_force'])) {
-        $showcase->mybb->user['style'] = (int)$showcase->config['custom_theme_id'];
+    if (empty($showcase->context->mybb->user['style']) || !empty($showcase->context->showcase['custom_theme_force'])) {
+        $showcase->context->mybb->user['style'] = (int)$showcase->context->showcase['custom_theme_id'];
     }
 }
 
@@ -82,39 +91,45 @@ function global_intermediate(): bool
             CacheDataTypes::Config
         ) as $showcase_id => $showcase_data
     ) {
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+
+        $entries_repository = new EntriesRepository(
+            $showcase->context->database,
+            $showcase->context->mybb,
+            $showcase->context->showcase
+        );
 
         //if showcase is is_enabled...
-        if ($showcaseObject->config['is_enabled']) {
+        if ($showcase->context->showcase->is_enabled) {
             //load language if we are going to use it
-            if ($showcaseObject->current_user->hasPermission(
+            if ($showcase->current_user->hasPermission(
                     UserPermissions::EntriesCanView
-                ) || $showcaseObject->current_user->hasPermission(UserPermissions::CommentsCanView)) {
+                ) || $showcase->current_user->hasPermission(UserPermissions::CommentsCanView)) {
                 loadLanguage();
             }
 
             //awaiting approval
-            if ($showcaseObject->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+            if ($showcase->current_user->hasPermission(UserPermissions::EntriesCanView)) {
                 /*
                  $unapprovedEntriesUrl = url(
                     \MyShowcase\Plugin\RouterUrls::Main,
-                    getParams: array_merge($showcaseObject->urlParams, ['unapproved' => 1])
+                    getParams: array_merge($showcase->urlParams, ['unapproved' => 1])
                 )->getRelativeUrl();
                 */
                 $unapprovedEntriesUrl = '';
 
-                $totalUnapprovedEntries = $showcaseObject->entries_repository->queryEntryCount(
-                    ["status='" . $showcaseObject->entries_manager::STATUS_PENDING . "'"]
+                $totalUnapprovedEntries = $entries_repository->queryEntryCount(
+                    ["status='" . ContentStatuses::PendingUnapproved . "'"]
                 );
 
                 if ($totalUnapprovedEntries > 0) {
                     $unapprovedText = $lang->sprintf(
                         $lang->myshowcase_unapproved_count,
-                        $showcaseObject->config['name'],
+                        $showcase->context->showcase->name,
                         my_number_format($totalUnapprovedEntries)
                     );
 
-                    $unapprovedEntriesNotices[] = $showcaseObject->render_manager->templateGet(
+                    $unapprovedEntriesNotices[] = $showcase->render_manager->templateGet(
                         'globalMessageUnapprovedEntries',
                         [
                             'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
@@ -170,13 +185,13 @@ function fetch_wol_activity_end(array &$user_activity): array
             CacheDataTypes::Config
         ) as $id => $myshowcase
     ) {
-        $split_mainfile = explode('.php', $myshowcase['route_identifier']);
+        $split_mainfile = explode('.php', $myshowcase->route_identifier);
         if ($split_mainfile[0] === $filename) {
             //preload here so we don't need to get it in next function
             $user_activity['myshowcase_filename'] = $filename;
-            $user_activity['myshowcase_name'] = $myshowcase['name'];
-            $user_activity['myshowcase_id'] = $myshowcase['showcase_id'];
-            $user_activity['myshowcase_mainfile'] = $myshowcase['route_identifier'];
+            $user_activity['myshowcase_name'] = $myshowcase->name;
+            $user_activity['myshowcase_id'] = $myshowcase->showcase_id;
+            $user_activity['myshowcase_mainfile'] = $myshowcase->route_identifier;
 
             if ($parameters['action'] === 'view') {
                 $user_activity['activity'] = 'myShowcaseMainTableHeadView';
@@ -277,9 +292,15 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
                 $entryID = $plugin_array['user_activity']['entry_id'];
 
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+                $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-                $showcaseObjects = $showcase->entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
+                $entries_repository = new EntriesRepository(
+                    $showcase->context->database,
+                    $showcase->context->mybb,
+                    $showcase->context->showcase
+                );
+
+                $showcaseObjects = $entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
 
                 foreach ($showcaseObjects as $entryID => $entryData) {
                     $uid = $entryData['user_id'];
@@ -365,10 +386,16 @@ function showthread_start(): bool
         //get myshowcase counts for users in thread
         if (count($uids)) {
             foreach ($showcase_objects as $showcase_id) {
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+                $showcase = (new buildShowcase())->getShowcase($showcase_id);
+
+                $entries_repository = new EntriesRepository(
+                    $showcase->context->database,
+                    $showcase->context->mybb,
+                    $showcase->context->showcase
+                );
 
                 foreach (
-                    $showcase->entries_repository->queryEntries(
+                    $entries_repository->queryEntries(
                         ["user_id IN ('{$userIDs}')", "status='1'"],
                         ['user_id', 'COUNT(user_id) AS total_user_entries'],
                         ['group_by' => 'user_id']
@@ -416,43 +443,29 @@ function postbit(array &$post): array
                     CacheDataTypes::Config
                 ) as $showcase_id => $showcase_data
             ) {
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+                if (empty($showcase_data['is_enabled']) || empty($showcase_data['attachments_enable_embeds'])) {
+                    continue;
+                }
+
+                $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
                 // todo, cache attachment objects per showcase to reduce queries
                 foreach (
-                    $showcase->attachments_repository->queryAttachments(
+                    $showcase->context->attachments_repository->queryAttachments(
                         ["attachment_hash IN ('{$attachment_hashes}')"], // todo, status clause
-                        [
-                            'attachment_id',
-                            'showcase_id',
-                            'entry_id',
-                            'comment_id',
-                            'field_id',
-                            'post_hash',
-                            'attachment_hash',
-                            'user_id',
-                            'description',
-                            'file_name',
-                            'mime_type',
-                            'file_size',
-                            'attachment_name',
-                            'downloads',
-                            'dateline',
-                            'status',
-                            'thumbnail_name',
-                            'thumbnail_dimensions',
-                            'dimensions',
-                            'edit_stamp',
-                        ],
+                        array_keys(TABLES_DATA['myshowcase_attachments']),
                     ) as $attachment_data
                 ) {
-                    $showcase->attachments_manager->setAttachment($attachment_data);
+                    $showcase->context->attachments_manager->addAttachment($attachment_data);
                 }
 
-                $attachment_entry_ids = implode("','", $showcase->attachments_manager->getAttachmentsEntryIDs());
+                $attachment_entry_ids = implode(
+                    "','",
+                    $showcase->context->attachments_manager->getAttachmentsEntryIDs()
+                );
 
                 foreach (
-                    $showcase->entries_repository->queryEntries(
+                    $showcase->context->entries_repository->queryEntries(
                         ["entry_id IN ('{$attachment_entry_ids}')"], // todo, status clause
                         [
                             'entry_id',
@@ -461,82 +474,76 @@ function postbit(array &$post): array
                         ],
                     ) as $entry_id => $entry
                 ) {
-                    $showcase->entries_manager->addEntry($entry);
+                    $showcase->context->entries_manager->addEntry($entry);
                 }
 
-                foreach ($showcase->attachments_manager->getAttachments() as $attachment_data) {
-                    $entry = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+                /**
+                 * @var \MyShowcase\Entity\AttachmentEntity $attachment
+                 */
+                foreach ($showcase->context->attachments_manager->getAttachments() as $attachment) {
+                    $entry = $showcase->context->entries_manager->getEntryByID($attachment->entry_id);
 
-                    $attachment_data
-                        ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
+                    //$attachment->is_image = str_starts_with($attachment->mime_type, 'image/');
+
+                    //$attachment->has_thumbnail = !empty($attachment->thumbnail_name);
+
+                    $attachment
+                        ->setExtraData('file_size', get_friendly_size($attachment->file_size))
+                        //->setExtraData('is_image', str_starts_with($attachment->mime_type, 'image/'))
+                        //->setExtraData('has_thumbnail', !empty($attachment->thumbnail_name))
+                        ->setExtraData('icon', get_attachment_icon($attachment->attachment_name))
                         ->setExtraData(
-                            'is_image',
-                            str_starts_with($attachment_data->mime_type, 'image/')
-                        )
-                        ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
+                            'url',
+                            $showcase->context->routing->generateUrl(
+                                Routes::AttachmentDownload,
+                                [
+                                    'attachment_hash' => $attachment->attachment_hash,
+                                    'attachment_name' => $attachment->attachment_name,
+                                ],
+                            )
+                        );
 
-                    $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $showcase->config['attachments_display_thumbnails'];
-
-                    $attachment_data->setExtraData(
-                        'url',
-                        $showcase->routing->generateUrl(
-                            Routes::AttachmentDownload,
-                            [
-                                'attachment_hash' => $attachment_data->attachment_hash,
-                                'attachment_name' => $attachment_data->attachment_name,
-                            ],
-                        )
-                    );
-
-                    if ($attachment_data->has_thumbnail) {
-                        $attachment_data->setExtraData(
+                    if (!empty($attachment->thumbnail_name)) {
+                        $attachment->setExtraData(
                             'url_thumbnail',
-                            $showcase->routing->generateUrl(
+                            $showcase->context->routing->generateUrl(
                                 Routes::AttachmentThumbnail,
                                 [
-                                    'attachment_hash' => $attachment_data->attachment_hash,
-                                    'attachment_name' => $attachment_data->attachment_name,
+                                    'attachment_hash' => $attachment->attachment_hash,
+                                    'attachment_name' => $attachment->attachment_name,
                                 ],
                             )
                         );
                     } else {
-                        $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
+                        $attachment->setExtraData('url_thumbnail', $attachment->getExtraData('url'));
                     }
 
-                    $entry->addAttachment($attachment_data);
+                    $entry->addAttachment($attachment);
                 }
-            }
-
-            foreach (
-                $cache_manager->get(
-                    CacheDataTypes::Config
-                ) as $showcase_id => $showcase_data
-            ) {
-                $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
                 foreach ($matches[1] as $attachment_hash) {
-                    $attachment_data = $showcase->attachments_manager->getAttachmentByHash($attachment_hash);
+                    $attachment = $showcase->context->attachments_manager->getAttachmentByHash($attachment_hash);
 
-                    if (!$attachment_data ||
-                        !$showcase->entries_manager->getEntries()->offsetExists($attachment_data->entry_id)) {
+                    if (!$attachment ||
+                        !$showcase->context->entries_manager->getEntries()->offsetExists($attachment->entry_id)) {
                         continue;
                     }
 
-                    $entry = $showcase->entries_manager->getEntryByID($attachment_data->entry_id);
+                    $entry = $showcase->context->entries_manager->getEntryByID($attachment->entry_id);
 
                     if (!$entry) {
                         continue;
                     }
 
-                    $attachedThumbnail = $showcase->render_manager->templateGet(
+                    $attachedThumbnail = $showcase->context->render_manager->templateGet(
                         'postBitAttachmentThumbnail',
                         [
-                            'thumbnail' => $attachment_data,
+                            'attachment' => $attachment,
                         ]
                     );
 
                     $post['message'] = str_replace(
-                        "[attachment={$attachment_data->attachment_hash}]",
+                        "[attachment={$attachment->attachment_hash}]",
                         $attachedThumbnail,
                         $post['message']
                     );
@@ -584,9 +591,15 @@ function report_type(): void
 
         $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-        $entryData = $showcase->entries_repository->queryEntry(
+        $entries_repository = new EntriesRepository(
+            $showcase->context->database,
+            $showcase->context->mybb,
+            $showcase->context->showcase
+        );
+
+        $entryData = $entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id'],
         );
@@ -623,13 +636,22 @@ function report_type(): void
 
         $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-        $commentData = $showcase->comments_repository->queryComment(["comment_id='{$commentID}'"],
+        $entries_repository = new EntriesRepository(
+            $showcase->context->database,
+            $showcase->context->mybb,
+            $showcase->context->showcase
+        );
+
+        $comments_repository = new CommentsRepository($showcase->context->database, $showcase->context->showcase);
+
+        $commentData = $comments_repository->queryComment(
+            ["comment_id='{$commentID}'"],
             ['entry_id', 'user_id']
         );
 
-        $entryData = $showcase->entries_repository->queryEntry(
+        $entryData = $entries_repository->queryEntry(
             ["entry_id='{$commentData['entry_id']}'"],
             ['user_id'],
         );
@@ -668,16 +690,22 @@ function modcp_reports_report(): void
 
         $entryID = (int)$report['id2'];
 
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-        $entryData = $showcaseObject->entries_repository->queryEntry(
+        $entries_repository = new EntriesRepository(
+            $showcase->context->database,
+            $showcase->context->mybb,
+            $showcase->context->showcase
+        );
+
+        $entryData = $entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id', 'entry_slug', 'entry_slug_custom'],
         );
 
         $report_data['content'] = $lang->sprintf(
             $lang->myShowcaseReportEntryContent,
-            $showcaseObject->routing->generateUrl(
+            $showcase->context->routing->generateUrl(
                 Routes::EntryView,
                 [
                     'entry_slug' => $entryData['entry_slug'],
@@ -698,23 +726,31 @@ function modcp_reports_report(): void
 
         $commentID = (int)$report['id2'];
 
-        $showcaseObject = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-        $commentData = $showcaseObject->comments_repository->queryComment(
+        $entries_repository = new EntriesRepository(
+            $showcase->context->database,
+            $showcase->context->mybb,
+            $showcase->context->showcase
+        );
+
+        $comments_repository = new CommentsRepository($showcase->context->database, $showcase->context->showcase);
+
+        $commentData = $comments_repository->queryComment(
             ["comment_id='{$commentID}'"],
             ['showcase_id', 'entry_id', 'user_id', 'comment_slug'],
         );
 
         $entryID = (int)$commentData['entry_id'];
 
-        $entryData = $showcaseObject->entries_repository->queryEntry(
+        $entryData = $entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
             ['user_id', 'entry_slug', 'entry_slug_custom'],
         );
 
         $report_data['content'] = $lang->sprintf(
             $lang->myShowcaseReportCommentContent,
-            $showcaseObject->getBasicUrl(
+            $showcase->getBasicUrl(
             ) . "/view/{$entryData['entry_slug']}/{$entryData['entry_slug_custom']}/comment/{$commentData['comment_slug']}" . '#commentID' . $commentData['comment_slug'],
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id2'])['username'] ?? ''),
@@ -730,4 +766,46 @@ function modcp_reports_report(): void
             )
         );
     }
+}
+
+function reputation_start(): void
+{
+    global $mybb;
+
+    if ($mybb->get_input('action') !== 'add' ||
+        !$mybb->get_input('showcase_identifier') ||
+        !$mybb->get_input('entry_slug')) {
+        return;
+    }
+
+    $showcase = (new buildShowcase())->getShowcase(route_identifier: $mybb->get_input('showcase_identifier'));
+
+    if (empty($showcase->context->showcase)) {
+        error();
+    }
+
+    $where_clauses = [
+        "entry_data.entry_slug='{$showcase->context->database->escape_string($mybb->get_input('entry_slug'))}'"
+    ];
+
+    $entry = $showcase->context->entries_manager->generateEntry(
+        $showcase->context->entries_repository->queryEntry($where_clauses, [
+            'entry_id',
+            'user_id'
+        ])
+    );
+
+    if (empty($entry->entry_id)) {
+        error();
+    }
+
+    global $existing_reputation;
+
+    $query = $showcase->context->database->simple_select(
+        'reputation',
+        'rid, uid, adduid, reputation',
+        "adduid='{$showcase->context->current_user->user_id}' AND uid='{$mybb->get_input('uid', MyBB::INPUT_INT)}' AND pid = '{$mybb->get_input('pid',MyBB::INPUT_INT)}'"
+    );
+
+    $existing_reputation = $showcase->context->database->fetch_array($query);
 }

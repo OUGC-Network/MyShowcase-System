@@ -1,4 +1,5 @@
-<section class="section section--form compose__hidden-section compose__hidden-section--attachments">
+<section
+        class="section section--form section--has-title compose__hidden-section compose__hidden-section--attachments upload-attachments">
     <h2 class="title title--section">{{ lang.attachments }}</h2>
     <div class="section__container">
         <div class="row row--form field">
@@ -10,24 +11,28 @@
              style="padding: 50px 0; margin: 5px 10px 10px; cursor: pointer; border: 2px dashed #CCC; text-align: center;">
             <div style="pointer-events: none;"></div>
         </div>
+
         {% if mybb.settings.enableattachments and config.attachments_allow_in_entries %}
             {% for attachment in attachments %}
                 {{ include('misc/attachments_attachment.twig') }}
             {% endfor %}
         {% endif %}
-        {% if composepost.showattachoptions %}
+
+        {% if mybb.settings.maxattachments == 0 or (mybb.settings.maxattachments > 0 and attachment_count < mybb.settings.maxattachments and user_attach_quota <= (permissions.attachments_quota * 1024) or permissions.attachments_quota == 0) or permissions.attachments_can_upload or (permissions.attachments_can_update and attachment_count > 0) %}
             <div class="row row--form field">
                 <h3 class="field__name">{{ lang.new_attachment }}</h3>
                 <div class="file-wrapper">
                     <input type="file" name="attachments[]" size="30" class="fileupload" multiple="multiple"/>
                 </div>
-                {% if composepost.showattachadd %}
+
+                {% if mybb.settings.maxattachments == 0 or (mybb.settings.maxattachments > 0 and attachment_count < mybb.settings.maxattachments and user_attach_quota <= (permissions.attachments_quota * 1024) or permissions.attachments_quota == 0) %}
                     <button type="submit" class="button button--full-width" name="newattachment" value="new">
                         {{ include('partials/icon.twig', {icon: 'upload', class: 'button__icon'}, with_context = false) }}
                         <span class="button__text">{{ lang.add_attachment }}</span>
                     </button>
                 {% endif %}
-                {% if composepost.showattachupdate %}
+
+                {% if permissions.attachments_can_upload or (permissions.attachments_can_update and attachment_count > 0) %}
                     <button type="submit" class="button button--full-width button--secondary" name="updateattachment"
                             value="update">
                         {{ include('partials/icon.twig', {icon: 'paperclip', class: 'button__icon'}, with_context = false) }}

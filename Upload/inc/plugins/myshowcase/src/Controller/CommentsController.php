@@ -15,32 +15,17 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controller;
 
-use DB_MySQLi;
-use DB_PgSQL;
-use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
-use MyBB;
-use MyLanguage;
-use MyShowcase\Entity\Comment;
-use MyShowcase\Entity\Entry;
-use MyShowcase\Entity\User;
+use MyShowcase\Entity\CommentEntity;
+use MyShowcase\Entity\EntryEntity;
+use MyShowcase\Enum\ContentStatuses;
+use MyShowcase\Enum\ContentTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Fields\FieldFactory;
-use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\CommentsRepository;
-use MyShowcase\Repository\EntriesRepository;
-use MyShowcase\Repository\ModeratorsRepository;
-use MyShowcase\Repository\SubscriptionsRepository;
-use MyShowcase\Routing\Routing;
-use MyShowcase\Service\AttachmentsManager;
-use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\EntriesManager;
-use MyShowcase\Service\Render;
 use MyShowcase\Util\UuidUtil;
-use MysqlPdoDbDriver;
-use PostgresPdoDbDriver;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\LoaderError;
@@ -53,55 +38,16 @@ use function redirect;
 class CommentsController extends BaseController
 {
     public const STATUS_PENDING_APPROVAL = 0;
-
-    public const STATUS_VISIBLE = 1;
-
-    public const STATUS_SOFT_DELETE = 2;
-
     public const STATUS_DELETE = 3;
 
-    public function __construct(
-        private readonly Routing $routing,
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly MyBB $mybb,
-        private readonly MyLanguage $language,
-        private readonly EventDispatcher $event_dispatcher,
-        private readonly User $current_user,
-        private readonly EntriesRepository $entries_repository,
-        private readonly AttachmentsRepository $attachments_repository,
-        private readonly CommentsRepository $comments_repository,
-        private readonly SubscriptionsRepository $subscriptions_repository,
-        private readonly ModeratorsRepository $moderators_repository,
-        private readonly EntriesManager $entries_manager,
-        protected readonly AttachmentsManager $attachments_manager,
-        private readonly CommentsManager $comments_manager,
-        private readonly Render $render_manager,
-        private readonly array $config,
-        private readonly array $fieldset_fields,
-        protected readonly array $attachment_types,
-    ) {
-        parent::__construct(
-            $routing,
-            $this->database,
-            $this->mybb,
-            $this->language,
-            $this->event_dispatcher,
-            $this->current_user,
-            $this->entries_repository,
-            $this->comments_repository,
-            $this->entries_manager,
-            $this->comments_manager,
-            $this->render_manager,
-            $this->config,
-            $this->fieldset_fields,
-        );
-
-        $this->verifyPassword();
-    }
-
+    /**
+     * @throws RandomException
+     */
     public function updateEntryCommentsCount(int $entry_id): void
     {
-        $statusVisible = self::STATUS_VISIBLE;
+        $this->verifyPassword();
+
+        $statusVisible = ContentStatuses::VisibleApproved;
 
         $whereClauses = ["entry_id='{$entry_id}'", "status='{$statusVisible}'"];
 
@@ -112,9 +58,12 @@ class CommentsController extends BaseController
 
         $hookArguments = hooksRun('controller_comments_update_entry_comments_count_start', $hookArguments);
 
-        $this->entries_repository->updateEntry(
-            ['comments_approved' => $this->comments_repository->queryCommentCount($whereClauses)],
-            $entry_id
+        $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase,);
+
+        $this->context->entries_repository->updateEntry(
+            ['comments_approved' => $comments_repository->queryCommentCount($whereClauses)],
+            $entry_id,
+            $this->context->fieldset_fields
         );
     }
 
@@ -131,38 +80,40 @@ class CommentsController extends BaseController
         ?string $comment_slug = null,
         bool $is_update = false
     ): string {
+        $this->verifyPassword();
+
         global $db, $mybb, $lang;
 
         switch ($this->verifyPermission($entry_slug, $comment_slug)) {
             case self::NO_PERMISSION:
-                error_no_permission();
+                $this->errorNoPermission();
 
                 break;
             case self::INVALID_ENTRY:
                 global $lang;
 
-                error($lang->myShowcaseReportErrorInvalidEntry);
+                $this->error($lang->myShowcaseReportErrorInvalidEntry);
         }
 
         /**
-         * @var Entry $entry
+         * @var EntryEntity $entry
          */
-        $entry = $this->entries_manager->getEntryByID($this->entry_id);
+        $entry = $this->context->entries_manager->getEntryByID($this->entry_id);
 
         if ($is_update) {
             /**
-             * @var Comment $comment_data
+             * @var CommentEntity $comment_data
              */
-            $comment_data = $entry->getComments()->offsetGet($this->comment_id);
+            $comment_data = $this->context->comments_manager->getComments()->offsetGet($this->comment_id);
         } else {
-            $comment_data = new Comment();
+            $comment_data = $this->context->comments_manager->generateComment();
         }
 
         $this->forcedFieldBreadcrumb($entry->user_id);
 
         add_breadcrumb(
-            $this->config['name'],
-            $this->config['showcase_url'] . $this->routing->generateUrl(
+            $this->context->showcase->name,
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::Main,
             )
         );
@@ -171,15 +122,18 @@ class CommentsController extends BaseController
             (function () use ($entry): string {
                 $subject_extra = [];
 
-                foreach ($entry->getFields() as $field_data) {
-                    if ($field_data->field_definition['enable_subject']) {
-                        $subject_extra[] = $field_data->getUserValue();
+                /**
+                 * @var FieldsInterface $field
+                 */
+                foreach ($entry->getFields() as $field) {
+                    if ($field->field_definition['enable_subject']) {
+                        $subject_extra[] = $field->getUserValue();
                     }
                 }
 
                 return implode(' ', $subject_extra);
             })() . $entry->subject,
-            $this->config['showcase_url'] . $this->routing->generateUrl(
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
                 [
                     'entry_slug' => $entry->entry_slug,
@@ -191,23 +145,21 @@ class CommentsController extends BaseController
         if ($is_update) {
             add_breadcrumb(
                 $lang->myShowcaseButtonCommentUpdate,
-                $this->config['showcase_url'] . $this->routing->generateUrl(
+                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
                         'entry_slug' => $entry->entry_slug,
-                        'entry_slug_custom' => $entry->entry_slug_custom,
-                        'comment_slug' => $comment_slug
+                        'comment_slug' => $comment_slug,
                     ]
                 )
             );
         } else {
             add_breadcrumb(
                 $lang->myShowcaseButtonCommentCreate,
-                $this->config['showcase_url'] . $this->routing->generateUrl(
+                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::CommentCreate,
                     [
                         'entry_slug' => $entry->entry_slug,
-                        'entry_slug_custom' => $entry->entry_slug_custom,
                     ],
                 ),
             );
@@ -228,11 +180,11 @@ class CommentsController extends BaseController
 
             $insertData = [
                 'message' => $mybb->get_input('message'),
-                'status' => self::STATUS_VISIBLE,
+                'status' => ContentStatuses::VisibleApproved,
             ];
 
             if (!$is_update) {
-                $insertData['user_id'] = $this->current_user->uid;
+                $insertData['user_id'] = $this->context->current_user->uid;
 
                 $insertData['post_hash'] = $mybb->get_input('post_hash');
 
@@ -241,43 +193,45 @@ class CommentsController extends BaseController
                 $insertData['dateline'] = TIME_NOW;
             }
 
-            if (!$this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
+            if (!$this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
                 if ($is_update &&
-                    $this->current_user->hasPermission(UserPermissions::CommentsModerateUpdates)) {
-                    $insertData['status'] = $this->entries_manager::STATUS_PENDING;
+                    $this->context->current_user->hasPermission(UserPermissions::CommentsModerateUpdates)) {
+                    $insertData['status'] = ContentStatuses::PendingUnapproved;
                 } elseif (!$is_update &&
-                    $this->current_user->hasPermission(UserPermissions::CommentsModerateNew)) {
-                    $insertData['status'] = $this->entries_manager::STATUS_PENDING;
+                    $this->context->current_user->hasPermission(UserPermissions::CommentsModerateNew)) {
+                    $insertData['status'] = ContentStatuses::PendingUnapproved;
                 }
             }
 
             if ($is_update) {
-                $this->comments_manager->validateSet(
-                    new Comment(...$insertData),
+                $this->context->comments_manager->validateSet(
+                    $this->context->comments_manager->generateComment($insertData),
                     $this->showcase::DATA_HANDLER_METHOD_UPDATE
                 );
             } else {
-                $this->comments_manager->validateSet(new Comment(...$insertData));
-            }
-
-            if (!$this->comments_manager->validateComment()) {
-                $this->render_manager->error_messages = array_merge(
-                    $this->render_manager->error_messages,
-                    $this->comments_manager->validateGetError()
+                $this->context->comments_manager->validateSet(
+                    $this->context->comments_manager->generateComment($insertData)
                 );
             }
 
-            if (!$isPreview && !$this->render_manager->error_messages) {
+            if (!$this->context->comments_manager->validateComment()) {
+                $this->context->render_manager->error_messages = array_merge(
+                    $this->context->render_manager->error_messages,
+                    $this->context->comments_manager->validateGetError()
+                );
+            }
+
+            if (!$isPreview && !$this->context->render_manager->error_messages) {
                 if ($is_update) {
-                    $comment_data = $this->comments_manager->validationCommentUpdate($this->comment_id);
+                    $comment_data = $this->context->comments_manager->validationCommentUpdate($this->comment_id);
                 } else {
-                    $comment_data = $this->comments_manager->validationCommentInsert();
+                    $comment_data = $this->context->comments_manager->validationCommentInsert();
                 }
 
                 $this->updateEntryCommentsCount($entry->entry_id);
 
                 // we redirect only if soft-deleted (plugin?) because users can see their own unapproved content
-                if (isset($comment_data->status) && $comment_data->status === self::STATUS_SOFT_DELETE) {
+                if (isset($comment_data->status) && $comment_data->status === ContentStatuses::SoftDeleted) {
                     $entryUrl = $this->showcase->urlGetEntry(
                         $entry->entry_slug,
                         $entry->entry_slug_custom,
@@ -298,7 +252,7 @@ class CommentsController extends BaseController
             }
 
             if ($isPreview) {
-                $commentPreview = $this->render_manager->buildComment(
+                $commentPreview = $this->context->render_manager->buildComment(
                     $entry,
                     $this->comment_data,
                     $this->parser_options,
@@ -307,10 +261,10 @@ class CommentsController extends BaseController
             }
         }
 
-        if ($is_update && !$this->current_user->hasPermission(UserPermissions::CommentsCanUpdate)) {
-            error_no_permission();
-        } elseif (!$is_update && !$this->current_user->hasPermission(UserPermissions::CommentsCanPost)) {
-            error_no_permission();
+        if ($is_update && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanUpdate)) {
+            $this->errorNoPermission();
+        } elseif (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanPost)) {
+            $this->errorNoPermission();
         }
 
         $template_context = [
@@ -344,20 +298,18 @@ class CommentsController extends BaseController
         $commentPreview = '';
 
         if ($is_update) {
-            $createUpdateUrl = $this->routing->generateUrl(
+            $createUpdateUrl = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
                     'entry_slug' => $entry->entry_slug,
-                    'entry_slug_custom' => $entry->entry_slug_custom,
-                    'comment_slug' => $comment_slug
+                    'comment_slug' => $comment_slug,
                 ]
             );
         } else {
-            $createUpdateUrl = $this->routing->generateUrl(
+            $createUpdateUrl = $this->context->routing->generateUrl(
                 Routes::CommentCreate,
                 [
                     'entry_slug' => $entry->entry_slug,
-                    'entry_slug_custom' => $entry->entry_slug_custom,
                 ],
             );
         }
@@ -366,13 +318,13 @@ class CommentsController extends BaseController
 
         $editorCodeButtons = $editorSmilesInserter = '';
 
-        if ($this->config['comments_message_build_editor']) {
-            $this->render_manager->editorBuild($editorCodeButtons, $editorSmilesInserter);
+        if ($this->context->showcase->comments_message_build_editor) {
+            $this->context->render_manager->editorBuild($editorCodeButtons, $editorSmilesInserter);
         }
 
-        $attachmentsUpload = $this->render_manager->buildAttachmentsUpload(
+        $attachmentsUpload = $this->context->render_manager->buildAttachmentsUpload(
             $is_update,
-            $this->render_manager::POST_TYPE_COMMENT
+            ContentTypes::Comment
         );
 
         if ($is_update) {
@@ -384,12 +336,12 @@ class CommentsController extends BaseController
         hooksRun('controller_comments_create_update_end', $this);
 
         if ($commentPreview) {
-            $commentPreview = $this->render_manager->templateGet('pageCommentCreateUpdateContentsPreview', [
+            $commentPreview = $this->context->render_manager->templateGet('pageCommentCreateUpdateContentsPreview', [
                 'commentPreview' => $commentPreview,
             ]);
         }
 
-        return $this->render_manager->templateGet('pageCommentCreateUpdateContents', $template_context);
+        return $this->context->render_manager->templateGet('pageCommentCreateUpdateContents', $template_context);
     }
 
     /**
@@ -398,7 +350,7 @@ class CommentsController extends BaseController
      * @throws RuntimeError
      * @throws LoaderError
      */
-    #[Route('/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update', name: 'comment_update', methods: [
+    #[Route('/{showcase}/view/{entry_slug}/update/comment/{comment_slug}', name: 'comment_update', methods: [
         'GET',
         'POST'
     ])]

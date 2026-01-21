@@ -16,36 +16,19 @@ declare(strict_types=1);
 namespace MyShowcase;
 
 use _PHPStan_ea7072c0a\Symfony\Component\String\Exception\RuntimeException;
-use DB_MySQLi;
-use DB_PgSQL;
-use DB_SQLite;
 use MyBB;
-use MyLanguage;
 use MyShowcase\Collection\Collection;
-use MyShowcase\Entity\Permission;
-use MyShowcase\Entity\User;
+use MyShowcase\Entity\CustomFieldEntity;
+use MyShowcase\Entity\UserEntity;
 use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Enum\FormTypes;
 use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Fields\FieldFactory;
-use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Repository\CommentsRepository;
-use MyShowcase\Repository\EntriesRepository;
-use MyShowcase\Repository\ModeratorsRepository;
-use MyShowcase\Repository\PermissionsRepository;
-use MyShowcase\Repository\ShowcasesRepository;
-use MyShowcase\Repository\SubscriptionsRepository;
 use MyShowcase\Routing\Routing;
-use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\CommentsManager;
-use MyShowcase\Service\EntriesManager;
+use MyShowcase\Service\RenderManager;
 use MyShowcase\Service\UsersManager;
-use MyShowcase\Service\Render;
-use MyShowcase\Service\SubscriptionsManager;
-use MysqlPdoDbDriver;
-use PostgresPdoDbDriver;
+use MyShowcase\Entity\ShowcaseEntity;
 
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -58,243 +41,174 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 class Showcase
 {
     public Routing $routing;
-
-    private EventDispatcher $event_dispatcher;
-
-    public EntriesRepository $entries_repository;
-
-    public ShowcasesRepository $showcase_repository;
-
-    public SubscriptionsRepository $subscriptions_repository;
-
-    public CommentsRepository $comments_repository;
-
-    public AttachmentsRepository $attachments_repository;
-
-    public PermissionsRepository $permissions_repository;
-    public ModeratorsRepository $moderators_repository;
-
+    public EventDispatcher $event_dispatcher;
     public CacheManager $cache_manager;
-
     public UsersManager $users_manager;
-
-    public EntriesManager $entries_manager;
-
-    private SubscriptionsManager $subscriptions_manager;
-
     public CommentsManager $comments_manager;
-
     public AttachmentsManager $attachments_manager;
-    public Render $render_manager;
-
-    public readonly User $current_user;
-
+    public RenderManager $render_manager;
+    public Collection $custom_fields;
+    public readonly UserEntity $current_user;
     private array $tables_data;
-
     public array $config;
-
     public array $fieldset_fields = [];
-
     public array $attachment_types = [];
-
     private array $parser_options = [
         'filter_badwords' => true,
         'highlight' => '',
         'nl2br' => true
     ];
-
     public bool $data_table_exists;
 
     /**
      * Constructor of class.
      */
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        public readonly MyBB $mybb,
-        private readonly MyLanguage $language,
-        private readonly ?int $showcase_id = null,
-        private ?string $route_identifier = null,
+        public readonly ShowcaseContext $context,
+        public readonly ?int $showcase_id = null,
+        public ?string $route_identifier = null,
     ) {
         $this->tables_data = TABLES_DATA;
 
-        $this->event_dispatcher = new EventDispatcher();
+        //$this->context->event_dispatcher = new EventDispatcher();
 
-        $this->routing = new Routing($this, $this->database, $this->mybb, $this->language, $this->event_dispatcher);
+        /*$this->context->routing = new Routing(
+            $this->context,
+            $this,
+            $this->context->database,
+            $this->context->mybb,
+            $this->context->language,
+            $this->context->event_dispatcher
+        );*/
 
-        if ($this->routing->routeIdentifier() !== false) {
-            $this->route_identifier = $this->routing->routeIdentifier();
+        if ($this->context->routing->routeIdentifier() !== false) {
+            $this->route_identifier = $this->context->routing->routeIdentifier();
         }
 
-        $this->cache_manager = new CacheManager($this->database, $this->mybb->cache,);
+        //$this->context->cache_manager = new CacheManager($this->context->database, $this->context->mybb->cache,);
+        //_dump($this->context->config->showcase_id, generate_backtrace());
 
         foreach (
-            $this->cache_manager->get(
+            $this->context->cache_manager->get(
                 CacheDataTypes::Config
             ) as $showcase_id => $showcase_data
         ) {
-            if ($this->showcase_id !== null && $this->showcase_id !== $showcase_id ||
+            if ($this->route_identifier === null && $this->showcase_id !== $showcase_id ||
                 $this->route_identifier !== null && $this->route_identifier !== $showcase_data['route_identifier']) {
                 //_dump($showcase_data['route_identifier']);
                 continue;
             }
 
-            $showcase_data['version'] = VERSION_CODE;
+            $this->context->showcase = new ShowcaseEntity(...$showcase_data);
 
-            if (DEBUG) {
-                $showcase_data['version'] = TIME_NOW;
-            }
-
-            $this->config = $showcase_data;
+            $this->route_identifier = $showcase_data['route_identifier'];
 
             break;
         }
 
-        if (empty($this->config)) {
+        $this->context->showcases_repository->setShowcase($this->context->showcase);
+
+        $this->context->access_logs_repository->setShowcase($this->context->showcase);
+
+        $this->context->moderators_repository->setShowcase($this->context->showcase);
+
+        $this->context->entries_repository->setShowcase($this->context->showcase);
+
+        $this->context->subscriptions_repository->setShowcase($this->context->showcase);
+
+        $this->context->comments_repository->setShowcase($this->context->showcase);
+
+        $this->context->attachments_repository->setShowcase($this->context->showcase);
+
+        $this->context->permissions_repository->setShowcase($this->context->showcase);
+
+        if (empty($this->context->showcase)) {
             throw new RuntimeException('The MyShowcase System does not exist.');
         }
 
-        $this->routing->setConfig($this->config);
+        $this->data_table_exists = $this->context->database->table_exists(
+            'myshowcase_data' . $this->context->showcase->showcase_id
+        );
 
-        $this->showcase_repository = new ShowcasesRepository($this->database, $this->config,);
+        //$this->context->config->showcase_url = rtrim($this->context->config->showcase_url, '/');
 
-        $this->subscriptions_repository = new SubscriptionsRepository($this->database, $this->config,);
+        //$this->context->config['showcase_url_assets'] = $this->context->mybb->get_asset_url( $this->context->config->showcase_url);
 
-        $this->comments_repository = new CommentsRepository($this->database, $this->config,);
+        $this->context->users_manager = new UsersManager($this->context);
 
-        $this->attachments_repository = new AttachmentsRepository($this->database, $this->config,);
+        $this->context->users_manager->addUser($this->context->mybb->user);
 
-        $this->permissions_repository = new PermissionsRepository($this->database, $this->config);
-
-        $this->moderators_repository = new ModeratorsRepository($this->database, $this->config);
-
-        $this->data_table_exists = $this->database->table_exists('myshowcase_data' . $this->config['showcase_id']);
-
-        $this->config['showcase_url'] = rtrim($this->config['showcase_url'], '/');
-
-        $this->config['showcase_url_assets'] = $this->mybb->get_asset_url($this->config['showcase_url']);
-
-        $this->users_manager = new UsersManager($this->database, $this->mybb, $this->config);
-
-        $this->users_manager->addUser($this->mybb->user);
-
-        $this->current_user = $this->users_manager->getUserByID((int)$this->mybb->user['uid']);
+        $this->context->current_user = $this->context->users_manager->getUserByID(
+            (int)$this->context->mybb->user['uid']
+        );
 
         $this->parser_options = array_merge($this->parser_options, [
-            'allow_html' => !empty($this->config['parser_allow_html_in_entries']),
-            'allow_mycode' => !empty($this->config['parser_allow_mycode_in_entries']),
-            'allow_smilies' => !empty($this->config['parser_allow_smiles_in_entries']),
-            'allow_imgcode' => !empty($this->config['parser_allow_image_code_in_entries']),
-            'allow_videocode' => !empty($this->config['parser_allow_video_code_in_entries']),
+            'allow_html' => !empty($this->context->showcase->parser_allow_html_in_entries),
+            'allow_mycode' => !empty($this->context->showcase->parser_allow_mycode_in_entries),
+            'allow_smilies' => !empty($this->context->showcase->parser_allow_smiles_in_entries),
+            'allow_imgcode' => !empty($this->context->showcase->parser_allow_image_code_in_entries),
+            'allow_videocode' => !empty($this->context->showcase->parser_allow_video_code_in_entries),
             'me_username' => '',
             'filter_badwords' => true,
             'shorten_urls' => false,
             'highlight' => false,
         ]);
 
-        if ($this->config['field_set_id']) {
-            $this->fieldset_fields = $this->cache_manager->get(
+        if ($this->context->showcase->field_set_id) {
+            $this->context->fieldset_fields = $this->context->cache_manager->get(
                 CacheDataTypes::Fields
-            )[$this->config['field_set_id']] ?? [];
+            )[$this->context->showcase->field_set_id] ?? [];
 
-            foreach ($this->fieldset_fields as $field_id => $field_definition) {
+            foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
                 if (!$field_definition['is_enabled']) {
-                    unset($this->fieldset_fields[$field_id]);
+                    unset($this->context->fieldset_fields[$field_id]);
                 }
             }
+
+            $this->buildCustomFields();
         }
 
-        $this->mybb->binary_fields['myshowcase_data' . $this->config['showcase_id']]['ipaddress'] = true;
+        $this->context->mybb->binary_fields['myshowcase_data' . $this->context->showcase->showcase_id]['ipaddress'] = true;
 
-        $this->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
+        $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
 
-        //loadLanguage('myshowcase_fs' . $this->config['field_set_id']);
+        //loadLanguage('myshowcase_fs' . $this->context->config->field_set_id);
 
         $hookArguments = [
             'showcaseObject' => &$this,
         ];
 
-        $this->attachment_types = $this->cache_manager->get(
+        $this->attachment_types = $this->context->cache_manager->get(
             CacheDataTypes::AttachmentTypes
-        )[$this->config['showcase_id']] ?? [];
+        )[$this->context->showcase->showcase_id] ?? [];
 
         $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
 
-        $this->config['attachments_display_thumbnails'] = true;
-
-        if ($this->config['main_per_page'] < 1) {
-            $this->config['main_per_page'] = 1;
-        }
-
-        $this->config['attachments_display_full_images'] = false;
-
-        $this->entries_repository = new EntriesRepository(
-            $this->database,
-            $this->mybb,
-            $this->event_dispatcher,
-            $this->config,
-        );
-
-        $current_page = 1;
-
-        if ($this->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
-            $mybb->input['page'] = $this->mybb->get_input('page', MyBB::INPUT_INT);
+        if ($this->context->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
+            $this->context->mybb->input['page'] = $this->context->mybb->get_input('page', MyBB::INPUT_INT);
         } else {
-            $mybb->input['page'] = 1;
+            $this->context->mybb->input['page'] = 1;
         }
+    }
 
-        $this->entries_manager = new EntriesManager(
-            $this->database,
-            $this->mybb,
-            $this->language,
-            $this->current_user,
-            $this->entries_repository,
-            $this->attachments_repository,
-            $this->config,
-            $this->fieldset_fields,
-            $this->parser_options,
+    public function newInstance(?int $showcase_id = null, ?string $route_identifier = null): self
+    {
+        return new self(
+            $this->context,
+            $showcase_id,
+            $route_identifier,
         );
+    }
 
-        $this->subscriptions_manager = new SubscriptionsManager(
-            $this->subscriptions_repository,
-            $this->event_dispatcher,
-        );
-
-        $this->comments_manager = new CommentsManager(
-            $this->database,
-            $this->current_user,
-            $this->comments_repository,
-            $this->event_dispatcher,
-            $this->config,
-            $current_page,
-        );
-
-        $this->attachments_manager = new AttachmentsManager(
-            $this->database,
-            $this->language,
-            $this->current_user,
-            $this->attachment_types,
-            $this->attachments_repository,
-            $this->event_dispatcher,
-            $this->config,
-        );
-
-        $this->render_manager = new Render(
-            $this->database,
-            $this->mybb,
-            $this->language,
-            $this->current_user,
-            $this->routing,
-            $this->entries_repository,
-            $this->attachments_repository,
-            $this->users_manager,
-            $this->entries_manager,
-            $this->attachments_manager,
-            $this->comments_manager,
-            $this->config,
-            $this->attachment_types,
-            $this->fieldset_fields,
-            $this->parser_options,
-        );
+    private function buildCustomFields(): void
+    {
+        foreach (
+            $this->context->cache_manager->get(
+                CacheDataTypes::Fields
+            )[$this->context->showcase->field_set_id] ?? [] as $field_id => $field_definition
+        ) {
+            $this->context->custom_fields_collection[$field_id] = new CustomFieldEntity(...$field_definition);
+        }
     }
 
     /**
@@ -329,7 +243,7 @@ class Showcase
                 $showcaseGroupPermissions[$groupID][$dataFieldKey] = $dataFieldData['default'];
             }
 
-            $groupsCache = $this->mybb->cache->read('usergroups') ?? [];
+            $groupsCache = $this->context->mybb->cache->read('usergroups') ?? [];
 
             foreach ($groupsCache[$groupID] as $permissionKey => $permissionValue) {
                 if (str_starts_with($permissionKey, 'myshowcase_')) {
@@ -342,14 +256,14 @@ class Showcase
                 }
             }
 
-            $permissionsCache = $this->cache_manager->get(
+            $permissionsCache = $this->context->cache_manager->get(
                 CacheDataTypes::Permissions
             );
 
-            if (!empty($permissionsCache[$this->config['showcase_id']][$groupID])) {
+            if (!empty($permissionsCache[$this->context->showcase->showcase_id][$groupID])) {
                 $showcaseGroupPermissions[$groupID] = array_merge(
                     $showcaseGroupPermissions[$groupID],
-                    $permissionsCache[$this->config['showcase_id']][$groupID]
+                    $permissionsCache[$this->context->showcase->showcase_id][$groupID]
                 );
             }
         }
@@ -378,12 +292,12 @@ class Showcase
             }
 
             //get showcase moderator cache to handle additional mods/modgroups
-            $moderatorsCache = $this->cache_manager->get(
+            $moderatorsCache = $this->context->cache_manager->get(
                 CacheDataTypes::Moderators
             );
 
-            if (!empty($moderatorsCache[$this->config['showcase_id']])) {
-                foreach ($moderatorsCache[$this->config['showcase_id']] as $moderatorPermissions) {
+            if (!empty($moderatorsCache[$this->context->showcase->showcase_id])) {
+                foreach ($moderatorsCache[$this->context->showcase->showcase_id] as $moderatorPermissions) {
                     if ($moderatorPermissions['group_id'] && in_array(
                             $moderatorPermissions['user_id'],
                             $userGroupsIDs

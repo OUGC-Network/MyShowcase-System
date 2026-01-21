@@ -7,32 +7,34 @@ namespace MyShowcase\Service;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
-use MyShowcase\Entity\User;
+use MyShowcase\Collection\Collection;
+use MyShowcase\Entity\UserEntity;
+use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Event\Listener\EntryDeletedCommentListener;
-use MyShowcase\Entity\Comment;
+use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\StringUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
 
+use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+
 class CommentsManager
 {
-    public const STATUS_PENDING = 0;
-
-    public const STATUS_VISIBLE = 1;
-
-    public const STATUS_DELETED = 2;
-
     public const  FIRST_PAGE = 1;
+    private readonly CommentsRepository $comments_repository;
+    private Collection $comments;
 
     private int $total_comments = 0;
 
@@ -52,7 +54,7 @@ class CommentsManager
         'message',
         'dateline',
         'status',
-        'edit_stamp',
+        'update_dateline',
         'edit_user_id',
     ];
 
@@ -62,36 +64,54 @@ class CommentsManager
         'limit_start' => 0
     ];
 
-    private array $comments = [];
-
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly User $current_user,
-        private readonly CommentsRepository $comments_repository,
-        private readonly EventDispatcher $event_dispatcher,
-        private readonly array $config,
-        private int $current_page,
-    ) {
-        $this->event_dispatcher->addListener(
+        public readonly ShowcaseContext $context,
+        //private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        //private readonly User $current_user,
+        //private readonly EventDispatcher $event_dispatcher,
+        //private readonly ConfigManager $config,
+    )
+    {
+        $this->context->event_dispatcher->addListener(
             EntryDeletedEvent::NAME,
-            new EntryDeletedCommentListener($comments_repository)
+            new EntryDeletedCommentListener($this->context->comments_repository)
         );
+
+        $this->comments = new Collection();
     }
 
-    public function setCurrentPage(int $page): void
+    public function getComments(): Collection
     {
-        if ($page > 0) {
-            $this->current_page = $page;
+        return $this->comments;
+    }
+
+    public function addComment(array $comment_data): void
+    {
+        $comment = $this->generateComment($comment_data);
+
+        if ($this->comments->contains($comment)) {
+            return;
         }
+
+        $this->comments[$comment_data['comment_id']] = $comment;
     }
 
-    public function getTotalComments(): int
+    public function generateComment(array $comment_data = []): CommentEntity
     {
-        return $this->total_comments;
+        foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
+            if (isset($comment_data[$field_name])) {
+                $comment_data[$field_name] = castTableFieldValue(
+                    $comment_data[$field_name],
+                    $field_definition['type']
+                );
+            }
+        }
+
+        return new CommentEntity(...$comment_data);
     }
 
     /**
-     * @return iterable<Comment>
+     * @return iterable<CommentEntity>
      */
     public function getTopLevelComments(): iterable
     {
@@ -103,89 +123,17 @@ class CommentsManager
     }
 
     /**
-     * @throws RandomException
-     */
-    public function slugGenerate(?int $length = null): string
-    {
-        if (empty($length)) {
-            $length = getSetting('slugLength');
-        }
-
-        $generated_slug = '';
-
-        $unique_found = false;
-
-        while (!$unique_found) {
-            $generated_slug = my_strtolower(bin2hex(random_bytes($length)));
-
-            $unique_found = !$this->comments_repository->queryComment(
-                ["comment_slug='{$this->database->escape_string($generated_slug)}'"]
-            );
-        }
-
-        return $generated_slug;
-    }
-
-    public function fetchComments(int $entry_id): array
-    {
-        $this->where_clauses = [
-            "entry_id='{$entry_id}'",
-        ];
-
-        if (!$this->current_user->hasPermission(UserPermissions::EntriesCanView) &&
-            !$this->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            $this->where_clauses[] = "(status='" . self::STATUS_VISIBLE . "' OR (user_id='{$this->current_user->uid}' AND status='" . self::STATUS_PENDING . "'))";
-        }
-
-        $this->query_options['limit'] = $this->config['comments_per_page'];
-
-        hooksRun('comment_fetch_start', $this);
-
-        $this->total_comments = $this->comments_repository->queryCommentCount($this->where_clauses);
-
-        $this->total_pages = (int)ceil($this->total_comments / $this->config['comments_per_page']);
-
-        if ($this->current_page > $this->total_pages) {
-            $this->setCurrentPage(self::FIRST_PAGE);
-        }
-
-        if ($this->current_page) {
-            $this->query_options['limit_start'] = ($this->current_page - 1) * $this->config['comments_per_page'];
-        } else {
-            $this->setCurrentPage(self::FIRST_PAGE);
-        }
-
-        hooksRun('comment_fetch_intermediate', $this);
-
-        $entry_objects = [];
-
-        foreach (
-            $this->comments_repository->queryComments(
-                $this->where_clauses,
-                $this->query_fields,
-                $this->query_options
-            ) as $comment_data
-        ) {
-            $entry_objects[] = $comment_data;
-        }
-
-        hooksRun('comment_fetch_end', $this);
-
-        return $entry_objects;
-    }
-
-    /**
      * Sets the data to be used for the data handler
      *
-     * @param Comment $entry
+     * @param CommentEntity $comment
      * @param string $method
      * @return void
      */
-    public function validateSet(Comment $entry, string $method = self::VALIDATION_METHOD_INSERT): void
+    public function validateSet(CommentEntity $comment, string $method = self::VALIDATION_METHOD_INSERT): void
     {
-        $this->validation_data = $entry;
+        $this->validation_data = $comment;
 
-        $this->validation_method = $method;
+        $this->validation_method = $comment;
     }
 
     /**
@@ -196,7 +144,7 @@ class CommentsManager
      */
     public function validateSetError(string $error, array $data = []): void
     {
-        $this->validation_errors[$error] = $this->language->sprintf($error, ...$data);
+        $this->validation_errors[$error] = $this->context->language->sprintf($error, ...$data);
     }
 
     /**
@@ -229,54 +177,40 @@ class CommentsManager
             $this->set_error('invalid user identifier');
         }
 
-        if (isset($this->validation_data->subject) && !$this->config['comments_enable_subject']) {
-            unset($this->validation_data->subject);
-        }
-
-        if (isset($this->validation_data->subject)) {
-            $subject_length = my_strlen($this->validation_data->subject);
-
-            if ($subject_length < $this->config['comments_subject_minimum_length'] ||
-                $subject_length > $this->config['comments_subject_maximum_length']) {
-                $this->validateSetError(
-                    $this->language->myshowcase_validation_errors_comment_invalid_subject_length,
-                    [
-                        my_number_format($this->config['comments_subject_minimum_length']),
-                        my_number_format($this->config['comments_subject_maximum_length'])
-                    ]
-                );
-            }
-        }
-
-        if (isset($this->validation_data->message) && !$this->config['comments_enable_message']) {
-            unset($this->validation_data->message);
-        }
-
         if (isset($this->validation_data->message)) {
-            if ($this->config['parser_affects_message_length_in_entries']) {
+            if ($this->context->showcase->parser_affects_message_length_in_entries) {
                 $message_length = my_strlen($this->validation_data->message);
             } else {
                 $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_data->message));
             }
 
-            if ($message_length < $this->config['comments_message_minimum_length'] ||
-                $message_length > $this->config['comments_message_maximum_length']) {
+            if ($message_length < $this->context->showcase->comments_message_minimum_length ||
+                $message_length > $this->context->showcase->comments_message_maximum_length) {
                 $this->validateSetError(
-                    $this->language->myshowcase_validation_errors_comment_invalid_message_length,
+                    $this->context->language->myshowcase_validation_errors_comment_invalid_message_length,
                     [
-                        my_number_format($this->config['comments_message_minimum_length']),
-                        my_number_format($this->config['comments_message_maximum_length'])
+                        my_number_format($this->context->showcase->comments_message_minimum_length),
+                        my_number_format($this->context->showcase->comments_message_maximum_length)
                     ]
                 );
             }
         }
 
+        if (isset($this->validation_data->icon_id) && !$this->context->showcase->comments_allow_post_icons) {
+            unset($this->validation_data->icon_id);
+        }
+
+        if ($this->validation_data->icon_id !== self::POST_ICON_NONE &&
+            !isset($this->context->mybb->cache->read('posticons')[$this->validation_data->icon_id])) {
+            $this->validateSetError($this->context->language->myshowcase_validation_errors_comment_invalid_icon);
+        }
+
         if (isset($commentData['status']) && !in_array(
                 $this->data['status'],
                 [
-                    $this->comments_manager::STATUS_PENDING,
-                    $this->comments_manager::STATUS_VISIBLE,
-                    $this->comments_manager::STATUS_DELETED,
+                    ContentStatuses::PendingUnapproved,
+                    ContentStatuses::VisibleApproved,
+                    ContentStatuses::SoftDeleted,
                 ]
             )) {
             $this->set_error('invalid status');
@@ -320,12 +254,24 @@ class CommentsManager
         ];
 
         if ($isUpdate && !isset($this->return_data['comment_slug'])) {
-            $this->return_data['comment_slug'] = $this->comments_repository->queryComment(
+            $this->return_data['comment_slug'] = $this->context->comments_repository->queryComment(
                 ["comment_id='{$this->comment_id}'"],
                 ['comment_slug'],
             )['comment_slug'];
         } elseif (!$isUpdate) {
-            $this->return_data['comment_slug'] = $this->data['comment_slug'] = $this->comments_manager->slugGenerate();
+            $unique_found = false;
+
+            while (!$unique_found) {
+                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+
+                $unique_found = !$this->context->comments_repository->queryComment(
+                    ["comment_slug='{$this->context->database->escape_string($generated_slug)}'"]
+                );
+
+                if ($unique_found) {
+                    $this->return_data['comment_slug'] = $this->data['comment_slug'] = $generated_slug;
+                }
+            }
         }
 
         foreach ($this->data as $key => $value) {
@@ -335,9 +281,9 @@ class CommentsManager
         $hookArguments = hooksRun('data_handler_comment_insert_update_start', $hookArguments);
 
         if ($isUpdate) {
-            $this->comments_repository->updateComment($this->insert_data, $this->comment_id);
+            $this->context->comments_repository->updateComment($this->insert_data, $this->comment_id);
         } else {
-            $this->comment_id = $this->comments_repository->insertComment(
+            $this->comment_id = $this->context->comments_repository->insertComment(
                 array_merge($this->insert_data, [
                     'entry_id' => $this->entry_id
                 ])
@@ -349,11 +295,11 @@ class CommentsManager
         // Assign any uploaded attachments with the specific post_hash to the newly created comment.
         if (isset($this->data['post_hash'])) {
             foreach (
-                $this->attachments_repository->queryAttachments(
+                $this->context->attachments_repository->queryAttachments(
                     ["post_hash='{$db->escape_string($this->data['post_hash'])}'"]
                 ) as $attachmentID => $attachmentData
             ) {
-                $this->attachments_repository->updateAttachment(
+                $this->context->attachments_repository->updateAttachment(
                     ['comment_id' => $this->comment_id, 'post_hash' => ''],
                     $attachmentID
                 );

@@ -17,22 +17,25 @@ namespace MyShowcase\Admin;
 
 use Form;
 use MyBB;
-use MyBB\Extensions\Theme\Repository;
 use MyLanguage;
-use MyShowcase\Entity\Permission;
+use MyShowcase\Entity\PermissionEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
+use MyShowcase\Util\buildShowcase;
 use MyShowcase\Util\SelectableLists;
+use MyShowcase\Util\StringUtil;
 use Random\RandomException;
 
-use function MyBB\app;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
@@ -125,7 +128,7 @@ function pluginActivation(): bool
                 'filesize' => 'file_size',
                 'attachname' => 'attachment_name',
                 'dateuploaded' => 'dateline',
-                'uploaddate' => 'edit_stamp',
+                'uploaddate' => 'update_dateline',
                 'visible' => 'status',
                 'thumbnail' => 'thumbnail_name',
             ],
@@ -290,35 +293,65 @@ function pluginActivation(): bool
     global $lang;
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+
+        $comments_repository = new CommentsRepository($showcase->context->database, $showcase->context->showcase);
 
         foreach (
-            $showcase->comments_repository->queryComments(["comment_slug=''"],
+            $comments_repository->queryComments(["comment_slug=''"],
                 'comment_id') as $commentID => $commentData
         ) {
-            $showcase->comments_repository->updateComment(
-                ['comment_slug' => $showcase->comments_manager->slugGenerate()],
-                $commentID
-            );
+            $unique_found = false;
+
+            while (!$unique_found) {
+                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+
+                $unique_found = !$comments_repository->queryComment(
+                    ["comment_slug='{$showcase->context->database->escape_string($generated_slug)}'"]
+                );
+
+                if ($unique_found) {
+                    $comments_repository->updateComment(
+                        ['comment_slug' => $generated_slug],
+                        $commentID
+                    );
+                }
+            }
         }
     }
 
     /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
         $dataTableStructure = dataTableStructureGet($showcase_id);
 
         dbVerifyTables(["myshowcase_data{$showcase_id}" => $dataTableStructure]);
 
         foreach (
-            $showcase->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']) as $entryID => $entryData
+            $showcase->context->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']
+            ) as $entryID => $entryData
         ) {
-            $showcase->entries_repository->updateEntry(
-                ['entry_slug' => $showcase->entries_manager->slugGenerate()],
-                $entryID
-            );
+            $unique_found = false;
+
+            while (!$unique_found) {
+                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength') / 2);
+
+                $unique_found = !$showcase->context->entries_repository->queryEntry(
+                    ["entry_slug='{$showcase->context->database->escape_string($generated_slug)}'"],
+                    ['entry_id']
+                );
+
+                if ($unique_found) {
+                    $showcase->context->entries_repository->updateEntry(
+                        $showcase->context->entries_manager->generateEntry([
+                            'entry_id' => $entryID,
+                            'entry_slug' => $generated_slug
+                        ]),
+                    );
+                }
+            }
         }
     }
 
@@ -574,7 +607,7 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
                 }
             }
         } else {
-            $query = "CREATE TABLE IF NOT EXISTS `{$tablePrefix}{$tableName}` (";
+            $query = "CREATE TABLE IF NOT EXISTS `{$tablePrefix}{$tableName}` (\n";
 
             $fields = [];
 
@@ -586,7 +619,7 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
                 }
             }
 
-            $query .= implode(',', $fields);
+            $query .= implode("',\n'", $fields);
 
             $query .= ") ENGINE=MyISAM{$collation};";
 
@@ -761,7 +794,7 @@ function buildDbFieldDefinition(array $field_definition): string
 
     if (isset($field_definition['default'])) {
         if (in_array($field_definition['default'], ['TIMESTAMP', 'UUID'])) {
-            $definitionString .= " DEFAULT {$field_definition['default']}";
+            //$definitionString .= " DEFAULT {$field_definition['default']}";
         } else {
             $definitionString .= " DEFAULT '{$field_definition['default']}'";
         }
@@ -902,10 +935,10 @@ function buildPermissionsRow(
             $input_code .= $form->generate_select_box(
                 "showcase[{$name}]",
                 [
-                    Permission::BOOLEAN_TYPE_DISALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow',
-                    Permission::BOOLEAN_TYPE_ALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow',
-                    Permission::BOOLEAN_TYPE_INHERIT => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit',
-                    Permission::BOOLEAN_TYPE_NEVER => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never',
+                    PermissionEntity::BOOLEAN_TYPE_DISALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_disallow',
+                    PermissionEntity::BOOLEAN_TYPE_ALLOW => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_allow',
+                    PermissionEntity::BOOLEAN_TYPE_INHERIT => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_inherit',
+                    PermissionEntity::BOOLEAN_TYPE_NEVER => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never'} ?? $language_prefix . ($section ? '_' . $section : '') . '_boolean_type_never',
                 ],
                 [$input[$name] ?? $mybb->get_input($name)],
                 $options
@@ -941,9 +974,9 @@ function buildPermissionsRow(
             if ($definition['input_type'] === FormTypes::SelectTimeInterval) {
                 $select_array = (new SelectableLists($lang))->timeIntervalList($language_prefix, $section);
             } elseif ($definition['input_type'] === FormTypes::SelectFieldset) {
-                global $db, $cache;
+                global $db, $mybb;
 
-                $select_array = (new SelectableLists($lang, $db, $cache))->fieldsetsList();
+                $select_array = (new SelectableLists($lang, $db, $mybb))->fieldsetsList();
 
                 if (showcaseDataTableExists($showcase_config['showcase_id'])) {
                     $options['class'] .= '" disabled="disabled';
@@ -953,9 +986,7 @@ function buildPermissionsRow(
             } elseif ($definition['input_type'] === FormTypes::SelectFilterField) {
                 $select_array = (new SelectableLists($lang))->filterFieldsList();
             } elseif ($definition['input_type'] === FormTypes::SelectSortField) {
-                $select_array = (new SelectableLists($lang))->sortFieldsList();
-            } elseif ($definition['input_type'] === FormTypes::SelectPrefixType) {
-                $select_array = (new SelectableLists($lang))->prefixTypeList();
+                $select_array = (new SelectableLists($lang))->sortFieldsEntryList();
             } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsMainRender) {
                 $select_array = (new SelectableLists($lang))->attachmentsMainRenderList();
             } elseif ($definition['input_type'] === FormTypes::SelectWatermarkLocation) {

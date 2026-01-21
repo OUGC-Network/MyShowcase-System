@@ -7,6 +7,9 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyBB;
+use MyShowcase\Entity\ShowcaseEntity;
+use MyShowcase\Enum\ContentTypes;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -17,22 +20,21 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class SubscriptionsRepository
 {
-    public const SCOPE_TYPE_SHOWCASE = 1;
-
-    public const SCOPE_TYPE_ENTRY = 2;
-
     private ?int $subscription_id;
-
     private array $insert_data = [];
-
     private array $subscription_data = [];
-
     private readonly bool $is_update;
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly array $config,
+        private readonly MyBB $mybb,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -43,6 +45,11 @@ class SubscriptionsRepository
         array|string $query_fields = [],
         array $query_options = [],
     ): iterable {
+        $where_clauses = array_merge(
+            ["showcase_id='{$this->showcase->showcase_id}'"],
+            $where_clauses
+        );
+
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
         }
@@ -101,19 +108,14 @@ class SubscriptionsRepository
 
         $this->subscription_id = $subscription_id;
 
-        $this->insert_data = [];
+        $this->insert_data = ['showcase_id' => $this->showcase->showcase_id];
 
         $this->is_update = $is_update;
 
         foreach (TABLES_DATA['myshowcase_subscriptions'] as $field_name => $field_definition) {
-            if (isset($this->comment_data[$field_name])) {
+            if (isset($this->subscription_data[$field_name])) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
                     $this->subscription_data[$field_name],
-                    $field_definition['type']
-                );
-            } elseif (!$this->is_update) {
-                $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $field_definition['default'] ?? '',
                     $field_definition['type']
                 );
             }
@@ -144,7 +146,7 @@ class SubscriptionsRepository
         return $this->insertSubscription($subscription_data, true, $subscription_id);
     }
 
-    public function deleteSubscription(int $subscription_id, int $scope_type = self::SCOPE_TYPE_ENTRY): void
+    public function deleteSubscription(int $subscription_id, int $content_type = ContentTypes::Entry): void
     {
         $this->subscription_id = $subscription_id;
 
@@ -152,7 +154,7 @@ class SubscriptionsRepository
 
         $this->database->delete_query(
             'myshowcase_subscriptions',
-            "showcase_id='{$this->config['showcase_id']}' AND subscription_id='{$this->subscription_id}' AND scope_type='{$scope_type}'"
+            "showcase_id='{$this->showcase->showcase_id}' AND subscription_id='{$this->subscription_id}' AND content_type='{$content_type}'"
         );
     }
 }

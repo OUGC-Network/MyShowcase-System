@@ -7,13 +7,13 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
-use MyShowcase\Entity\Entry;
-use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Event\Event\EntryDeletedEvent;
+use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\FieldDefaultTypes;
-use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Service\CacheManager;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\SortDirections;
+use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Util\UuidUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
@@ -32,20 +32,22 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesRepository
 {
+    private const  FIRST_PAGE = 1;
     private ?int $entry_id;
-
     private array $insert_data = [];
-
-    private Entry $entry;
-
+    private EntryEntity $entry;
     private bool $is_update;
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
-        private readonly EventDispatcher $event_dispatcher,
-        private readonly array $config,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -55,9 +57,9 @@ class EntriesRepository
         array $where_clauses = [],
         array|string $query_fields = [],
         array $query_options = [],
-        array $query_tables = []
+        array $query_tables = [],
     ): iterable {
-        $query_tables = array_merge(["myshowcase_data{$this->config['showcase_id']} entry_data"], $query_tables);
+        $query_tables = array_merge(["myshowcase_data{$this->showcase->showcase_id} entry_data"], $query_tables);
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
@@ -79,7 +81,7 @@ class EntriesRepository
         array $where_clauses = [],
         array|string $query_fields = [],
         array $query_options = [],
-        array $query_tables = []
+        array $query_tables = [],
     ): array {
         $query_options['limit'] = 1;
 
@@ -90,7 +92,7 @@ class EntriesRepository
                 $where_clauses,
                 $query_fields,
                 $query_options,
-                $query_tables
+                $query_tables,
             ) as $entry
         ) {
             $entry_object = $entry;
@@ -103,12 +105,12 @@ class EntriesRepository
 
     public function queryEntryCount(
         array $where_clauses = [],
-        array $query_tables = []
+        array $query_tables = [],
     ): int {
         return $this->queryEntry(
             $where_clauses,
             'COUNT(entry_id) AS total_entries',
-            query_tables: $query_tables
+            query_tables: $query_tables,
         )['total_entries'];
     }
 
@@ -117,7 +119,7 @@ class EntriesRepository
         $query = $this->database->simple_select(
             'reportedcontent',
             'uid, reporters',
-            "type='showcase_entries' AND id='{$this->config['showcase_id']}' AND id2='{$entry_id}' AND reportstatus!='1'"
+            "type='showcase_entries' AND id='{$this->showcase->showcase_id}' AND id2='{$entry_id}' AND reportstatus!='1'"
         );
 
         if (!$this->database->num_rows($query)) {
@@ -142,7 +144,7 @@ class EntriesRepository
     /**
      * @throws RandomException
      */
-    public function insertEntry(Entry $entry, bool $is_update = false): int
+    public function insertEntry(EntryEntity $entry, array $custom_fields = [], bool $is_update = false): int
     {
         $this->entry = $entry;
 
@@ -153,7 +155,7 @@ class EntriesRepository
         $this->is_update = $is_update;
 
         foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
-            if (isset($this->entry->$field_name)) {
+            if (isset($this->entry->$field_name) && $this->entry->$field_name !== null) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
                     $this->entry->$field_name,
                     $field_definition['type']
@@ -166,10 +168,7 @@ class EntriesRepository
             }
         }
 
-        $fields_cache = (new CacheManager($this->database, $this->mybb->cache,))
-            ->get(CacheDataTypes::Fields);
-
-        foreach ($fields_cache[$this->config['field_set_id']] ?? [] as $field_id => $field_definition) {
+        foreach ($custom_fields as $field_id => $field_definition) {
             if (!isset($this->entry->extra_data[$field_definition['field_key']]) && !$this->is_update) {
                 switch ($field_definition['default_type']) {
                     case FieldDefaultTypes::AsDefined:
@@ -210,13 +209,13 @@ class EntriesRepository
 
         if ($this->is_update) {
             $this->database->update_query(
-                'myshowcase_data' . $this->config['showcase_id'],
+                'myshowcase_data' . $this->showcase->showcase_id,
                 $this->insert_data,
                 "entry_id='{$entry->entry_id}'"
             );
         } else {
             $entry->entry_id = (int)$this->database->insert_query(
-                'myshowcase_data' . $this->config['showcase_id'],
+                'myshowcase_data' . $this->showcase->showcase_id,
                 $this->insert_data
             );
         }
@@ -227,9 +226,9 @@ class EntriesRepository
     /**
      * @throws RandomException
      */
-    public function updateEntry(Entry $entry): int
+    public function updateEntry(EntryEntity $entry, array $custom_fields = []): int
     {
-        return $this->insertEntry($entry, true);
+        return $this->insertEntry($entry, $custom_fields, true);
     }
 
     public function deleteEntry(int $entry_id): void
@@ -239,17 +238,15 @@ class EntriesRepository
         hooksRun('entry_delete', $this);
 
         $this->database->delete_query(
-            'myshowcase_data' . $this->config['showcase_id'],
+            'myshowcase_data' . $this->showcase->showcase_id,
             "entry_id='{$this->entry_id}'"
         );
-
-        $this->event_dispatcher->dispatch(new EntryDeletedEvent($this->entry_id), EntryDeletedEvent::NAME);
     }
 
     public function shutDownQueryIncrementViews(int $entry_id): void
     {
         $this->database->shutdown_query(
-            "UPDATE {$this->database->table_prefix}myshowcase_data{$this->config['showcase_id']} SET views=views+1 WHERE entry_id='{$entry_id}'"
+            "UPDATE {$this->database->table_prefix}myshowcase_data{$this->showcase->showcase_id} SET views=views+1 WHERE entry_id='{$entry_id}'"
         );
     }
 
@@ -287,5 +284,87 @@ class EntriesRepository
         );
 
         return (int)$this->database->fetch_array($query)['guest_count'];
+    }
+
+    #[NoReturn] public function fetchEntries(
+        array $fieldset_fields,
+        array $where_clauses = [],
+        array $query_options = []
+    ): array {
+        //setup joins for query and build where clause based on keywords terms
+
+        //$query_tables = ['users user_data ON (user_data.uid = entry_data.user_id)'];
+
+        $query_tables = [];
+
+        $query_fields = array_merge(
+            array_map(function (string $field_name): string {
+                return str_starts_with($field_name, 'entry_data.') ? $field_name : 'entry_data.' . $field_name;
+            }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
+            [
+                //'user_data.username',
+                //'user_data.usergroup',
+                //'user_data.displaygroup'
+            ]
+        );
+
+        foreach ($fieldset_fields as $field_id => $field_definition) {
+            if ($field_definition['html_type'] === FieldHtmlTypes::CheckBox ||
+                $field_definition['html_type'] === FieldHtmlTypes::Radio ||
+                $field_definition['html_type'] === FieldHtmlTypes::Select) {
+                $query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
+            }
+
+            $query_fields[] = $field_definition['field_key'];
+        }
+
+        if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
+            $query_options['order_dir'] = SortDirections::Ascending;
+        }
+
+        $query_options['order_by'] = $query_options['order_by'] ?? $this->showcase->main_sort_default_field;
+
+        $query_options['order_by'] = "entry_data.{$query_options['order_by']} " . ($query_options['order_dir'] ?? '') . ', entry_data.is_sticky ' . ($query_options['order_dir'] ?? '') . ', entry_data.entry_id';
+
+        hooksRun('entry_fetch_start', $this);
+
+        $total_entries = $this->queryEntryCount(
+            $where_clauses,
+            $query_tables
+        );
+
+        if (isset($query_options['limit']) && $query_options['limit'] > 0) {
+            if ($this->mybb->input['page'] > ceil($total_entries / $query_options['limit'])) {
+                $this->mybb->input['page'] = self::FIRST_PAGE;
+            }
+
+            if ($this->mybb->input['page']) {
+                $query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $query_options['limit'];
+            }
+        }
+
+        hooksRun('entry_fetch_intermediate', $this);
+
+        $entry_objects = [];
+
+        foreach (
+            $this->queryEntries(
+                $where_clauses,
+                $query_fields,
+                $query_options,
+                $query_tables
+            ) as $entry
+        ) {
+            $entry_objects[] = $entry;
+        }
+
+        hooksRun('entry_fetch_end', $this);
+
+        return $entry_objects;
+    }
+
+    #[NoReturn] public function fetchEntry(array $fieldset_fields, array $where_clauses = []): array
+    {
+        return $this->fetchEntries($fieldset_fields, $where_clauses, ['limit' => 1])[0] ?? [];
     }
 }

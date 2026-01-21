@@ -15,10 +15,13 @@
 namespace MyShowcase\Fields;
 
 use MyShowcase\Collection\Collection;
-use MyShowcase\Entity\Attachment;
-use MyShowcase\Entity\Entry;
+use MyShowcase\Entity\AttachmentEntity;
+use MyShowcase\Entity\EntryEntity;
+use MyShowcase\Enum\ContentTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
-use MyShowcase\Service\Render;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Service\AttachmentsManager;
+use MyShowcase\Service\RenderManager;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -58,40 +61,72 @@ trait FieldTrait
         return $this->extra_data[$name];
     }
 
-    public function isViewableInEntry(): bool
-    {
-        if (empty($this->field_definition['is_enabled'])) {
-            return false;
+    /*
+        public function isViewableInMain(): bool
+        {
+            if (empty($this->field_definition['is_enabled'])) {
+                return false;
+            }
+
+            if (empty($this->field_definition['display_in_main_page'])) {
+                return false;
+            }
+
+            return (bool)is_member($this->field_definition['allowed_groups_view']);
         }
 
-        if (empty($this->field_definition['display_in_view_page'])) {
-            return false;
+        public function isViewableInEntry(): bool
+        {
+            if (empty($this->field_definition['is_enabled'])) {
+                return false;
+            }
+
+            if (empty($this->field_definition['display_in_view_page'])) {
+                return false;
+            }
+
+            return (bool)is_member($this->field_definition['allowed_groups_view']);
         }
 
-        return (bool)is_member($this->field_definition['allowed_groups_view']);
-    }
+        public function isViewableInForm(): bool
+        {
+            if (empty($this->field_definition['is_enabled'])) {
+                return false;
+            }
 
+            if (empty($this->field_definition['display_in_create_update_page'])) {
+                return false;
+            }
+
+            return (bool)is_member($this->field_definition['allowed_groups_fill']);
+        }
+    */
     public function valueSet(string|int|bool $userValue): self
     {
-        $this->entryFieldValue = $userValue;
+        $this->field_value = $userValue;
 
         return $this;
     }
 
-    public function valuesBuild(Entry $entry): void
-    {
+    public function valuesBuild(
+        AttachmentsManager $attachments_manager,
+        AttachmentsRepository $attachments_repository,
+        EntryEntity $entry,
+        int $fieldset_id,
+        array $input = []
+    ): void {
         if (!$this->field_definition['display_in_view_page'] ||
             !is_member($this->field_definition['allowed_groups_view'])) {
-            return;
+            //return;
         }
 
         $user_value_display = [];
 
-        if ($this->entryFieldValue) {
+        if ($this->field_value) {
             if ($this->fieldAcceptsMultipleValues()) {
-                $userValues = explode($this->multipleSeparator, $this->entryFieldValue);
+                $userValues = explode($this->multipleSeparator, $this->field_value);
             } else {
-                $userValues = [$this->entryFieldValue];
+                $userValues = [$this->field_value];
             }
 
             foreach ($userValues as $userValueKey => $userValueValue) {
@@ -106,7 +141,7 @@ trait FieldTrait
                             fieldDataGet(
                                 [
                                     "field_data_id='{$value_id}'",
-                                    "set_id='{$this->config['field_set_id']}'",
+                                    "set_id='{$fieldset_id}'",
                                     "field_id='{$this->field_definition['field_id']}'"
                                 ],
                                 [
@@ -129,17 +164,17 @@ trait FieldTrait
                         break;
                 }
 
-                if (!$this->field_definition['parse'] && $this->field_definition['enable_search'] && isset($this->mybb->input['highlight'])) {
+                if (!$this->field_definition['parser_enable'] && $this->field_definition['enable_search'] && isset($input['highlight'])) {
                     $userValues[$userValueKey] = postParser()->highlight_message(
                         $userValues[$userValueKey],
-                        $this->mybb->input['highlight']
+                        $input['highlight']
                     );
 
                     $user_value_display[$userValueKey] = postParser()->highlight_message(
                         $user_value_display[$userValueKey],
-                        $this->mybb->input['highlight']
+                        $input['highlight']
                     );
-                } elseif ($this->field_definition['parse']) {
+                } elseif ($this->field_definition['parser_enable']) {
                     static $parser_options = null;
 
                     if ($parser_options === null) {
@@ -156,8 +191,8 @@ trait FieldTrait
                         ];
                     }
 
-                    if ($this->field_definition['enable_search'] && isset($this->mybb->input['highlight'])) {
-                        $parser_options['highlight'] = $this->mybb->input['highlight'];
+                    if ($this->field_definition['enable_search'] && isset($input['highlight'])) {
+                        $parser_options['highlight'] = $input['highlight'];
                     }
 
                     $userValues[$userValueKey] = postParser()->parse_message(
@@ -177,23 +212,24 @@ trait FieldTrait
             $this->user_value_display = implode($this->multipleConcatenator, $user_value_display);
         }
 
-        if (!$this->user_value && $this->config['field_set_id']) {
+        if (!$this->user_value) {
             global $lang;
-
-            $this->user_value = $lang->myShowcaseEntryFieldValueEmpty;
+            //$this->user_value = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
-        if (!$this->user_value_display && $this->config['field_set_id']) {
+        if (!$this->user_value_display) {
             global $lang;
-
-            $this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
+            //$this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
         }
 
-        $this->attachmentsFetch($entry);
+        $this->attachmentsFetch($attachments_manager, $attachments_repository, $entry);
     }
 
-    public function attachmentsFetch(Entry $entry): void
-    {
+    public function attachmentsFetch(
+        AttachmentsManager $attachments_manager,
+        AttachmentsRepository $attachments_repository,
+        EntryEntity $entry
+    ): void {
         $where_clauses = ["field_id='{$this->field_definition['field_id']}'"];
 
         if (!empty($entry->entry_id)) {
@@ -205,7 +241,7 @@ trait FieldTrait
         }
 
         foreach (
-            $this->attachments_repository->queryAttachments(
+            $attachments_repository->queryAttachments(
                 $where_clauses,// todo, status clause
                 [
                     'attachment_id',
@@ -227,11 +263,11 @@ trait FieldTrait
                     'thumbnail_name',
                     'thumbnail_dimensions',
                     'dimensions',
-                    'edit_stamp',
+                    'update_dateline',
                 ],
             ) as $attachment_data
         ) {
-            $this->attachments_manager->setAttachment($attachment_data);
+            $attachments_manager->addAttachment($attachment_data);
         }
     }
 
@@ -302,9 +338,9 @@ trait FieldTrait
 
         if (!$this->attachments->contains($attachment_data)) {
             if (!empty($attachment_data['attachment_id'])) {
-                $this->attachments[$attachment_data['attachment_id']] = new Attachment(...$attachment_data);
+                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...$attachment_data);
             } else {
-                $this->attachments[] = new Attachment(...$attachment_data);
+                $this->attachments[] = new AttachmentEntity(...$attachment_data);
             }
         }
     }
@@ -314,12 +350,12 @@ trait FieldTrait
         return $this->selectable_values;
     }
 
-    public function fetchSelectableValues(bool $verify_fill_permission = false): void
+    public function fetchSelectableValues(int $fieldset_id, bool $verify_fill_permission = false): void
     {
         foreach (
             fieldDataGet(
                 [
-                    "set_id='{$this->config['field_set_id']}'",
+                    "set_id='{$fieldset_id}'",
                     "field_id='{$this->field_definition['field_id']}'"
                 ],
                 [
@@ -352,10 +388,10 @@ trait FieldTrait
      * @throws SyntaxError
      * @throws LoaderError
      */
-    public function attachmentsBuild(Render $render_manager): void
+    public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry): void
     {
-        $render_manager->attachments_type = $render_manager::ATTACHMENT_TYPE_FIELD;
+        $render_manager->attachments_type = ContentTypes::CustomField;
 
-        $this->attachments_rendered = $render_manager->buildAttachments($this->entry, $this->getAttachments());
+        $this->attachments_rendered = $render_manager->buildAttachments($entry, $this->getAttachments());
     }
 }

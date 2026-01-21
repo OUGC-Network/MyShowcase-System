@@ -7,6 +7,8 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyShowcase\Entity\ShowcaseEntity;
+use MyShowcase\Event\EventDispatcher;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -25,16 +27,22 @@ class ShowcasesRepository
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly ?array $config = null,
+        private readonly ?EventDispatcher $event_dispatcher = null,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     public function insertShowcase(array $showcase_data, bool $is_update = false): int
     {
         $this->showcase_data = $showcase_data;
 
-        if (!empty($this->config['showcase_id'])) {
-            $this->insert_data['showcase_id'] = $this->config['showcase_id'];
+        if (!empty($this->showcase->showcase_id)) {
+            $this->insert_data['showcase_id'] = $this->showcase->showcase_id;
         }
 
         $this->is_update = $is_update;
@@ -59,10 +67,10 @@ class ShowcasesRepository
             $this->database->update_query(
                 'myshowcase_config',
                 $this->insert_data,
-                "showcase_id='{$this->config['showcase_id']}'"
+                "showcase_id='{$this->showcase->showcase_id}'"
             );
 
-            return $this->config['showcase_id'];
+            return $this->showcase->showcase_id;
         } else {
             return (int)$this->database->insert_query('myshowcase_config', $this->insert_data);
         }

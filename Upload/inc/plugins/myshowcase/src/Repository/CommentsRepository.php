@@ -7,12 +7,17 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyShowcase\Entity\ShowcaseEntity;
+use MyShowcase\Enum\ContentStatuses;
+use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\UserPermissions;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class CommentsRepository
@@ -27,8 +32,13 @@ class CommentsRepository
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly array $config,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -39,10 +49,10 @@ class CommentsRepository
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "comment_data.showcase_id='{$this->showcase->showcase_id}'";
 
         if (empty($query_fields)) {
-            $query_fields = 'comment_id';
+            $query_fields = 'comment_data.comment_id';
         }
 
         if (is_array($query_fields)) {
@@ -50,7 +60,7 @@ class CommentsRepository
         }
 
         $query = $this->database->simple_select(
-            'myshowcase_comments',
+            'myshowcase_comments comment_data',
             $query_fields,
             implode(' AND ', $where_clauses),
             $query_options
@@ -88,7 +98,10 @@ class CommentsRepository
     public function queryCommentCount(
         array $where_clauses = []
     ): int {
-        return $this->queryComment($where_clauses, 'COUNT(comment_id) AS total_comments')['total_comments'];
+        return $this->queryComment(
+            $where_clauses,
+            'COUNT(comment_data.comment_id) AS total_comments'
+        )['total_comments'];
     }
 
     public function insertComment(array $comment_data, bool $is_update = false, ?int $comment_id = null): int
@@ -98,7 +111,7 @@ class CommentsRepository
         $this->comment_id = $comment_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->config['showcase_id'],
+            'showcase_id' => $this->showcase->showcase_id,
         ];
 
         $this->is_update = $is_update;
@@ -147,7 +160,43 @@ class CommentsRepository
 
         $this->database->delete_query(
             'myshowcase_comments',
-            "showcase_id='{$this->config['showcase_id']}' AND comment_id='{$comment_id}'"
+            "showcase_id='{$this->showcase->showcase_id}' AND comment_id='{$comment_id}'"
         );
+    }
+
+    public function fetchComments(
+        array $where_clauses = [],
+        array $query_options = [],
+    ): array {
+        hooksRun('comment_fetch_start', $this);
+
+        $query_fields = array_merge(
+            array_map(function (string $field_name): string {
+                return str_starts_with($field_name, 'comment_data.') ? $field_name : 'comment_data.' . $field_name;
+            }, array_keys(TABLES_DATA['myshowcase_comments'])),
+            [
+                //'user_data.username',
+                //'user_data.usergroup',
+                //'user_data.displaygroup'
+            ]
+        );
+
+        hooksRun('comment_fetch_intermediate', $this);
+
+        $entry_objects = [];
+
+        foreach (
+            $this->queryComments(
+                $where_clauses,
+                $query_fields,
+                $query_options
+            ) as $comment_data
+        ) {
+            $entry_objects[] = $comment_data;
+        }
+
+        hooksRun('comment_fetch_end', $this);
+
+        return $entry_objects;
     }
 }

@@ -1,328 +1,328 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const entriesTotalCount = totalEntries;
+    const entries_total_count = totalEntries;
 
-    const masterCheckbox = document.getElementById('select-all-entries');
+    const master_checkbox = document.getElementById('select-all-entries');
 
-    const pageCheckboxes = document.querySelectorAll('.thread-list input[type="checkbox"][id^="selected-entry-"]');
+    const page_checkboxes = document.querySelectorAll('.thread-list input[type="checkbox"][id^="selected-entry-"]');
 
-    const counterElement = document.getElementById('selected-counter');
+    const counter_element = document.getElementById('selected-counter');
 
-    const selectedAllInput = document.getElementById('selected-all-entries');
+    const selected_all_input = document.getElementById('selected-all-entries');
 
-    const selectedInput = document.getElementById('selected-entries');
+    const selected_input = document.getElementById('selected-entries');
 
-    const unselectedInput = document.getElementById('unselected-entries');
+    const unselected_input = document.getElementById('unselected-entries');
 
-    let savedAllEntries = localStorage.getItem('selected_entries_all_' + showcaseID) || 0;
+    let save_all_entries = localStorage.getItem('selected_entries_all_' + showcaseID) || 0;
 
-    console.log(savedAllEntries);
+    console.log(save_all_entries);
 
-    let savedSelections = JSON.parse(localStorage.getItem('selected_entries_' + showcaseID) || '[]') || [];
+    let saved_selections = JSON.parse(localStorage.getItem('selected_entries_' + showcaseID) || '[]') || [];
 
-    let unsavedSelections = JSON.parse(localStorage.getItem('unselected_entries_' + showcaseID) || '[]') || [];
+    let unsaved_selections = JSON.parse(localStorage.getItem('unselected_entries_' + showcaseID) || '[]') || [];
 
-    let selectedCount = savedSelections.length;
-
-    /** @type {HTMLElement|null} */
-    let pageSelectedRow = document.getElementById('page_select_row');
+    let selected_count = saved_selections.length;
 
     /** @type {HTMLElement|null} */
-    let allSelectedRow = document.getElementById('all_select_row');
+    let page_selected_row = document.getElementById('page_select_row');
 
-    let selectedPageCount = 0;
+    /** @type {HTMLElement|null} */
+    let all_selected_row = document.getElementById('all_select_row');
 
-    masterCheckbox.checked = true;
+    let selected_page_count = 0;
 
-    pageCheckboxes.forEach(checkbox => {
-        const closestParent = checkbox.closest('.inline_row');
+    master_checkbox.checked = true;
 
-        if ((savedAllEntries && !unsavedSelections.includes(checkbox.dataset.slug)) ||
-            savedSelections.includes(checkbox.dataset.slug)) {
+    page_checkboxes.forEach(checkbox => {
+        const closest_parent = checkbox.closest('.inline_row');
+
+        if ((save_all_entries && !unsaved_selections.includes(checkbox.dataset.slug)) ||
+            saved_selections.includes(checkbox.dataset.slug)) {
             checkbox.checked = true;
 
-            ++selectedPageCount;
+            ++selected_page_count;
 
-            if (closestParent) {
-                closestParent.classList.add('trow_selected');
+            if (closest_parent) {
+                closest_parent.classList.add('trow_selected');
             }
         } else {
-            masterCheckbox.checked = false;
+            master_checkbox.checked = false;
 
-            if (closestParent) {
-                closestParent.classList.remove('trow_selected');
+            if (closest_parent) {
+                closest_parent.classList.remove('trow_selected');
             }
         }
     });
 
-    if ((savedAllEntries && !unsavedSelections) || selectedCount >= entriesTotalCount) {
-        allSelectedRow.style.display = 'block';
+    if ((save_all_entries && !unsaved_selections) || selected_count >= entries_total_count) {
+        all_selected_row.style.display = 'block';
 
-        allSelectedRow.querySelector('strong').textContent = entriesTotalCount.toString();
+        all_selected_row.querySelector('strong').textContent = entries_total_count.toString();
     } else {
-        allSelectedRow.style.display = 'none';
+        all_selected_row.style.display = 'none';
 
-        if (selectedPageCount >= entriesPerPage) {
-            pageSelectedRow.style.display = 'block';
+        if (selected_page_count >= entriesPerPage) {
+            page_selected_row.style.display = 'block';
 
-            pageSelectedRow.querySelector('strong').textContent = entriesPerPage.toString();
+            page_selected_row.querySelector('strong').textContent = entriesPerPage.toString();
         } else {
-            pageSelectedRow.style.display = 'none';
+            page_selected_row.style.display = 'none';
         }
     }
 
-    if (savedAllEntries) {
-        selectedCount = entriesTotalCount - unsavedSelections.length;
+    if (save_all_entries) {
+        selected_count = entries_total_count - unsaved_selections.length;
     }
 
-    counterElement.textContent = selectedCount.toString();
+    counter_element.textContent = selected_count.toString();
 
-    selectedAllInput.value = JSON.stringify(savedAllEntries);
+    selected_all_input.value = JSON.stringify(save_all_entries);
 
-    selectedInput.value = JSON.stringify(savedSelections);
+    selected_input.value = JSON.stringify(saved_selections);
 
-    unselectedInput.value = JSON.stringify(unsavedSelections);
+    unselected_input.value = JSON.stringify(unsaved_selections);
 
-    masterCheckbox.addEventListener('change', function () {
-        const isChecked = this.checked;
+    master_checkbox.addEventListener('change', function () {
+        const is_checked = this.checked;
 
-        pageCheckboxes.forEach(checkbox => {
-            const closestParent = checkbox.closest('.inline_row');
+        page_checkboxes.forEach(checkbox => {
+            const closest_parent = checkbox.closest('.inline_row');
 
-            if (checkbox.checked && !isChecked) {
+            if (checkbox.checked && !is_checked) {
                 checkbox.checked = false;
 
-                savedSelections = savedSelections.filter(item => item !== checkbox.dataset.slug);
+                saved_selections = saved_selections.filter(item => item !== checkbox.dataset.slug);
 
-                unsavedSelections.push(checkbox.dataset.slug);
+                unsaved_selections.push(checkbox.dataset.slug);
 
-                if (closestParent) {
-                    closestParent.classList.remove('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.remove('trow_selected');
                 }
-            } else if (!checkbox.checked && isChecked) {
+            } else if (!checkbox.checked && is_checked) {
                 checkbox.checked = true;
 
-                savedSelections.push(checkbox.dataset.slug);
+                saved_selections.push(checkbox.dataset.slug);
 
-                unsavedSelections = unsavedSelections.filter(item => item !== checkbox.dataset.slug);
+                unsaved_selections = unsaved_selections.filter(item => item !== checkbox.dataset.slug);
 
-                if (closestParent) {
-                    closestParent.classList.add('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.add('trow_selected');
                 }
             }
         });
 
-        localStorage.setItem('selected_entries_' + showcaseID, JSON.stringify(savedSelections));
+        localStorage.setItem('selected_entries_' + showcaseID, JSON.stringify(saved_selections));
 
-        localStorage.setItem('unselected_entries_' + showcaseID, JSON.stringify(unsavedSelections));
+        localStorage.setItem('unselected_entries_' + showcaseID, JSON.stringify(unsaved_selections));
 
-        if (savedAllEntries) {
-            selectedCount = entriesTotalCount - unsavedSelections.length;
+        if (save_all_entries) {
+            selected_count = entries_total_count - unsaved_selections.length;
         } else {
-            selectedCount = savedSelections.length;
+            selected_count = saved_selections.length;
         }
 
-        counterElement.textContent = selectedCount.toString();
+        counter_element.textContent = selected_count.toString();
 
-        selectedInput.value = JSON.stringify(savedSelections);
+        selected_input.value = JSON.stringify(saved_selections);
 
-        unselectedInput.value = JSON.stringify(unsavedSelections);
+        unselected_input.value = JSON.stringify(unsaved_selections);
 
-        if (selectedCount >= entriesTotalCount) {
-            selectedAllInput.value = '1';
+        if (selected_count >= entries_total_count) {
+            selected_all_input.value = '1';
 
-            selectedInput.value = '';
+            selected_input.value = '';
 
             localStorage.setItem('selected_entries_all_' + showcaseID, '1');
 
             localStorage.setItem('unselected_entries_' + showcaseID, '');
 
-            allSelectedRow.style.display = 'block';
+            all_selected_row.style.display = 'block';
 
-            allSelectedRow.querySelector('strong').textContent = selectedCount.toString();
+            all_selected_row.querySelector('strong').textContent = selected_count.toString();
         } else {
-            if (savedAllEntries) {
-                selectedAllInput.value = '1';
+            if (save_all_entries) {
+                selected_all_input.value = '1';
 
-                selectedInput.value = '';
+                selected_input.value = '';
             } else {
-                selectedAllInput.value = '';
+                selected_all_input.value = '';
             }
 
             //localStorage.setItem('selected_entries_all_' + showcaseID, '');
 
-            allSelectedRow.style.display = 'none';
+            all_selected_row.style.display = 'none';
 
-            if (isChecked) {
-                pageSelectedRow.style.display = 'block';
+            if (is_checked) {
+                page_selected_row.style.display = 'block';
 
-                pageSelectedRow.querySelector('strong').textContent = entriesPerPage.toString();
+                page_selected_row.querySelector('strong').textContent = entriesPerPage.toString();
             } else {
-                pageSelectedRow.style.display = 'none';
+                page_selected_row.style.display = 'none';
             }
         }
     });
 
-    pageCheckboxes.forEach(checkbox => {
+    page_checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function () {
-            const isChecked = this.checked;
+            const is_checked = this.checked;
 
-            const closestParent = checkbox.closest('.inline_row');
+            const closest_parent = checkbox.closest('.inline_row');
 
-            if (isChecked) {
-                if (!savedSelections.includes(this.dataset.slug)) {
-                    savedSelections.push(this.dataset.slug);
+            if (is_checked) {
+                if (!saved_selections.includes(this.dataset.slug)) {
+                    saved_selections.push(this.dataset.slug);
                 }
 
-                unsavedSelections = unsavedSelections.filter(id => id !== this.dataset.slug);
+                unsaved_selections = unsaved_selections.filter(id => id !== this.dataset.slug);
 
-                if (closestParent) {
-                    closestParent.classList.add('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.add('trow_selected');
                 }
-            } else if (!isChecked) {
-                savedSelections = savedSelections.filter(id => id !== this.dataset.slug);
+            } else if (!is_checked) {
+                saved_selections = saved_selections.filter(id => id !== this.dataset.slug);
 
-                unsavedSelections.push(this.dataset.slug);
+                unsaved_selections.push(this.dataset.slug);
 
-                if (closestParent) {
-                    closestParent.classList.remove('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.remove('trow_selected');
                 }
             }
 
-            localStorage.setItem('selected_entries_' + showcaseID, JSON.stringify(savedSelections));
+            localStorage.setItem('selected_entries_' + showcaseID, JSON.stringify(saved_selections));
 
-            localStorage.setItem('unselected_entries_' + showcaseID, JSON.stringify(unsavedSelections));
+            localStorage.setItem('unselected_entries_' + showcaseID, JSON.stringify(unsaved_selections));
 
-            if (savedAllEntries) {
-                selectedCount = entriesTotalCount - unsavedSelections.length;
+            if (save_all_entries) {
+                selected_count = entries_total_count - unsaved_selections.length;
             } else {
-                selectedCount = savedSelections.length;
+                selected_count = saved_selections.length;
             }
 
-            console.log(selectedCount, unsavedSelections);
+            console.log(selected_count, unsaved_selections);
 
-            counterElement.textContent = selectedCount.toString();
+            counter_element.textContent = selected_count.toString();
 
-            selectedInput.value = JSON.stringify(savedSelections);
+            selected_input.value = JSON.stringify(saved_selections);
 
-            unselectedInput.value = JSON.stringify(unsavedSelections);
+            unselected_input.value = JSON.stringify(unsaved_selections);
 
-            masterCheckbox.checked = false;
+            master_checkbox.checked = false;
 
-            let selectedPageCount = 0;
+            let selected_page_count = 0;
 
-            pageCheckboxes.forEach(checkbox => {
-                if (savedSelections.includes(checkbox.dataset.slug)) {
-                    ++selectedPageCount;
+            page_checkboxes.forEach(checkbox => {
+                if (saved_selections.includes(checkbox.dataset.slug)) {
+                    ++selected_page_count;
                 }
             });
 
-            if (selectedPageCount >= entriesPerPage) {
-                masterCheckbox.checked = true;
+            if (selected_page_count >= entriesPerPage) {
+                master_checkbox.checked = true;
             }
 
-            if (savedAllEntries) {
-                //let selectedCount = entriesTotalCount - unsavedSelections.length;
+            if (save_all_entries) {
+                //let selected_count = entries_total_count - unsaved_selections.length;
             }
 
-            if (selectedCount >= entriesTotalCount) {
-                selectedAllInput.value = '1';
+            if (selected_count >= entries_total_count) {
+                selected_all_input.value = '1';
 
-                selectedInput.value = '';
+                selected_input.value = '';
 
                 localStorage.setItem('selected_entries_all_' + showcaseID, '1');
 
                 localStorage.setItem('unselected_entries_' + showcaseID, '');
 
-                allSelectedRow.style.display = 'block';
+                all_selected_row.style.display = 'block';
 
-                allSelectedRow.querySelector('strong').textContent = selectedCount.toString();
+                all_selected_row.querySelector('strong').textContent = selected_count.toString();
             } else {
-                if (savedAllEntries) {
-                    selectedAllInput.value = '1';
+                if (save_all_entries) {
+                    selected_all_input.value = '1';
 
-                    selectedInput.value = '';
+                    selected_input.value = '';
                 } else {
-                    selectedAllInput.value = '';
+                    selected_all_input.value = '';
                 }
 
                 //localStorage.setItem('selected_entries_all_' + showcaseID, '');
 
-                allSelectedRow.style.display = 'none';
+                all_selected_row.style.display = 'none';
 
-                if (selectedPageCount >= entriesPerPage) {
-                    pageSelectedRow.style.display = 'block';
+                if (selected_page_count >= entriesPerPage) {
+                    page_selected_row.style.display = 'block';
 
-                    pageSelectedRow.querySelector('strong').textContent = entriesPerPage.toString();
+                    page_selected_row.querySelector('strong').textContent = entriesPerPage.toString();
                 } else {
-                    pageSelectedRow.style.display = 'none';
+                    page_selected_row.style.display = 'none';
                 }
             }
         });
     });
 
-    const selectAllButton = document.querySelectorAll('.select_all_entries');
+    const select_all_button = document.querySelectorAll('.select_all_entries');
 
-    selectAllButton.forEach(button => {
-        if (selectedCount >= entriesTotalCount) {
+    select_all_button.forEach(button => {
+        if (selected_count >= entries_total_count) {
             button.style.display = 'none';
 
-            pageSelectedRow.style.display = 'none';
+            page_selected_row.style.display = 'none';
         }
 
         button.addEventListener('click', function (event) {
             event.preventDefault();
 
-            selectAllButton.forEach(button => {
+            select_all_button.forEach(button => {
                 button.style.display = 'none';
 
-                pageSelectedRow.style.display = 'none';
+                page_selected_row.style.display = 'none';
             });
 
-            masterCheckbox.checked = true;
+            master_checkbox.checked = true;
 
-            pageCheckboxes.forEach(checkbox => {
+            page_checkboxes.forEach(checkbox => {
                 checkbox.checked = true;
 
-                const closestParent = checkbox.closest('.inline_row');
+                const closest_parent = checkbox.closest('.inline_row');
 
-                if (closestParent) {
-                    closestParent.classList.add('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.add('trow_selected');
                 }
             });
 
-            selectedAllInput.value = '1';
+            selected_all_input.value = '1';
 
-            selectedInput.value = '';
+            selected_input.value = '';
 
             localStorage.setItem('selected_entries_all_' + showcaseID, '1');
 
             localStorage.setItem('unselected_entries_' + showcaseID, '');
 
-            counterElement.textContent = entriesTotalCount.toString();
+            counter_element.textContent = entries_total_count.toString();
 
-            pageSelectedRow.style.display = 'hide';
+            page_selected_row.style.display = 'hide';
 
-            allSelectedRow.style.display = 'block';
+            all_selected_row.style.display = 'block';
 
-            allSelectedRow.querySelector('strong').textContent = entriesTotalCount.toString();
+            all_selected_row.querySelector('strong').textContent = entries_total_count.toString();
 
-            console.log(entriesPerPage, entriesTotalCount);
+            console.log(entriesPerPage, entries_total_count);
         });
     });
 
-    const clearAllButton = document.querySelectorAll('.selected_entries_clear');
+    const clear_all_button = document.querySelectorAll('.selected_entries_clear');
 
-    clearAllButton.forEach(button => {
+    clear_all_button.forEach(button => {
         button.addEventListener('click', function (event) {
             event.preventDefault();
 
-            masterCheckbox.checked = false;
+            master_checkbox.checked = false;
 
-            pageCheckboxes.forEach(checkbox => {
+            page_checkboxes.forEach(checkbox => {
                 checkbox.checked = false;
             });
 
-            selectedAllInput.value = '0';
+            selected_all_input.value = '0';
 
             localStorage.setItem('selected_entries_all_' + showcaseID, '');
 
@@ -330,17 +330,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
             localStorage.setItem('unselected_entries_' + showcaseID, '');
 
-            counterElement.textContent = '0';
+            counter_element.textContent = '0';
 
-            allSelectedRow.style.display = 'none';
+            all_selected_row.style.display = 'none';
 
-            pageSelectedRow.style.display = 'none';
+            page_selected_row.style.display = 'none';
 
             document.querySelectorAll('.inline_row').forEach(checkbox => {
-                const closestParent = checkbox.closest('.inline_row');
+                const closest_parent = checkbox.closest('.inline_row');
 
-                if (closestParent) {
-                    closestParent.classList.remove('trow_selected');
+                if (closest_parent) {
+                    closest_parent.classList.remove('trow_selected');
                 }
             });
         });
@@ -349,17 +349,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('inline_moderation_form');
 
     form.addEventListener('submit', function (event) {
-        const moderationAction = form.querySelector('select[name="moderate"]');
+        const moderation_action = form.querySelector('select[name="moderate"]');
 
-        const selectedAllEntries = form.querySelector('input[name="selected_all_entries"]');
+        const selected_all_entries = form.querySelector('input[name="selected_all_entries"]');
 
-        const selectedEntries = form.querySelector('input[name="selected_entries"]');
+        const selected_entries = form.querySelector('input[name="selected_entries"]');
 
-        if (!moderationAction.value.trim()) {
+        if (!moderation_action.value.trim()) {
             event.preventDefault();
 
             $.jGrowl(lang.inline_moderation_no_tool_selected, {theme: 'jgrowl_error'});
-        } else if (!selectedAllEntries.value.trim() && !selectedEntries.value.trim()) {
+        } else if (!selected_all_entries.value.trim() && !selected_entries.value.trim()) {
             event.preventDefault();
 
             $.jGrowl(lang.inline_moderation_no_entries_selected, {theme: 'jgrowl_error'});

@@ -13,16 +13,23 @@ use FormContainer;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyLanguage;
+use MyShowcase\Container;
+use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ModeratorPermissions;
-use MyShowcase\Repository\PermissionsRepository;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\ShowcasesRepository;
 use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Showcase;
+use MyShowcase\Util\buildShowcase;
 use MyShowcase\Util\UrlUtil;
 use MysqlPdoDbDriver;
 use PopupMenu;
 use PostgresPdoDbDriver;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
@@ -41,24 +48,16 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class AdminManager
 {
+    private ?Showcase $showcase = null;
     private CacheManager $cache_manager;
-
     private UrlUtil $url;
-
     private array $tabs;
-
     private int $showcase_id;
-
     private int $group_id;
-
     private int $permission_id;
-
     private array $showcase_input;
-
     private array $showcases_cache;
-
     private array $permissions_cache;
-
     private array $groups_cache;
 
     #[NoReturn] public function __construct(
@@ -90,7 +89,11 @@ class AdminManager
 
         $this->showcase_input = $this->mybb->get_input('showcase', MyBB::INPUT_ARRAY);
 
-        $this->cache_manager = new CacheManager($this->database, $this->mybb->cache,);
+        $this->cache_manager = new CacheManager(
+            $this->database,
+            $this->mybb->cache,
+            new ShowcaseEntity(showcase_id: $this->showcase_id)
+        );
 
         $this->showcases_cache = $this->cache_manager->get(CacheDataTypes::Config);
 
@@ -151,15 +154,15 @@ EOL;
 
     public function showcaseClearPermissions(): void
     {
-        $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $this->showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
 
-        if (empty($showcase->config)) {
+        if (empty($showcase->context->showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
         }
 
-        $permission_data = $showcase->permissions_repository->queryPermission(["group_id='{$this->group_id}'"],
+        $permission_data = $showcase->context->permissions_repository->queryPermission(["group_id='{$this->group_id}'"],
             'permission_id');
 
         if (isset($this->mybb->input['no']) || !$permission_data) {
@@ -173,11 +176,11 @@ EOL;
         hooksRun('admin_forum_management_clear_permission', $this);
 
         if ($this->mybb->request_method === 'post') {
-            $showcase->permissions_repository->deletePermission($permission_data['permission_id']);
+            $showcase->context->permissions_repository->deletePermission($permission_data['permission_id']);
 
             hooksRun('admin_summary_clear_permissions_post');
 
-            $showcase->cache_manager->update(CacheDataTypes::Permissions);
+            $this->cache_manager->update(CacheDataTypes::Permissions);
 
             flash_message($this->language->myShowcaseAdminSummaryPermissionsClearSuccess, 'success');
 
@@ -203,9 +206,9 @@ EOL;
 
     public function showcasePermissions(): void
     {
-        $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $this->showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
 
-        if (empty($showcase->config)) {
+        if (empty($showcase->context->showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
@@ -213,7 +216,7 @@ EOL;
 
         hooksRun('admin_forum_management_permissions', $this);
 
-        $group_permission_data = $showcase->permissions_repository->queryPermission(
+        $group_permission_data = $showcase->context->permissions_repository->queryPermission(
             ["group_id='{$this->group_id}'"],
             array_keys(TABLES_DATA['myshowcase_permissions']),
         );
@@ -223,9 +226,7 @@ EOL;
         if (empty($group_permission_data)) {
             $has_custom_permissions = false;
 
-            $permissions_repository = new PermissionsRepository($this->database);
-
-            $group_permission_data = $permissions_repository->queryPermission(
+            $group_permission_data = $showcase->context->permissions_repository->queryPermission(
                 ["group_id='{$this->group_id}'"],
                 array_keys(TABLES_DATA['myshowcase_permissions']),
             );
@@ -255,19 +256,22 @@ EOL;
             hooksRun('admin_forum_management_permissions_commit', $this);
 
             if ($has_custom_permissions) {
-                $showcase->permissions_repository->updatePermission(
+                $showcase->context->permissions_repository->updatePermission(
                     $insert_data,
                     $group_permission_data['permission_id']
                 );
             } else {
-                $showcase->permissions_repository->insertPermission($insert_data);
+                $showcase->context->permissions_repository->insertPermission($insert_data);
             }
 
             $this->cache_manager->update(CacheDataTypes::Permissions);
 
-            log_admin_action($this->showcase_id, $showcase->config['name']);
+            log_admin_action($this->showcase_id, $showcase->context->showcase->name);
 
-            flash_message($this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess, 'success');
+            flash_message(
+                $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess,
+                'success'
+            );
 
             admin_redirect(
                 $this->url->build(
@@ -278,7 +282,9 @@ EOL;
 
         $sub_tabs = [];
 
-        $this->page->add_breadcrumb_item($this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions);
+        $this->page->add_breadcrumb_item(
+            $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions
+        );
 
         $permissions_url = $this->url->build(
             [
@@ -382,9 +388,9 @@ EOL;
         $is_create_page = $this->mybb->get_input('action') === 'create';
 
         if (!$is_create_page) {
-            $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $this->showcase_id);
+            $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
 
-            if (empty($showcase->config)) {
+            if (empty($showcase->context->showcase)) {
                 flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
                 admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
@@ -392,6 +398,8 @@ EOL;
         }
 
         $error_messages = [];
+
+        //$moderators_repository = new ModeratorsRepository($this->database, $showcase->context->showcase);
 
         if ($this->mybb->request_method === 'post') {
             switch ($this->mybb->get_input('type')) {
@@ -497,7 +505,7 @@ EOL;
 
                             $this->showcase_id = $showcase_repository->insertShowcase($showcase_data);
                         } else {
-                            $showcase->showcase_repository->updateShowcase($showcase_data);
+                            $showcase->context->showcases_repository->updateShowcase($showcase_data);
                         }
 
                         $this->cache_manager->update(CacheDataTypes::Config);
@@ -526,6 +534,7 @@ EOL;
                     }
                     break;
                 case 'moderators':
+
                     if ($this->mybb->get_input('update') === 'permissions') {
                         foreach ($this->showcase_input as $moderatorID => $permissions) {
                             $permissions = array_map('intval', $permissions);
@@ -537,12 +546,16 @@ EOL;
                                 ModeratorPermissions::CommentsCanView => $permissions[ModeratorPermissions::CommentsCanView] ?? 0,
                             ];
 
-                            $showcase->moderators_repository->updateModerator($moderator_data, $moderatorID);
+                            $showcase->context->moderators_repository->updateModerator($moderator_data, $moderatorID);
                         }
                     } elseif ($this->mybb->get_input('create') === 'group') {
                         $this->group_id = $this->mybb->get_input('usergroup', MyBB::INPUT_INT);
 
-                        $query = $this->database->simple_select('usergroups', 'gid', "gid='{$this->group_id}'");
+                        $query = $this->database->simple_select(
+                            'usergroups',
+                            'gid',
+                            "gid='{$this->group_id}'"
+                        );
 
                         if (!$this->database->num_rows($query)) {
                             flash_message($this->language->myShowcaseAdminErrorInvalidGroup, 'error');
@@ -576,7 +589,7 @@ EOL;
                             ),
                         ];
 
-                        $showcase->moderators_repository->insertModerator($moderator_data);
+                        $showcase->context->moderators_repository->insertModerator($moderator_data);
                     } elseif ($this->mybb->get_input('create') === 'user') {
                         $userData = get_user_by_username($this->mybb->get_input('username'));
 
@@ -612,12 +625,14 @@ EOL;
                             ),
                         ];
 
-                        $showcase->moderators_repository->insertModerator($moderator_data);
+                        $showcase->context->moderators_repository->insertModerator($moderator_data);
                     }
 
                     $this->cache_manager->update(CacheDataTypes::Moderators);
 
-                    log_admin_action(['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]);
+                    log_admin_action(
+                        ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
+                    );
 
                     flash_message($this->language->myShowcaseAdminSuccessShowcaseEditModerators, 'success');
 
@@ -629,15 +644,20 @@ EOL;
 
                     break;
                 case 'delete':
-                    $showcase->moderators_repository->deleteModerator(
+                    $showcase->context->moderators_repository->deleteModerator(
                         $this->mybb->get_input('moderator_id', MyBB::INPUT_INT)
                     );
 
                     $this->cache_manager->update(CacheDataTypes::Moderators);
 
-                    log_admin_action(['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]);
+                    log_admin_action(
+                        ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
+                    );
 
-                    flash_message($this->language->myShowcaseAdminSuccessShowcaseEditModeratorDelete, 'success');
+                    flash_message(
+                        $this->language->myShowcaseAdminSuccessShowcaseEditModeratorDelete,
+                        'success'
+                    );
 
                     admin_redirect(
                         $this->url->build(
@@ -685,7 +705,7 @@ EOL;
 
         $this->page->output_tab_control($categories);
 
-        $this->mybb->input = array_merge($showcase->config ?? [], $this->mybb->input);
+        $this->mybb->input = array_merge((array)$showcase->context->showcase, $this->mybb->input);
 
         $categories_objects = [];
 
@@ -736,7 +756,7 @@ EOL;
                         $field_definition,
                         $category_key,
                         'myshowcase_admin_summary_create_update',
-                        showcase_config: $showcase->config ?? ['showcase_id' => 0]
+                        showcase_config: (array)$showcase->context->showcase ?? ['showcase_id' => 0]
                     )
                 );
             }
@@ -793,10 +813,8 @@ EOL;
             'update'
         );
 
-        $permissions_repository = new PermissionsRepository($this->database, ['showcase_id' => $this->showcase_id]);
-
         foreach (
-            $permissions_repository->queryPermissions(
+            $showcase->context->permissions_repository->queryPermissions(
                 query_fields: array_keys(TABLES_DATA['myshowcase_permissions'])
             ) as $existing
         ) {
@@ -905,11 +923,13 @@ EOL;
         $form_container = new FormContainer(
             $this->language->sprintf(
                 $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAssigned,
-                $showcase->config['name']
+                $showcase->context->showcase->name
             )
         );
 
-        $form_container->output_row_header($this->language->myShowcaseAdminSummaryEditModeratorPermissionsName);
+        $form_container->output_row_header(
+            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsName
+        );
 
         $form_container->output_row_header(
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsControls,
@@ -917,7 +937,7 @@ EOL;
         );
 
         foreach (
-            $showcase->moderators_repository->queryModerators(
+            $showcase->context->moderators_repository->queryModerators(
                 query_fields: [
                     'moderator_id',
                     'user_id',
@@ -995,7 +1015,11 @@ EOL;
         $form_container->end();
 
         $form->output_submit_wrapper(
-            [$form->generate_submit_button($this->language->myShowcaseAdminButtonSubmitSaveModeratorPermissions)]
+            [
+                $form->generate_submit_button(
+                    $this->language->myShowcaseAdminButtonSubmitSaveModeratorPermissions
+                )
+            ]
         );
 
         $form->end();
@@ -1012,7 +1036,9 @@ EOL;
 
         echo $form->generate_hidden_field('create', 'group');
 
-        $form_container = new FormContainer($this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroup);
+        $form_container = new FormContainer(
+            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroup
+        );
 
         $form_container->output_row(
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroupGroup . ' <em>*</em>',
@@ -1058,7 +1084,9 @@ EOL;
 
         echo $form->generate_hidden_field('create', 'user');
 
-        $form_container = new FormContainer($this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUser);
+        $form_container = new FormContainer(
+            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUser
+        );
 
         $form_container->output_row(
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsername . ' <em>*</em>',
@@ -1131,29 +1159,30 @@ EOL;
 
     private function showcaseTableCreateRebuild(): void
     {
-        $createTable = $this->mybb->get_input('action') === 'create_table';
+        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
 
-        $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['field_set_id'], ['limit' => 1]);
-
-        if (!$showcase_data || $createTable && showcaseDataTableExists($this->showcase_id)) {
+        if (empty($showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
 
             admin_redirect($this->url->build());
         }
 
-        $dataTableStructure = dataTableStructureGet($this->showcase_id);
+        $data_table_structure = dataTableStructureGet($this->showcase_id);
 
         hooksRun('admin_summary_table_create_rebuild_start');
 
-        dbVerifyTables(["myshowcase_data{$this->showcase_id}" => $dataTableStructure]);
+        dbVerifyTables(["myshowcase_data{$this->showcase_id}" => $data_table_structure]);
 
-        if (showcaseDataTableExists($this->showcase_id)) {
-            log_admin_action(['showcase_id' => $this->showcase_id, 'createTable' => $createTable]);
+        if ($showcase->data_table_exists) {
+            log_admin_action([
+                'showcase_id' => $this->showcase_id,
+                'data_table_exists' => $showcase->data_table_exists
+            ]);
 
-            if ($createTable) {
-                flash_message($this->language->myShowcaseAdminSuccessTableCreated, 'success');
-            } else {
+            if ($showcase->data_table_exists) {
                 flash_message($this->language->myShowcaseAdminSuccessTableRebuilt, 'success');
+            } else {
+                flash_message($this->language->myShowcaseAdminSuccessTableCreated, 'success');
             }
         } else {
             flash_message($this->language->myShowcaseAdminErrorTableCreate, 'error');
@@ -1176,9 +1205,9 @@ EOL;
 
         $showcaseName = $showcase_data['name'];
 
-        $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $this->showcase_id);
+        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
 
-        if ($showcase->entries_repository->queryEntries()) {
+        if ($showcase->context->entries_repository->queryEntries()) {
             flash_message($this->language->myShowcaseAdminErrorTableDrop, 'error');
 
             admin_redirect($this->url->build());
@@ -1200,7 +1229,7 @@ EOL;
             if (showcaseDataTableExists($this->showcase_id)) {
                 showcaseDataTableDrop($this->showcase_id);
 
-                $showcase->showcase_repository->updateShowcase(['is_enabled' => 0]);
+                $showcase->context->showcases_repository->updateShowcase(['is_enabled' => 0]);
             }
 
             flash_message($this->language->myShowcaseAdminSuccessTableDropped, 'success');
@@ -1260,7 +1289,10 @@ EOL;
 
         $this->page->output_confirm_action(
             $this->url->build(['action' => 'delete', 'showcase_id' => $this->showcase_id]),
-            $this->language->sprintf($this->language->myShowcaseAdminConfirmShowcaseDelete, $showcaseName)
+            $this->language->sprintf(
+                $this->language->myShowcaseAdminConfirmShowcaseDelete,
+                $showcaseName
+            )
         );
     }
 
@@ -1314,7 +1346,10 @@ EOL;
             ['width' => '2%', 'class' => 'align_center']
         );
 
-        $form_container->output_row_header($this->language->controls, ['width' => '5%', 'class' => 'align_center']);
+        $form_container->output_row_header(
+            $this->language->controls,
+            ['width' => '5%', 'class' => 'align_center']
+        );
 
         $showcaseObjects = showcaseGet([],
             array_keys(TABLES_DATA['myshowcase_config']),
@@ -1326,20 +1361,30 @@ EOL;
             $form_container->construct_row();
         } else {
             foreach ($showcaseObjects as $showcase_id => $showcase_data) {
-                $showcase = new Showcase($this->database, $this->mybb, $this->language, showcase_id: $showcase_id);
+                $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
                 $showcaseTotalEntries = $showcaseTotalAttachments = $showcaseTotalFilesSize = $showcaseTotalComments = 0;
+
+                $entries_repository = new EntriesRepository(
+                    $this->database,
+                    $this->mybb,
+                    $showcase->context->showcase
+                );
+
+                $comments_repository = new CommentsRepository($this->database, $showcase->context->showcase);
+
+                $attachments_repository = new AttachmentsRepository($this->database, $showcase->context->showcase);
 
                 $fieldsetID = (int)$showcase_data['field_set_id'];
 
                 if ($showcase->data_table_exists) {
-                    $showcaseTotalEntries = $showcase->entries_repository->queryEntryCount();
+                    $showcaseTotalEntries = $entries_repository->queryEntryCount();
 
-                    $showcaseTotalAttachments = $showcase->attachments_repository->queryAttachmentCount();
+                    $showcaseTotalAttachments = $attachments_repository->queryAttachmentCount();
 
-                    $showcaseTotalFilesSize = $showcase->attachments_repository->queryAttachmentSum();
+                    $showcaseTotalFilesSize = $attachments_repository->queryAttachmentSum();
 
-                    $showcaseTotalComments = $showcase->comments_repository->queryCommentCount();
+                    $showcaseTotalComments = $comments_repository->queryCommentCount();
                 }
 
                 // Build popup menu

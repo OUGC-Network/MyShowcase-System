@@ -7,6 +7,7 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -17,22 +18,20 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class PermissionsRepository
 {
-    public const SCOPE_TYPE_SHOWCASE = 1;
-
-    public const SCOPE_TYPE_ENTRY = 2;
-
     private ?int $permission_id;
-
     private array $insert_data = [];
-
     private array $permission_data = [];
-
     private readonly bool $is_update;
 
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
-        private readonly array $config = ['showcase_id' => 0],
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -47,16 +46,16 @@ class PermissionsRepository
             $query_fields = implode(', ', $query_fields);
         }
 
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "showcase_id='" . ($this->showcase->showcase_id ?? 0.) . "'";
 
-        $query = $this->db->simple_select(
+        $query = $this->database->simple_select(
             'myshowcase_permissions',
             $query_fields,
             implode(' AND ', $where_clauses),
             $query_options
         );
 
-        while ($entry = $this->db->fetch_array($query)) {
+        while ($entry = $this->database->fetch_array($query)) {
             yield $entry;
         }
     }
@@ -88,7 +87,7 @@ class PermissionsRepository
     public function queryPermissionCount(
         array $where_clauses = [],
     ): int {
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "showcase_id='" . ($this->showcase->showcase_id ?? 0.) . "'";
 
         return $this->queryPermission(
             $where_clauses,
@@ -106,7 +105,7 @@ class PermissionsRepository
         $this->permission_id = $permission_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->config['showcase_id'],
+            'showcase_id' => $this->showcase->showcase_id ?? 0,
         ];
 
         $this->is_update = $is_update;
@@ -124,7 +123,7 @@ class PermissionsRepository
         hooksRun('permission_insert_update', $this);
 
         if ($this->is_update) {
-            $this->db->update_query(
+            $this->database->update_query(
                 'myshowcase_permissions',
                 $this->insert_data,
                 "permission_id='{$this->permission_id}'"
@@ -132,7 +131,7 @@ class PermissionsRepository
 
             return $this->permission_id;
         } else {
-            $this->permission_id = (int)$this->db->insert_query(
+            $this->permission_id = (int)$this->database->insert_query(
                 'myshowcase_permissions',
                 $this->insert_data
             );
@@ -152,9 +151,9 @@ class PermissionsRepository
 
         hooksRun('permission_delete', $this);
 
-        $this->db->delete_query(
+        $this->database->delete_query(
             'myshowcase_permissions',
-            "showcase_id='{$this->config['showcase_id']}' AND permission_id='{$this->permission_id}'"
+            "showcase_id='" . ($this->showcase->showcase_id ?? 0.) . "' AND permission_id='{$this->permission_id}'"
         );
     }
 }

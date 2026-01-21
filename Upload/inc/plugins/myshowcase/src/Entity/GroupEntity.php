@@ -6,7 +6,7 @@ namespace MyShowcase\Entity;
 
 use MyShowcase\Collection\Collection;
 
-class Group
+class GroupEntity
 {
     private Collection $permissions;
 
@@ -42,7 +42,7 @@ class Group
         return $this->permissions;
     }
 
-    public function addPermission(Permission $permission_data): void
+    public function addPermission(PermissionEntity $permission_data): void
     {
         if (!$this->permissions->contains($permission_data)) {
             if (!empty($permission_data->field_id)) {

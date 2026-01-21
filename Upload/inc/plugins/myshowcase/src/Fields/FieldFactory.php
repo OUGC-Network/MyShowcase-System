@@ -4,7 +4,7 @@ namespace MyShowcase\Fields;
 
 use InvalidArgumentException;
 use MyBB;
-use MyShowcase\Entity\Entry;
+use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
@@ -41,19 +41,8 @@ class FieldFactory
 
     private array $field_objects_cache = [];
 
-    public function __construct(
-        public readonly MyBB $mybb,
-        private readonly AttachmentsRepository $attachments_repository,
-        private readonly EntriesManager $entries_manager,
-        private readonly AttachmentsManager $attachments_manager,
-        private readonly array $config,
-    ) {
-    }
-
-    public function create(
-        array $field_definition,
-        Entry $entry,
-    ): FieldsInterface {
+    public function create(array $field_definition): FieldsInterface
+    {
         if (!isset($this->field_objects_cache[$field_definition['field_key']])) {
             if (!isset(self::$field_class_map[$field_definition['html_type']])) {
                 throw new InvalidArgumentException("Unknown field type: {$field_definition['html_type']}");
@@ -61,15 +50,7 @@ class FieldFactory
 
             $field_class = self::$field_class_map[$field_definition['html_type']];
 
-            $this->field_objects_cache[$field_definition['field_key']] = new $field_class(
-                $this->mybb,
-                $this->attachments_repository,
-                $this->entries_manager,
-                $this->attachments_manager,
-                $this->config,
-                $field_definition,
-                $entry
-            );
+            $this->field_objects_cache[$field_definition['field_key']] = new $field_class($field_definition,);
         }
 
         return $this->field_objects_cache[$field_definition['field_key']];

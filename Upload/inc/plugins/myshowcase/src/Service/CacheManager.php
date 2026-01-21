@@ -12,9 +12,8 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
-
+use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
-
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
@@ -32,6 +31,7 @@ readonly class CacheManager
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly datacache $cache,
+        private ?ShowcaseEntity $config = null
     ) {
     }
 
@@ -96,14 +96,16 @@ readonly class CacheManager
                     }
                 };
 
+                $permissions_repository = new PermissionsRepository($this->database, $this->config);
+
                 $function(
-                    (new PermissionsRepository($this->database))
+                    $permissions_repository
                         ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
                 );
 
                 foreach (showcaseGet() as $showcase_id => $showcase_data) {
                     $function(
-                        (new PermissionsRepository($this->database, ['showcase_id' => $showcase_id]))
+                        $permissions_repository
                             ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
                     );
                 }
@@ -159,7 +161,7 @@ readonly class CacheManager
 
                 break;
             case CacheDataTypes::Moderators;
-                $moderatorObjects = (new ModeratorsRepository($this->database))
+                $moderatorObjects = (new ModeratorsRepository($this->database,))
                     ->queryModerators(
                         [],
                         [

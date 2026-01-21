@@ -46,6 +46,7 @@ $l = [
     'myshowcase_admin_permissions_category_entries' => 'Entries',
     'myshowcase_admin_permissions_category_comments' => 'Comments',
     'myshowcase_admin_permissions_category_attachments' => 'Attachments',
+    'myshowcase_admin_permissions_category_subscriptions' => 'Subscriptions',
     'myshowcase_admin_permissions_category_search' => 'Search',
     'myshowcase_admin_permissions_category_general' => 'General',
     'myshowcase_admin_permissions_category_moderation' => 'Moderation',
@@ -68,6 +69,9 @@ $l = [
     'myshowcase_admin_permissions_main_can_view' => 'Can View Main Page',
     'myshowcase_admin_permissions_main_can_view_dragging' => 'Can view main page?',
     'myshowcase_admin_permissions_main_can_view_description' => 'Allows users to view the showcase main page.',
+    'myshowcase_admin_permissions_main_require_captcha' => 'Require CAPTCHA When Posting',
+    'myshowcase_admin_permissions_main_require_captcha_dragging' => 'Require captcha when posting?',
+    'myshowcase_admin_permissions_main_require_captcha_description' => 'Require users to pass a captcha challenge when posting.',
 
     // Parser
     'myshowcase_admin_permissions_entries_parser_allow_html' => 'Allow HTML in Entries',

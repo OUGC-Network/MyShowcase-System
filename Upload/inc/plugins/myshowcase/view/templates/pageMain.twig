@@ -17,7 +17,7 @@
 
 {% block jscripts %}
     <script type="text/javascript"
-            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ config.version }}"></script>
+            src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
 {% endblock jscripts %}
 
 {% block body %}
@@ -68,9 +68,9 @@
         </section>
     {% endif %}
 
-    {% if url_entry_create %}
+    {% if url.create_entry %}
         {% set button_new_entry %}
-            <a href="{{ url.showcase }}{{ url_entry_create }}" class="button button--medium button--full-width">
+            <a href="{{ url.showcase }}{{ url.create_entry }}" class="button button--medium button--full-width">
                 {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_entry_create }}</span>
             </a>
@@ -79,7 +79,7 @@
 
     <div class="page-controls page-controls--top">
         <div class="page-buttons">
-            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if current_user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
+            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if mybb.user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
                class="button button--medium button--secondary button--half-width">
                 {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>
@@ -124,14 +124,17 @@
                             href="{{ config.showcase_url }}{{ url.sort.username }}"
                             class="sort-threads__link sort-threads__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.order_by is defined and url_params.order_by == 'username' %}{{ ascDesc }}{% endif %}</a></span>
             </div>
-            {% for field_data in showcase.fieldset_fields %}
-                {% if field_data.display_in_main_page %}
+
+            {% for custom_field in showcase.custom_fields_collection %}
+                {% if custom_field.isViewableInMain() %}
                     <div class="sort-threads__column sort-threads__column--replies">
-                        <a href="{{ url.sort[field_data.field_key] }}"
-                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ field_data.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == field_data.field_key %}{{ ascDesc }}{% endif %}
+                        ---{{ custom_field.isViewableInMain() }}---
+                        <a href="{{ url.sort[custom_field.field_key] }}"
+                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ custom_field.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == custom_field.field_key %}{{ ascDesc }}{% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
+
             <div class="sort-threads__column sort-threads__column--replies">
                 <a href="{{ config.showcase_url }}{{ url.sort.comments }}"
                    class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments_approved' %}{{ ascDesc }}{% endif %}</a>
@@ -150,14 +153,14 @@
         </div>
 
         {# Select all #}
-        {% if true or permissions.entries_can_view and entries_count > config.main_per_page %}
+        {% if true or permissions.entries_can_view and total_entries > config.main_per_page %}
             <div class="thread-list__select-all" id="page_select_row" style="display: none;">
                 {{ lang.myshowcase_main_table_separator_selected_page_start }}
                 <strong>0</strong> {{ lang.myshowcase_main_table_separator_selected_page_end }}
 
                 <a class="select_all_entries"
                    href="#">{{ lang.myshowcase_main_table_separator_selected_all_select_start }}
-                    <strong>{{ entries_count }}</strong> {{ lang.myshowcase_main_table_separator_selected_all_select_end }}
+                    <strong>{{ total_entries }}</strong> {{ lang.myshowcase_main_table_separator_selected_all_select_end }}
                 </a>
             </div>
             <div class="thread-list__select-all" id="all_select_row" style="display: none;">
@@ -170,7 +173,7 @@
         {% endif %}
 
         {# Threads – errors #}
-        {% if not entries_count %}
+        {% if not total_entries %}
             <div class="alert alert--no-results">
                 {% if url_params.keywords is defined and url_params.keywords %}
                     {{ lang.myshowcase_main_table_empty_search }}
@@ -180,13 +183,13 @@
             </div>
         {% else %}
             <div class="thread-list__container">
-                {% if entry_sticky_objects is not empty %}
+                {% if stuck_entries is not empty %}
                     <div class="thread-list__normal-threads">
                         <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
                     </div>
-                    {% for entry_data in entry_sticky_objects %}
+                    {% for entry in stuck_entries %}
 
-                        {% if permissions.entries_can_view and entry_data.status == 2 and permissions.entries_can_view %}
+                        {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
                             {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                         {% else %}
                             {% include '@ext.myshowcase/pageMainEntry.twig' %}
@@ -195,13 +198,13 @@
                     {% endfor %}
                 {% endif %}
 
-                {% if entry_normal_objects is not empty %}
+                {% if normal_entries is not empty %}
                     <div class="thread-list__normal-threads">
                         <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
                     </div>
-                    {% for entry_data in entry_normal_objects %}
+                    {% for entry in normal_entries %}
 
-                        {% if permissions.entries_can_view and entry_data.status == 2 and permissions.entries_can_view %}
+                        {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
                             {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                         {% else %}
                             {% include '@ext.myshowcase/pageMainEntry.twig' %}

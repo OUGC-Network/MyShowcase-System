@@ -15,6 +15,9 @@ declare(strict_types=1);
 
 namespace MyShowcase\Plugin\Functions;
 
+use DateTime;
+use DateTimeZone;
+use Exception;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\FieldTypes;
@@ -22,6 +25,10 @@ use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FormatTypes;
 use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Showcase;
 use Postparser;
@@ -146,24 +153,28 @@ function showcaseDelete(int $showcase_id): bool
 
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
-    $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcase_id]);
-
-    foreach ($permissions_repository->queryPermissions() as $permissionID => $permissionData) {
-        $permissions_repository->deletePermission($permissionID);
+    foreach ($showcase->context->permissions_repository->queryPermissions() as $permissionID => $permissionData) {
+        $showcase->context->permissions_repository->deletePermission($permissionID);
     }
 
-    foreach ($showcase->moderators_repository->queryModerators() as $moderatorID => $moderatorData) {
-        $showcase->moderators_repository->deleteModerator($moderatorID);
+    $moderators_repository = new ModeratorsRepository($showcase->database, $showcase->config);
+
+    foreach ($moderators_repository->queryModerators() as $moderatorID => $moderatorData) {
+        $moderators_repository->deleteModerator($moderatorID);
     }
+
+    $comments_repository = new CommentsRepository($db, $showcase->config);
 
     foreach (
-        $showcase->comments_repository->queryComments(query_fields: ['comment_id']) as $commentID => $commentData
+        $comments_repository->queryComments(query_fields: ['comment_id']) as $commentID => $commentData
     ) {
-        $showcase->comments_repository->deleteComment($commentID);
+        $comments_repository->deleteComment($commentID);
     }
 
-    foreach ($showcase->attachments_repository->queryAttachments() as $attachmentID => $attachmentData) {
-        $showcase->attachments_repository->deleteAttachment($attachmentID);
+    $attachments_repository = new AttachmentsRepository($showcase->database, $showcase->config);
+
+    foreach ($attachments_repository->queryAttachments() as $attachmentID => $attachmentData) {
+        $attachments_repository->deleteAttachment($attachmentID);
     }
 
     if (showcaseDataTableExists($showcase_id)) {
@@ -257,8 +268,10 @@ function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
 
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    foreach ($showcase->entries_repository->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
-        $showcase->entries_repository->deleteEntry($entryID);
+    $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+
+    foreach ($entries_repository->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
+        $entries_repository->deleteEntry($entryID);
     }
 
     $db->drop_column('myshowcase_data' . $showcase_id, $field_name);
@@ -783,6 +796,12 @@ function castTableFieldValue(mixed $value, string $fieldType): mixed
         $value = (int)$value;
     } elseif (fieldTypeMatchFloat($fieldType)) {
         $value = (float)$value;
+    } elseif (fieldTypeMatchDateTime($fieldType)) {
+        try {
+            $value = new DateTime($value, new DateTimeZone('UTC'));
+        } catch (Exception $e) {
+            $value = null;
+        }
     } elseif (fieldTypeMatchChar($fieldType) ||
         fieldTypeMatchText($fieldType) ||
         fieldTypeMatchDateTime($fieldType)) {
@@ -802,8 +821,10 @@ function sanitizeTableFieldValue(mixed $value, string $fieldType)
         $value = (float)$value;
     } elseif (fieldTypeMatchChar($fieldType) ||
         fieldTypeMatchText($fieldType) ||
-        fieldTypeMatchDateTime($fieldType)) {
+        (fieldTypeMatchDateTime($fieldType) && !($value instanceof \DateTime))) {
         $value = $db->escape_string($value);
+    } elseif (fieldTypeMatchDateTime($fieldType) && ($value instanceof \DateTime)) {
+        $value = date('Y-m-d H:i:s', $value->getTimestamp());
     } elseif (fieldTypeMatchBinary($fieldType)) {
         $value = $db->escape_binary($value);
     }

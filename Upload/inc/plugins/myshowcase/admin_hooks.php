@@ -21,6 +21,7 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Showcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
@@ -65,13 +66,14 @@ function admin_user_groups_delete_commit(): bool
 
     $groupID = (int)$usergroup['gid'];
 
-    foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $permissions_repository = new PermissionsRepository($db, ['showcase_id' => $showcase_id]);
+    foreach (showcaseGet() as $showcase_id => $showcase) {
+        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
         foreach (
-            $permissions_repository->queryPermission(["group_id='{$groupID}'"]) as $permissionID => $permissionData
+            $showcase->context->permissions_repository->queryPermission(["group_id='{$groupID}'"]
+            ) as $permissionID => $permissionData
         ) {
-            $permissions_repository->deletePermission($permissionID);
+            $showcase->context->permissions_repository->deletePermission($permissionID);
         }
     }
 

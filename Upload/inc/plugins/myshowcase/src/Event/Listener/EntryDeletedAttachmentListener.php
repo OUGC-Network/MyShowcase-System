@@ -19,10 +19,10 @@ readonly class EntryDeletedAttachmentListener
         $entry_id = $event->getEntryID();
 
         foreach (
-            $this->attachments_repository->queryAttachments(["entry_id='{$entry_id}'"]
+            $this->context->attachments_repository->queryAttachments(["entry_id='{$entry_id}'"]
             ) as $attachmentID => $attachmentData
         ) {
-            $this->attachments_repository->deleteAttachment($attachmentID);
+            $this->context->attachments_repository->deleteAttachment($attachmentID);
         }
     }
 }

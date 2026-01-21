@@ -1,39 +1,39 @@
 <div class="row row--thread thread inline_row
-    {% if entry_data.extra_data.unread_comments %} thread--unread{% endif %}
+    {% if entry.extra_data.unread_comments %} thread--unread{% endif %}
     {% if permissions.entries_can_view %} thread--moderator{% endif %}
-    {% if entry_data.status == 2 and permissions.entries_can_view %} thread--deleted{% endif %}
-    {% if entry_data.status == 0 %} thread--awaiting-approval{% endif %}">
+    {% if entry.status == 2 and permissions.entries_can_view %} thread--deleted{% endif %}
+    {% if entry.status == 0 %} thread--awaiting-approval{% endif %}">
     <div class="thread__column thread__column--primary">
         <h3 class="thread__title">
             {# Entry attachments #}
-            {% if config.attachments_allow_in_entries and config.attachments_main_render and permissions.attachments_can_view and entry_data.getAttachments() is not empty %}
-                {% for attachment_id,attachment_data in entry_data.getAttachments() %}
+            {% if config.attachments_allow_in_entries and config.attachments_main_render and permissions.attachments_can_view and entry.getAttachments() is not empty %}
+                {% for attachment_id,attachment_data in entry.getAttachments() %}
                     {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
                 {% endfor %}
             {% endif %}
 
             {# Entry title #}
-            <a href="{{ config.showcase_url }}{{ entry_data.extra_data.url }}">
-                {% for field_data in entry_data.getFields() %}
-                    {% if field_data.field_definition.enable_subject %}
-                        {{ field_data.getUserValueDisplay()|raw }}
+            <a href="{{ config.showcase_url }}{{ entry.extra_data.url }}">
+                {% for custom_field in showcase.custom_fields_collection %}
+                    {% if custom_field.enable_subject %}
+                        {{ entry.getCustomFieldParsedValue(custom_field.field_key)|raw }}
                     {% endif %}
                 {% endfor %}
-                {{ entry_data.subject }}
+                {{ entry.subject }}
             </a>
 
             {# Deleted thread #}
-            {% if entry_data.status == 2 %}
+            {% if entry.status == 2 %}
                 <span class="tag tag--thread-status tag--deleted">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
             {% endif %}
 
-            {% if entry_data.status == 0 %}
+            {% if entry.status == 0 %}
                 <span class="tag tag--thread-status tag--awaiting-approval">{{ lang.myshowcase_main_table_row_awaiting_approval }}</span>
             {% endif %}
 
             {# Go to unread link #}
-            {% if entry_data.extra_data.unread_comments %}
-                <a href="{{ entry_data.newpostlink }}" class="thread__status">
+            {% if entry.extra_data.unread_comments %}
+                <a href="{{ entry.newpostlink }}" class="thread__status">
                     {{ include('partials/icon.twig', {icon: 'circle', class: 'fa-fw', title: lang.myshowcase_main_table_row_go_to_first_unread}, with_context = false) }}
                 </a>
             {% endif %}
@@ -41,22 +41,22 @@
             {# Entry status icons #}
             <span class="thread__icons">
                 {# Entry icon #}
-                {% if entry_data.icon_id and iconCache[entry_data.icon_id] %}
+                {% if entry.icon_id and iconCache[entry.icon_id] %}
                     <span class="thread__icon">
-                        <img src="{{ iconCache[entry_data.icon_id].path }}"
-                             alt="{{ iconCache[entry_data.icon_id].name }}"
-                             title="{{ iconCache[entry_data.icon_id].name }}"/>
+                        <img src="{{ iconCache[entry.icon_id].path }}"
+                             alt="{{ iconCache[entry.icon_id].name }}"
+                             title="{{ iconCache[entry.icon_id].name }}"/>
                     </span>
                 {% endif %}
 
                 {# Contains posts by you #}
-                {% if entry_data.extra_data.comments_by_you %}
+                {% if entry.extra_data.comments_by_you %}
                     {{ include('partials/icon.twig', {icon: 'user-circle', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_contains_comments_by_you}, with_context = false) }}
                 {% endif %}
 
                 {# Attachment paperclip #}
-                {% if mybb.settings.enableattachments and entry_data.extra_data.attachments_count %}
-                    {% set attachment_title = (entry_data.extra_data.attachments_count > 1) ? trans('myshowcase_main_table_row_attachments_count_plural', entry_data.extra_data.attachments_count) : lang.myshowcase_main_table_row_attachments_count_single %}
+                {% if mybb.settings.enableattachments and entry.extra_data.attachments_count %}
+                    {% set attachment_title = (entry.extra_data.attachments_count > 1) ? trans('myshowcase_main_table_row_attachments_count_plural', entry.extra_data.attachments_count) : lang.myshowcase_main_table_row_attachments_count_single %}
                     {{ include('partials/icon.twig', {icon: 'paperclip', class: 'thread__icon fa-fw', title: attachment_title}, with_context = false) }}
                 {% endif %}
 
@@ -66,85 +66,89 @@
                 {% endif %}
 
                 {# Closed #}
-                {% if entry_data.is_closed %}
+                {% if entry.is_closed %}
                     {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
                 {% endif %}
 
                 {# Sticky #}
-                {% if entry_data.is_sticky %}
+                {% if entry.is_sticky %}
                     {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.sticky}, with_context = false) }}
                 {% endif %}
             </span>
         </h3>
-        {% if entry_data.comments_approved > mybb.settings.postsperpage %}
+        {% if entry.comments_approved > mybb.settings.postsperpage %}
             <span class="thread__pages">
                 <span class="thread__page-legend">{{ lang.pages }}</span>
                 {% set pagesStop = (thread.pages > mybb.settings.maxmultipagelinks) ? mybb.settings.maxmultipagelinks : thread.pages %}
                 {% for page in 1..pagesStop %}
-                    <a href="{{ get_thread_link(entry_data.entry_slug, page) }}"
+                    <a href="{{ get_thread_link(entry.entry_slug, page) }}"
                        class="thread__page-link">{{ page }}</a>
                 {% endfor %}
                 {% if thread.pages > mybb.settings.maxmultipagelinks %}... <a
-                    href="{{ get_thread_link(entry_data.entry_slug) }}"
+                    href="{{ get_thread_link(entry.entry_slug) }}"
                     class="thread__page-link">{{ thread.pages }}</a>{% endif %}
             </span>
         {% endif %}
         <p class="thread__author">
             {{ lang.myshowcase_main_table_row_by }}
-            {% if entry_data.user_id > 0 %}
-                <a href="{{ get_profile_link(entry_data.user_id) }}">{{ entry_data.user_id|format_name }}</a>
+            {% if entry.user_id > 0 %}
+                <a href="{{ get_profile_link(entry.user_id) }}">{{ entry.user_id|format_name }}</a>
             {% else %}
-                {{ entry_data.username ?? lang.guest }}
+                {{ entry.username ?? lang.guest }}
             {% endif %}
-            {{ entry_data.dateline|my_date }}
+            ---{{ entry.dateline.getTimestamp() }}---
         </p>
     </div>
-    {% for field_data in entry_data.getFields() %}
-        {% if field_data.field_definition.display_in_main_page %}
-            <div class="thread__column thread__column--replies">
+
+    {% for custom_field in showcase.custom_fields_collection %}
+        {% if custom_field.isViewableInMain() %}
+            <div class="thread__column " style="border: orange 1px dashed;">
                 <p class="thread__replies">
-                    {{ field_data.getUserValueDisplay()|raw }}
+                    {{ entry.getCustomFieldParsedValue(custom_field.field_key)|raw }}
                 </p>
             </div>
         {% endif %}
     {% endfor %}
+
     <div class="thread__column thread__column--replies">
         <p class="thread__replies">
             <span class="thread__count-container">
-                    <span title="{{ lang.myshowcase_main_table_row_comments }}: {{ entry_data.comments_approved }} &middot; {{ lang.myshowcase_main_table_row_views }}: {{ entry_data.views }}"
-                          class="thread__reply-count">{{ entry_data.comments_approved }}</span>
+                    <span title="{{ lang.myshowcase_main_table_row_comments }}: {{ entry.comments_approved }} &middot; {{ lang.myshowcase_main_table_row_views }}: {{ entry.views }}"
+                          class="thread__reply-count">{{ entry.comments_approved }}</span>
                 </span>
-            <span class="thread__reply-legend">{% if entry_data.comments_approved == 1 %}{{ lang.reply }}{% else %}{{ lang.myshowcase_main_table_row_comments }}{% endif %}</span>
+            <span class="thread__reply-legend">{% if entry.comments_approved == 1 %}{{ lang.reply }}{% else %}{{ lang.myshowcase_main_table_row_comments }}{% endif %}</span>
         </p>
     </div>
+
     <div class="thread__column thread__column--latest">
         <p class="thread__latest-post">
-            {% if entry_data.extra_data.last_commenter_user_data %}
+            {% if entry.extra_data.last_commenter_user_data %}
                 <span class="thread__latest-post__text">{{ lang.myshowcase_main_table_row_last_comment_by }}</span>
-                <a href="{{ config.showcase_url }}{{ entry_data.extra_data.entryUrlLastComment }}"
+                <a href="{{ config.showcase_url }}{{ entry.extra_data.entryUrlLastComment }}"
                    class="avatar-profile-link">
-                    {{ render_avatar(url=entry_data.extra_data.last_commenter_user_data.avatar, alt=entry_data.extra_data.last_commenter_user_data.username, class='avatar--smallest') }}
+                    {{ render_avatar(url=entry.extra_data.last_commenter_user_data.avatar, alt=entry.extra_data.last_commenter_user_data.username, class='avatar--smallest') }}
                 </a>
                 <span class="thread__latest-post__author">
-                    {% if entry_data.extra_data.last_commenter_user_data.uid > 0 %}
-                        <a href="{{ get_profile_link(entry_data.extra_data.last_commenter_user_data.uid) }}">{{ entry_data.extra_data.last_commenter_user_data.uid|format_name }}</a>
+                    {% if entry.extra_data.last_commenter_user_data.uid > 0 %}
+                        <a href="{{ get_profile_link(entry.extra_data.last_commenter_user_data.uid) }}">{{ entry.extra_data.last_commenter_user_data.uid|format_name }}</a>
                     {% else %}
                         {{ lang.guest }}
                     {% endif %}
                 </span>
-                <a href="{{ config.showcase_url }}{{ entry_data.extra_data.last_comment_url }}"
-                   class="thread__latest-post__date">{{ entry_data.extra_data.last_comment_date|my_date }}</a>
+                <a href="{{ config.showcase_url }}{{ entry.extra_data.last_comment_url }}"
+                   class="thread__latest-post__date">---{{ entry.extra_data.last_comment_date.getTimestamp() }}---</a>
             {% else %}
                 {{ lang.na }}
             {% endif %}
         </p>
     </div>
+
     {% if permissions.entries_can_view %}
         <div class="thread__column thread__column--checkbox">
-            <label for="selected-entry-{{ entry_data.entry_slug }}"></label>
-            <input type="checkbox" class="checkbox" data-slug="{{ entry_data.entry_slug }}"
-                   id="selected-entry-{{ entry_data.entry_slug }}"
-                   {% if entry_data.extra_data.selected %}checked="checked"{% endif %} />
+            <label for="selected-entry-{{ entry.entry_slug }}"></label>
+            <input type="checkbox" class="checkbox" data-slug="{{ entry.entry_slug }}"
+                   id="selected-entry-{{ entry.entry_slug }}"
+                   {% if entry.extra_data.selected %}checked="checked"{% endif %} />
         </div>
     {% endif %}
 </div>

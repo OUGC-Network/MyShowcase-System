@@ -11,7 +11,7 @@
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
     {% if meta.canonical is defined and meta.canonical %}
-        <link rel="canonical" href="{{ meta.canonical }}"/>
+        <link rel="canonical" href="{{ config.showcase_url }}{{ meta.canonical }}"/>
     {% endif %}
 
     {% if meta.page %}
@@ -29,9 +29,9 @@
 {% block body %}
     <div class="page-content">
         <header class="page-header">
-            {% if entry_data.prefix_id %}
-                <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix_id }}">{{ entry_data.displayprefix|raw }}</span>
-            {% endif %}
+            {#
+            <span class="tag tag--float tag--thread-prefix tag--thread-prefix-{{ entry_data.prefix_id }}">{{ entry_data.displayprefix|raw }}</span>
+            #}
             <h1 class="title title--page">
                 {% for field_data in entry_data.getFields() %}
                     {% if field_data.field_definition.enable_subject %}
@@ -52,7 +52,7 @@
         <div class="page-controls page-controls--top">
             <div class="page-buttons">
 
-                {% if current_user.uid %}
+                {% if config.subscriptions_enable and mybb.user.uid %}
                     {% if is_subscribed %}
                         <a href="{{ url.showcase }}{{ url.unsubscribe }}"
                            class="button button--secondary button--medium button--full-width subscribe--remove">
@@ -95,13 +95,13 @@
             </div>
         </div>
 
-        {{ asset('jscripts/thread.js', static=true) }}
+        {{ false ? asset('jscripts/thread.js', static=true) }}
 
         <section class="post-list" id="posts">
             {{ entry_data.rendered_entry|raw }}
         </section>
 
-        {% if permissions.comments_can_view %}
+        {% if config.comments_enable and permissions.comments_can_view %}
             <section class="post-list" id="comments">
                 {% if commentObjects|length > 0 %}
                     {% for comment_id, comment_data in commentObjects %}
@@ -185,7 +185,7 @@
             </section>
         {% endif %}
 
-        {% if permissions.comments_can_post %}
+        {% if config.comments_enable_quick_reply and config.comments_enable and permissions.comments_can_post %}
             <div id="quickreply_spinner" class="spinner spinner--quick-reply" style="display: none"><span
                         class="spinner__icon">{{ include('partials/icon.twig', {icon: 'sync', class: 'spinner__icon fa-spin'}, with_context = false) }}</span>
             </div>
@@ -193,17 +193,17 @@
                 {{ trans('myshowcase_comment_text_limit', config.comments_message_minimum_length|my_number_format, config.comments_message_minimum_length|my_number_format) }}
             </div>
             <div class="post post--reply post--quick-reply compose compose--quick-reply quick-reply" id="post-reply">
-                <form method="post" action="{{ createUpdateUrl }}" name="quick_comment_form"
+                <form method="post" action="{{ config.showcase_url }}{{ url.create_comment }}" name="quick_comment_form"
                       id="quick_comment_form">
                     <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
                     <div class="post__meta">
-                        <a href="{{ get_profile_link(current_user.uid) }}" class="avatar-profile-link"
+                        <a href="{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
                            title="{{ lang.myshowcase_view_entry_comment_form_my_profile }}">
-                            {{ render_avatar(url=current_user.avatar, alt=lang.welcome_my_avatar) }}
+                            {{ render_avatar(url=mybb.user.avatar, alt=lang.welcome_my_avatar) }}
                         </a>
                         {# TO DO: username styling #}
                         <h3 class="post__author"><a
-                                    href="{{ get_profile_link(current_user.uid) }}">{{ current_user.uid|format_name }}</a>
+                                    href="{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.uid|format_name }}</a>
                         </h3>
                         <span class="post__date">{{ lang.myshowcase_view_entry_comment_form_title }}</span>
                     </div>
@@ -214,11 +214,11 @@
                         </label>
                         {{ code_buttons|raw }}
                     </div>
-                    {% if (mybb.usergroup.canusesig and current_user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
+                    {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
                         <label for="show-quick-reply-options"></label>
                         <input type="checkbox" class="compose__checkbox" id="show-quick-reply-options">
                         <div class="quick-reply__options">
-                            {% if mybb.usergroup.canusesig and current_user.suspendsignature != 1 %}
+                            {% if mybb.usergroup.canusesig and mybb.user.suspendsignature != 1 %}
                                 <label class="quick-reply__option">
                                     <input type="checkbox" class="checkbox quick-reply__checkbox"
                                            name="postoptions[signature]"
@@ -248,13 +248,13 @@
                             {% endif %}
                         </div>
                     {% endif %}
-                    {{ captcha|raw }}
+                    {{ permissions.main_require_captcha ? captcha|raw }}
                     <div class="post__foot">
                         <button type="submit" class="button" tabindex="2" accesskey="s" id="quick_reply_submit">
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </button>
-                        {% if (mybb.usergroup.canusesig and current_user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
+                        {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
                             <label for="show-quick-reply-options" class="button button--basic">
                                 {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.options }}</span>
@@ -267,7 +267,7 @@
                     </div>
                 </form>
             </div>
-        {% elseif current_user.uid is empty %}
+        {% elseif mybb.user.uid is empty %}
             <div class="alert alert--warning">
                 {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
                 <div class="alert__message">
@@ -331,9 +331,9 @@
                             <div class="row row--thread thread {{ thread.class }}">
                                 <div class="thread__column thread__column--primary">
                                     <h3 class="thread__title {{ new_class }}">
-                                        {% if similar_thread.prefix_id %}
-                                            <span class="tag tag--thread-prefix tag--thread-prefix-{{ similar_thread.prefix }}">{{ similar_thread.prefix_id|raw }}</span>
-                                        {% endif %}
+                                        {#
+                                        <span class="tag tag--thread-prefix tag--thread-prefix-{{ similar_thread.prefix }}">{{ similar_thread.prefix_id|raw }}</span>
+                                        #}
                                         <a href="{{ get_thread_link(similar_thread.tid) }}">{{ similar_thread.extra_data.subject }}</a>
                                         <span class="thread__icons">
                                             {% if similar_thread.hasicon %}
@@ -399,7 +399,7 @@
                 </div>
             </div>
 
-            {% if mybb.settings.browsingthisthread %}
+            {% if config.entries_display_users_browsing %}
                 <div class="container container--small container--users-browsing">
                     {{ lang.myshowcase_view_entry_users_browsing_entry }}
                     {% for user in online_users %}
@@ -422,4 +422,7 @@
             {% endif %}
         </footer>
     </div>
+    <script>
+        const entries_enable_update_notes = '{{ config.entries_enable_update_notes }}' === '1';
+    </script>
 {% endblock body %}

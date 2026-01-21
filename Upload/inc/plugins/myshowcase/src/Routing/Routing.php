@@ -15,19 +15,12 @@ declare(strict_types=1);
 
 namespace MyShowcase\Routing;
 
-use DB_MySQLi;
-use DB_PgSQL;
-use DB_SQLite;
-use MyBB;
-use MyLanguage;
 use MyShowcase\Controller\AttachmentsController;
 use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
 use MyShowcase\Enum\Routes;
-use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Showcase;
-use MysqlPdoDbDriver;
-use PostgresPdoDbDriver;
+use MyShowcase\ShowcaseContext;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -41,37 +34,37 @@ class Routing
 
     private ?RouteCollection $routes = null;
 
-    private ?RequestContext $context = null;
+    private ?RequestContext $routing_context = null;
     private ?UrlGenerator $generator = null;
     private ?Request $request = null;
     private ?UrlMatcher $matcher = null;
 
-    private readonly array $config;
+    private readonly Showcase $config;
 
     public function __construct(
-        Showcase $showcase,
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly MyBB $mybb,
-        private readonly MyLanguage $language,
-        private readonly EventDispatcher $event_dispatcher,
-    ) {
+        public readonly ShowcaseContext $context,
+        //Showcase $showcase,
+        //private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        //private readonly MyBB $mybb,
+        //private readonly MyLanguage $language,
+        //private readonly EventDispatcher $event_dispatcher,
+    )
+    {
         if ($this->showcase === null) {
-            $this->showcase = $showcase;
+            //$this->showcase = $showcase;
         }
 
         $this->setRoutes();
 
-        $this->context = new RequestContext();
+        $this->routing_context = new RequestContext();
 
-        //$this->context->setBaseUrl($this->config['showcase_url']);
-
-        $this->generator = new UrlGenerator($this->routes, $this->context);
+        $this->generator = new UrlGenerator($this->routes, $this->routing_context);
 
         $this->request = Request::createFromGlobals();
 
-        $this->context->fromRequest($this->request);
+        $this->routing_context->fromRequest($this->request);
 
-        $this->matcher = new UrlMatcher($this->routes, $this->context);
+        $this->matcher = new UrlMatcher($this->routes, $this->routing_context);
     }
 
     private function setRoutes(): void
@@ -85,29 +78,8 @@ class Routing
                 '/{showcase}/',
                 [
                     '_controller' => function (array $parameters): void {
-                        unset($parameters['showcase']);
-
                         output_page(
-                            (new EntriesController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->main(...$parameters)
+                            (new EntriesController($this->context,))->main()
                         );
                     },
                 ],
@@ -127,26 +99,7 @@ class Routing
                         unset($parameters['showcase']);
 
                         output_page(
-                            (new EntriesController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->create(...$parameters)
+                            (new EntriesController($this->context,))->create(...$parameters)
                         );
                     },
                 ],
@@ -166,26 +119,27 @@ class Routing
                         unset($parameters['showcase']);
 
                         output_page(
-                            (new EntriesController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->update(...$parameters)
+                            (new EntriesController($this->context,))->update(...$parameters)
+                        );
+                    },
+                ],
+                [
+                    'showcase' => '[a-z0-9]+',
+                    'entry_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::EntryUpdateApi,
+            new Route(
+                '/{showcase}/api/update/{entry_slug}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new EntriesController($this->context, is_api_request: true))->update(...$parameters)
                         );
                     },
                 ],
@@ -205,26 +159,29 @@ class Routing
                         unset($parameters['showcase']);
 
                         output_page(
-                            (new EntriesController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->view(...$parameters)
+                            (new EntriesController($this->context,))->view(...$parameters)
+                        );
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::EntryViewApi,
+            new Route(
+                '/{showcase}/api/view/{entry_slug}/{entry_slug_custom}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new EntriesController($this->context, is_api_request: true))->view(...$parameters)
                         );
                     },
                 ],
@@ -240,39 +197,19 @@ class Routing
         $this->routes->add(
             Routes::CommentCreate,
             new Route(
-                '/{showcase}/view/{entry_slug}/{entry_slug_custom}/comment',
+                '/{showcase}/view/{entry_slug}/create/comment',
                 [
-                    '_controller' => function (array $parameters): string {
+                    '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
                         output_page(
-                            (new CommentsController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->create(...$parameters)
+                            (new CommentsController($this->context,))->create(...$parameters)
                         );
                     },
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -280,40 +217,42 @@ class Routing
         $this->routes->add(
             Routes::CommentUpdate,
             new Route(
-                '/{showcase}/view/{entry_slug}/{entry_slug_custom}/comment/{comment_slug}/update',
+                '/{showcase}/view/{entry_slug}/update/comment/{comment_slug}',
                 [
                     '_controller' => function (array $parameters): string {
                         unset($parameters['showcase']);
 
                         output_page(
-                            (new CommentsController(
-                                $this,
-                                $this->database,
-                                $this->mybb,
-                                $this->language,
-                                $this->event_dispatcher,
-                                $this->showcase->current_user,
-                                $this->showcase->entries_repository,
-                                $this->showcase->attachments_repository,
-                                $this->showcase->comments_repository,
-                                $this->showcase->subscriptions_repository,
-                                $this->showcase->moderators_repository,
-                                $this->showcase->entries_manager,
-                                $this->showcase->attachments_manager,
-                                $this->showcase->comments_manager,
-                                $this->showcase->render_manager,
-                                $this->config,
-                                $this->showcase->fieldset_fields,
-                                $this->showcase->attachment_types,
-                            ))->update(...$parameters)
+                            (new CommentsController($this->context,))->update(...$parameters)
                         );
                     },
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
                     'comment_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::CommentUpdateApi,
+            new Route(
+                '/{showcase}/api/view/{entry_slug}/update/comment/{comment_slug}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        output_page(
+                            (new EntriesController($this->context, is_api_request: true))->view(...$parameters)
+                        );
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -326,26 +265,7 @@ class Routing
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        (new CommentsController(
-                            $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->language,
-                            $this->event_dispatcher,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
-                        ))->redirect(...$parameters);
+                        (new CommentsController($this->context,))->redirect(...$parameters);
                     },
                 ],
                 [
@@ -364,26 +284,8 @@ class Routing
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        (new AttachmentsController(
-                            $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->language,
-                            $this->event_dispatcher,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
-                        ))->uploadAttachment(...$parameters);
+                        (new AttachmentsController($this->context, is_api_request: true))
+                            ->uploadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -403,26 +305,8 @@ class Routing
                         unset($parameters['showcase']);
 
                         // todo, maybe check that only the current user is trying to view ?
-                        (new AttachmentsController(
-                            $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->language,
-                            $this->event_dispatcher,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
-                        ))->downloadAttachment(...$parameters);
+                        (new AttachmentsController($this->context, is_api_request: true))
+                            ->downloadAttachment(...$parameters);
                     },
                 ],
                 [
@@ -442,26 +326,8 @@ class Routing
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        (new AttachmentsController(
-                            $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->language,
-                            $this->event_dispatcher,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
-                        ))->viewThumbnail(...$parameters);
+                        (new AttachmentsController($this->context, is_api_request: true))
+                            ->viewThumbnail(...$parameters);
                     },
                 ],
                 [
@@ -482,22 +348,15 @@ class Routing
                         unset($parameters['showcase']);
 
                         return (new Search(
+                            $this->context,
                             $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
+                            $this->context->database,
+                            $this->context->mybb,
+                            $this->context->current_user,
+                            $this->context->entries_manager,
+                            $this->context->attachments_manager,
+                            $this->context->render_manager,
+                            $this->context->fieldset_fields,
                         ))->mainSearch(...$parameters);
                     },
                 ],
@@ -516,22 +375,15 @@ class Routing
                         unset($parameters['showcase']);
 
                         return (new Search(
+                            $this->context,
                             $this,
-                            $this->database,
-                            $this->mybb,
-                            $this->showcase->current_user,
-                            $this->showcase->entries_repository,
-                            $this->showcase->attachments_repository,
-                            $this->showcase->comments_repository,
-                            $this->showcase->subscriptions_repository,
-                            $this->showcase->moderators_repository,
-                            $this->showcase->entries_manager,
-                            $this->showcase->attachments_manager,
-                            $this->showcase->comments_manager,
-                            $this->showcase->render_manager,
-                            $this->config,
-                            $this->showcase->fieldset_fields,
-                            $this->showcase->attachment_types,
+                            $this->context->database,
+                            $this->context->mybb,
+                            $this->context->current_user,
+                            $this->context->entries_manager,
+                            $this->context->attachments_manager,
+                            $this->context->render_manager,
+                            $this->context->fieldset_fields,
                         ))->mainSearch(...$parameters);
                     },
                 ],
@@ -551,9 +403,12 @@ class Routing
 
     public function generateUrl(string $name, array $parameters = []): string
     {
-        $parameters['showcase'] = $this->config['route_identifier'];
+        $parameters['showcase'] = $this->context->showcase->route_identifier;
+        if (empty($this->context->showcase->route_identifier)) {
+            _dump($this->context->showcase->route_identifier, $parameters);
+        }
 
-        $this->context->setBaseUrl('/');
+        $this->routing_context->setBaseUrl('/');
 
         return $this->generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_PATH);
     }
@@ -563,14 +418,11 @@ class Routing
         static $route_identifier = null;
 
         if ($route_identifier === null) {
-            $route_identifier = array_values(array_filter(explode('/', $this->context->getPathInfo())))[0] ?? false;
+            $route_identifier = array_values(
+                array_filter(explode('/', $this->routing_context->getPathInfo()))
+            )[0] ?? false;
         }
 
         return $route_identifier;
-    }
-
-    public function setConfig(mixed $config): void
-    {
-        $this->config = $config;
     }
 }

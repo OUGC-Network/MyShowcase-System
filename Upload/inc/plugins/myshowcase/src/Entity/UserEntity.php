@@ -8,10 +8,10 @@ use InvalidArgumentException;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Security\PermissionsFactory;
 
-class User
+class UserEntity
 {
     private Collection $groups;
-    private ?Permission $permissions = null;
+    private ?PermissionEntity $permissions = null;
 
     public function __construct(
         public $user_id = null,
@@ -38,7 +38,7 @@ class User
         return $this->groups;
     }
 
-    public function addGroup(Group $group_data): void
+    public function addGroup(GroupEntity $group_data): void
     {
         if (!$this->groups->contains($group_data)) {
             if (!empty($group_data->field_id)) {
@@ -49,14 +49,14 @@ class User
         }
     }
 
-    public function getPermissions(): ?Permission
+    public function getPermissions(): ?PermissionEntity
     {
         return $this->permissions;
     }
 
     public function setPermissions(array $permissions): void
     {
-        $this->permissions = new Permission(...$permissions);
+        $this->permissions = new PermissionEntity(...$permissions);
     }
 
     public function getPermission(string $permission_name): int
@@ -71,8 +71,8 @@ class User
     public function hasPermission(string $permission_name): bool
     {
         if (empty($this->permissions->$permission_name) ||
-            $this->permissions->$permission_name === Permission::BOOLEAN_TYPE_NEVER ||
-            $this->permissions->$permission_name === Permission::BOOLEAN_TYPE_DISALLOW) {
+            $this->permissions->$permission_name === PermissionEntity::BOOLEAN_TYPE_NEVER ||
+            $this->permissions->$permission_name === PermissionEntity::BOOLEAN_TYPE_DISALLOW) {
             return false;
         }
 

@@ -8,7 +8,7 @@ use MyShowcase\Collection\Collection;
 
 use const INF;
 
-class Permission
+class PermissionEntity
 {
     public const BOOLEAN_TYPE_DISALLOW = 0;
 
@@ -40,6 +40,7 @@ class Permission
         public ?int $permission_id = null,
         public ?int $showcase_id = null,
         public ?int $main_can_view = null,
+        public ?int $main_require_captcha = null,
         public ?int $group_id = null,
         public ?int $user_id = null,
         public ?int $entries_can_view = null,

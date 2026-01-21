@@ -13,8 +13,16 @@
 
 declare(strict_types=1);
 
+use MyShowcase\Container;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Event\Listener\EntryDeletedCommentListener;
 use MyShowcase\Showcase;
+
+use MyShowcase\Event\Event\RouteMatchedEvent;
+
+use MyShowcase\Event\Listener\RouteMatchedListener;
+
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 
@@ -131,30 +139,42 @@ hooksRun('script_file_start');
 //change directory back to current where script is
 chdir($currentWorkingDirectoryPath);
 
-require_once ROOT . '/vendor/autoload.php';
-
 hooksRun('script_file_intermediate');
 
 global $showcase;
 
 if (!isset($showcase)) {
     global $db, $mybb, $lang;
-
-    $showcase = new Showcase($db, $mybb, $lang);
+    //$showcase = new Showcase($db, $mybb, $lang);
 }
 
-if (!$showcase->data_table_exists || !$showcase->config['field_set_id']) {
+$container = (new Container())->container;
+
+/** @var ContainerBuilder $container */
+/** @var Showcase $showcase */
+try {
+    $showcase = $container->get('showcase');
+} catch (Exception $e) {
+}
+
+/*
+$showcase->event_dispatcher->addListener(
+    RouteMatchedEvent::NAME,
+    new RouteMatchedListener(RouteMatchedEvent $comments_repository)
+);*/
+
+if (!$showcase->data_table_exists || !$showcase->context->showcase->field_set_id) {
     error('This showcase has not been installed or activated yet.');
 }
 
-if (!$showcase->current_user->hasPermission(UserPermissions::MainCanView)) {
+if (!$showcase->context->current_user->hasPermission(UserPermissions::MainCanView)) {
     error_no_permission();
 }
 
 hooksRun('script_file_end');
 
 try {
-    $parameters = $showcase->routing->getMatch();
+    $parameters = $showcase->context->routing->getMatch();
 
     $controller = $parameters['_controller'];
 

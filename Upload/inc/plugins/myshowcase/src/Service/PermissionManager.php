@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
-use MyShowcase\Entity\User;
+use MyShowcase\Entity\UserEntity;
 
 readonly class PermissionManager
 {
@@ -12,7 +12,7 @@ readonly class PermissionManager
     {
     }
 
-    public function hasPermission(User $user, int $permission_value): bool
+    public function hasPermission(UserEntity $user, int $permission_value): bool
     {
         $permissions = 0;
 
@@ -25,7 +25,7 @@ readonly class PermissionManager
         return ($permissions & $permission_value) === $permission_value;
     }
 
-    public function getUserPermissions(User $user): int
+    public function getUserPermissions(UserEntity $user): int
     {
         $permissions = 0;
 
@@ -34,7 +34,7 @@ readonly class PermissionManager
                 $permissions |= $permission->getValue();
             }
         }
-        
+
         return $permissions;
     }
 }

@@ -19,10 +19,10 @@ readonly class EntryDeletedSubscriptonListener
         $entry_id = $event->getEntryID();
 
         foreach (
-            $this->subscriptions_repository->querySubscription(["entry_id='{$entry_id}'"]
+            $this->context->subscriptions_repository->querySubscription(["entry_id='{$entry_id}'"]
             ) as $subscription_id => $subscription_data
         ) {
-            $this->subscriptions_repository->deleteSubscription($subscription_id);
+            $this->context->subscriptions_repository->deleteSubscription($subscription_id);
         }
     }
 }

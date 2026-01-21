@@ -16,6 +16,7 @@ namespace MyShowcase\Enum;
 enum UserPermissions
 {
     public const MainCanView = 'main_can_view';
+    public const MainRequireCaptcha = 'main_require_captcha';
     public const ParserAllowHtmlInEntries = 'entries_parser_allow_html';
     public const ParserAllowHtmlInComments = 'comments_parser_allow_html';
     public const EntriesCanView = 'entries_can_view';

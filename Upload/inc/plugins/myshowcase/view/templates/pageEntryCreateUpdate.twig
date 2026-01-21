@@ -66,37 +66,36 @@
         {{ error_messages|raw }}
         <form action="{{ config.showcase_url }}{{ url.crate_update }}" method="post"
               enctype="multipart/form-data" name="input" id="contentForm"></form>
-        <div class="form form--compose compose">
+        <div class="block block--form form form--compose compose">
+            <input type="checkbox" class="compose__checkbox" id="show-post-options" name="show_options"
+                   form="contentForm" {{ mybb.input.show_options is defined ? 'checked="checked"' }}/>
+            <input type="checkbox" class="compose__checkbox"
+                   id="show-attachments"{{ config.attachments_allow_in_entries and entry.attachments.count()|length > 0 ? 'checked="checked"' }}>
             <section class="section section--form compose__primary-section">
-                <div class="row row--form field">
-                    <h3 class="field__name visually-hidden"><label
-                                for="subject">{{ lang.myShowcaseNewEditFormEntrySubject }}</label></h3>
-                    <div class="compose__subject">
-                        {% if config.entries_allow_prefixes %}
-                            <div class="select-field select-field--subject">
-                                {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
-                                <label>
-                                    <select name="prefix_id" form="contentForm">
-                                        <option value="0">{{ lang.myShowcaseNewEditFormEntryPrefixesNoPrefix }}</option>
-                                        {% for prefix in prefixes %}
-                                            <option value="{{ prefix.pid }}"
-                                                    {% if prefix.selected %} selected="selected"{% endif %}>{{ prefix.prefix }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </label>
-                            </div>
-                        {% endif %}
-                        <input type="text" class="textbox textbox--subject" name="subject" maxlength="120" id="subject"
-                               placeholder="{{ lang.myShowcaseNewEditFormEntrySubjectPlaceholder }}"
-                               value="{{ entry_data.subject }}" tabindex="1" form="contentForm"/>
-                    </div>
-                </div>
 
-                {{ login_box|raw }}
+                {% if config.entries_enable_subject %}
+                    <div class="row row--form field">
+                        <h3 class="field__name visually-hidden"><label
+                                    for="subject">{{ lang.myShowcaseNewEditFormEntrySubject }}</label></h3>
+                        <div class="compose__subject">
+                            <input type="text" class="textbox textbox--subject" name="subject" maxlength="120"
+                                   id="subject"
+                                   placeholder="{{ lang.myShowcaseNewEditFormEntrySubjectPlaceholder }}"
+                                   value="{{ mybb.input.subject is defined ? mybb.input.subject }}" tabindex="1"
+                                   form="contentForm"/>
+                        </div>
+                    </div>
+                {% endif %}
 
                 {% if config.entries_allow_post_icons and post_icons is not empty %}
                     {% include '@ext.myshowcase/pageEntryCreateUpdatePostIcons.twig' %}
                 {% endif %}
+
+                {% for field_data in entry.getFields() %}
+                    {% if true or field_data.isViewableInForm() %}
+                        {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
+                    {% endif %}
+                {% endfor %}
 
                 <div class="row row--form field">
                     <h3 class="field__name visually-hidden">
@@ -105,24 +104,30 @@
                     <div class="compose__container">
                         <div class="compose__message">
 
+                            {% if config.entries_enable_message %}
+                                <textarea name="message" id="message" rows="20" cols="70" tabindex="2"
+                                          form="contentForm">{{ mybb.input.message is defined ? mybb.input.message }}</textarea>
+                                {{ code_buttons|raw }}
 
-                            <textarea name="message" id="message" rows="20" cols="70"
-                                      tabindex="2" form="contentForm">{{ entry_data.message }}</textarea>
-                            {{ code_buttons|raw }}
-                            {% if multi_quote %}
-                                <div id="multiquote_unloaded">
+                                {% if multi_quote %}
+                                    <div id="multiquote_unloaded">
                                         <span class="smalltext">
-                                            {% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuoteSingular }}{% else %}{{ trans('myShowcaseNewEditFormEntryMultiQuotePlural', external_quotes) }}{% endif %} <a
-                                                    href="./entry_data.php?fid={{ config.showcase_id }}&amp;load_all_quotes=1"
-                                                    onclick="return Post.loadMultiQuotedAll();">{% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuotePlusSingular }}{% else %}{{ trans('myShowcaseNewEditFormEntryMultiQuotePlusPlural', external_quotes) }}{% endif %}</a>,
+                                            {% if external_quotes == 1 %}
+                                                {{ lang.myShowcaseNewEditFormEntryMultiQuoteSingular }}
+                                            {% else %}
+                                                {{ trans('myShowcaseNewEditFormEntryMultiQuotePlural', external_quotes) }}
+                                            {% endif %}
+                                            <a href="./entry.php?fid={{ config.showcase_id }}&amp;load_all_quotes=1"
+                                               onclick="return Post.loadMultiQuotedAll();">{% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuotePlusSingular }}{% else %}{{ trans('myShowcaseNewEditFormEntryMultiQuotePlusPlural', external_quotes) }}{% endif %}</a>,
                                             <a href="javascript:void(0)"
                                                onclick="Post.clearMultiQuoted(); return false;">{% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuoteDeselectSingular }}{% else %}{{ lang.myShowcaseNewEditFormEntryMultiQuoteDeselectPlural }}{% endif %}</a>
                                         </span>
-                                </div>
+                                    </div>
+                                {% endif %}
                             {% endif %}
 
                             <div class="compose__option-buttons">
-                                {% if show_post_options %}
+                                {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature) or config.parser_allow_smiles_in_entries %}
                                     <label for="show-post-options"
                                            class="button button--basic compose__option-button--options">
                                         {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
@@ -130,7 +135,7 @@
                                     </label>
                                 {% endif %}
 
-                                {% if show_attachments %}
+                                {% if config.attachments_allow_in_entries %}
                                     <label for="show-attachments"
                                            class="button button--basic compose__option-button--attachments">
                                         {{ include('partials/icon.twig', {icon: 'paperclip', class: 'button__icon'}, with_context = false) }}
@@ -138,56 +143,50 @@
                                     </label>
                                 {% endif %}
 
-                                {% if current_user.uid %}
-                                    <button type="submit" name="savedraft" value="draft" class="button button--basic">
+                                {% if mybb.user.uid %}
+                                    <button type="submit" name="is_draft" value="1" class="button button--basic">
                                         {{ include('partials/icon.twig', {icon: 'file', class: 'button__icon'}, with_context = false) }}
                                         <span class="button__text">{{ lang.save_draft }}</span>
                                     </button>
                                 {% endif %}
 
-                                <button type="submit" name="preview" value="preview"
-                                        class="button button--basic" form="contentForm">
-                                    {{ include('partials/icon.twig', {icon: 'edit', class: 'button__icon'}, with_context = false) }}
+                                <button type="submit" name="preview" value="preview" class="button button--basic"
+                                        form="contentForm">
+                                    {{ include('partials/icon.twig', {icon: 'comment-dots', class: 'button__icon'}, with_context = false) }}
                                     <span class="button__text">{{ lang.myShowcaseNewEditFormButtonPreviewEntry }}</span>
                                 </button>
                             </div>
                         </div>
-                        {{ smiles_inserter|raw }}
+
+                        {% if config.entries_enable_message %}
+                            {{ smiles_inserter|raw }}
+                        {% endif %}
                     </div>
                 </div>
             </section>
-            <section class="section section--form compose__primary-section">
 
-                {% for field_data in entry_data.getFields() %}
-                    {% if field_data.field_definition.display_in_create_update_page %}
-                        {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
-                    {% endif %}
-                {% endfor %}
-            </section>
-
-            {% if show_post_options %}
-                <section class="section section--form compose__hidden-section compose__hidden-section--options">
+            {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature) or config.parser_allow_smiles_in_entries %}
+                <section
+                        class="section section--form section--has-title compose__hidden-section compose__hidden-section--options">
                     <h2 class="title title--section">{{ lang.myshowcase_create_update_entry_post_options }}</h2>
                     <div class="section__container">
                         <div class="row row--form field">
-                            {% if show_signature %}
+                            {% if mybb.usergroup.canusesig and mybb.user.suspendsignature %}
                                 <p class="option-field option-field--compact">
                                     <label>
-                                        <input type="checkbox" class="checkbox" name="post_options[allow_signature]"
-                                               value="1"
-                                               tabindex="7" {% if post_options.allow_signature %} checked="checked"{% endif %}
-                                               form="contentForm"/>
+                                        <input type="checkbox" class="checkbox" name="allow_signature" value="1"
+                                               tabindex="7" form="contentForm"
+                                                {{ mybb.input.allow_signature is defined and mybb.input.allow_signature == 1  ? 'checked="checked"' }} />
                                         <strong>{{ lang.myshowcase_create_update_entry_post_options_signature }}</strong>{{ lang.myshowcase_create_update_entry_post_options_signature_description }}
                                     </label>
                                 </p>
                             {% endif %}
-                            {% if show_disable_smilies %}
+                            {% if config.parser_allow_smiles_in_entries %}
                                 <p class="option-field option-field--compact">
                                     <label>
-                                        <input type="checkbox" class="checkbox" name="post_options[disable_smilies]"
-                                               value="1"
-                                               tabindex="9" {% if post_options.disable_smilies %} checked="checked"{% endif %}
-                                               form="contentForm"/>
+                                        <input type="checkbox" class="checkbox" name="$disable_smilies" value="1"
+                                               tabindex="9" form="contentForm"
+                                                {{ mybb.input.disable_smilies is defined and mybb.input.disable_smilies == 1  ? 'checked="checked"' }} />
                                         <strong>{{ lang.myshowcase_create_update_entry_post_options_disable_smilies }}</strong>{{ lang.myshowcase_create_update_entry_post_options_disable_smilies_description }}
                                     </label>
                                 </p>
@@ -196,28 +195,29 @@
                     </div>
                 </section>
             {% endif %}
-            {% if false and show_moderator_options %}
-                <section class="section section--form compose__hidden-section compose__hidden-section--options">
-                    <h2 class="title title--section">{{ lang.mod_options }}</h2>
+            {% if show_moderator_options %}
+                <section
+                        class="section section--form section--has-title compose__hidden-section compose__hidden-section--options">
+                    <h2 class="title title--section">{{ lang.myshowcase_entry_create_update_options_moderator }}</h2>
                     <div class="section__container">
                         <div class="row row--form field">
-                            {% if show_close_options %}
+                            {% if permissions.entries_can_close %}
                                 <p class="option-field option-field--compact">
                                     <label>
-                                        <input type="checkbox" class="checkbox" name="moderator_options[is_closed]"
-                                               value="1"{% if moderator_options.is_closed %} checked="checked"{% endif %}
+                                        <input type="checkbox" class="checkbox" name="is_closed"
+                                               value="1"{{ not moderator_options.is_closed is empty ? 'checked="checked"' }}
                                                form="contentForm"/>
-                                        {{ lang.close_thread|raw }}
+                                        <strong>{{ lang.myshowcase_entry_create_update_options_moderator_close }}</strong> {{ lang.myshowcase_entry_create_update_options_moderator_close_description }}
                                     </label>
                                 </p>
                             {% endif %}
-                            {% if show_sticky_options %}
+                            {% if permissions.entries_can_sticky %}
                                 <p class="option-field option-field--compact">
                                     <label>
-                                        <input type="checkbox" class="checkbox" name="moderator_options[is_sticky]"
-                                               value="1"{% if moderator_options.is_sticky %} checked="checked"{% endif %}
+                                        <input type="checkbox" class="checkbox" name="is_sticky"
+                                               value="1"{{ not moderator_options.is_sticky is empty ? 'checked="checked"' }}
                                                form="contentForm"/>
-                                        {{ lang.stick_thread|raw }}
+                                        <strong>{{ lang.myshowcase_entry_create_update_options_moderator_close_stick }}</strong> {{ lang.myshowcase_entry_create_update_options_moderator_close_stick_description }}
                                     </label>
                                 </p>
                             {% endif %}
@@ -226,32 +226,33 @@
                 </section>
             {% endif %}
 
-            {% if current_user.uid %}
+            {% if mybb.user.uid %}
                 {% include '@ext.myshowcase/pageEntryCreateUpdateSubscription.twig' %}
             {% endif %}
 
-            {{ captcha|raw }}
+            {{ permissions.main_require_captcha ? captcha|raw }}
 
-            {% if show_attachments %}
+            {% if config.attachments_allow_in_entries %}
                 {% include '@ext.myshowcase/pageEntryCreateUpdateAttachments.twig' %}
             {% endif %}
-        </div>
-        <div class="form__submit">
-            <button type="submit" class="button button--big" name="submit" tabindex="3" accesskey="s"
-                    form="contentForm">
-                {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
-                <span class="button__text">
-                        {% if is_update_page %}
-                            {{ lang.myShowcaseNewEditFormButtonUpdateEntry }}
-                        {% else %}
-                            {{ lang.myShowcaseNewEditFormButtonCreateEntry }}
-                        {% endif %}
+
+            <div class="block__footer">
+                <button type="submit" class="button button--big" name="submit" tabindex="3" accesskey="s"
+                        form="contentForm">
+                    {{ include('partials/icon.twig', {icon: 'edit', class: 'button__icon'}, with_context = false) }}
+                    <span class="button__text">
+                            {{ is_update_page ? lang.myShowcaseNewEditFormButtonUpdateEntry : lang.myShowcaseNewEditFormButtonCreateEntry }}
                     </span>
-            </button>
+                </button>
+            </div>
         </div>
 
         <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}" form="contentForm"/>
-        <input type="hidden" name="post_hash" value="{{ entry_data.post_hash }}" form="contentForm"/>
+        <input type="hidden" name="post_hash" value="{{ mybb.input.post_hash is defined ? mybb.input.post_hash }}"
+               form="contentForm"/>
     </div>
     {{ attachmentsUpload|raw }}
+
+
+
 {% endblock body %}

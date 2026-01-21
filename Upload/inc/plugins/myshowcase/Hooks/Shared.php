@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Shared;
 
+use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Showcase;
 use UserDataHandler;
 
@@ -37,12 +38,14 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
         $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
+        $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+
         foreach ($userIDs as $userID) {
             foreach (
-                $showcase->entries_repository->queryEntries(["user_id={$userID}"], ['entry_id']
+                $entries_repository->queryEntries(["user_id={$userID}"], ['entry_id']
                 ) as $entryID => $entryData
             ) {
-                $showcase->entries_repository->deleteEntry($entryID);
+                $entries_repository->deleteEntry($entryID);
             }
         }
     }

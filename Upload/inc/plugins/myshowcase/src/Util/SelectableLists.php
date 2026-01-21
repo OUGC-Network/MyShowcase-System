@@ -8,14 +8,14 @@ use datacache;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyBB;
 use MyBB\Extensions\Theme\Repository;
 use MyLanguage;
-use MyShowcase\Entity\Permission;
+use MyShowcase\Entity\PermissionEntity;
 use MyShowcase\Enum\AttachmentsDisplayType;
 use MyShowcase\Enum\AttachmentsMainRenderType;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FilterFields;
-use MyShowcase\Enum\PrefixRequirements;
 use MyShowcase\Enum\SortFields;
 use MyShowcase\Enum\WatermarkLocations;
 use MyShowcase\Service\CacheManager;
@@ -29,7 +29,7 @@ readonly class SelectableLists
     public function __construct(
         private MyLanguage $language,
         private null|DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database = null,
-        private ?datacache $cache = null,
+        private ?MyBB $mybb = null,
     ) {
     }
 
@@ -37,16 +37,16 @@ readonly class SelectableLists
     {
         return array_map(function (array $fieldsetData): string {
             return $fieldsetData['set_name'];
-        }, (new CacheManager($this->database, $this->cache))->get(CacheDataTypes::Fieldsets));
+        }, (new CacheManager($this->database, $this->mybb->cache))->get(CacheDataTypes::Fieldsets));
     }
 
     public function timeIntervalList(string $language_prefix, string $section): array
     {
         return [
-            Permission::TIME_INTERVAL_TYPE_SECONDS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds',
-            Permission::TIME_INTERVAL_TYPE_MINUTES => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes',
-            Permission::TIME_INTERVAL_TYPE_HOURS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours',
-            Permission::TIME_INTERVAL_TYPE_DAYS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_days'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_days',
+            PermissionEntity::TIME_INTERVAL_TYPE_SECONDS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_seconds',
+            PermissionEntity::TIME_INTERVAL_TYPE_MINUTES => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_minutes',
+            PermissionEntity::TIME_INTERVAL_TYPE_HOURS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_hours',
+            PermissionEntity::TIME_INTERVAL_TYPE_DAYS => $this->language->{$language_prefix . ($section ? '_' . $section : '') . '_interval_type_days'} ?? $language_prefix . ($section ? '_' . $section : '') . '_interval_type_days',
         ];
     }
 
@@ -70,23 +70,23 @@ readonly class SelectableLists
         ];
     }
 
-    public function sortFieldsList(): array
+    public function sortFieldsEntryList(): array
     {
         return [
             SortFields::Dateline => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_dateline ?? '',
             SortFields::Username => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_username ?? '',
+            SortFields::UserId => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_user_identifier ?? '',
             SortFields::Views => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_views ?? '',
             SortFields::CommentsApproved => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_comments_approved ?? '',
             SortFields::LastComment => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_last_comment ?? '',
         ];
     }
 
-    public function prefixTypeList(): array
+    public function sortFieldsCommentList(): array
     {
         return [
-            PrefixRequirements::Disable => $this->language->myshowcase_admin_summary_create_update_entries_allow_prefixes_disable,
-            PrefixRequirements::Allow => $this->language->myshowcase_admin_summary_create_update_entries_allow_prefixes_allow,
-            PrefixRequirements::Require => $this->language->myshowcase_admin_summary_create_update_entries_allow_prefixes_require,
+            SortFields::Dateline => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_dateline ?? '',
+            //SortFields::CommentParentIdentifier => $this->language->myshowcase_admin_summary_create_update_main_filter_sort_field_user_identifier ?? '',
         ];
     }
 
@@ -118,5 +118,37 @@ readonly class SelectableLists
             AttachmentsDisplayType::Thumbnails => $this->language->myshowcase_admin_summary_create_update_attachments_display_type_thumbnails,
             AttachmentsDisplayType::FullImages => $this->language->myshowcase_admin_summary_create_update_attachments_display_type_full_images,
         ];
+    }
+
+    /**
+     * Generate a list of the posticons.
+     *
+     * @return array The list of posticons.
+     */
+    public function postIconsList(): array
+    {
+        global $theme;
+
+        $icons_cache = (array)$this->mybb->cache->read('posticons');
+
+        $icon_objects = [];
+
+        foreach ($icons_cache as $icon_data) {
+            $icon_objects[$icon_data['name']] = $icon_data;
+        }
+
+        krsort($icon_objects);
+
+        $icons_list = [];
+
+        foreach ($icon_objects as $icon_data) {
+            $icon_data['path'] = str_replace('{theme}', $theme['imgdir'], $icon_data['path']);
+
+            $icon_data['path'] = $this->mybb->get_asset_url($icon_data['path']);
+
+            $icons_list[] = $icon_data;
+        }
+
+        return $icons_list;
     }
 }

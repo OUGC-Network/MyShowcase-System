@@ -84,7 +84,7 @@
 <div class="post {{ unapproved_class }}" style="{{ style_visibility }}" id="entryBody{{ entry_data.entry_slug }}">
     <div class="post__meta">
         {# Author avatar #}
-        {% if config.entries_display_avatars and current_user.showavatars is defined and current_user.showavatars is not empty %}
+        {% if config.entries_display_avatars and mybb.user.showavatars is defined and mybb.user.showavatars is not empty and user_avatar %}
             <a href="{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
                 {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
@@ -100,11 +100,12 @@
             {# Online status #}
             {% if userOnlineStatus == 'online' %}
                 <span class="user-status user-status--online">
-    <a href="{{ mybb.settings.bburl }}/online.php" title="{{ lang.myshowcase_view_entry_status_online }}"
-       class="user-status__link">
-        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_online}, with_context = false) }}
-    </a>
-</span>
+                    <a href="{{ mybb.settings.bburl }}/online.php"
+                       title="{{ lang.myshowcase_view_entry_status_online }}"
+                       class="user-status__link">
+                        {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_online}, with_context = false) }}
+                    </a>
+                </span>
             {% elseif userOnlineStatus == 'away' %}
                 <span class="user-status user-status--away">
     <a href="{{ get_profile_link(user_data.uid) }}" title="{{ lang.myshowcase_view_entry_status_away }}"
@@ -120,19 +121,20 @@
         </h3>
 
         {# Post icon #}
-        {% if entry_data.icon_id and entry_data.icon_id in icons_cache %}
+        {% if config.entries_allow_post_icons and entry_data.icon_id and entry_data.icon_id in icons_cache %}
             <img src="{{ icon.path }}" alt="{{ icon.name }}" title="{{ icon.name }}"
                  style="vertical-align: middle;"/>&nbsp;
         {% endif %}
 
         {# Entry date & permalink #}
-        <a href="{{ url.entry }}#{{ entry_data.entry_slug }}" title="{{ entry_data.dateline|my_date|striptags }}"
+        <a href="{{ config.showcase_url }}{{ url.entry }}#{{ entry_data.entry_slug }}"
+           title="{{ entry_data.dateline.getTimestamp()|striptags }}"
            class="post__date">
-            {{ entry_data.dateline|my_date }}
+            {{ entry_data.dateline|date }}
         </a>
 
         {# Inline moderation checkbox #}
-        {% if permissions.entries_can_view %}
+        {% if not is_preview and permissions.entries_can_view %}
             <label for="inlinemod_{{ entry_data.entry_slug }}"></label>
             <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ entry_data.entry_slug }}"
                    id="inlinemod_{{ entry_data.entry_slug }}" value="1"
@@ -142,15 +144,15 @@
         {% if show_edited_message %}
             <a href="#" class="post__edit-log" title=""
                id="edited_by_{{ entry_data.entry_slug }}">{{ include('partials/icon.twig', {icon: 'pencil-alt', class: ''}, with_context = false) }}</a>
-            <span class="post__edit-reason">({{ trans('myshowcase_view_entry_edited_note', entry_data.edit_stamp|my_date) }} <a
-                        href="{{ get_profile_link(entry_data.extra_data.edit_user_data.uid) }}">{{ entry_data.extra_data.edit_user_data.username }}</a>.{% if entry_data.edit_note %}
-                <em>{{ lang.postbit_editreason }}: {{ entry_data.edit_note }}</em>{% endif %})</span>
+            <span class="post__edit-reason">({{ trans('myshowcase_view_entry_edited_note', entry_data.update_dateline|my_date) }} <a
+                        href="{{ get_profile_link(entry_data.extra_data.edit_user_data.uid) }}">{{ entry_data.extra_data.edit_user_data.username }}</a>.{% if entry_data.update_note %}
+                <em>{{ lang.postbit_editreason }}: {{ entry_data.update_note }}</em>{% endif %})</span>
         {% endif %}
 
         {# IP address #}
-        {% if entry_data.extra_data.show_ip %}
+        {% if not is_preview and entry_data.extra_data.show_ip %}
             {{ lang.postbit_ipaddress }} {{ entry_data.extra_data.ip_address }}
-        {% elseif entry_data.extra_data.hide_ip %}
+        {% elseif not is_preview and entry_data.extra_data.hide_ip %}
             <a href="/getip/{{ entry_data.entry_slug }}"
                onclick="MyBB.getIP('{{ entry_data.entry_slug }}'); return false;" class="post__ip-address">
                 {{ include('partials/icon.twig', {icon: 'globe', class: 'button__icon', title: lang.postbit_ipaddress}, with_context = false) }}
@@ -175,7 +177,11 @@
         {% endfor %}
 
         {# Entry message #}
-        {{ entry_data.message|raw }}
+        {% if config.entries_enable_message %}
+            <div class="post__message">
+                {{ entry_data.message|raw }}
+            </div>
+        {% endif %}
 
         {# Attachments #}
         {{ entry_attachments|raw }}
@@ -194,149 +200,161 @@
                     :</label>
                 <input type="text" class="textbox" style="margin: 6px 0;" name="editreason" size="40" maxlength="150"
                        id="quickedit_{{ entry_data.entry_slug }}_editreason_original"
-                       value="{{ entry_data.edit_note }}"/><br/></div>
+                       value="{{ entry_data.update_note is defined ? entry_data.update_note }}"/><br/>
+            </div>
         {% endif %}
     </div>
 
     {# Post controls #}
-    <div class="post__foot post__foot--controls">
-        <div class="post-controls post-controls--primary">
-            {# Restore button (for deleted posts) #}
-            {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
-                <a href="editpost.php?pid={{ entry_data.entry_slug }}"
-                   onclick="Thread.restorePost({{ entry_data.entry_slug }}); return false;"
-                   style="display: none;" id="quick_restore_{{ entry_data.entry_slug }}"
-                   title="{{ lang.myshowcase_view_entry_action_quick_restore_title }}"
-                   class="post-control post-control--restore">
-                    {{ include('partials/icon.twig', {icon: 'circle', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.myshowcase_view_entry_action_quick_restore }}</span>
-                </a>
-                <script type="text/javascript">
-                    // <!--
-                    $('#quick_restore_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status != 2 %}none{% endif %}');
-                    // -->
-                </script>
-            {% endif %}
+    {% if not is_preview %}
+        <div class="post__foot post__foot--controls">
+            <div class="post-controls post-controls--primary">
+                {# Restore button (for deleted posts) #}
+                {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
+                    <a href="editpost.php?pid={{ entry_data.entry_slug }}"
+                       onclick="Thread.restorePost({{ entry_data.entry_slug }}); return false;"
+                       style="display: none;" id="quick_restore_{{ entry_data.entry_slug }}"
+                       title="{{ lang.myshowcase_view_entry_action_quick_restore_title }}"
+                       class="post-control post-control--restore">
+                        {{ include('partials/icon.twig', {icon: 'circle', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                        <span class="post-control__text">{{ lang.myshowcase_view_entry_action_quick_restore }}</span>
+                    </a>
+                    <script type="text/javascript">
+                        // <!--
+                        $('#quick_restore_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status != 2 %}none{% endif %}');
+                        // -->
+                    </script>
+                {% endif %}
 
-            {# Reply to post button #}
-            {% if entry_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                <a href="newreply.php?tid={{ entry_data.entry_slug }}&amp;replyto={{ entry_data.entry_slug }}"
-                   title="{{ lang.myshowcase_view_entry_action_quote_title }}"
-                   class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
-                            class="post-control__text">{{ lang.myshowcase_view_entry_action_quote }}</span></a>
-            {% endif %}
+                {# Reply to post button #}
+                {% if entry_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
+                    <a href="newreply.php?tid={{ entry_data.entry_slug }}&amp;replyto={{ entry_data.entry_slug }}"
+                       title="{{ lang.myshowcase_view_entry_action_quote_title }}"
+                       class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
+                                class="post-control__text">{{ lang.myshowcase_view_entry_action_quote }}</span></a>
+                {% endif %}
 
-            {# Multiquote button #}
-            {% if entry_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                <a href="javascript:void(0)" onclick="Thread.multiQuote({{ entry_data.entry_slug }}); return false;"
-                   style="display: none;" id="multiquote_link_{{ entry_data.entry_slug }}"
-                   title="{{ lang.myshowcase_view_entry_action_multi_quote_title }}"
-                   class="postbit_multiquote post-control post-control--quote">
-                    {{ include('partials/icon.twig', {icon: 'quote-left', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span id="multiquote_{{ entry_data.entry_slug }}"
-                          class="post-control__text">{{ lang.myshowcase_view_entry_action_multi_quote }}</span>
-                </a>
-                <script type="text/javascript">
-                    //<!--
-                    $('#multiquote_link_{{ entry_data.entry_slug }}').css("display", "");
-                    // -->
-                </script>
-            {% endif %}
-
-            {# Reputation button #}
-            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and user_data.uid != current_user.uid and entry_data.status == 1 %}
-                <a href="javascript:void(0)"
-                   onclick="MyBB.reputation({{ user_data.uid }}, {{ entry_data.entry_slug }}); return false;"
-                   title="{{ lang.myshowcase_view_entry_action_rate_title }}" class="post-control post-control--rate">
-                    {{ include('partials/icon.twig', {icon: 'thumbs-up', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.myshowcase_view_entry_action_rate }}</span>
-                </a>
-            {% endif %}
-        </div>
-        <div class="post-controls post-controls--secondary post-options">
-            {% if entry_data.entry_slug and (permissions.entries_can_update or permissions.entries_can_view) %}
-                <a href="javascript:void(0)" class="post-control post-control--quick-edit quick_edit_button"
-                   id="quick_edit_post_{{ entry_data.entry_slug }}"
-                   title="{{ lang.myshowcase_view_entry_action_edit_title }}">
-                    {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.myshowcase_view_entry_action_edit }}</span>
-                </a>
-            {% endif %}
-            {% if
-                (entry_data.entry_slug and (
-                (permissions.entries_can_update or permissions.entries_can_view) or
-                (permissions.entries_can_delete or permissions.entries_can_view)
-                )) or
-                (current_user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported) or
-                (mybb.usergroup.canwarnusers and user_data.uid != current_user.uid) or
-                (show_purge_spammer_button) %}
-                <input type="checkbox" class="post-options__checkbox" id="post_options_{{ entry_data.entry_slug }}">
-                <label for="post_options_{{ entry_data.entry_slug }}"
-                       class="post-control post-control--options post-options__control"
-                       title="{{ lang.myshowcase_view_entry_options }}">
-                    {{ include('partials/icon.twig', {icon: 'ellipsis-v', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="visually-hidden">{{ lang.myshowcase_view_entry_options }}</span>
-                </label>
-                <span class="post-options__list" id="post_options2_{{ entry_data.entry_slug }}">
-                    {# Edit button #}
-                    {% if entry_data.entry_slug and (permissions.entries_can_update or permissions.entries_can_view) %}
-                        <a href="{{ config.showcase_url }}{{ url.update }}"
-                           class="post-control post-control--full-edit">
+                {# Multiquote button #}
+                {% if entry_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
+                    <a href="javascript:void(0)" onclick="Thread.multiQuote({{ entry_data.entry_slug }}); return false;"
+                       style="display: none;" id="multiquote_link_{{ entry_data.entry_slug }}"
+                       title="{{ lang.myshowcase_view_entry_action_multi_quote_title }}"
+                       class="postbit_multiquote post-control post-control--quote">
+                        {{ include('partials/icon.twig', {icon: 'quote-left', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                        <span id="multiquote_{{ entry_data.entry_slug }}"
+                              class="post-control__text">{{ lang.myshowcase_view_entry_action_multi_quote }}</span>
+                    </a>
+                    <script type="text/javascript">
+                        //<!--
+                        $('#multiquote_link_{{ entry_data.entry_slug }}').css("display", "");
+                        // -->
+                    </script>
+                {% endif %}
+            </div>
+            <div class="post-controls post-controls--secondary post-options">
+                {% if entry_data.entry_slug and permissions.entries_can_update %}
+                    <a href="javascript:void(0)"
+                       class="post-control post-control--quick-edit quick_edit_button hidden"
+                       id="quick_edit_post_{{ entry_data.entry_slug }}"
+                       title="{{ lang.myshowcase_view_entry_action_edit_title }}"
+                       data-entry-slug="{{ entry_data.entry_slug }}"
+                       data-view-url="{{ config.showcase_url }}{{ url.entry_api }}"
+                       data-update-url="{{ config.showcase_url }}{{ url.update_api }}">
+                        {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                        <span class="post-control__text">{{ lang.myshowcase_view_entry_action_edit }}</span>
+                    </a>
+                {% endif %}
+                {% if
+                    (entry_data.entry_slug and (
+                    permissions.entries_can_update or
+                    permissions.entries_can_delete
+                    )) or
+                    (mybb.user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported) or
+                    (mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid) or
+                    (show_purge_spammer_button) %}
+                    <input type="checkbox" class="post-options__checkbox" id="post_options_{{ entry_data.entry_slug }}">
+                    <label for="post_options_{{ entry_data.entry_slug }}"
+                           class="post-control post-control--options post-options__control"
+                           title="{{ lang.myshowcase_view_entry_options }}">
+                        {{ include('partials/icon.twig', {icon: 'ellipsis-v', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                        <span class="visually-hidden">{{ lang.myshowcase_view_entry_options }}</span>
+                    </label>
+                    <span class="post-options__list" id="post_options2_{{ entry_data.entry_slug }}">
+                        {# Edit button #}
+                        {% if entry_data.entry_slug and permissions.entries_can_update %}
+                            <a href="{{ config.showcase_url }}{{ url.update }}"
+                               class="post-control post-control--full-edit">
                             {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_full_edit }}</span>
                         </a>
-                    {% endif %}
+                        {% endif %}
 
-                    {# Delete button #}
-                    {% if entry_data.entry_slug and (permissions.entries_can_delete or permissions.entries_can_view) %}
-                        <a href="editpost.php?pid={{ entry_data.entry_slug }}"
-                           onclick="Thread.deletePost({{ entry_data.entry_slug }}); return false;"
-                           style="display: none;"
-                           id="quick_delete_{{ entry_data.entry_slug }}"
-                           title="{{ lang.myshowcase_view_entry_options_quick_delete_title }}"
-                           class="post-control post-control--delete">
+                        {# Delete button #}
+                        {% if entry_data.entry_slug and permissions.entries_can_soft_delete %}
+                            <a href="{{ config.showcase_url }}{{ url.soft_delete }}"
+                               onclick="Thread.deletePost({{ entry_data.entry_slug }}); return false;"
+                               style="display: none;"
+                               id="quick_delete_{{ entry_data.entry_slug }}"
+                               title="{{ lang.myshowcase_view_entry_options_quick_delete_title }}"
+                               class="post-control post-control--delete">
                             {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_quick_delete }}</span>
                         </a>
-                        <script type="text/javascript">
+                            <script type="text/javascript">
     // <!--
     $('#quick_delete_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status ==2 %}none{% endif %}');
     // -->
     </script>
-                    {% endif %}
+                        {% endif %}
 
-                    {# Report button #}
-                    {% if current_user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported %}
-                        <a href="javascript:void(0)"
-                           onclick="Report.reportPost({{ entry_data.entry_slug }}); return false;"
-                           title="{{ lang.myshowcase_view_entry_options_report_title }}"
-                           class="post-control post-control--report">
+                        {# Delete button #}
+                        {% if entry_data.entry_slug and (permissions.entries_can_delete or permissions.entries_can_view) %}
+                            <a href="{{ config.showcase_url }}{{ url.delete }}"
+                               title="{{ lang.myshowcase_view_entry_options_quick_delete_permanently_title }}"
+                               class="post-control post-control--delete">
+                            {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
+                            <span class="post-control__text">{{ lang.myshowcase_view_entry_options_quick_delete_permanently }}</span>
+                        </a>
+                            <script type="text/javascript">
+    // <!--
+    $('#quick_delete_{{ entry_data.entry_slug }}').css('display', '{% if entry_data.status ==2 %}none{% endif %}');
+    // -->
+    </script>
+                        {% endif %}
+
+                        {# Report button #}
+                        {% if mybb.user.uid not in entry_data.extra_data.reporters_list and user_permissions.canbereported %}
+                            <a href="javascript:void(0)"
+                               onclick="Report.reportPost({{ entry_data.entry_slug }}); return false;"
+                               title="{{ lang.myshowcase_view_entry_options_report_title }}"
+                               class="post-control post-control--report">
                             {{ include('partials/icon.twig', {icon: 'flag', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_report }}</span>
                         </a>
-                    {% endif %}
+                        {% endif %}
 
-                    {# Warn user button #}
-                    {% if mybb.usergroup.canwarnusers and user_data.uid != current_user.uid %}
-                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ entry_data.entry_slug }}"
-                           title="{{ lang.myshowcase_view_entry_options_warn_title }}"
-                           class="post-control post-control--warn">
+                        {# Warn user button #}
+                        {% if mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid %}
+                            <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ entry_data.entry_slug }}"
+                               title="{{ lang.myshowcase_view_entry_options_warn_title }}"
+                               class="post-control post-control--warn">
                             {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_warn }}</span>
                         </a>
-                    {% endif %}
+                        {% endif %}
 
-                    {# Purge spammer button #}
-                    {% if show_purge_spammer_button %}
-                        <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ user_data.uid }}"
-                           title="{{ lang.myshowcase_view_entry_options_purge_spammer_title }}"
-                           class="post-control post-control--purge-spammer">
+                        {# Purge spammer button #}
+                        {% if show_purge_spammer_button %}
+                            <a href="{{ mybb.settings.bburl }}/moderation.php?action=purgespammer&amp;uid={{ user_data.uid }}"
+                               title="{{ lang.myshowcase_view_entry_options_purge_spammer_title }}"
+                               class="post-control post-control--purge-spammer">
                             {{ include('partials/icon.twig', {icon: 'gavel', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_purge_spammer }}</span>
                         </a>
-                    {% endif %}
+                        {% endif %}
                 </span>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
-    </div>
+    {% endif %}
 </div>

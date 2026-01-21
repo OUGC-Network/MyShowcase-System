@@ -14,6 +14,7 @@
 declare(strict_types=1);
 
 use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
 
@@ -35,12 +36,14 @@ function task_myshowcase(array $taskData): array
 
             $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
 
+            $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+
             foreach (
-                $showcase->entries_repository->queryEntries(
+                $entries_repository->queryEntries(
                     ["dateline<='{$pruneTime}'", ['entry_id']]
                 ) as $entryID => $entryData
             ) {
-                $showcase->entries_repository->deleteEntry($entryID);
+                $entries_repository->deleteEntry($entryID);
             }
         }
     }

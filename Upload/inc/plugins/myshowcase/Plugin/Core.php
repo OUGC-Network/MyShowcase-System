@@ -55,7 +55,7 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1
         ],
-        'scope_type' => [
+        'content_type' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1
@@ -76,9 +76,7 @@ const TABLES_DATA = [
             'default' => 1
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+            'type' => 'DATETIME',
         ],
     ],
     'myshowcase_attachments' => [
@@ -130,19 +128,15 @@ const TABLES_DATA = [
             'default' => ''
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+            'type' => 'DATETIME',
         ],
         'status' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1
         ],
-        'edit_stamp' => [ // todo, should be attachment_history_id
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [ // todo, should be attachment_history_id
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [ // todo, should be entry_history_id
             'type' => 'INT',
@@ -194,6 +188,7 @@ const TABLES_DATA = [
             'size' => 16,
             'default' => '',
         ],
+        //'unique_keys' => ['post_hash']
     ],
     'myshowcase_attachments_history' => [
         'attachment_history_id' => [
@@ -207,17 +202,15 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1
         ],
-        'edit_stamp' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
         ],
-        'edit_note' => [
+        'update_note' => [
             'type' => 'VARCHAR',
             'size' => 150,
             'default' => ''
@@ -290,9 +283,7 @@ const TABLES_DATA = [
             'null' => true
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+            'type' => 'DATETIME',
         ],
         'unique_keys' => ['session_attachment_id' => ['session_id', 'attachment_id']],
     ],
@@ -335,9 +326,7 @@ const TABLES_DATA = [
             'default' => ''
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+            'type' => 'DATETIME',
         ]
     ],
     'myshowcase_comments' => [
@@ -373,9 +362,9 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'username' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
         ],
         'parent_comment_id' => [
             'type' => 'INT',
@@ -393,9 +382,7 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'DATETIME',
         ],
         'status' => [
             'type' => 'TINYINT',
@@ -417,19 +404,17 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
         ],
-        'edit_stamp' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [ // todo, should be entry_history_id
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'edit_note' => [
+        'update_note' => [
             'type' => 'VARCHAR',
-            'size' => 120,
+            'size' => 150,
             'default' => '',
         ],
         'allow_signature' => [
@@ -448,6 +433,7 @@ const TABLES_DATA = [
             'size' => 16,
             'default' => '',
         ],
+        //'unique_keys' => ['post_hash']
     ],
     'myshowcase_comments_history' => [
         'comment_history_id' => [
@@ -461,17 +447,15 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1
         ],
-        'edit_stamp' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
         ],
-        'edit_note' => [
+        'update_note' => [
             'type' => 'VARCHAR',
             'size' => 150,
             'default' => ''
@@ -590,8 +574,9 @@ const TABLES_DATA = [
             'input_type' => FormTypes::Text,
         ],
         'rules_content' => [
-            'type' => 'TEXT',
-            'null' => true,
+            'type' => 'VARCHAR',
+            'size' => 5535,
+            'default' => '',
             'category' => 'general',
             'input_type' => FormTypes::TextArea,
             'max' => 65535,
@@ -690,7 +675,7 @@ const TABLES_DATA = [
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_affects_message_length_in_entries' => [ // todo, strip all tags using preview function
+        'parser_affects_message_length_in_entries' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -732,7 +717,7 @@ const TABLES_DATA = [
             'category' => 'parser',
             'input_type' => FormTypes::YesNo,
         ],
-        'parser_affects_message_length_in_comments' => [ // todo, strip all tags using preview function
+        'parser_affects_message_length_in_comments' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
@@ -745,13 +730,6 @@ const TABLES_DATA = [
             'default' => 1,
             'category' => 'entries',
             'input_type' => FormTypes::YesNo,
-        ],
-        'entries_allow_prefixes' => [ // 1= enable, 2 = require
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1,
-            'category' => 'entries',
-            'input_type' => FormTypes::SelectPrefixType,
         ],
         'entries_enable_subject' => [
             'type' => 'INT',
@@ -852,13 +830,6 @@ const TABLES_DATA = [
             'category' => 'entries',
             'input_type' => FormTypes::YesNo,
         ],
-        'entries_display_quick_reply' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 1,
-            'category' => 'entries',
-            'input_type' => FormTypes::YesNo,
-        ],
         'entries_display_empty_fields' => [
             'type' => 'TINYINT',
             'unsigned' => true,
@@ -873,14 +844,14 @@ const TABLES_DATA = [
             'category' => 'entries',
             'input_type' => FormTypes::YesNo,
         ],
-        'entries_allow_reputations' => [
+        'entries_display_reputations' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'entries',
             'input_type' => FormTypes::YesNo,
         ],
-        'entries_allow_edit_reasons' => [
+        'entries_enable_update_notes' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
@@ -888,6 +859,13 @@ const TABLES_DATA = [
             'input_type' => FormTypes::YesNo
         ],
         'comments_enable' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'comments',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'comments_enable_quick_reply' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
@@ -968,14 +946,14 @@ const TABLES_DATA = [
             'category' => 'comments',
             'input_type' => FormTypes::YesNo,
         ],
-        'comments_allow_reputations' => [
+        'comments_display_reputations' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
             'category' => 'comments',
             'input_type' => FormTypes::YesNo,
         ],
-        'comments_enable_edit_reasons' => [
+        'comments_enable_update_notes' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
@@ -1101,14 +1079,14 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
-            'category' => 'entries',
+            'category' => 'subscriptions',
             'input_type' => FormTypes::YesNo,
         ],
         'subscriptions_message_length' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 255,
-            'category' => 'entries',
+            'category' => 'subscriptions',
             'input_type' => FormTypes::Number,
             'class' => 'field150',
             'max' => 255,
@@ -1132,9 +1110,7 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'DATETIME',
         ],
         'is_valid' => [
             'type' => 'INT',
@@ -1191,6 +1167,11 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 1,
+        ],
+        UserPermissions::MainRequireCaptcha => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
         ],
         UserPermissions::EntriesCanView => [
             'type' => 'TINYINT',
@@ -1802,82 +1783,84 @@ const TABLES_DATA = [
             'type' => 'MEDIUMINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'minimum_size' => [
             'type' => 'MEDIUMINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'maximum_size' => [
             'type' => 'MEDIUMINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'step_size' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'input_size' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'allowed_groups_fill' => [
-            'type' => 'TEXT',
-            'null' => true,
-            'formType' => FormTypes::SelectMultipleGroups,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'input_type' => FormTypes::SelectMultipleGroups,
             'formMultiple' => true,
         ],
         'allowed_groups_view' => [
-            'type' => 'TEXT',
-            'null' => true,
-            'formType' => FormTypes::SelectMultipleGroups,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'input_type' => FormTypes::SelectMultipleGroups,
             'formMultiple' => true,
         ],
         'default_value' => [
             'type' => 'VARCHAR',
             'size' => 250,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'default_type' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\fieldDefaultTypes',
         ],
         'display_order' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         'render_order' => [
             'unsigned' => true,
             'type' => 'TINYINT',
             'default' => 0,
-            'formType' => FormTypes::Number,
+            'input_type' => FormTypes::Number,
         ],
         // todo, remove this legacy updating the database and updating the format field to TINYINT
         'format' => [
             'type' => 'VARCHAR',
             'size' => 10,
             'default' => 0,
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\formatTypes',
         ],
         'filter_on_save' => [ //uuid, etc
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Select,
+            'input_type' => FormTypes::Select,
             'formFunction' => '\MyShowcase\Plugin\Functions\filterTypes',
         ],
         'is_enabled' => [
@@ -1890,79 +1873,91 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
-        'parse' => [
+        'parser_enable' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_html_in_entries' => [
+        'parser_allow_html' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
-        'parser_allow_mycode_in_entries' => [
+        'parser_allow_mycode' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_smiles' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_image_code' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_allow_video_code' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
+        ],
+        'parser_affects_message_length' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
-        ],
-        'parser_allow_smiles_in_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formType' => FormTypes::YesNo,
-        ],
-        'parser_allow_image_code_in_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formType' => FormTypes::YesNo,
-        ],
-        'parser_allow_video_code_in_entries' => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'category' => 'parser',
+            'input_type' => FormTypes::YesNo,
         ],
         'enable_search' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'enable_slug' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'enable_subject' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'enable_description' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'enable_editor' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'read_only' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::YesNo,
+            'input_type' => FormTypes::YesNo,
         ],
         'unique_keys' => ['set_field_name' => ['set_id', 'field_key']]
         //'unique_keys' => ['setid_fid' => ['set_id', 'field_id']]
@@ -1993,39 +1988,41 @@ const TABLES_DATA = [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => 0,
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],// todo, drop this redundant field
         'value' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'display_style' => [
             'type' => 'VARCHAR',
             'size' => 200,
             'default' => '',
-            'formType' => FormTypes::Text,
+            'input_type' => FormTypes::Text,
         ],
         'display_order' => [
             'type' => 'SMALLINT',
             'unsigned' => true,
             'default' => 0,
-            'formType' => FormTypes::Number
+            'input_type' => FormTypes::Number
         ],
         'allowed_groups_fill' => [
-            'type' => 'TEXT',
-            'null' => true,
-            'formType' => FormTypes::SelectMultipleGroups,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'input_type' => FormTypes::SelectMultipleGroups,
             'formMultiple' => true,
         ],
         'allowed_groups_view' => [
-            'type' => 'TEXT',
-            'null' => true,
-            'formType' => FormTypes::SelectMultipleGroups,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'input_type' => FormTypes::SelectMultipleGroups,
             'formMultiple' => true,
         ],
-        'unique_keys' => ['set_field_value_id' => ['set_id', 'field_id', 'value_id']]
+        //'unique_keys' => ['set_field_value_id' => ['set_id', 'field_id', 'value_id']]
     ],
     'myshowcase_logs' => [
         'log_id' => [
@@ -2053,12 +2050,12 @@ const TABLES_DATA = [
             'unsigned' => true
         ],
         'log_time' => [
-            'type' => 'INT',
-            'unsigned' => true
+            'type' => 'DATETIME',
         ],
         'log_data' => [ // comments old message, etc
-            'type' => 'TEXT',
-            'null' => true
+            'type' => 'VARCHAR',
+            'size' => 5535,
+            'default' => '',
         ],
     ],
     'myshowcase_reads' => [
@@ -2077,8 +2074,7 @@ const TABLES_DATA = [
             'unsigned' => true
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true
+            'type' => 'DATETIME',
         ],
     ],
 ];
@@ -2088,137 +2084,12 @@ const TABLES_DATA = [
 
 const FIELDS_DATA = [
     'usergroups' => [
-        'myshowcase_' . UserPermissions::MainCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::CanSearchEntries => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesCanPost => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesCanUpdate => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesCanDelete => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::CommentsCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::CommentsCanPost => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::CommentsCanUpdate => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::CommentsCanDelete => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsCanUpload => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsCanUpdate => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsCanDelete => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsCanDownload => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsLimitUploadQuotaAmount => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsWaterMarkImages => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesCanViewDeletionNotices => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        'myshowcase_' . UserPermissions::EntriesModerateNew => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
-        'myshowcase_' . UserPermissions::EntriesModerateUpdates => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
-        'myshowcase_' . UserPermissions::CommentsModerateNew => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
-        'myshowcase_' . UserPermissions::CommentsModerateUpdates => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsModerateNew => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
-        'myshowcase_' . UserPermissions::AttachmentsModerateUpdates => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-            'lowest' => true,
-        ],
     ],
     'attachtypes' => [
         'myshowcase_ids' => [
-            'type' => 'TEXT',
-            'null' => true
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
         ],
         'myshowcase_image_minimum_dimensions' => [
             'type' => 'VARCHAR',
@@ -2230,7 +2101,19 @@ const FIELDS_DATA = [
             'size' => 20,
             'null' => true
         ],
-    ]
+    ],
+    'reputation' => [
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+        'entry_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 1
+        ],
+    ],
 ];
 
 // todo, general settings
@@ -2284,9 +2167,9 @@ const DATA_TABLE_STRUCTURE = [
             'default' => 0,
         ],
         'username' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
         ],
         'subject' => [
             'type' => 'VARCHAR',
@@ -2299,20 +2182,13 @@ const DATA_TABLE_STRUCTURE = [
             'null' => true,
             'enable_search' => true,
         ],
-        'prefix_id' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
         'icon_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
         'dateline' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0,
+            'type' => 'DATETIME',
         ],
         'status' => [
             'type' => 'TINYINT',
@@ -2364,17 +2240,15 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        'edit_stamp' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [ // todo, should be entry_history_id
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
         ],
-        'edit_note' => [
+        'update_note' => [
             'type' => 'VARCHAR',
             'size' => 120,
             'default' => '',
@@ -2402,7 +2276,7 @@ const DATA_TABLE_STRUCTURE = [
         'disable_smilies' => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         'ipaddress' => [
             'type' => 'VARBINARY',
@@ -2410,6 +2284,7 @@ const DATA_TABLE_STRUCTURE = [
             'default' => '',
         ],
         //'unique_keys' => ['entry_slug_custom' => 'entry_slug_custom']
+        //'unique_keys' => ['post_hash']
     ],
     'myshowcase_data_history' => [
         'entry_history_id' => [
@@ -2423,10 +2298,8 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0
         ],
-        'edit_stamp' => [
-            'type' => 'INT',
-            'unsigned' => true,
-            'default' => 0
+        'update_dateline' => [
+            'type' => 'DATETIME',
         ],
         'edit_user_id' => [
             'type' => 'INT',

@@ -2,15 +2,16 @@
     <h3 class="field__name visually-hidden">{{ lang.post_icon }}</h3>
     <div class="segmented-control segmented-control--buttons segmented-control--alt">
         <span class="segmented-control__option">
-            <input type="radio" class="radio segmented-control__input" id="noposticon" name="icon"
-                   value="-1"{% if entry_data.icon_id is empty %} checked="checked"{% endif %} />
-            <label for="noposticon" class="segmented-control__button">{{ lang.no_post_icon }}</label>
+            <input type="radio" class="radio segmented-control__input" id="no_post_icon" name="icon_id"
+                   value="0"{{ not mybb.input.icon_id is defined ? 'checked="checked"' }} form="contentForm"/>
+            <label for="no_post_icon" class="segmented-control__button">{{ lang.no_post_icon }}</label>
         </span>
         {% for icon_data in post_icons %}
             <span class="segmented-control__option">
-                <input type="radio" class="radio segmented-control__input" name="icon" id="posticon{{ icon_data.iid }}"
-                       value="{{ icon_data.iid }}"{% if icon_data.checked %} checked="checked"{% endif %} />
-                <label for="posticon{{ icon_data.iid }}" class="segmented-control__button">
+                <input type="radio" class="radio segmented-control__input" name="icon_id"
+                       id="post_icon_{{ icon_data.iid }}"
+                       value="{{ icon_data.iid }}"{{ mybb.input.icon_id is defined ? 'checked="checked"' }} form="contentForm"/>
+                <label for="post_icon_{{ icon_data.iid }}" class="segmented-control__button">
                     <img src="{{ icon_data.path }}" alt="{{ icon_data.name }}" title="{{ icon_data.name }}"/>
                 </label>
             </span>

@@ -8,8 +8,9 @@ use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
 use MyShowcase\Event\Event\AccessLogDeletedEvent;
-use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Event\Event\AccessLogInsertedUpdatedEvent;
+use MyShowcase\Event\EventDispatcher;
+use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -21,9 +22,14 @@ class AccessLogsRepository
 {
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly array $config,
         private readonly EventDispatcher $event_dispatcher,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -34,7 +40,7 @@ class AccessLogsRepository
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "showcase_id='{$this->showcase->showcase_id}'";
 
         if (empty($query_fields)) {
             $query_fields = 'access_log_id';
@@ -89,7 +95,7 @@ class AccessLogsRepository
     public function insertAccessLog(array $access_log_data, bool $is_update = false, ?int $access_log_id = null): int
     {
         $insert_data = [
-            'showcase_id' => $this->config['showcase_id'],
+            'showcase_id' => $this->showcase->showcase_id,
         ];
 
         foreach (TABLES_DATA['myshowcase_access_logs'] as $field_name => $field_definition) {
@@ -102,7 +108,11 @@ class AccessLogsRepository
         }
 
         if ($is_update) {
-            $this->database->update_query('myshowcase_access_logs', $insert_data, "access_log_id='{$access_log_id}'");
+            $this->database->update_query(
+                'myshowcase_access_logs',
+                $insert_data,
+                "access_log_id='{$access_log_id}'"
+            );
         } else {
             $access_log_id = (int)$this->database->insert_query('myshowcase_access_logs', $insert_data);
         }
@@ -141,7 +151,7 @@ class AccessLogsRepository
 
         $this->database->delete_query(
             'myshowcase_access_logs',
-            "showcase_id='{$this->config['showcase_id']}' AND access_log_id='{$access_log_id}'"
+            "showcase_id='{$this->showcase->showcase_id}' AND access_log_id='{$access_log_id}'"
         );
     }
 }

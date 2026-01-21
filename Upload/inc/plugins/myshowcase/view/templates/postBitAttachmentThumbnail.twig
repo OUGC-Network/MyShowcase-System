@@ -1,8 +1,27 @@
-<a href="{{ config.showcase_url_assets }}{{ thumbnail.extra_data.url }}" target="_blank">
+{% if config.attachments_display_type == 2 and attachment.is_image %}
     <img
-            src="{{ config.showcase_url_assets }}{{ thumbnail.extra_data.url_thumbnail }}"
+            src="{{ url.showcase_assets }}{{ attachment.extra_data.url }}"
             class="attachment"
             alt=""
-            title="{{ lang.postbit_attachment_filename }} {{ thumbnail.attachment_name }} {{ lang.postbit_attachment_size }} {{ thumbnail.extra_data.file_size }} {{ thumbnail.dateline|my_date|striptags }}"
-    />
-</a>&nbsp;&nbsp;&nbsp;
+            title="{{ lang.postbit_attachment_filename }} {{ attachment.attachment_name }} {{ lang.postbit_attachment_size }} {{ attachment.extra_data.file_size }} {{ attachment.dateline.getTimestamp()|striptags }}"
+    />&nbsp;&nbsp;&nbsp;
+{% elseif config.attachments_display_type == 1 and attachment.has_thumbnail %}
+    <a href="{{ url.showcase_assets }}{{ attachment.extra_data.url }}" target="_blank">
+        <img
+                src="{{ url.showcase_assets }}{{ attachment.extra_data.url_thumbnail }}"
+                class="attachment"
+                alt=""
+                title="{{ lang.postbit_attachment_filename }} {{ attachment.attachment_name }} {{ lang.postbit_attachment_size }} {{ attachment.extra_data.file_size }} {{ attachment.dateline.getTimestamp()|striptags }}"
+        />
+    </a>&nbsp;&nbsp;&nbsp;
+{% else %}
+    <div>
+        {{ attachment.extra_data.icon|raw }}&nbsp;&nbsp;
+        <a href="{{ url.showcase_assets }}{{ attachment.extra_data.url }}" target="_blank"
+           title="{{ attachment.dateline.getTimestamp()|striptags }}">
+            {{ attachment.attachment_name }}
+        </a>
+        ({{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment.file_size }}
+        / {{ lang.myshowcase_main_table_row_attachment_downloads }} {{ attachment.downloads }})
+    </div>
+{% endif %}

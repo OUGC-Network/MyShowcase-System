@@ -55,7 +55,7 @@ $l = array_merge($l, [
     'myshowcase_password_note' => "You must enter this showcase's password to gain access",
     'myshowcase_password_verify_password' => 'Verify Showcase Password',
 
-    'myshowcase_redirect_password_cleared' => 'The stored password for this showcase has been cleared.',
+    'myshowcase_redirect_password_cleared' => 'The stored password for this showcase has been cleared.<br />You will now be returned to your previous location.',
 
     'myshowcase_main_moderated_by' => 'Moderated by',
 
@@ -227,6 +227,9 @@ $l = array_merge($l, [
     'myshowcase_create_update_attachment_error_missing_file' => 'You did not select a file to upload.',
     'myshowcase_create_update_attachment_error_size_too_low' => 'The file {1} is too small. The minimum file size allowed is {2}.',
     'myshowcase_create_update_attachment_error_size_too_large' => 'The file {1} is too large. The maximum file size allowed is {2}.',
+
+    'myshowcase_redirect_subscribed_to_entry' => 'You have successfully subscribed to the entry.<br />You will now be returned to your previous location.',
+    'myshowcase_redirect_unsubscribed_to_entry' => 'You have successfully unsubscribed from the entry.<br />You will now be returned to your previous location.',
     ///
     ///
     ///
@@ -263,6 +266,8 @@ $l = array_merge($l, [
     'myshowcase_view_entry_options_full_edit' => 'Full Edit',
     'myshowcase_view_entry_options_quick_delete' => 'Delete',
     'myshowcase_view_entry_options_quick_delete_title' => 'Delete this entry',
+    'myshowcase_view_entry_options_quick_delete_permanently' => 'Delete Permanently',
+    'myshowcase_view_entry_options_quick_delete_permanently_title' => 'Delete this entry permanently',
     'myshowcase_view_entry_options_report' => 'Report',
     'myshowcase_view_entry_options_report_title' => 'Report this entry to a moderator',
     'myshowcase_view_entry_options_warn' => 'Warn',
@@ -310,6 +315,11 @@ $l = array_merge($l, [
     ///
     ///
     ///
+    'myshowcase_entry_create_update_options_moderator' => 'Moderator Options',
+    'myshowcase_entry_create_update_options_moderator_close' => 'Close Thread:',
+    'myshowcase_entry_create_update_options_moderator_close_description' => 'prevent further posting in this thread.',
+    'myshowcase_entry_create_update_options_moderator_close_stick' => 'Stick Thread:',
+    'myshowcase_entry_create_update_options_moderator_close_stick_description' => 'stick this thread to the top of the forum.',
 
     'myShowcaseNewEditFormTitle' => 'New Entry',
     'myShowcaseNewEditFormTitleDescription' => 'Create a new entry in the showcase.',
@@ -462,9 +472,30 @@ $l = array_merge($l, [
     'myShowcaseReportErrorInvalidEntry' => 'This entry does not exist.',
     'myShowcaseReportErrorInvalidComment' => 'This comment does not exist.',
 
-    'myshowcase_validation_errors_entry_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long.',
-    'myshowcase_validation_errors_entry_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long.',
+    'myshowcase_validation_guest' => 'Guest',
+
+    'myshowcase_validation_errors_entry_invalid_user' => 'The user does not exist.',
+    'myshowcase_validation_errors_entry_no_permission' => 'The user does not have permission to post entries.',
+    'myshowcase_validation_errors_entry_no_permission_current' => 'You do not have permission to post entries.',
+    'myshowcase_validation_errors_entry_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long. It currently is {3} characters long.',
+    'myshowcase_validation_errors_entry_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long. It currently is {3} characters long.',
+    'myshowcase_validation_errors_entry_invalid_icon' => 'The selected entry icon is invalid.',
+    'myshowcase_validation_errors_entry_invalid_dateline' => 'The selected entry creation date is invalid.',
+    'myshowcase_validation_errors_entry_invalid_status' => 'The selected entry status is invalid.',
+    'myshowcase_validation_errors_entry_invalid_open_status' => 'The selected entry open status is invalid.',
+    'myshowcase_validation_errors_entry_invalid_priority_status' => 'The selected entry priority status is invalid.',
+    'myshowcase_validation_errors_entry_invalid_views_count' => 'The entry views count is invalid.',
+    'myshowcase_validation_errors_entry_invalid_comments_count' => 'The entry comments count is invalid.',
+    'myshowcase_validation_errors_entry_invalid_attachments_count' => 'The entry attachments count is invalid.',
+    'myshowcase_validation_errors_entry_invalid_update_dateline' => 'The entry update date is invalid.',
+    'myshowcase_validation_errors_entry_invalid_update_user' => 'The update user does not exist.',
+    'myshowcase_validation_errors_entry_invalid_update_note' => 'Please make sure the update note is {1} characters long at most.',
+    'myshowcase_validation_errors_entry_invalid_last_comment_user' => 'The last comment user does not exist.',
+    'myshowcase_validation_errors_entry_invalid_signature_status' => 'The selected entry signature status is invalid.',
+    'myshowcase_validation_errors_entry_invalid_smilies_status' => 'The selected entry smilies status is invalid.',
+    'myshowcase_validation_errors_entry_invalid_ipaddress' => 'The entry ipaddress is invalid.',
 
     'myshowcase_validation_errors_comment_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long.',
     'myshowcase_validation_errors_comment_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long.',
+    'myshowcase_validation_errors_comment_invalid_icon' => 'The selected comment icon is invalid.',
 ]);

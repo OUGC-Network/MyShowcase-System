@@ -7,6 +7,7 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -27,8 +28,13 @@ class AttachmentsRepository
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        private readonly array $config,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     /**
@@ -39,7 +45,7 @@ class AttachmentsRepository
         array|string $query_fields = [],
         array $query_options = []
     ): iterable {
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "showcase_id='{$this->showcase->showcase_id}'";
 
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
@@ -103,7 +109,7 @@ class AttachmentsRepository
         $this->attachment_id = $attachment_id;
 
         $this->insert_data = [
-            'showcase_id' => $this->config['showcase_id'],
+            'showcase_id' => $this->showcase->showcase_id,
         ];
 
         $this->is_update = $is_update;
@@ -155,7 +161,7 @@ class AttachmentsRepository
 
         $this->database->delete_query(
             'myshowcase_attachments',
-            "showcase_id='{$this->config['showcase_id']}' AND attachment_id='{$this->attachment_id}'"
+            "showcase_id='{$this->showcase->showcase_id}' AND attachment_id='{$this->attachment_id}'"
         );
 
         if (!empty($attachment_data)) {

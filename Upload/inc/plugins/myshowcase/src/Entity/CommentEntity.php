@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace MyShowcase\Entity;
 
+use DateTime;
 use MyShowcase\Collection\Collection;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
-class Comment
+class CommentEntity
 {
     private Collection $attachments;
 
@@ -25,14 +26,14 @@ class Comment
         public readonly ?int $parent_comment_id = null,
         public ?string $message = null,
         public readonly ?int $icon_id = null,
-        public readonly ?int $dateline = null,
+        public readonly ?DateTime $dateline = null,
         public readonly ?int $status = null,
         public readonly ?int $attachments_pending = null,
         public readonly ?int $attachments_approved = null,
         public readonly ?int $attachments_deleted = null,
-        public readonly ?int $edit_stamp = null,
+        public readonly ?DateTime $update_dateline = null,
         public readonly ?int $edit_user_id = null,
-        public ?string $edit_note = null,
+        public ?string $update_note = null,
         public readonly ?int $allow_signature = null,
         public readonly ?int $disable_smilies = null,
         public readonly ?string $ipaddress = null,
@@ -84,9 +85,9 @@ class Comment
 
         if (!$this->attachments->contains($attachment_data)) {
             if (!empty($attachment_data['attachment_id'])) {
-                $this->attachments[$attachment_data['attachment_id']] = new Attachment(...$attachment_data);
+                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...$attachment_data);
             } else {
-                $this->attachments[] = new Attachment(...$attachment_data);
+                $this->attachments[] = new AttachmentEntity(...$attachment_data);
             }
         }
     }

@@ -16,6 +16,13 @@ class PermissionsFactory
             'input_type' => FormTypes::PermissionBoolean,
             'dragging' => true,
         ],
+        UserPermissions::MainRequireCaptcha => [
+            'is_group_permission' => true,
+            'is_user_permission' => true,
+            'category' => 'main',
+            'input_type' => FormTypes::PermissionBoolean,
+            'dragging' => true,
+        ],
         UserPermissions::ParserAllowHtmlInEntries => [
             'is_group_permission' => true,
             'is_user_permission' => true,

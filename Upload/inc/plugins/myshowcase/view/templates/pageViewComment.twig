@@ -55,7 +55,7 @@
 <div class="post {{ unapproved_class }}" style="{{ style_visibility }}" id="commentBody{{ comment_data.comment_slug }}">
     <div class="post__meta">
         {# Author avatar #}
-        {% if current_user.showavatars is defined and current_user.showavatars is not empty %}
+        {% if config.entries_display_avatars and mybb.user.showavatars is defined and mybb.user.showavatars is not empty and user_avatar %}
             <a href="{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
                 {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
@@ -92,9 +92,9 @@
 
         {# Comment date & permalink #}
         <a href="{{ url.showcase }}{{ url.comment }}"
-           title="{{ comment_data.dateline|my_date|striptags }}"
+           title="{{ entry_data.dateline.getTimestamp()|striptags }}"
            class="post__date">
-            {{ comment_data.dateline|my_date }}
+            {{ entry_data.dateline.getTimestamp() }}
         </a>
 
         {# Inline moderation checkbox #}
@@ -181,16 +181,6 @@
                     // -->
                 </script>
             {% endif %}
-
-            {# Reputation button #}
-            {% if mybb.settings.enablereputation and mybb.settings.postrep and mybb.usergroup.cangivereputations and user_permissions.usereputationsystem and (mybb.settings.posrep or mybb.settings.neurep or mybb.settings.negrep) and user_data.uid != current_user.uid and comment_data.status == 1 %}
-                <a href="javascript:void(0)"
-                   onclick="MyBB.reputation({{ user_data.uid }}, {{ comment_data.comment_slug }}); return false;"
-                   title="{{ lang.myshowcase_view_comment_action_rate_title }}" class="post-control post-control--rate">
-                    {{ include('partials/icon.twig', {icon: 'thumbs-up', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span class="post-control__text">{{ lang.myshowcase_view_comment_action_rate }}</span>
-                </a>
-            {% endif %}
         </div>
         <div class="post-controls post-controls--secondary post-options">
             {% if (permissions.entries_can_update or permissions.entries_can_view) or (permissions.entries_can_delete or permissions.entries_can_view) %}
@@ -230,7 +220,7 @@
                     {% endif %}
 
                     {# Report button #}
-                    {% if current_user.uid not in comment_data.extra_data.reporters_list and user_permissions.canbereported %}
+                    {% if mybb.user.uid not in comment_data.extra_data.reporters_list and user_permissions.canbereported %}
                         <a href="javascript:void(0)"
                            onclick="Report.reportPost({{ comment_data.comment_slug }}); return false;"
                            title="{{ lang.myshowcase_view_comment_options_report_title }}"
@@ -241,7 +231,7 @@
                     {% endif %}
 
                     {# Warn user button #}
-                    {% if mybb.usergroup.canwarnusers and user_data.uid != current_user.uid %}
+                    {% if mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid %}
                         <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ comment_data.comment_slug }}"
                            title="{{ lang.myshowcase_view_comment_options_warn_title }}"
                            class="post-control post-control--warn">

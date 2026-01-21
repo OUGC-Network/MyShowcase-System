@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace MyShowcase\Util;
 
+use MyShowcase\Repository\CommentsRepository;
+use Random\RandomException;
 use Symfony\Component\String\AbstractUnicodeString;
 use Symfony\Component\String\Slugger\AsciiSlugger;
 
+use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\postParser;
+
+use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class StringUtil
 {
@@ -17,13 +22,46 @@ class StringUtil
     {
     }
 
-    public function createSlug(string $string): AbstractUnicodeString
+    public function generateSlug(string $string): AbstractUnicodeString
     {
         if ($this->slugger === null) {
             $this->slugger = new AsciiSlugger();
         }
 
         return $this->slugger->slug($string);
+    }
+
+    public function generateEntrySlug(string $string): string
+    {
+        $slug = $this->generateSlug($string)
+            ->lower()
+            ->toString();
+
+        $maximum_length = DATA_TABLE_STRUCTURE['myshowcase_data']['entry_slug_custom']['size'];
+
+        if (mb_strlen($slug) > $maximum_length) {
+            $slug = my_substr($slug, 0, $maximum_length);
+
+            $last_sep_position = mb_strrpos($slug, '-');
+
+            if ($last_sep_position !== false) {
+                $slug = mb_substr($slug, 0, $last_sep_position);
+            }
+        }
+
+        return $slug;
+    }
+
+    /**
+     * @throws RandomException
+     */
+    public function generateCommentSlug(?int $length = null): string
+    {
+        if (empty($length)) {
+            $length = getSetting('slugLength');
+        }
+
+        return my_strtolower(bin2hex(random_bytes($length)));
     }
 
     /**

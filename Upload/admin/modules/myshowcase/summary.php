@@ -15,9 +15,13 @@ declare(strict_types=1);
 
 use MyShowcase\Service\AdminManager;
 
+use const MyShowcase\ROOT;
+
 if (!defined('IN_MYBB')) {
     die('Direct initialization of this file is not allowed.<br /><br />Please make sure IN_MYBB is defined.');
 }
+
+require_once ROOT . '/vendor/autoload.php';
 
 global $db, $mybb, $lang, $page;
 

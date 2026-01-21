@@ -7,6 +7,8 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
+use MyShowcase\Entity\ShowcaseEntity;
+use MyShowcase\Event\EventDispatcher;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -26,9 +28,15 @@ class ModeratorsRepository
     private bool $is_update = false;
 
     public function __construct(
-        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $db,
-        private readonly array $config = ['showcase_id' => 0],
+        private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
+        private readonly ?EventDispatcher $event_dispatcher = null,
+        private ?ShowcaseEntity $showcase = null,
     ) {
+    }
+
+    public function setShowcase(ShowcaseEntity $showcase): void
+    {
+        $this->showcase = $showcase;
     }
 
     public function queryModerators(
@@ -36,9 +44,9 @@ class ModeratorsRepository
         array $query_fields = [],
         array $query_options = []
     ): array {
-        $where_clauses[] = "showcase_id='{$this->config['showcase_id']}'";
+        $where_clauses[] = "showcase_id='{$this->showcase->showcase_id}'";
 
-        $query = $this->db->simple_select(
+        $query = $this->database->simple_select(
             'myshowcase_moderators',
             implode(',', array_merge(['moderator_id'], $query_fields)),
             implode(' AND ', $where_clauses),
@@ -46,12 +54,12 @@ class ModeratorsRepository
         );
 
         if (isset($query_options['limit']) && $query_options['limit'] === 1) {
-            return (array)$this->db->fetch_array($query);
+            return (array)$this->database->fetch_array($query);
         }
 
         $moderatorData = [];
 
-        while ($moderator = $this->db->fetch_array($query)) {
+        while ($moderator = $this->database->fetch_array($query)) {
             $moderatorData[(int)$moderator['moderator_id']] = $moderator;
         }
 
@@ -74,13 +82,13 @@ class ModeratorsRepository
         hooksRun('moderator_insert_update_end', $this);
 
         if ($this->is_update) {
-            $this->db->update_query(
+            $this->database->update_query(
                 'myshowcase_moderators',
                 $this->insert_data,
                 "moderator_id='{$this->moderator_id}'"
             );
         } else {
-            $this->moderator_id = (int)$this->db->insert_query('myshowcase_moderators', $this->insert_data);
+            $this->moderator_id = (int)$this->database->insert_query('myshowcase_moderators', $this->insert_data);
         }
 
         return $this->moderator_id;
@@ -101,9 +109,9 @@ class ModeratorsRepository
 
         hooksRun('moderator_delete_start', $this);
 
-        $this->db->delete_query(
+        $this->database->delete_query(
             'myshowcase_moderators',
-            "moderator_id='{$this->moderator_id}' AND showcase_id='{$this->config['showcase_id']}'"
+            "moderator_id='{$this->moderator_id}' AND showcase_id='{$this->showcase->showcase_id}'"
         );
     }
 }
