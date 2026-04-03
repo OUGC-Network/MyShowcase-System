@@ -47,7 +47,7 @@ class AttachmentsManager
     public const UPLOAD_ERROR_FAILED = 9;
     public const ERROR_THUMBNAIL_FAILED = 3;
     public const ERROR_THUMBNAIL_TOO_SMALL = 4;
-    private const  FIRST_PAGE = 1;
+    private const FIRST_PAGE = 1;
     private readonly AttachmentsRepository $attachments_repository;
     private int $total_attachments = 0;
     private Collection $attachments;

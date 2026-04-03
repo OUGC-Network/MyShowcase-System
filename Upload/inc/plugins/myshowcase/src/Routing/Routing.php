@@ -422,9 +422,6 @@ class Routing
     public function generateUrl(string $name, array $parameters = []): string
     {
         $parameters['showcase'] = $this->context->showcase->route_identifier;
-        if (empty($this->context->showcase->route_identifier)) {
-            _dump(789, $this->context->showcase->route_identifier, $parameters);
-        }
 
         $this->routing_context->setBaseUrl('/');
 

@@ -26,7 +26,6 @@ class UserEntity
 
     public function __call(string $name, array $arguments)
     {
-        _dump('__call', $name);
         if (isset($this->methods[$name]) && is_callable($this->methods[$name])) {
             return call_user_func_array($this->methods[$name], $arguments);
         }

@@ -25,8 +25,6 @@ use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
-use MyShowcase\Service\CacheManager;
-use MyShowcase\Service\EntriesManager;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\System\ExceptionInvalidRangeHeader;
 use MyShowcase\System\ExceptionNonExistentFile;
@@ -36,11 +34,6 @@ use MyShowcase\System\PartialFileServlet;
 use MyShowcase\System\RangeHeader;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
-use Twig\Error\LoaderError;
-use Twig\Error\RuntimeError;
-use Twig\Error\SyntaxError;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 use function MyShowcase\Plugin\Functions\attachmentLogInsert;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -83,37 +76,8 @@ class AttachmentsController extends BaseController
             fn(CustomFieldEntity $field) => $field->field_key === $mybb->get_input('field_id', \MyBB::INPUT_INT)
         );
 
-        _dump(888, $field, $mybb->input);
-
         if (!$field_key || empty($field->field_id)) {
             $this->errorNoPermission();
-        }
-
-        $request = Request::createFromGlobals();
-
-        _dump(951, $field->field_id, $request->files->has($field_key));
-
-        if ($request->files->has('my_file')) {
-            /** @var UploadedFile $uploadedFile */
-            $uploadedFile = $request->files->get('my_file');
-
-            // Validate the file
-            if ($uploadedFile->isValid()) {
-                // Get the original filename
-                $originalFilename = $uploadedFile->getClientOriginalName();
-
-                // Define where to save the file
-                $targetDirectory = __DIR__ . '/uploads/';
-
-                // Move the file to the target directory
-                $uploadedFile->move($targetDirectory, $originalFilename);
-
-                echo "File uploaded successfully as: " . $originalFilename;
-            } else {
-                echo "Error uploading file: " . $uploadedFile->getErrorMessage();
-            }
-        } else {
-            echo "No file uploaded.";
         }
 
         if (empty($_FILES[$field_key])) {
@@ -192,102 +156,6 @@ class AttachmentsController extends BaseController
                 ]);
             }
         }
-
-        /*
-    ["field_type"]=>
-    string(7) "varchar"
-    ["file_capture"]=>
-    int(0)
-    ["allow_multiple_values"]=>
-    int(0)
-    ["default_value"]=>
-    string(0) ""
-    ["default_type"]=>
-    int(0)
-    ["filter_on_save"]=>
-    int(0)
-    ["is_enabled"]=>
-    int(1)
-    ["is_required"]=>
-    int(0)
-    ["read_only"]=>
-    int(0)
-  }
-}
-
-
-
-
-    ["gallery_files"]=>
-    array(6) {
-      ["name"]=>
-      string(12) "Sonic005.png"
-      ["full_path"]=>
-      string(12) "Sonic005.png"
-      ["type"]=>
-      string(9) "image/png"
-      ["tmp_name"]=>
-      string(27) "/tmp/phpkas1nfmrpbov0hTFgbX"
-      ["error"]=>
-      int(0)
-      ["size"]=>
-      int(20407)
-    }
-         */
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Handle chunked uploads (FilePond sends chunks as separate requests)
-            $chunkIndex = isset($_SERVER['HTTP_UPLOAD_OFFSET']) ? (int)$_SERVER['HTTP_UPLOAD_OFFSET'] : 0;
-            $fileName = $_SERVER['HTTP_UPLOAD_FILENAME'] ?? 'unknown';
-            $tempFileName = $uploadDir . 'temp_' . $fileName;
-
-            // Append chunk to temporary file
-            file_put_contents($tempFileName, file_get_contents('php://input'), FILE_APPEND);
-
-            // If this is the last chunk, rename the file
-            if (isset($_SERVER['HTTP_UPLOAD_LENGTH']) && $chunkIndex + strlen(
-                    file_get_contents('php://input')
-                ) >= (int)$_SERVER['HTTP_UPLOAD_LENGTH']) {
-                $finalFileName = $uploadDir . $fileName;
-                rename($tempFileName, $finalFileName);
-                echo json_encode(['fileId' => uniqid()]);
-            } else {
-                echo json_encode(['offset' => $chunkIndex + strlen(file_get_contents('php://input'))]);
-            }
-            exit;
-        }
-
-        // Handle file deletion
-        if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && isset($_GET['delete'])) {
-            $filePath = __DIR__ . '/uploads/' . $_GET['delete'];
-
-            if (file_exists($filePath)) {
-                if (unlink($filePath)) {
-                    $this->success([
-                        'success' => true,
-                    ]);
-                } else {
-                    $this->error('Unable to delete file.');
-                }
-            } else {
-                $this->error('File not found.', 404);
-            }
-        }
-
-        // Handle file restore (resume)
-        if ($mybb->request_method === 'get' && isset($_GET['restore'])) {
-            $filePath = __DIR__ . '/uploads/' . $_GET['restore'];
-
-            if (file_exists($filePath)) {
-                header('Content-Type: application/octet-stream');
-
-                readfile($filePath);
-
-                exit;
-            } else {
-                $this->error('File not found.', 404);
-            }
-        }
     }
 
     #[NoReturn] public function getAttachments(
@@ -327,7 +195,6 @@ class AttachmentsController extends BaseController
                 !is_member($field_definition['allowed_groups_fill'])) {
                 $this->errorNoPermission();
             }
-            //$where_clauses[] = "field_id='{$field_id}'";
         }
 
         $attachmentObjects = $this->context->attachments_repository->queryAttachments(
@@ -336,7 +203,6 @@ class AttachmentsController extends BaseController
                 'attachment_name',
                 'mime_type',
                 'file_size',
-                //'field_id',
                 'attachment_hash',
             ]
         );
@@ -349,7 +215,6 @@ class AttachmentsController extends BaseController
                         'attachment_name' => $attachment_data['attachment_name'],
                     ],
                 );
-            //$attachmentObjects[$attachment_id]['url'] = 'https://static.wikia.nocookie.net/sonic/images/1/10/SRCSonic.png/revision/latest?cb=20251202132714';
         }
 
         $this->success(array_values($attachmentObjects));

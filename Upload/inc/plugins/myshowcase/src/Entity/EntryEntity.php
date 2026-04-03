@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MyShowcase\Entity;
 
 use DateTime;
-use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\ValueObjects\EntryCustomField;
@@ -113,7 +112,7 @@ final class EntryEntity
         return $this->custom_fields;
     }
 
-    #[NoReturn] public function addCustomField(EntryCustomField $custom_field): void
+    public function addCustomField(EntryCustomField $custom_field): void
     {
         if (!$this->custom_fields->contains($custom_field)) {
             $this->custom_fields[$custom_field->getKey()] = $custom_field;

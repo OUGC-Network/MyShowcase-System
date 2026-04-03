@@ -32,7 +32,7 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class CommentsManager
 {
-    public const  FIRST_PAGE = 1;
+    public const FIRST_PAGE = 1;
     private readonly CommentsRepository $comments_repository;
     private Collection $comments;
 

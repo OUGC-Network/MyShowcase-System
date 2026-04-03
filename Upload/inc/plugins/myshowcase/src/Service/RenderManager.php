@@ -16,7 +16,6 @@ declare(strict_types=1);
 namespace MyShowcase\Service;
 
 use Exception;
-use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\AttachmentEntity;
@@ -63,7 +62,7 @@ class RenderManager
     public array $fieldset_display_fields = [];
     public array $template_context = [];
 
-    #[NoReturn] public function __construct(
+    public function __construct(
         public readonly ShowcaseContext $context,
     ) {
         $this->url_params['page'] = 1;
@@ -246,10 +245,6 @@ class RenderManager
         }
 
         $this->user_data = $this->context->users_manager->getUserByID($this->user_id);
-
-        if ($this->user_id !== 1) {
-            // _dump($this->user_id, $this->user_data);
-        }
 
         hooksRun('render_build_entry_comment_start', $this);
 
@@ -1002,7 +997,7 @@ class RenderManager
                 $templatesContext,
             );
         } catch (Exception $e) {
-            _dump(852, $e->getMessage(), generate_backtrace());
+            // $page is left uninitialized; caller receives null
         }
 
         return $page;

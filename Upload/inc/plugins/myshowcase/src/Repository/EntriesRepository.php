@@ -7,7 +7,6 @@ namespace MyShowcase\Repository;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
-use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
@@ -34,7 +33,7 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesRepository
 {
-    private const  FIRST_PAGE = 1;
+    private const FIRST_PAGE = 1;
     private ?int $entry_id;
     private array $insert_data = [];
     private EntryEntity $entry;
@@ -255,63 +254,29 @@ class EntriesRepository
     public function querySessions(): array
     {
         return [];
-        $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
-
-        $query = $this->database->simple_select(
-            "sessions s LEFT JOIN {$this->database->table_prefix}users u ON (s.uid=u.uid)",
-            's.ip, s.uid, u.username, u.avatar, s.time, u.invisible, u.usergroup, u.usergroup, u.displaygroup',
-            "s.uid!=='0' AND s.time>'{$time_cut}' AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission!='1'",
-            ['order_by' => 'u.username ASC, s.time DESC']
-        );
-
-        $session_objects = [];
-
-        while ($session_object = $this->database->fetch_array($query)) {
-            $session_objects[] = $session_object;
-        }
-
-        return $session_objects;
     }
 
     public function querySessionsCount(): int
     {
-        $session_objects = [];
         return 0;
-        $time_cut = TIME_NOW - $this->mybb->settings['wolcutoff'];
-
-        $query = $this->database->simple_select(
-            'sessions',
-            'COUNT(DISTINCT ip) AS guest_count',
-            "uid='0' AND time>'{$time_cut}' AND location LIKE '%" . THIS_SCRIPT . "%' AND nopermission!='1'"
-        );
-
-        return (int)$this->database->fetch_array($query)['guest_count'];
     }
 
-    #[NoReturn] public function fetchEntries(
+    public function fetchEntries(
         Collection $fieldset_fields,
         array $where_clauses = [],
         array $query_options = []
     ): array {
-        //setup joins for query and build where clause based on keywords terms
-
-        //$query_tables = ['users user_data ON (user_data.uid = entry_data.user_id)'];
-
         $query_tables = [];
 
         $query_fields = array_merge(
             array_map(function (string $field_name): string {
                 return str_starts_with($field_name, 'entry_data.') ? $field_name : 'entry_data.' . $field_name;
             }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
-            [
-                //'user_data.username',
-                //'user_data.usergroup',
-                //'user_data.displaygroup'
-            ]
+            []
         );
 
         /**
-         * @var CustomFieldEntity $field_definition
+         * @var CustomFieldEntity $field
          */
         foreach ($fieldset_fields as $field_id => $field) {
             if (in_array($field->html_type, [
@@ -370,7 +335,7 @@ class EntriesRepository
         return $entry_objects;
     }
 
-    #[NoReturn] public function fetchEntry(Collection $fieldset_fields, array $where_clauses = []): array
+    public function fetchEntry(Collection $fieldset_fields, array $where_clauses = []): array
     {
         return $this->fetchEntries($fieldset_fields, $where_clauses, ['limit' => 1])[0] ?? [];
     }

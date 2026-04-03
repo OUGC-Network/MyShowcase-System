@@ -70,23 +70,9 @@ class Showcase
     ) {
         $this->tables_data = TABLES_DATA;
 
-        //$this->context->event_dispatcher = new EventDispatcher();
-
-        /*$this->context->routing = new Routing(
-            $this->context,
-            $this,
-            $this->context->database,
-            $this->context->mybb,
-            $this->context->language,
-            $this->context->event_dispatcher
-        );*/
-
         if ($this->context->routing->routeIdentifier() !== false) {
             $this->route_identifier = $this->context->routing->routeIdentifier();
         }
-
-        //$this->context->cache_manager = new CacheManager($this->context->database, $this->context->mybb->cache,);
-        //_dump($this->context->config->showcase_id, generate_backtrace());
 
         foreach (
             $this->context->cache_manager->get(
@@ -95,7 +81,6 @@ class Showcase
         ) {
             if ($this->route_identifier === null && $this->showcase_id !== $showcase_id ||
                 $this->route_identifier !== null && $this->route_identifier !== $showcase_data['route_identifier']) {
-                //_dump($showcase_data['route_identifier']);
                 continue;
             }
 
@@ -129,10 +114,6 @@ class Showcase
         $this->data_table_exists = $this->context->database->table_exists(
             'myshowcase_data' . $this->context->showcase->showcase_id
         );
-
-        //$this->context->config->showcase_url = rtrim($this->context->config->showcase_url, '/');
-
-        //$this->context->config['showcase_url_assets'] = $this->context->mybb->get_asset_url( $this->context->config->showcase_url);
 
         $this->context->users_manager = new UsersManager($this->context);
 
@@ -171,8 +152,6 @@ class Showcase
         $this->context->mybb->binary_fields['myshowcase_data' . $this->context->showcase->showcase_id]['ipaddress'] = true;
 
         $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
-
-        //loadLanguage('myshowcase_fs' . $this->context->config->field_set_id);
 
         $hookArguments = [
             'showcaseObject' => &$this,

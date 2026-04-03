@@ -16,6 +16,5 @@ readonly class RouteMatchedListener
 
     public function __invoke(RouteMatchedEvent $event): void
     {
-        _dump('event', $event);
     }
 }

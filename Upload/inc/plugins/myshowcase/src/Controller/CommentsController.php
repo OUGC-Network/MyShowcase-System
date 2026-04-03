@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controller;
 
-use JetBrains\PhpStorm\NoReturn;
 use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\ContentStatuses;
@@ -352,7 +351,7 @@ class CommentsController extends BaseController
         'GET',
         'POST'
     ])]
-    #[NoReturn] public function update(string $entry_slug, string $entry_slug_custom, string $comment_slug): string
+    public function update(string $entry_slug, string $entry_slug_custom, string $comment_slug): string
     {
         return $this->create($entry_slug, $entry_slug_custom, $comment_slug, true);
     }

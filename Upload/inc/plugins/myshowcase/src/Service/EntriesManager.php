@@ -48,7 +48,7 @@ class EntriesManager
     public const SIGNATURE_ALLOW = 1;
     public const SMILIES_DISABLED = 0;
     public const SMILIES_ALLOW = 1;
-    public const  FIRST_PAGE = 1;
+    public const FIRST_PAGE = 1;
     private Collection $entries;
     private readonly EntriesRepository $entries_repository;
     private readonly AttachmentsRepository $attachments_repository;
@@ -554,7 +554,6 @@ class EntriesManager
                     continue;
                 }
 
-                //_dump($field_id, $this->validation_entry->getCustomField($field->field_key));
                 if (is_array($this->validation_entry->extra_data[$field->field_key])) {
                     foreach ($this->validation_entry->extra_data[$field->field_key] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;

@@ -312,7 +312,7 @@ trait FieldTrait
             return '';
         }
 
-        _dump('123');
+        return '';
     }
 
     public function getAttachments(): Collection

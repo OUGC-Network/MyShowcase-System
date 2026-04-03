@@ -10,7 +10,6 @@ use DB_SQLite;
 use DefaultPage;
 use Form;
 use FormContainer;
-use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Container;
@@ -60,7 +59,7 @@ class AdminManager
     private array $permissions_cache;
     private array $groups_cache;
 
-    #[NoReturn] public function __construct(
+    public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
         private readonly MyLanguage $language,

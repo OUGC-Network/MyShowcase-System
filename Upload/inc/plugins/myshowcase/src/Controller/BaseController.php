@@ -68,31 +68,17 @@ abstract class BaseController
     protected int $entry_id = 0;
     protected int $comment_id = 0;
 
-    /**
-     */
     public function __construct(
         public readonly ShowcaseContext $context,
         protected readonly bool $is_api_request = false,
-        //private readonly Routing $routing,
-        //private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
-        //private readonly MyBB $mybb,
-        //private readonly MyLanguage $language,
-        //private readonly EventDispatcher $event_dispatcher,
-        //private readonly User $current_user,
-        //private readonly EntriesManager $entries_manager,
-        //private readonly Render $render_manager,
-        //private readonly ConfigManager $config,
-        //private readonly array $fieldset_fields,
     )
     {
-        //make sure this file is current
         if (SHOWCASE_FILE_VERSION_CODE < VERSION_CODE) {
             $this->error(
                 'This file is not the same version as the MyShowcase System. Please be sure to upload and configure ALL files.'
             );
         }
 
-        //try to load showcase specific language file
         loadLanguage();
 
         loadLanguage('myshowcase' . $this->context->showcase->showcase_id, false, true);
@@ -175,7 +161,7 @@ abstract class BaseController
 
         if (!(
             $this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            $this->context->current_user->hasPermission(UserPermissions::EntriesCanView)
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanModerate)
         )) {
             return self::NO_PERMISSION;
         }
@@ -404,11 +390,9 @@ abstract class BaseController
          */
         foreach ($entry->getCustomFields() as $field_key => $field) {
             $field->getParsedValue();
-            //$entry->addField($fields_factory->create($field_definition));
         }
 
         foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
-            //$entry->addField($fields_factory->create($field_definition));
         }
 
         $attachment_types = (new CacheManager($this->context->database, $this->context->mybb->cache))
@@ -513,7 +497,7 @@ abstract class BaseController
         if ($this->is_api_request) {
             $this->error($this->context->language->error_nopermission_guest_1, $status_code);
         } else {
-            $this->errorNoPermission();
+            error_no_permission();
         }
     }
 }
