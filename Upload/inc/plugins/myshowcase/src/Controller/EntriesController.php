@@ -133,198 +133,56 @@ class EntriesController extends BaseController
                     )
             );
 
+            $lang = $this->context->language;
+
             switch ($this->context->mybb->get_input('moderate')) {
                 case 'open':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'is_closed' => 0]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_opened
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['is_closed' => 0]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_opened);
                     break;
                 case 'close':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'is_closed' => 1]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            $this->context->render_manager->url_params
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_closed
+                    $this->performBatchEntryUpdate($selected_entries, ['is_closed' => 1]);
+                    $this->redirectAfterModeration(
+                        $lang->myshowcase_main_inline_moderation_redirect_closed,
+                        $this->context->render_manager->url_params
                     );
-
                     break;
                 case 'stick':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'is_sticky' => 1]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_stuck
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['is_sticky' => 1]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_stuck);
                     break;
                 case 'unstick':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'is_sticky' => 0]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_unstuck
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['is_sticky' => 0]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_unstuck);
                     break;
                 case 'approve':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'status' => ContentStatuses::VisibleApproved]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_approved
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['status' => ContentStatuses::VisibleApproved]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_approved);
                     break;
                 case 'unapprove':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'status' => ContentStatuses::AwaitingApproval]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_unapproved
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['status' => ContentStatuses::AwaitingApproval]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_unapproved);
                     break;
                 case 'copy':
                     break;
                 case 'soft_delete':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'status' => ContentStatuses::SoftDeleted]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_soft_deleted
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['status' => ContentStatuses::SoftDeleted]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_soft_deleted);
                     break;
                 case 'restore':
-                    /**
-                     * @var EntryEntity $entry
-                     */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->updateEntry(
-                            $this->context->entries_manager->generateEntry(
-                                ['entry_id' => $entry->entry_id, 'status' => ContentStatuses::VisibleApproved]
-                            ),
-                        );
-                    }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_restored
-                    );
-
+                    $this->performBatchEntryUpdate($selected_entries, ['status' => ContentStatuses::VisibleApproved]);
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_restored);
                     break;
                 case 'delete':
-                    /**
-                     * @var EntryEntity $entry
-                     */
+                    /** @var EntryEntity $entry */
                     foreach ($selected_entries as $entry) {
                         $this->context->entries_repository->deleteEntry($entry->entry_id);
-
                         $this->context->event_dispatcher->dispatch(
                             new EntryDeletedEvent($this->entry_id),
                             EntryDeletedEvent::NAME
                         );
                     }
-
-                    redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
-                            Routes::Main,
-                            ['clear_selected' => 1]
-                        ),
-                        $this->context->language->myshowcase_main_inline_moderation_redirect_deleted
-                    );
-
+                    $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_deleted);
                     break;
             }
 
@@ -1775,6 +1633,33 @@ class EntriesController extends BaseController
         hooksRun('controller_view_end', $this);
 
         return $this->context->render_manager->templateGet('pageView', $templatesContext);
+    }
+
+    /**
+     * Updates every selected entry with the given field overrides and redirects.
+     *
+     * @param iterable<EntryEntity> $entries
+     */
+    private function performBatchEntryUpdate(iterable $entries, array $update_data): void
+    {
+        /** @var EntryEntity $entry */
+        foreach ($entries as $entry) {
+            $this->context->entries_repository->updateEntry(
+                $this->context->entries_manager->generateEntry(
+                    array_merge(['entry_id' => $entry->entry_id], $update_data)
+                )
+            );
+        }
+    }
+
+    #[NoReturn] private function redirectAfterModeration(
+        string $message,
+        array $url_params = ['clear_selected' => 1]
+    ): void {
+        redirect(
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main, $url_params),
+            $message
+        );
     }
 
     private function buildQueryOptions(

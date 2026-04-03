@@ -148,63 +148,12 @@ class EntriesRepository
     public function insertEntry(EntryEntity $entry, array $custom_fields = [], bool $is_update = false): int
     {
         $this->entry = $entry;
-
         $this->entry_id = $entry->entry_id;
-
         $this->insert_data = [];
-
         $this->is_update = $is_update;
 
-        foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
-            if (isset($this->entry->$field_name) && $this->entry->$field_name !== null) {
-                $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $this->entry->$field_name,
-                    $field_definition['type']
-                );
-            } elseif (!$this->is_update) {
-                $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $field_definition['default'] ?? '',
-                    $field_definition['type']
-                );
-            }
-        }
-
-        foreach ($custom_fields as $field_id => $field_definition) {
-            if (!isset($this->entry->extra_data[$field_definition['field_key']]) && !$this->is_update) {
-                switch ($field_definition['default_type']) {
-                    case FieldDefaultTypes::AsDefined:
-                        $this->entry->extra_data[$field_definition['field_key']] = $field_definition['default_value'];
-
-                        break;
-                    case FieldDefaultTypes::CurrentTimestamp:
-                        $this->entry->extra_data[$field_definition['field_key']] = date('Y-m-d H:i:s', TIME_NOW);
-
-                        break;
-                    case FieldDefaultTypes::UUID:
-                        $this->entry->extra_data[$field_definition['field_key']] = (new UuidUtil())->generateUuidV4();
-
-                        break;
-                }
-            }
-
-            if (isset($this->entry->extra_data[$field_definition['field_key']])) {
-                if (fieldTypeMatchInt($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (int)$this->entry->extra_data[$field_definition['field_key']];
-                } elseif (fieldTypeMatchFloat($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = (float)$this->entry->extra_data[$field_definition['field_key']];
-                } elseif (fieldTypeMatchChar($field_definition['field_type']) ||
-                    fieldTypeMatchText($field_definition['field_type']) ||
-                    fieldTypeMatchDateTime($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = $this->database->escape_string(
-                        $this->entry->extra_data[$field_definition['field_key']]
-                    );
-                } elseif (fieldTypeMatchBinary($field_definition['field_type'])) {
-                    $this->insert_data[$field_definition['field_key']] = $this->database->escape_binary(
-                        $this->entry->extra_data[$field_definition['field_key']]
-                    );
-                }
-            }
-        }
+        $this->prepareBaseEntryData();
+        $this->prepareCustomFieldData($custom_fields);
 
         hooksRun('entry_insert_update_end', $this);
 
@@ -222,6 +171,78 @@ class EntriesRepository
         }
 
         return $entry->entry_id;
+    }
+
+    private function prepareBaseEntryData(): void
+    {
+        foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
+            if (isset($this->entry->$field_name) && $this->entry->$field_name !== null) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $this->entry->$field_name,
+                    $field_definition['type']
+                );
+            } elseif (!$this->is_update) {
+                $this->insert_data[$field_name] = sanitizeTableFieldValue(
+                    $field_definition['default'] ?? '',
+                    $field_definition['type']
+                );
+            }
+        }
+    }
+
+    private function prepareCustomFieldData(array $custom_fields): void
+    {
+        foreach ($custom_fields as $field_definition) {
+            $key = $field_definition['field_key'];
+
+            if (!isset($this->entry->extra_data[$key]) && !$this->is_update) {
+                $this->applyCustomFieldDefault($key, $field_definition);
+            }
+
+            if (isset($this->entry->extra_data[$key])) {
+                $this->insert_data[$key] = $this->castCustomFieldValue(
+                    $this->entry->extra_data[$key],
+                    $field_definition['field_type']
+                );
+            }
+        }
+    }
+
+    /**
+     * @throws RandomException
+     */
+    private function applyCustomFieldDefault(string $key, array $field_definition): void
+    {
+        $this->entry->extra_data[$key] = match ($field_definition['default_type']) {
+            FieldDefaultTypes::AsDefined => $field_definition['default_value'],
+            FieldDefaultTypes::CurrentTimestamp => date('Y-m-d H:i:s', TIME_NOW),
+            FieldDefaultTypes::UUID => (new UuidUtil())->generateUuidV4(),
+            default => null,
+        };
+    }
+
+    private function castCustomFieldValue(mixed $value, string $field_type): mixed
+    {
+        if (fieldTypeMatchInt($field_type)) {
+            return (int)$value;
+        }
+
+        if (fieldTypeMatchFloat($field_type)) {
+            return (float)$value;
+        }
+
+        if (fieldTypeMatchBinary($field_type)) {
+            return $this->database->escape_binary($value);
+        }
+
+        if (fieldTypeMatchChar($field_type) ||
+            fieldTypeMatchText($field_type) ||
+            fieldTypeMatchDateTime($field_type)
+        ) {
+            return $this->database->escape_string($value);
+        }
+
+        return $value;
     }
 
     /**
@@ -266,73 +287,84 @@ class EntriesRepository
         array $where_clauses = [],
         array $query_options = []
     ): array {
-        $query_tables = [];
+        [$query_fields, $query_tables] = $this->buildQueryFieldsAndTables($fieldset_fields);
 
-        $query_fields = array_merge(
-            array_map(function (string $field_name): string {
-                return str_starts_with($field_name, 'entry_data.') ? $field_name : 'entry_data.' . $field_name;
-            }, array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])),
-            []
-        );
-
-        /**
-         * @var CustomFieldEntity $field
-         */
-        foreach ($fieldset_fields as $field_id => $field) {
-            if (in_array($field->html_type, [
-                FieldHtmlTypes::CheckBox,
-                FieldHtmlTypes::Radio,
-                FieldHtmlTypes::Select
-            ])) {
-                $query_tables[] = "myshowcase_field_data table_{$field->field_key} ON (table_{$field->field_key}.field_data_id = entry_data.{$field->field_key} AND table_{$field->field_key}.field_id = '{$field->field_id}')";
-            }
-
-            $query_fields[] = $field->field_key;
-        }
-
-        if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
-            $query_options['order_dir'] = SortDirections::Ascending;
-        }
-
-        $query_options['order_by'] = $query_options['order_by'] ?? $this->showcase->main_sort_default_field;
-
-        $query_options['order_by'] = "entry_data.{$query_options['order_by']} " . ($query_options['order_dir'] ?? '') . ', entry_data.is_sticky ' . ($query_options['order_dir'] ?? '') . ', entry_data.entry_id';
+        $query_options = $this->normalizeSortOptions($query_options);
 
         hooksRun('entry_fetch_start', $this);
 
-        $total_entries = $this->queryEntryCount(
-            $where_clauses,
-            $query_tables
-        );
-
-        if (isset($query_options['limit']) && $query_options['limit'] > 0) {
-            if ($this->mybb->input['page'] > ceil($total_entries / $query_options['limit'])) {
-                $this->mybb->input['page'] = self::FIRST_PAGE;
-            }
-
-            if ($this->mybb->input['page']) {
-                $query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $query_options['limit'];
-            }
-        }
+        $total_entries = $this->queryEntryCount($where_clauses, $query_tables);
+        $query_options = $this->applyPagination($query_options, $total_entries);
 
         hooksRun('entry_fetch_intermediate', $this);
 
         $entry_objects = [];
 
-        foreach (
-            $this->queryEntries(
-                $where_clauses,
-                $query_fields,
-                $query_options,
-                $query_tables
-            ) as $entry
-        ) {
+        foreach ($this->queryEntries($where_clauses, $query_fields, $query_options, $query_tables) as $entry) {
             $entry_objects[] = $entry;
         }
 
         hooksRun('entry_fetch_end', $this);
 
         return $entry_objects;
+    }
+
+    private function buildQueryFieldsAndTables(Collection $fieldset_fields): array
+    {
+        $query_fields = array_map(
+            fn(string $name): string => str_starts_with($name, 'entry_data.') ? $name : 'entry_data.' . $name,
+            array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])
+        );
+
+        $query_tables = [];
+
+        /** @var CustomFieldEntity $field */
+        foreach ($fieldset_fields as $field) {
+            if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select])) {
+                $alias = "table_{$field->field_key}";
+                $query_tables[] = "myshowcase_field_data {$alias} ON ({$alias}.field_data_id = entry_data.{$field->field_key} AND {$alias}.field_id = '{$field->field_id}')";
+            }
+
+            $query_fields[] = $field->field_key;
+        }
+
+        return [$query_fields, $query_tables];
+    }
+
+    private function normalizeSortOptions(array $query_options): array
+    {
+        if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
+            $query_options['order_dir'] = SortDirections::Ascending;
+        }
+
+        $order_field = $query_options['order_by'] ?? $this->showcase->main_sort_default_field;
+        $order_dir = $query_options['order_dir'];
+
+        $query_options['order_by'] = "entry_data.{$order_field} {$order_dir}"
+            . ", entry_data.is_sticky {$order_dir}"
+            . ', entry_data.entry_id';
+
+        return $query_options;
+    }
+
+    private function applyPagination(array $query_options, int $total_entries): array
+    {
+        if (!isset($query_options['limit']) || $query_options['limit'] <= 0) {
+            return $query_options;
+        }
+
+        $limit = $query_options['limit'];
+        $max_page = (int)ceil($total_entries / $limit);
+
+        if ($this->mybb->input['page'] > $max_page) {
+            $this->mybb->input['page'] = self::FIRST_PAGE;
+        }
+
+        if ($this->mybb->input['page']) {
+            $query_options['limit_start'] = ($this->mybb->input['page'] - 1) * $limit;
+        }
+
+        return $query_options;
     }
 
     public function fetchEntry(Collection $fieldset_fields, array $where_clauses = []): array

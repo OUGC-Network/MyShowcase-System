@@ -56,13 +56,10 @@ class Showcase
     private array $parser_options = [
         'filter_badwords' => true,
         'highlight' => '',
-        'nl2br' => true
+        'nl2br' => true,
     ];
     public bool $data_table_exists;
 
-    /**
-     * Constructor of class.
-     */
     public function __construct(
         public readonly ShowcaseContext $context,
         public readonly ?int $showcase_id = null,
@@ -70,42 +67,9 @@ class Showcase
     ) {
         $this->tables_data = TABLES_DATA;
 
-        if ($this->context->routing->routeIdentifier() !== false) {
-            $this->route_identifier = $this->context->routing->routeIdentifier();
-        }
-
-        foreach (
-            $this->context->cache_manager->get(
-                CacheDataTypes::Config
-            ) as $showcase_id => $showcase_data
-        ) {
-            if ($this->route_identifier === null && $this->showcase_id !== $showcase_id ||
-                $this->route_identifier !== null && $this->route_identifier !== $showcase_data['route_identifier']) {
-                continue;
-            }
-
-            $this->context->showcase = new ShowcaseEntity(...$showcase_data);
-
-            $this->route_identifier = $showcase_data['route_identifier'];
-
-            break;
-        }
-
-        $this->context->showcases_repository->setShowcase($this->context->showcase);
-
-        $this->context->access_logs_repository->setShowcase($this->context->showcase);
-
-        $this->context->moderators_repository->setShowcase($this->context->showcase);
-
-        $this->context->entries_repository->setShowcase($this->context->showcase);
-
-        $this->context->subscriptions_repository->setShowcase($this->context->showcase);
-
-        $this->context->comments_repository->setShowcase($this->context->showcase);
-
-        $this->context->attachments_repository->setShowcase($this->context->showcase);
-
-        $this->context->permissions_repository->setShowcase($this->context->showcase);
+        $this->resolveRouteIdentifier();
+        $this->loadShowcaseConfig();
+        $this->initializeRepositories();
 
         if (empty($this->context->showcase)) {
             throw new RuntimeException('The MyShowcase System does not exist.');
@@ -115,182 +79,248 @@ class Showcase
             'myshowcase_data' . $this->context->showcase->showcase_id
         );
 
-        $this->context->users_manager = new UsersManager($this->context);
+        $this->initializeCurrentUser();
+        $this->configureParserOptions();
+        $this->initializeFieldset();
+        $this->registerBinaryFields();
 
-        $this->context->users_manager->addUser($this->context->mybb->user);
-
-        $this->context->current_user = $this->context->users_manager->getUserByID(
-            (int)$this->context->mybb->user['uid']
-        );
-
-        $this->parser_options = array_merge($this->parser_options, [
-            'allow_html' => !empty($this->context->showcase->parser_allow_html_in_entries),
-            'allow_mycode' => !empty($this->context->showcase->parser_allow_mycode_in_entries),
-            'allow_smilies' => !empty($this->context->showcase->parser_allow_smiles_in_entries),
-            'allow_imgcode' => !empty($this->context->showcase->parser_allow_image_code_in_entries),
-            'allow_videocode' => !empty($this->context->showcase->parser_allow_video_code_in_entries),
-            'me_username' => '',
-            'filter_badwords' => true,
-            'shorten_urls' => false,
-            'highlight' => false,
-        ]);
-
-        if ($this->context->showcase->field_set_id) {
-            $this->context->fieldset_fields = $this->context->cache_manager->get(
-                CacheDataTypes::Fields
-            )[$this->context->showcase->field_set_id] ?? [];
-
-            foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
-                if (!$field_definition['is_enabled']) {
-                    unset($this->context->fieldset_fields[$field_id]);
-                }
-            }
-
-            $this->buildCustomFields();
-        }
-
-        $this->context->mybb->binary_fields['myshowcase_data' . $this->context->showcase->showcase_id]['ipaddress'] = true;
-
-        $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
-
-        $hookArguments = [
-            'showcaseObject' => &$this,
-        ];
+        $hookArguments = hooksRun('system_showcase_construct_end', ['showcaseObject' => &$this]);
 
         $this->attachment_types = $this->context->cache_manager->get(
             CacheDataTypes::AttachmentTypes
         )[$this->context->showcase->showcase_id] ?? [];
 
-        $hookArguments = hooksRun('system_showcase_construct_end', $hookArguments);
+        $page = $this->context->mybb->get_input('page', MyBB::INPUT_INT);
+        $this->context->mybb->input['page'] = $page > 0 ? $page : 1;
+    }
 
-        if ($this->context->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
-            $this->context->mybb->input['page'] = $this->context->mybb->get_input('page', MyBB::INPUT_INT);
-        } else {
-            $this->context->mybb->input['page'] = 1;
+    private function resolveRouteIdentifier(): void
+    {
+        if ($this->context->routing->routeIdentifier() !== false) {
+            $this->route_identifier = $this->context->routing->routeIdentifier();
         }
+    }
+
+    private function loadShowcaseConfig(): void
+    {
+        foreach ($this->context->cache_manager->get(CacheDataTypes::Config) as $showcase_id => $showcase_data) {
+            if ($this->route_identifier === null && $this->showcase_id !== $showcase_id) {
+                continue;
+            }
+
+            if ($this->route_identifier !== null && $this->route_identifier !== $showcase_data['route_identifier']) {
+                continue;
+            }
+
+            $this->context->showcase = new ShowcaseEntity(...$showcase_data);
+            $this->route_identifier = $showcase_data['route_identifier'];
+
+            break;
+        }
+    }
+
+    private function initializeRepositories(): void
+    {
+        $showcase = $this->context->showcase;
+
+        $this->context->showcases_repository->setShowcase($showcase);
+        $this->context->access_logs_repository->setShowcase($showcase);
+        $this->context->moderators_repository->setShowcase($showcase);
+        $this->context->entries_repository->setShowcase($showcase);
+        $this->context->subscriptions_repository->setShowcase($showcase);
+        $this->context->comments_repository->setShowcase($showcase);
+        $this->context->attachments_repository->setShowcase($showcase);
+        $this->context->permissions_repository->setShowcase($showcase);
+    }
+
+    private function initializeCurrentUser(): void
+    {
+        $this->context->users_manager = new UsersManager($this->context);
+        $this->context->users_manager->addUser($this->context->mybb->user);
+        $this->context->current_user = $this->context->users_manager->getUserByID(
+            (int)$this->context->mybb->user['uid']
+        );
+    }
+
+    private function configureParserOptions(): void
+    {
+        $showcase = $this->context->showcase;
+
+        $this->parser_options = array_merge($this->parser_options, [
+            'allow_html' => !empty($showcase->parser_allow_html_in_entries),
+            'allow_mycode' => !empty($showcase->parser_allow_mycode_in_entries),
+            'allow_smilies' => !empty($showcase->parser_allow_smiles_in_entries),
+            'allow_imgcode' => !empty($showcase->parser_allow_image_code_in_entries),
+            'allow_videocode' => !empty($showcase->parser_allow_video_code_in_entries),
+            'me_username' => '',
+            'filter_badwords' => true,
+            'shorten_urls' => false,
+            'highlight' => false,
+        ]);
+    }
+
+    private function initializeFieldset(): void
+    {
+        if (!$this->context->showcase->field_set_id) {
+            return;
+        }
+
+        $this->context->fieldset_fields = $this->context->cache_manager->get(
+            CacheDataTypes::Fields
+        )[$this->context->showcase->field_set_id] ?? [];
+
+        foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
+            if (!$field_definition['is_enabled']) {
+                unset($this->context->fieldset_fields[$field_id]);
+            }
+        }
+
+        $this->buildCustomFields();
+    }
+
+    private function registerBinaryFields(): void
+    {
+        $showcase_id = $this->context->showcase->showcase_id;
+
+        $this->context->mybb->binary_fields['myshowcase_data' . $showcase_id]['ipaddress'] = true;
+        $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
     }
 
     public function newInstance(?int $showcase_id = null, ?string $route_identifier = null): self
     {
-        return new self(
-            $this->context,
-            $showcase_id,
-            $route_identifier,
-        );
+        return new self($this->context, $showcase_id, $route_identifier);
     }
 
     private function buildCustomFields(): void
     {
-        foreach (
-            $this->context->cache_manager->get(
-                CacheDataTypes::Fields
-            )[$this->context->showcase->field_set_id] ?? [] as $field_id => $field_definition
-        ) {
+        $fields = $this->context->cache_manager->get(
+            CacheDataTypes::Fields
+        )[$this->context->showcase->field_set_id] ?? [];
+
+        foreach ($fields as $field_id => $field_definition) {
             $this->context->custom_fields_collection[$field_id] = new CustomFieldEntity(...$field_definition);
         }
     }
 
     /**
-     * get group permissions for a specific showcase
-     *
-     * @return array group permissions for the specific showcase
+     * Returns merged group permissions for the given group, with showcase-specific overrides applied.
      */
     public function groupPermissionsGet(int $groupID = GUEST_GROUP_ID): array
     {
-        static $showcaseGroupPermissions = [];
+        static $cache = [];
 
-        if (!isset($showcaseGroupPermissions[$groupID])) {
-            $showcaseGroupPermissions[$groupID] = [];
+        if (isset($cache[$groupID])) {
+            return $cache[$groupID];
+        }
 
-            $dataFields = TABLES_DATA['myshowcase_permissions'];
+        $dataFields = TABLES_DATA['myshowcase_permissions'];
+        $hookArguments = hooksRun('admin_user_groups_edit_graph_start', ['dataFields' => &$dataFields]);
 
-            $hookArguments = [
-                'dataFields' => &$dataFields,
-            ];
+        $permissions = $this->buildDefaultGroupPermissions($dataFields);
+        $permissions = $this->applyUsergroupPermissions($permissions, $dataFields, $groupID);
+        $permissions = $this->applyShowcasePermissionOverrides($permissions, $groupID);
 
-            // todo, similar to `admin_user_groups_edit_graph_start`
-            $hookArguments = hooksRun(
-                'admin_user_groups_edit_graph_start',
-                $hookArguments
-            );
+        $cache[$groupID] = $permissions;
 
-            foreach ($dataFields as $dataFieldKey => $dataFieldData) {
-                if (!isset($dataFieldData['isPermission'])) {
-                    continue;
-                }
+        return $cache[$groupID];
+    }
 
-                $showcaseGroupPermissions[$groupID][$dataFieldKey] = $dataFieldData['default'];
-            }
+    private function buildDefaultGroupPermissions(array $dataFields): array
+    {
+        $permissions = [];
 
-            $groupsCache = $this->context->mybb->cache->read('usergroups') ?? [];
-
-            foreach ($groupsCache[$groupID] as $permissionKey => $permissionValue) {
-                if (str_starts_with($permissionKey, 'myshowcase_')) {
-                    $permissionName = str_replace('myshowcase_', '', $permissionKey);
-
-                    $showcaseGroupPermissions[$groupID][$permissionName] = sanitizeTableFieldValue(
-                        $permissionValue,
-                        $dataFields[$permissionName]['type'] ?? ''
-                    );
-                }
-            }
-
-            $permissionsCache = $this->context->cache_manager->get(
-                CacheDataTypes::Permissions
-            );
-
-            if (!empty($permissionsCache[$this->context->showcase->showcase_id][$groupID])) {
-                $showcaseGroupPermissions[$groupID] = array_merge(
-                    $showcaseGroupPermissions[$groupID],
-                    $permissionsCache[$this->context->showcase->showcase_id][$groupID]
-                );
+        foreach ($dataFields as $key => $field) {
+            if (isset($field['isPermission'])) {
+                $permissions[$key] = $field['default'];
             }
         }
 
-        return $showcaseGroupPermissions[$groupID];
+        return $permissions;
+    }
+
+    private function applyUsergroupPermissions(array $permissions, array $dataFields, int $groupID): array
+    {
+        $usergroupsCache = $this->context->mybb->cache->read('usergroups') ?? [];
+
+        foreach ($usergroupsCache[$groupID] as $key => $value) {
+            if (!str_starts_with($key, 'myshowcase_')) {
+                continue;
+            }
+
+            $permissionName = str_replace('myshowcase_', '', $key);
+            $permissions[$permissionName] = sanitizeTableFieldValue(
+                $value,
+                $dataFields[$permissionName]['type'] ?? ''
+            );
+        }
+
+        return $permissions;
+    }
+
+    private function applyShowcasePermissionOverrides(array $permissions, int $groupID): array
+    {
+        $permissionsCache = $this->context->cache_manager->get(CacheDataTypes::Permissions);
+        $showcaseOverrides = $permissionsCache[$this->context->showcase->showcase_id][$groupID] ?? [];
+
+        if (!empty($showcaseOverrides)) {
+            return array_merge($permissions, $showcaseOverrides);
+        }
+
+        return $permissions;
     }
 
     public function moderatorPermissionsGet(int $userID): array
     {
         $userData = get_user($userID);
+        $permissions = showcaseDefaultModeratorPermissions();
 
-        $userModeratorPermissions = showcaseDefaultModeratorPermissions();
+        if (empty($userData['uid'])) {
+            return $permissions;
+        }
 
-        if (!empty($userData['uid'])) {
-            $userGroupsIDs = array_filter(
-                array_map(
-                    'intval',
-                    explode(',', "{$userData['usergroup']},{$userData['additionalgroups']}")
-                )
-            );
+        $userGroupIDs = $this->extractUserGroupIDs($userData);
 
-            if (is_member(getSetting('superModeratorGroups'), $userData)) {
-                foreach ($userModeratorPermissions as $permissionKey => $permissionValue) {
-                    $userModeratorPermissions[$permissionKey] = true;
-                }
+        if (is_member(getSetting('superModeratorGroups'), $userData)) {
+            $permissions = array_map(fn() => true, $permissions);
+        }
+
+        return $this->applyShowcaseModeratorPermissions($permissions, $userGroupIDs, $userID);
+    }
+
+    private function extractUserGroupIDs(array $userData): array
+    {
+        return array_filter(
+            array_map('intval', explode(',', "{$userData['usergroup']},{$userData['additionalgroups']}"))
+        );
+    }
+
+    private function applyShowcaseModeratorPermissions(
+        array $permissions,
+        array $userGroupIDs,
+        int $userID
+    ): array {
+        $moderatorsCache = $this->context->cache_manager->get(CacheDataTypes::Moderators);
+        $showcaseModerators = $moderatorsCache[$this->context->showcase->showcase_id] ?? [];
+
+        foreach ($showcaseModerators as $moderatorEntry) {
+            if (!$this->moderatorMatchesUser($moderatorEntry, $userGroupIDs, $userID)) {
+                continue;
             }
 
-            //get showcase moderator cache to handle additional mods/modgroups
-            $moderatorsCache = $this->context->cache_manager->get(
-                CacheDataTypes::Moderators
-            );
-
-            if (!empty($moderatorsCache[$this->context->showcase->showcase_id])) {
-                foreach ($moderatorsCache[$this->context->showcase->showcase_id] as $moderatorPermissions) {
-                    if ($moderatorPermissions['group_id'] && in_array(
-                            $moderatorPermissions['user_id'],
-                            $userGroupsIDs
-                        ) ||
-                        !$moderatorPermissions['group_id'] && (int)$moderatorPermissions['user_id'] === $userID) {
-                        foreach ($userModeratorPermissions as $permissionKey => &$permissionValue) {
-                            $userModeratorPermissions[$permissionKey] = !empty($moderatorPermissions[$permissionKey]) ||
-                                !empty($permissionValue);
-                        }
-                    }
-                }
+            foreach ($permissions as $key => &$value) {
+                $value = !empty($moderatorEntry[$key]) || !empty($value);
             }
         }
 
-        return $userModeratorPermissions;
+        return $permissions;
+    }
+
+    private function moderatorMatchesUser(array $moderatorEntry, array $userGroupIDs, int $userID): bool
+    {
+        if ($moderatorEntry['group_id']) {
+            return in_array($moderatorEntry['user_id'], $userGroupIDs, strict: true);
+        }
+
+        return (int)$moderatorEntry['user_id'] === $userID;
     }
 }
