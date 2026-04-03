@@ -3,6 +3,7 @@
 {% block head %}
     <title>{{ trans('myshowcase_create_update_entry_title_create', config.name) }}
         - {{ mybb.settings.bbname }}</title>
+    <link rel="manifest" href="/manifest.json">
 {% endblock head %}
 
 {% block jscripts %}
@@ -91,8 +92,8 @@
                     {% include '@ext.myshowcase/pageEntryCreateUpdatePostIcons.twig' %}
                 {% endif %}
 
-                {% for field_data in entry.getFields() %}
-                    {% if true or field_data.isViewableInForm() %}
+                {% for field_id,field_data in showcase.custom_fields_collection %}
+                    {% if field_data.isViewableInForm() %}
                         {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
                     {% endif %}
                 {% endfor %}

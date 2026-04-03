@@ -796,7 +796,7 @@ function castTableFieldValue(mixed $value, string $fieldType): mixed
         $value = (int)$value;
     } elseif (fieldTypeMatchFloat($fieldType)) {
         $value = (float)$value;
-    } elseif (fieldTypeMatchDateTime($fieldType)) {
+    } elseif (fieldTypeMatchDateTime($fieldType) && !($value instanceof DateTime)) {
         try {
             $value = new DateTime($value, new DateTimeZone('UTC'));
         } catch (Exception $e) {
@@ -804,7 +804,7 @@ function castTableFieldValue(mixed $value, string $fieldType): mixed
         }
     } elseif (fieldTypeMatchChar($fieldType) ||
         fieldTypeMatchText($fieldType) ||
-        fieldTypeMatchDateTime($fieldType)) {
+        fieldTypeMatchDateTime($fieldType) && !($value instanceof DateTime)) {
         $value = (string)$value;
     }
 
@@ -821,9 +821,9 @@ function sanitizeTableFieldValue(mixed $value, string $fieldType)
         $value = (float)$value;
     } elseif (fieldTypeMatchChar($fieldType) ||
         fieldTypeMatchText($fieldType) ||
-        (fieldTypeMatchDateTime($fieldType) && !($value instanceof \DateTime))) {
+        (fieldTypeMatchDateTime($fieldType) && !($value instanceof DateTime))) {
         $value = $db->escape_string($value);
-    } elseif (fieldTypeMatchDateTime($fieldType) && ($value instanceof \DateTime)) {
+    } elseif (fieldTypeMatchDateTime($fieldType) && ($value instanceof DateTime)) {
         $value = date('Y-m-d H:i:s', $value->getTimestamp());
     } elseif (fieldTypeMatchBinary($fieldType)) {
         $value = $db->escape_binary($value);

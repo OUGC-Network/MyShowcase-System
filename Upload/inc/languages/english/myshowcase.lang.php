@@ -107,7 +107,9 @@ $l = array_merge($l, [
     'myshowcase_main_table_separator_selected_all_select_end' => 'entries in this forum.',
     'myshowcase_main_table_separator_selected_all_clear' => 'Clear All',
 
+    'myshowcase_main_table_row_comment' => 'Comment',
     'myshowcase_main_table_row_comments' => 'Comments',
+    'myshowcase_main_table_row_view' => 'View',
     'myshowcase_main_table_row_views' => 'Views',
     'myshowcase_main_table_row_closed_entry' => 'Cosed Entry',
     'myshowcase_main_table_row_sticky_entry' => 'Important Entry',
@@ -127,7 +129,7 @@ $l = array_merge($l, [
     'myshowcase_main_table_empty' => 'Sorry, but there are currently no entries in this showcase with the specified date and time limiting options.',
     'myshowcase_main_table_empty_search' => 'The search returned no results. Please try another search term.',
 
-    'myshowcase_main_sort_entries' => 'Sort Entries',
+    'myshowcase_main_sort_entries' => 'Sort and Filter Options',
     'myshowcase_main_sort_field' => 'Sort By',
     'myshowcase_main_sort_field_dateline' => 'Dateline',
     'myshowcase_main_sort_field_username' => 'Username',
@@ -160,6 +162,10 @@ $l = array_merge($l, [
     'myshowcase_create_update_entry_post_options_signature_description' => 'include your signature. (registered users only)',
     'myshowcase_create_update_entry_post_options_disable_smilies' => 'Disable Smilies:',
     'myshowcase_create_update_entry_post_options_disable_smilies_description' => 'disable smilies from showing in this post.',
+
+    'myshowcase_view_status_awaiting' => 'Awaiting Approval',
+    'myshowcase_view_status_visible' => 'Visible',
+    'myshowcase_view_status_deleted' => 'Deleted',
 
     'myshowcase_view_entry_button_subscribe' => 'Subscribe',
     'myshowcase_view_entry_button_unsubscribe' => 'Unsubscribe',

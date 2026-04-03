@@ -1,31 +1,29 @@
-{% set class %}{{ entry.background_class }}{% endset %}
-<div class="row row--thread thread {{ class }} inline_row {% if entry.unreadpost %}thread--unread{% endif %} {% if permissions.entries_can_view %}thread--moderator{% endif %}">
-    <div class="thread__column thread__column--primary">
-        <h3 class="thread__title">
-            <span class="tag">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
-
-            {# Thread status icons #}
-            <span class="thread__icons">
-                {# Closed #}
-                {% if entry.is_closed %}
-                    {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
-                {% endif %}
-
-                {# Sticky #}
-                {% if entry.is_sticky %}
-                    {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.myshowcase_main_table_row_sticky_entry}, with_context = false) }}
-                {% endif %}
-            </span>
+<div class="row row--thread thread {{ entry.extra_data.background_class }} inline_row {% if entry.extra_data.unread_comments %}thread--unread{% endif %} {% if permissions.entries_can_view %}thread--moderator{% endif %}">
+    <div class="thread__title">
+        <h3 class="thread__subject">
+            <span class="thread__status tag">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
         </h3>
     </div>
-    <div class="thread__column thread__column--replies">&nbsp;</div>
-    <div class="thread__column thread__column--latest">&nbsp;</div>
+
+    {# Thread status icons #}
+    <div class="thread__icons">
+        {# Closed #}
+        {% if entry.is_closed %}
+            {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
+        {% endif %}
+
+        {# Sticky #}
+        {% if entry.is_sticky %}
+            {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.myshowcase_main_table_row_sticky_entry}, with_context = false) }}
+        {% endif %}
+    </div>
+
     {% if permissions.entries_can_view %}
-        <div class="thread__column thread__column--checkbox">
-            <input type="checkbox" class="checkbox" name="inlinemod_{{ entry.entry_slug }}"
-                   id="inlinemod_{{ entry.entry_slug }}"
-                   value="1"{% if entry.modChecked %} checked{% endif %} />
+        <div class="thread__checkbox">
+            <label for="selected-entry-{{ entry.entry_slug }}"></label>
+            <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.entry_slug }}"
+                   id="selected-entry-{{ entry.entry_slug }}"
+                   {% if entry.extra_data.selected %}checked="checked"{% endif %} />
         </div>
     {% endif %}
-
 </div>

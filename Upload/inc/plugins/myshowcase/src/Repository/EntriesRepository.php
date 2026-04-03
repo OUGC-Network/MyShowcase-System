@@ -9,6 +9,8 @@ use DB_PgSQL;
 use DB_SQLite;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyShowcase\Collection\Collection;
+use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
@@ -287,7 +289,7 @@ class EntriesRepository
     }
 
     #[NoReturn] public function fetchEntries(
-        array $fieldset_fields,
+        Collection $fieldset_fields,
         array $where_clauses = [],
         array $query_options = []
     ): array {
@@ -308,14 +310,19 @@ class EntriesRepository
             ]
         );
 
-        foreach ($fieldset_fields as $field_id => $field_definition) {
-            if ($field_definition['html_type'] === FieldHtmlTypes::CheckBox ||
-                $field_definition['html_type'] === FieldHtmlTypes::Radio ||
-                $field_definition['html_type'] === FieldHtmlTypes::Select) {
-                $query_tables[] = "myshowcase_field_data table_{$field_definition['field_key']} ON (table_{$field_definition['field_key']}.field_data_id = entry_data.{$field_definition['field_key']} AND table_{$field_definition['field_key']}.field_id = '{$field_definition['field_id']}')";
+        /**
+         * @var CustomFieldEntity $field_definition
+         */
+        foreach ($fieldset_fields as $field_id => $field) {
+            if (in_array($field->html_type, [
+                FieldHtmlTypes::CheckBox,
+                FieldHtmlTypes::Radio,
+                FieldHtmlTypes::Select
+            ])) {
+                $query_tables[] = "myshowcase_field_data table_{$field->field_key} ON (table_{$field->field_key}.field_data_id = entry_data.{$field->field_key} AND table_{$field->field_key}.field_id = '{$field->field_id}')";
             }
 
-            $query_fields[] = $field_definition['field_key'];
+            $query_fields[] = $field->field_key;
         }
 
         if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
@@ -363,7 +370,7 @@ class EntriesRepository
         return $entry_objects;
     }
 
-    #[NoReturn] public function fetchEntry(array $fieldset_fields, array $where_clauses = []): array
+    #[NoReturn] public function fetchEntry(Collection $fieldset_fields, array $where_clauses = []): array
     {
         return $this->fetchEntries($fieldset_fields, $where_clauses, ['limit' => 1])[0] ?? [];
     }

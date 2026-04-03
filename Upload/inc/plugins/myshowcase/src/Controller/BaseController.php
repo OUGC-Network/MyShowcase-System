@@ -185,11 +185,14 @@ abstract class BaseController
 
             if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
                 $where_clauses[] = "(entry_data.status='" . ContentStatuses::VisibleApproved . "' OR (
-            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::PendingUnapproved . "'
+            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::AwaitingApproval . "'
             ))";
             }
 
-            $entry = $this->context->entries_repository->fetchEntry($this->context->fieldset_fields, $where_clauses);
+            $entry = $this->context->entries_repository->fetchEntry(
+                $this->context->custom_fields_collection,
+                $where_clauses
+            );
 
             $this->context->entries_manager->addEntry($entry);
 
@@ -226,12 +229,12 @@ abstract class BaseController
 
                 if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
                     $where_clauses[] = "(entry_data.status='" . ContentStatuses::VisibleApproved . "' OR (
-            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::PendingUnapproved . "'
+            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::AwaitingApproval . "'
             ))";
                 }
 
                 $entry = $this->context->entries_repository->fetchEntry(
-                    $this->context->fieldset_fields,
+                    $this->context->custom_fields_collection,
                     $where_clauses
                 );
 
@@ -260,7 +263,7 @@ abstract class BaseController
         if (
             (int)$entry->status !== ContentStatuses::VisibleApproved &&
             ((
-                    (int)$entry->status === ContentStatuses::PendingUnapproved &&
+                    (int)$entry->status === ContentStatuses::AwaitingApproval &&
                     $this->context->current_user->uid !== (int)$entry->user_id
                 ) ||
                 (
@@ -274,7 +277,7 @@ abstract class BaseController
             if (
                 $comment_data->status !== ContentStatuses::VisibleApproved &&
                 ((
-                        $comment_data->status === ContentStatuses::PendingUnapproved &&
+                        $comment_data->status === ContentStatuses::AwaitingApproval &&
                         $this->context->current_user->uid !== $comment_data->user_id
                     ) ||
                     (
@@ -321,7 +324,7 @@ abstract class BaseController
 
             if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) &&
                 !$this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-                $where_clauses[] = "(status='" . ContentStatuses::VisibleApproved . "' OR (user_id='{$this->context->current_user->uid}' AND status='" . ContentStatuses::PendingUnapproved . "'))";
+                $where_clauses[] = "(status='" . ContentStatuses::VisibleApproved . "' OR (user_id='{$this->context->current_user->uid}' AND status='" . ContentStatuses::AwaitingApproval . "'))";
             }
 
             $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase);
@@ -337,7 +340,7 @@ abstract class BaseController
             $url_params = [
                 'entry_slug' => $entry->entry_slug,
                 'entry_slug_custom' => $entry->entry_slug_custom,
-                'comment_hash' => $comment_slug,
+                'comment_slug' => $comment_slug,
             ];
 
             if ($current_page > 1) {

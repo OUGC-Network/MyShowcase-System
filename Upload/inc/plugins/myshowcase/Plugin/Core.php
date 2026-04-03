@@ -389,7 +389,7 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1,
         ],
-        'attachments_pending' => [
+        'attachments_awaiting' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
@@ -2210,7 +2210,7 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        'comments_pending' => [
+        'comments_awaiting' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
@@ -2225,7 +2225,7 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'default' => 0,
         ],
-        'attachments_pending' => [
+        'attachments_awaiting' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,

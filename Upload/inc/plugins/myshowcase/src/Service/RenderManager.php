@@ -15,11 +15,13 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use Exception;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CommentEntity;
+use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Entity\PermissionEntity;
 use MyShowcase\Entity\UserEntity;
@@ -80,9 +82,12 @@ class RenderManager
 
         $this->fieldset_display_fields = (new SelectableLists($this->context->language))->sortFieldsEntryList();
 
-        foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
-            if ($field_definition['display_in_main_page']) {
-                $this->fieldset_display_fields[$field_definition['field_key']] = '';
+        /**
+         * @var CustomFieldEntity $field
+         */
+        foreach ($this->context->custom_fields_collection as $field_id => $field) {
+            if ($field->isViewableInMain()) {
+                $this->fieldset_display_fields[$field->field_key] = '';
             }
         }
 
@@ -136,7 +141,6 @@ class RenderManager
     {
         $this->template_context = array_merge_recursive([
             'showcase' => [
-                'fieldset_fields' => $this->context->fieldset_fields,
                 'fieldset_display_fields' => $this->fieldset_display_fields,
                 'custom_fields_collection' => $this->context->custom_fields_collection,
                 'version' => DEBUG ? TIME_NOW : VERSION_CODE,
@@ -273,7 +277,8 @@ class RenderManager
         ];
 
         // todo, add showcase setting to enable/disable post icons
-        if (true) {
+        if ($post_type === ContentTypes::Entry && $this->context->showcase->entries_allow_post_icons ||
+            $post_type === ContentTypes::Comment && $this->context->showcase->comments_allow_post_icons) {
             $templatesContext['icons_cache'] = (array)$this->context->mybb->cache->read('posticons');
         }
 
@@ -679,7 +684,7 @@ class RenderManager
         }
 
         if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entries_can_view || $userCanSoftDeleteEntries)) {
-            if ($entries_can_view && $postStatus === ContentStatuses::PendingUnapproved) {
+            if ($entries_can_view && $postStatus === ContentStatuses::AwaitingApproval) {
                 $approveUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -726,7 +731,7 @@ class RenderManager
                 );
             }
         } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comments_can_view || $userCanSoftDeleteComments)) {
-            if ($comments_can_view && $postStatus === ContentStatuses::PendingUnapproved) {
+            if ($comments_can_view && $postStatus === ContentStatuses::AwaitingApproval) {
                 $templatesContext['url_comment_approve'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::CommentView,
                         array_merge($this->url_params, [
@@ -796,7 +801,7 @@ class RenderManager
 
         if (!$this->is_preview) {
             switch ($postStatus) {
-                case ContentStatuses::PendingUnapproved:
+                case ContentStatuses::AwaitingApproval:
                     $templatesContext['unapproved_class'] = 'unapproved_post';
                     break;
                 case ContentStatuses::SoftDeleted:
@@ -829,8 +834,8 @@ class RenderManager
         // Is the user (not moderator) logged in and have unapproved posts?
         if (!$this->is_preview && ($this->context->current_user->uid &&
                 (
-                    $post_type === ContentTypes::Entry && $postStatus === ContentStatuses::PendingUnapproved ||
-                    $post_type === ContentTypes::Comment && $postStatus === ContentStatuses::PendingUnapproved
+                    $post_type === ContentTypes::Entry && $postStatus === ContentStatuses::AwaitingApproval ||
+                    $post_type === ContentTypes::Comment && $postStatus === ContentStatuses::AwaitingApproval
                 ) &&
                 $this->user_id === $this->context->current_user->uid &&
                 !(
@@ -858,6 +863,17 @@ class RenderManager
 
             $templatesContext['style_visibility'] = 'display: none;';
         }
+
+        if ($entry->status === ContentStatuses::AwaitingApproval) {
+            $entry->setExtraData('background_class', 'trow_shaded');
+        } elseif ($entry->status === ContentStatuses::SoftDeleted &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+            $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
+        } else {
+            $entry->setExtraData('background_class', '');
+        }
+
+        $entry->setExtraData('unread_comments', false); // todo, implement unread comments
 
         // todo, the entry query should fetch this from the reports table
         if ($entry->getExtraData('reporters_list') === false) {
@@ -985,8 +1001,8 @@ class RenderManager
                 $templatePrefix,
                 $templatesContext,
             );
-        } catch (\Exception $e) {
-            _dump($e->getMessage(), generate_backtrace());
+        } catch (Exception $e) {
+            _dump(852, $e->getMessage(), generate_backtrace());
         }
 
         return $page;

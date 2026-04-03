@@ -131,6 +131,26 @@ class Routing
         );
 
         $this->routes->add(
+            Routes::EntryCreateUploadApi,
+            new Route(
+                '/{showcase}/update/{post_hash}/upload',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        (new AttachmentsController($this->context, is_api_request: true))
+                            ->uploadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'showcase' => '[a-z0-9]+',
+                    'post_hash' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
             Routes::EntryUpdateApi,
             new Route(
                 '/{showcase}/api/update/{entry_slug}',
@@ -144,6 +164,26 @@ class Routing
                     },
                 ],
                 [
+                    'showcase' => '[a-z0-9]+',
+                    'entry_slug' => '[a-z0-9-]+',
+                ]
+            )
+        );
+
+        $this->routes->add(
+            Routes::EntryUpdateUploadApi,
+            new Route(
+                '/{showcase}/api/view/{entry_slug}/upload',
+                [
+                    '_controller' => function (array $parameters): void {
+                        unset($parameters['showcase']);
+
+                        (new AttachmentsController($this->context, is_api_request: true))
+                            ->uploadAttachment(...$parameters);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
                 ]
@@ -167,7 +207,7 @@ class Routing
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
+                    //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -189,7 +229,7 @@ class Routing
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
+                    //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -252,7 +292,7 @@ class Routing
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
                     'entry_slug' => '[a-z0-9-]+',
-                    'entry_slug_custom' => '[a-z0-9-]*',
+                    //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
         );
@@ -272,26 +312,6 @@ class Routing
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
                     'comment_slug' => '[a-z0-9-]+',
-                ]
-            )
-        );
-
-        $this->routes->add(
-            Routes::AttachmentUpload,
-            new Route(
-                '/{showcase}/upload/{post_hash}',
-                [
-                    '_controller' => function (array $parameters): void {
-                        unset($parameters['showcase']);
-
-                        (new AttachmentsController($this->context, is_api_request: true))
-                            ->uploadAttachment(...$parameters);
-                    },
-                ],
-                [
-                    '_method' => 'POST',
-                    'showcase' => '[a-z0-9]+',
-                    'post_hash' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -356,7 +376,6 @@ class Routing
                             $this->context->entries_manager,
                             $this->context->attachments_manager,
                             $this->context->render_manager,
-                            $this->context->fieldset_fields,
                         ))->mainSearch(...$parameters);
                     },
                 ],
@@ -383,7 +402,6 @@ class Routing
                             $this->context->entries_manager,
                             $this->context->attachments_manager,
                             $this->context->render_manager,
-                            $this->context->fieldset_fields,
                         ))->mainSearch(...$parameters);
                     },
                 ],
@@ -405,7 +423,7 @@ class Routing
     {
         $parameters['showcase'] = $this->context->showcase->route_identifier;
         if (empty($this->context->showcase->route_identifier)) {
-            _dump($this->context->showcase->route_identifier, $parameters);
+            _dump(789, $this->context->showcase->route_identifier, $parameters);
         }
 
         $this->routing_context->setBaseUrl('/');

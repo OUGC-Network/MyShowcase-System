@@ -19,6 +19,7 @@
             <meta property="{{ meta_data.property }}" content="{{ meta_data.content }}">
         {% endfor %}
     {% endif %}
+    <link rel="manifest" href="/manifest.json">
 {% endblock head %}
 
 {% block jscripts %}
@@ -68,7 +69,7 @@
                     {% endif %}
                 {% endif %}
 
-                {% if permissions.comments_can_post %}
+                {% if config.comments_enable and permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
                         <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--full-width">
@@ -123,7 +124,7 @@
                 {{ pagination|raw }}
             </div>
             <div class="page-buttons">
-                {% if permissions.comments_can_post %}
+                {% if config.comments_enable and permissions.comments_can_post %}
                     {% if not entry_data.is_closed %}
                         <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--full-width">

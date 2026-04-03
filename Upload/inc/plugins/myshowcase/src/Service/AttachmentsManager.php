@@ -374,11 +374,11 @@ class AttachmentsManager
         }
 
         if (!$is_update && $this->context->current_user->hasPermission(UserPermissions::AttachmentsModerateNew)) {
-            $this->insert_data['status'] = ContentStatuses::PendingUnapproved;
+            $this->insert_data['status'] = ContentStatuses::AwaitingApproval;
         } elseif ($is_update && $this->context->current_user->hasPermission(
                 UserPermissions::AttachmentsModerateUpdates
             )) {
-            $this->insert_data['status'] = ContentStatuses::PendingUnapproved;
+            $this->insert_data['status'] = ContentStatuses::AwaitingApproval;
         }
 
         // If we're uploading an image, check the MIME type compared to the image type and attempt to generate a thumbnail

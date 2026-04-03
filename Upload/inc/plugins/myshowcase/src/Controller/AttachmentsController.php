@@ -17,6 +17,7 @@ namespace MyShowcase\Controller;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
@@ -38,6 +39,8 @@ use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 use function MyShowcase\Plugin\Functions\attachmentLogInsert;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -73,24 +76,51 @@ class AttachmentsController extends BaseController
             $this->errorNoPermission();
         }
 
-        $field_key = $mybb->get_input('field_key');
+        /**
+         * @var CustomFieldEntity $field
+         */
+        $field = $this->context->custom_fields_collection->filter(
+            fn(CustomFieldEntity $field) => $field->field_key === $mybb->get_input('field_id', \MyBB::INPUT_INT)
+        );
 
-        $field_id = null;
+        _dump(888, $field, $mybb->input);
 
-        $field_id = array_filter(
-            $this->context->fieldset_fields,
-            fn($field_data) => $field_data['field_key'] === $field_key
-        )[0]['field_id'] ?? 0;
-
-        if (!$field_key || empty($field_id)) {
+        if (!$field_key || empty($field->field_id)) {
             $this->errorNoPermission();
+        }
+
+        $request = Request::createFromGlobals();
+
+        _dump(951, $field->field_id, $request->files->has($field_key));
+
+        if ($request->files->has('my_file')) {
+            /** @var UploadedFile $uploadedFile */
+            $uploadedFile = $request->files->get('my_file');
+
+            // Validate the file
+            if ($uploadedFile->isValid()) {
+                // Get the original filename
+                $originalFilename = $uploadedFile->getClientOriginalName();
+
+                // Define where to save the file
+                $targetDirectory = __DIR__ . '/uploads/';
+
+                // Move the file to the target directory
+                $uploadedFile->move($targetDirectory, $originalFilename);
+
+                echo "File uploaded successfully as: " . $originalFilename;
+            } else {
+                echo "Error uploading file: " . $uploadedFile->getErrorMessage();
+            }
+        } else {
+            echo "No file uploaded.";
         }
 
         if (empty($_FILES[$field_key])) {
             $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
         }
 
-        $field_definition = $this->context->fieldset_fields[$field_id];
+        $field_definition = $this->context->fieldset_fields[$field->field_id];
 
         if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
             !is_member($field_definition['allowed_groups_fill'])) {
@@ -124,8 +154,8 @@ class AttachmentsController extends BaseController
             $upload_attachment_result = $this->context->attachments_manager->uploadAttachment(
                 $_FILES[$field_key],
                 $entry,
-                field_id: $field_id,
-                field_definition: $field_id ? $this->context->fieldset_fields[$field_id] : [],
+                field_id: $field->field_id,
+                field_definition: $field->field_id ? $this->context->fieldset_fields[$field->field_id] : [],
                 do_watermark: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
             );
 
@@ -145,7 +175,7 @@ class AttachmentsController extends BaseController
                     'filename' => basename($_FILES[$field_key]['name']),
                     'size' => $upload_attachment_result['file_size'],
                     'type' => $upload_attachment_result['mime_type'],
-                    'status' => 'success', // error, pending
+                    'status' => 'success', // error, awaiting
                     'message' => 'File uploaded successfully',
                     'key' => $upload_attachment_result['attachment_id'],
                     'metadata' => [

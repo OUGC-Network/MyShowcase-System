@@ -13,7 +13,7 @@ final readonly class EntryCustomField
     private array $parser_options;
 
     public function __construct(
-        private string $field_key,
+        public string $field_key,
         private int|string $field_value = ''
     ) {
     }

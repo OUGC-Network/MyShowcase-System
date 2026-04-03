@@ -208,7 +208,7 @@ class CommentsManager
         if (isset($commentData['status']) && !in_array(
                 $this->data['status'],
                 [
-                    ContentStatuses::PendingUnapproved,
+                    ContentStatuses::AwaitingApproval,
                     ContentStatuses::VisibleApproved,
                     ContentStatuses::SoftDeleted,
                 ]

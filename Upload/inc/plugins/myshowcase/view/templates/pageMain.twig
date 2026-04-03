@@ -13,11 +13,60 @@
             <meta property="{{ meta_data.property }}" content="{{ meta_data.content }}">
         {% endfor %}
     {% endif %}
+    <link rel="manifest" href="/manifest.json">
+
+    <style>
+        .pagination-container {
+            transition: opacity 0.3s;
+        }
+
+        .htmx-request .pagination-container {
+            opacity: 0.5;
+        }
+
+        .page-link {
+            cursor: pointer;
+            padding: 8px 12px;
+            margin: 0 4px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .active-page {
+            background-color: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+
+        .item-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .loading-indicator {
+            display: none;
+        }
+
+        .htmx-request .loading-indicator {
+            display: block;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
 {% endblock head %}
 
 {% block jscripts %}
     <script type="text/javascript"
             src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
+    <script type="text/javascript">
+        <!--
+        const url_showcase = "{{ url.showcase }}";
+        // -->
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
 {% endblock jscripts %}
 
 {% block body %}
@@ -56,7 +105,7 @@
 
     {# Forum rules #}
     {% if config.rules_type > 0 and config.rules_content %}
-        <section class="container container--forum-rules">
+        <section class="container container--forum-rules forum-rules">
             {% if config.rules_type == 3 %}
                 <strong>
                     <a href="{{ config.rules_content }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
@@ -71,29 +120,31 @@
     {% if url.create_entry %}
         {% set button_new_entry %}
             <a href="{{ url.showcase }}{{ url.create_entry }}" class="button button--medium button--full-width">
-                {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'button__icon'}, with_context = false) }}
+                {{ include('partials/icon.twig', {icon: 'edit', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_entry_create }}</span>
             </a>
         {% endset %}
     {% endif %}
 
-    <div class="page-controls page-controls--top">
+    <div class="page-controls page-controls--compact">
         <div class="page-buttons">
             <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if mybb.user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
                class="button button--medium button--secondary button--half-width">
                 {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>
             </a>
-            <a href="{{ url.showcase }}{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
-               class="button button--medium button--secondary button--half-width">
-                {% if 'add' == 'add' %}
-                    {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
-                    <span class="button__text">{{ lang.myshowcase_main_button_subscribe }}</span>
-                {% else %}
-                    {{ include('partials/icon.twig', {icon: 'minus', class: 'button__icon'}, with_context = false) }}
-                    <span class="button__text">{{ lang.myshowcase_main_button_unsubscribe }}</span>
-                {% endif %}
-            </a>
+            {% if mybb.user.uid %}
+                <a href="{{ url.showcase }}{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
+                   class="button button--medium button--secondary button--half-width">
+                    {% if 'add' == 'add' %}
+                        {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
+                        <span class="button__text">{{ lang.myshowcase_main_button_subscribe }}</span>
+                    {% else %}
+                        {{ include('partials/icon.twig', {icon: 'minus', class: 'button__icon'}, with_context = false) }}
+                        <span class="button__text">{{ lang.myshowcase_main_button_unsubscribe }}</span>
+                    {% endif %}
+                </a>
+            {% endif %}
             {% if config.password %}
                 <a href="{{ url.showcase }}{{ url.clear_password }}"
                    class="button button--medium button--secondary button--full-width">
@@ -104,51 +155,50 @@
         </div>
         {{ pagination|raw }}
     </div>
-    <section class="thread-list">
+    <section class="block block--thread-list">
         {# Sorting #}
         {% set ascDesc %}
-            <span class="sort-threads__order">
-                        {% if url_params.order_dir is not defined or url_params.order_dir == 'desc' %}
-                            {{ include('partials/icon.twig', {icon: 'chevron-circle-up', class: '', title: 'asc'}, with_context = false) }}
-                        {% else %}
-                            {{ include('partials/icon.twig', {icon: 'chevron-circle-down', class: '', title: 'desc'}, with_context = false) }}
-                        {% endif %}
-                    </span>
+            <span class="sort-results__order">
+                {% if url_params.order_dir is not defined or url_params.order_dir == 'asc' %}
+                    {{ include('partials/icon.twig', {icon: 'chevron-circle-up', class: '', title: 'asc'}, with_context = false) }}
+                {% else %}
+                    {{ include('partials/icon.twig', {icon: 'chevron-circle-down', class: '', title: 'desc'}, with_context = false) }}
+                {% endif %}
+            </span>
         {% endset %}
-        <div class="sort-threads">
-            <div class="sort-threads__column sort-threads__column--primary">
-                        <span class="sort-threads__subject"><a
-                                    href="{{ config.showcase_url }}{{ url.sort.subject }}"
-                                    class="sort-threads__link sort-threads__link--subject">{{ lang.myshowcase_main_table_head_entry }}{% if url_params.order_by is defined and url_params.order_by == 'subject' %}{{ ascDesc }}{% endif %}</a></span>
-                <span class="sort-threads__author">&mdash; <a
-                            href="{{ config.showcase_url }}{{ url.sort.username }}"
-                            class="sort-threads__link sort-threads__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.order_by is defined and url_params.order_by == 'username' %}{{ ascDesc }}{% endif %}</a></span>
+        <div class="column-headings column-headings--major column-headings--thread-list sort-results thread thread--default">
+            <div class="column-headings__column thread__title">
+                <a href="{{ config.showcase_url }}{{ url.sort.subject }}"
+                   class="sort-results__link sort-results__link--title">{{ lang.myshowcase_main_table_head_entry }}{% if url_params.order_by is defined and url_params.order_by == 'subject' %}{{ ascDesc }}{% endif %}</a>
+            </div>
+            <div class="column-headings__column thread__author">
+                <a href="{{ config.showcase_url }}{{ url.sort.username }}"
+                   class="sort-results__link sort-results__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.order_by is defined and url_params.order_by == 'username' %}{{ ascDesc }}{% endif %}</a>
             </div>
 
             {% for custom_field in showcase.custom_fields_collection %}
-                {% if custom_field.isViewableInMain() %}
-                    <div class="sort-threads__column sort-threads__column--replies">
-                        ---{{ custom_field.isViewableInMain() }}---
+                {% if false and custom_field.isViewableInMain() %}
+                    <div class="column-headings__column thread__replies">
                         <a href="{{ url.sort[custom_field.field_key] }}"
-                           class="sort-threads__link">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ custom_field.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == custom_field.field_key %}{{ ascDesc }}{% endif %}
+                           class="sort-results__link sort-results__link--comments-approved">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ custom_field.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == custom_field.field_key %}{{ ascDesc }}{% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
 
-            <div class="sort-threads__column sort-threads__column--replies">
+            <div class="column-headings__column thread__replies">
                 <a href="{{ config.showcase_url }}{{ url.sort.comments }}"
-                   class="sort-threads__link sort-threads__link--replies">{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments_approved' %}{{ ascDesc }}{% endif %}</a>
+                   class="sort-results__link sort-results__link--comments-approved">123-{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments' %}{{ ascDesc }}{% endif %}</a>
             </div>
-            <div class="sort-threads__column sort-threads__column--latest">
+            <div class="column-headings__column thread__latest">
                 <a href="{{ config.showcase_url }}{{ url.sort.last_comment }}"
-                   class="sort-threads__link sort-threads__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.order_by is defined and url_params.order_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
+                   class="sort-results__link sort-results__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.order_by is defined and url_params.order_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
             </div>
             {% if permissions.entries_can_view %}
-                <span class="sort-threads__column sort-threads__column--checkbox">
-                            <label>
-                                <input type="checkbox" id="select-all-entries"/>
-                            </label>
-                        </span>
+                <div class="column-headings__column thread__checkbox">
+                    <label>
+                        <input type="checkbox" id="select-all-entries"/>
+                    </label>
+                </div>
             {% endif %}
         </div>
 
@@ -174,7 +224,7 @@
 
         {# Threads – errors #}
         {% if not total_entries %}
-            <div class="alert alert--no-results">
+            <div class="row row--no-results no-results">
                 {% if url_params.keywords is defined and url_params.keywords %}
                     {{ lang.myshowcase_main_table_empty_search }}
                 {% else %}
@@ -182,42 +232,46 @@
                 {% endif %}
             </div>
         {% else %}
-            <div class="thread-list__container">
-                {% if stuck_entries is not empty %}
-                    <div class="thread-list__normal-threads">
-                        <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
-                    </div>
-                    {% for entry in stuck_entries %}
+            {% if stuck_entries is not empty %}
+                <div class="thread-list thread-list--sticky-threads">
+                    <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
+                </div>
+                {% for entry in stuck_entries %}
 
-                        {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
-                            {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
-                        {% else %}
-                            {% include '@ext.myshowcase/pageMainEntry.twig' %}
-                        {% endif %}
+                    {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
+                        {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
+                    {% else %}
+                        {% include '@ext.myshowcase/pageMainEntry.twig' %}
+                    {% endif %}
 
-                    {% endfor %}
-                {% endif %}
+                {% endfor %}
+            {% endif %}
 
-                {% if normal_entries is not empty %}
-                    <div class="thread-list__normal-threads">
-                        <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
-                    </div>
-                    {% for entry in normal_entries %}
+            {% if normal_entries is not empty %}
+                <div class="thread-list thread-list--normal-threads">
+                    <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
+                </div>
+                {% for entry in normal_entries %}
 
-                        {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
-                            {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
-                        {% else %}
-                            {% include '@ext.myshowcase/pageMainEntry.twig' %}
-                        {% endif %}
+                    {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
+                        {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
+                    {% else %}
+                        {% include '@ext.myshowcase/pageMainEntry.twig' %}
+                    {% endif %}
 
-                    {% endfor %}
-                {% endif %}
-            </div>
+                {% endfor %}
+            {% endif %}
         {% endif %}
 
         {# Threadlist footer #}
-        <div class="sort-results">
-            <form action="{{ config.showcase_url }}{{ url.main }}" method="get">
+        <details class="block__footer block-actions block-actions--collapsible"
+                 {% if mybb.input.sort is defined %}open{% endif %}>
+            <summary class="block-actions__summary button button--basic button--inline">
+                {{ include('partials/icon.twig', {icon: 'random', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myshowcase_main_sort_entries }}</span>
+            </summary>
+            <form action="{{ config.showcase_url }}{{ url.main }}" method="get"
+                  class="block-actions__details form form--compact multi-field">
                 <h3 class="sort-results__title visually-hidden">{{ lang.myshowcase_main_sort_entries }}</h3>
                 <div class="select-field">
                     {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
@@ -269,7 +323,7 @@
                     {% endfor %}
                 {% endif %}
             </form>
-        </div>
+        </details>
     </section>
 
     {{ pagination|raw }}

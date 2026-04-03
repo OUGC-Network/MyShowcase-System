@@ -17,6 +17,7 @@ namespace MyShowcase\Hooks\Forum;
 
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Enum\AttachmentsDisplayType;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
@@ -27,6 +28,7 @@ use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
 use MyShowcase\Util\buildShowcase;
+use MyShowcase\Util\QuotesUtil;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -119,7 +121,7 @@ function global_intermediate(): bool
                 $unapprovedEntriesUrl = '';
 
                 $totalUnapprovedEntries = $entries_repository->queryEntryCount(
-                    ["status='" . ContentStatuses::PendingUnapproved . "'"]
+                    ["status='" . ContentStatuses::AwaitingApproval . "'"]
                 );
 
                 if ($totalUnapprovedEntries > 0) {
@@ -478,7 +480,7 @@ function postbit(array &$post): array
                 }
 
                 /**
-                 * @var \MyShowcase\Entity\AttachmentEntity $attachment
+                 * @var AttachmentEntity $attachment
                  */
                 foreach ($showcase->context->attachments_manager->getAttachments() as $attachment) {
                     $entry = $showcase->context->entries_manager->getEntryByID($attachment->entry_id);
@@ -768,44 +770,33 @@ function modcp_reports_report(): void
     }
 }
 
-function reputation_start(): void
+function parse_message_me_mycode(string &$message): string
 {
-    global $mybb;
-
-    if ($mybb->get_input('action') !== 'add' ||
-        !$mybb->get_input('showcase_identifier') ||
-        !$mybb->get_input('entry_slug')) {
-        return;
+    if (THIS_SCRIPT !== 'showcase.php') {
+        return $message;
     }
 
-    $showcase = (new buildShowcase())->getShowcase(route_identifier: $mybb->get_input('showcase_identifier'));
+    static $cache_manager = null;
 
-    if (empty($showcase->context->showcase)) {
-        error();
+    if ($cache_manager === null) {
+        global $db, $cache;
+
+        $cache_manager = new CacheManager($db, $cache);
     }
 
-    $where_clauses = [
-        "entry_data.entry_slug='{$showcase->context->database->escape_string($mybb->get_input('entry_slug'))}'"
-    ];
+    foreach (
+        $cache_manager->get(
+            CacheDataTypes::Config
+        ) as $showcase_id => $showcase_data
+    ) {
+        if (empty($showcase_data['is_enabled']) || empty($showcase_data['comments_enable_quotes'])) {
+            continue;
+        }
 
-    $entry = $showcase->context->entries_manager->generateEntry(
-        $showcase->context->entries_repository->queryEntry($where_clauses, [
-            'entry_id',
-            'user_id'
-        ])
-    );
+        $showcase = (new buildShowcase())->getShowcase($showcase_id);
 
-    if (empty($entry->entry_id)) {
-        error();
+        $message = (new QuotesUtil($showcase->context))->mycode_parse_quotes($message);
     }
 
-    global $existing_reputation;
-
-    $query = $showcase->context->database->simple_select(
-        'reputation',
-        'rid, uid, adduid, reputation',
-        "adduid='{$showcase->context->current_user->user_id}' AND uid='{$mybb->get_input('uid', MyBB::INPUT_INT)}' AND pid = '{$mybb->get_input('pid',MyBB::INPUT_INT)}'"
-    );
-
-    $existing_reputation = $showcase->context->database->fetch_array($query);
+    return $message;
 }

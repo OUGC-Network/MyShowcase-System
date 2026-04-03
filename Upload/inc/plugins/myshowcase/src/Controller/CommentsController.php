@@ -58,12 +58,10 @@ class CommentsController extends BaseController
 
         $hookArguments = hooksRun('controller_comments_update_entry_comments_count_start', $hookArguments);
 
-        $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase,);
-
         $this->context->entries_repository->updateEntry(
-            ['comments_approved' => $comments_repository->queryCommentCount($whereClauses)],
-            $entry_id,
-            $this->context->fieldset_fields
+            $this->context->entries_manager->generateEntry(
+                ['entry_id' => $entry_id, 'is_closed' => 0]
+            )
         );
     }
 
@@ -196,10 +194,10 @@ class CommentsController extends BaseController
             if (!$this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
                 if ($is_update &&
                     $this->context->current_user->hasPermission(UserPermissions::CommentsModerateUpdates)) {
-                    $insertData['status'] = ContentStatuses::PendingUnapproved;
+                    $insertData['status'] = ContentStatuses::AwaitingApproval;
                 } elseif (!$is_update &&
                     $this->context->current_user->hasPermission(UserPermissions::CommentsModerateNew)) {
-                    $insertData['status'] = ContentStatuses::PendingUnapproved;
+                    $insertData['status'] = ContentStatuses::AwaitingApproval;
                 }
             }
 

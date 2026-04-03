@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use captcha;
 use DateTime;
 use Exception;
 use MyShowcase\Collection\Collection;
@@ -98,11 +99,11 @@ class EntriesManager
     {
         $fields_data = $extra_data = [];
 
-        foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
-            if (isset($entry_data[$field_definition['field_key']])) {
-                $fields_data[$field_definition['field_key']] = $entry_data[$field_definition['field_key']];
+        foreach ($this->context->custom_fields_collection as $field_id => $field) {
+            if (isset($entry_data[$field->field_key])) {
+                $fields_data[$field->field_key] = $entry_data[$field->field_key];
 
-                unset($entry_data[$field_definition['field_key']]);
+                unset($entry_data[$field->field_key]);
             }
         }
 
@@ -201,7 +202,7 @@ class EntriesManager
         if ($this->context->current_user->hasPermission(UserPermissions::MainRequireCaptcha)) {
             require_once MYBB_ROOT . 'inc/class_captcha.php';
 
-            $post_captcha = new \captcha(true, 'post');
+            $post_captcha = new captcha(true, 'post');
 
             if ($post_captcha->validate_captcha() === false) {
                 foreach ($post_captcha->get_errors() as $error) {
@@ -309,7 +310,7 @@ class EntriesManager
         }
 
         if (isset($this->validation_entry->status) && !in_array($this->validation_entry->status, [
-                ContentStatuses::PendingUnapproved,
+                ContentStatuses::AwaitingApproval,
                 ContentStatuses::VisibleApproved,
                 ContentStatuses::SoftDeleted,
             ])) {
@@ -336,7 +337,7 @@ class EntriesManager
             $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_views_count);
         }
 
-        if (isset($this->validation_entry->comments_pending) && $this->validation_entry->comments_pending < 0 ||
+        if (isset($this->validation_entry->comments_awaiting) && $this->validation_entry->comments_awaiting < 0 ||
             isset($this->validation_entry->comments_approved) && $this->validation_entry->comments_approved < 0 ||
             isset($this->validation_entry->comments_deleted) && $this->validation_entry->comments_deleted < 0) {
             $this->validateSetError(
@@ -344,7 +345,7 @@ class EntriesManager
             );
         }
 
-        if (isset($this->validation_entry->attachments_pending) && $this->validation_entry->attachments_pending < 0 ||
+        if (isset($this->validation_entry->attachments_awaiting) && $this->validation_entry->attachments_awaiting < 0 ||
             isset($this->validation_entry->attachments_approved) && $this->validation_entry->attachments_approved < 0 ||
             isset($this->validation_entry->attachments_deleted) && $this->validation_entry->attachments_deleted < 0) {
             $this->validateSetError(
@@ -553,7 +554,7 @@ class EntriesManager
                     continue;
                 }
 
-                _dump($field_id, $this->validation_entry->getCustomField($field->field_key));
+                //_dump($field_id, $this->validation_entry->getCustomField($field->field_key));
                 if (is_array($this->validation_entry->extra_data[$field->field_key])) {
                     foreach ($this->validation_entry->extra_data[$field->field_key] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;

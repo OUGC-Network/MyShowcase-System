@@ -4,8 +4,16 @@ declare(strict_types=1);
 
 namespace MyShowcase\Entity;
 
-final readonly class CustomFieldEntity
+use MyShowcase\Collection\Collection;
+
+use function MyShowcase\Plugin\Functions\fieldDataGet;
+
+final  class CustomFieldEntity
 {
+    private readonly Collection $selectable_values;
+
+    public array $extra_data;
+
     public function __construct(
         public int $field_id = 0,
         public int $set_id = 0,
@@ -52,6 +60,21 @@ final readonly class CustomFieldEntity
         public int $enable_editor = 0,
         public int $read_only = 0,
     ) {
+        $this->selectable_values = new Collection();
+    }
+
+    public function setExtraData(string $name, mixed $data): void
+    {
+        $this->extra_data[$name] = $data;
+    }
+
+    public function getExtraData(string $name): array|false
+    {
+        if (isset($this->extra_data[$name])) {
+            return $this->extra_data[$name];
+        }
+
+        return false;
     }
 
     public function isViewableInMain(): bool
@@ -73,5 +96,39 @@ final readonly class CustomFieldEntity
         return !empty($this->is_enabled) &&
             !empty($this->display_in_create_update_page) &&
             is_member($this->allowed_groups_fill);
+    }
+
+    public function getSelectableValues(): Collection
+    {
+        return $this->selectable_values;
+    }
+
+    public function fetchSelectableValues(bool $verify_fill_permission = false): void
+    {
+        foreach (
+            fieldDataGet(
+                [
+                    "set_id='{$this->set_id}'",
+                    "field_id='{$this->field_id}'"
+                ],
+                [
+                    'field_data_id',
+                    'value_id',
+                    'value',
+                    'display_style',
+                    'allowed_groups_fill',
+                    'allowed_groups_view',
+                ],
+                ['order_by' => 'display_order']
+            ) as $field_data_id => $field_data_data
+        ) {
+            if ($verify_fill_permission && !is_member($field_data_data['allowed_groups_fill'])) {
+                continue;
+            }
+
+            if (!$this->selectable_values->contains($field_data_data)) {
+                $this->selectable_values[$field_data_id] = $field_data_data;
+            }
+        }
     }
 }

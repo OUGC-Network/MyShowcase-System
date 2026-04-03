@@ -15,13 +15,7 @@ declare(strict_types=1);
 
 use MyShowcase\Container;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Event\Listener\EntryDeletedCommentListener;
 use MyShowcase\Showcase;
-
-use MyShowcase\Event\Event\RouteMatchedEvent;
-
-use MyShowcase\Event\Listener\RouteMatchedListener;
-
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 use function MyShowcase\Plugin\Functions\hooksRun;

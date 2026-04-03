@@ -121,8 +121,9 @@
         </h3>
 
         {# Post icon #}
-        {% if config.entries_allow_post_icons and entry_data.icon_id and entry_data.icon_id in icons_cache %}
-            <img src="{{ icon.path }}" alt="{{ icon.name }}" title="{{ icon.name }}"
+        {% if config.entries_allow_post_icons and entry_data.icon_id and icons_cache[entry_data.icon_id] is defined %}
+            <img src="{{ mybb.settings.bburl }}/{{ icons_cache[entry_data.icon_id].path }}"
+                 alt="{{ icons_cache[entry_data.icon_id].name }}" title="{{ icons_cache[entry_data.icon_id].name }}"
                  style="vertical-align: middle;"/>&nbsp;
         {% endif %}
 
@@ -163,9 +164,9 @@
     {# Post body #}
     <div class="post__body post_body scaleimages" id="pid_{{ entry_data.entry_slug }}">
         {# Post unapproved or deleted message #}
-        {% if entry_data.status == 0 or entry_data.status == 2 %}
+        {% if not is_preview and (entry_data.status == 0 or entry_data.status == 2) %}
             <div class="post__status">
-                <span class="tag tag--post-status{% if entry_data.extra_data.is_deleted %} tag--deleted{% endif %}{% if entry_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ entry_data.status }}</span>
+                <span class="tag tag--post-status{% if entry_data.extra_data.is_deleted %} tag--deleted{% endif %}{% if entry_data.status == 0 %} tag--awaiting-approval{% endif %}">{{ entry_data.status == 2 ? lang.myshowcase_view_status_deleted : entry_data.status == 1 ? lang.myshowcase_view_status_visible : lang.myshowcase_view_status_awaiting }}</span>
             </div>
         {% endif %}
 

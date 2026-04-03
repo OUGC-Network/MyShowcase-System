@@ -28,7 +28,7 @@ class CommentEntity
         public readonly ?int $icon_id = null,
         public readonly ?DateTime $dateline = null,
         public readonly ?int $status = null,
-        public readonly ?int $attachments_pending = null,
+        public readonly ?int $attachments_awaiting = null,
         public readonly ?int $attachments_approved = null,
         public readonly ?int $attachments_deleted = null,
         public readonly ?DateTime $update_dateline = null,
