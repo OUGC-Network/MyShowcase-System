@@ -59,7 +59,7 @@ function pluginInformation(): array
 
     return [
         'name' => 'MyShowcase System',
-        'description' => $donate_button . $lang->myShowcaseSystemDescription,
+        'description' => $donate_button . $lang->myshowcase_system_description,
         'website' => 'https://ougc.network',
         'author' => 'CommunityPlugins & Omar G.',
         'authorsite' => 'https://ougc.network',

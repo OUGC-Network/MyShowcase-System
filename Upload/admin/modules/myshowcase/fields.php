@@ -57,9 +57,9 @@ loadLanguage();
 
 $url = new UrlUtil('index.php?module=myshowcase-fields');
 
-$page->add_breadcrumb_item($lang->myShowcaseSystem, $url->build());
+$page->add_breadcrumb_item($lang->myshowcase_system, $url->build());
 
-$page->add_breadcrumb_item($lang->myShowcaseAdminFieldSets, $url->build());
+$page->add_breadcrumb_item($lang->myshowcase_admin_field_sets, $url->build());
 
 //get path to non-admin language folder currently in use
 $languagePath = str_replace('admin', '', $lang->path . '/' . $lang->language);
@@ -73,53 +73,53 @@ $fieldOptionValue = $mybb->get_input('value_id', MyBB::INPUT_INT);
 $pageAction = $mybb->get_input('action');
 
 $pageTabs = [
-    'myShowcaseAdminFieldSets' => [
-        'title' => $lang->myShowcaseAdminFieldSets,
+    'myshowcase_admin_field_sets' => [
+        'title' => $lang->myshowcase_admin_field_sets,
         'link' => $url->build(),
-        'description' => $lang->myShowcaseAdminFieldSetsDescription
+        'description' => $lang->myshowcase_admin_field_sets_description
     ],
 ];
 
 if (in_array($pageAction, ['viewFields', 'newField', 'editField', 'editOption'])) {
-    $pageTabs['myShowcaseAdminFields'] = [
-        'title' => $lang->myShowcaseAdminFields,
+    $pageTabs['myshowcase_admin_fields'] = [
+        'title' => $lang->myshowcase_admin_fields,
         'link' => $url->build(['action' => 'viewFields', 'set_id' => $fieldsetID]),
-        'description' => $lang->myShowcaseAdminFieldsDescription
+        'description' => $lang->myshowcase_admin_fields_description
     ];
 
     if (in_array($pageAction, ['editOption'])) {
-        $pageTabs['myShowcaseAdminFieldsOptions'] = [
-            'title' => $lang->myShowcaseAdminFieldsOptions,
+        $pageTabs['myshowcase_admin_fields_options'] = [
+            'title' => $lang->myshowcase_admin_fields_options,
             'link' => $url->build(['action' => 'editOption', 'set_id' => $fieldsetID, 'field_id' => $field_id]),
-            'description' => $lang->myShowcaseAdminFieldsOptionsDescription
+            'description' => $lang->myshowcase_admin_fields_options_description
         ];
     } else {
-        $pageTabs['myShowcaseAdminFieldsNew'] = [
-            'title' => $lang->myShowcaseAdminFieldsNew,
+        $pageTabs['myshowcase_admin_fields_new'] = [
+            'title' => $lang->myshowcase_admin_fields_new,
             'link' => $url->build(['action' => 'newField', 'set_id' => $fieldsetID]),
-            'description' => $lang->myShowcaseAdminFieldsNewDescription
+            'description' => $lang->myshowcase_admin_fields_new_description
         ];
 
         if ($pageAction === 'editField') {
-            $pageTabs['myShowcaseAdminFieldsEdit'] = [
-                'title' => $lang->myShowcaseAdminFieldsEdit,
+            $pageTabs['myshowcase_admin_fields_edit'] = [
+                'title' => $lang->myshowcase_admin_fields_edit,
                 'link' => $url->build(['action' => 'editField', 'set_id' => $fieldsetID, 'field_id' => $field_id]),
-                'description' => $lang->myShowcaseAdminFieldsEditDescription
+                'description' => $lang->myshowcase_admin_fields_edit_description
             ];
         }
     }
 } else {
-    $pageTabs['myShowcaseAdminFieldSetsNew'] = [
-        'title' => $lang->myShowcaseAdminFieldSetsNew,
+    $pageTabs['myshowcase_admin_field_sets_new'] = [
+        'title' => $lang->myshowcase_admin_field_sets_new,
         'link' => $url->build(['action' => 'new']),
-        'description' => $lang->myShowcaseAdminFieldSetsNewDescription
+        'description' => $lang->myshowcase_admin_field_sets_new_description
     ];
 
     if ($pageAction === 'edit') {
-        $pageTabs['myShowcaseAdminFieldSetsEdit'] = [
-            'title' => $lang->myShowcaseAdminFieldSetsEdit,
+        $pageTabs['myshowcase_admin_field_sets_edit'] = [
+            'title' => $lang->myshowcase_admin_field_sets_edit,
             'link' => $url->build(['action' => 'edit', 'set_id' => $fieldsetID]),
-            'description' => $lang->myShowcaseAdminFieldSetsEditDescription
+            'description' => $lang->myshowcase_admin_field_sets_edit_description
         ];
     }
 }
@@ -188,9 +188,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $fieldsetData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
 
     if (!$newPage && empty($fieldsetData)) {
-        flash_message($lang->myShowcaseAdminErrorInvalidFieldset, 'error');
+        flash_message($lang->myshowcase_admin_error_invalid_fieldset, 'error');
 
-        admin_redirect($pageTabs['myShowcaseAdminFieldSets']['link']);
+        admin_redirect($pageTabs['myshowcase_admin_field_sets']['link']);
     }
 
     $queryFields = $tablesData['myshowcase_fields'];
@@ -200,14 +200,14 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $field_definition = fieldsGet(["field_id='{$field_id}'"], array_keys($queryFields), ['limit' => 1]);
 
     if (!$newPage && empty($field_definition)) {
-        flash_message($lang->myShowcaseAdminErrorInvalidField, 'error');
+        flash_message($lang->myshowcase_admin_error_invalid_field, 'error');
 
         admin_redirect($url->build(['action' => 'viewFields', 'set_id' => $fieldsetID]));
     }
 
-    $page->output_header($pageTabs[$newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit']['title']);
+    $page->output_header($pageTabs[$newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit']['title']);
 
-    $page->output_nav_tabs($pageTabs, $newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit');
+    $page->output_nav_tabs($pageTabs, $newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit');
 
     $canEditLanguageFile = true;
 
@@ -237,7 +237,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            flash_message($lang->myShowcaseAdminErrorInvalidPostKey, 'error');
+            flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect($url->build());
         }
@@ -295,11 +295,11 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $errorMessages = [];
 
         if (!$insertData['field_key']) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorMissingRequiredFields;
+            $errorMessages[] = $lang->myshowcase_admin_error_missing_required_fields;
         }
 
         if ($insertData['minimum_length'] > $insertData['maximum_length']) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorInvalidMinMax;
+            $errorMessages[] = $lang->myshowcase_admin_error_invalid_min_max;
         }
 
         $existingFields = $cache_manager->get(
@@ -322,7 +322,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             })(
                 $insertData['field_key']
             )) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorDuplicatedName;
+            $errorMessages[] = $lang->myshowcase_admin_error_duplicated_name;
         }
 
         $fieldDefaultOption = 0;
@@ -333,7 +333,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
         if (!empty($insertData['regular_expression']) &&
             preg_match($insertData['regular_expression'], '') === false) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorRegularExpression;
+            $errorMessages[] = $lang->myshowcase_admin_error_regular_expression;
         }
 
         if ($errorMessages) {
@@ -410,9 +410,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             log_admin_action(['fieldsetID' => $fieldsetID, 'fieldID' => $field_id, 'fieldOptionID' => $fieldOptionID]);
 
             if ($newPage) {
-                flash_message($lang->myShowcaseAdminSuccessNewField, 'success');
+                flash_message($lang->myshowcase_admin_success_new_field, 'success');
             } else {
-                flash_message($lang->myShowcaseAdminSuccessEditField, 'success');
+                flash_message($lang->myshowcase_admin_success_edit_field, 'success');
             }
 
             admin_redirect($url->build(['action' => 'viewFields', 'set_id' => $fieldsetID]));
@@ -432,15 +432,15 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $mybb->input = array_merge($field_definition, $mybb->input);
 
     $form = new Form(
-        $pageTabs[$newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit']['link'],
+        $pageTabs[$newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit']['link'],
         'post',
-        $newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit'
+        $newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit'
     );
 
     echo $form->generate_hidden_field('my_post_key', $mybb->post_code);
 
     $formContainer = new FormContainer(
-        $pageTabs[$newPage ? 'myShowcaseAdminFieldsNew' : 'myShowcaseAdminFieldsEdit']['title']
+        $pageTabs[$newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit']['title']
     );
 
     foreach ($tablesData['myshowcase_fields'] as $field_name => $field_definition) {
@@ -517,8 +517,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $formContainer->end();
 
     $form->output_submit_wrapper([
-        $form->generate_submit_button($lang->myShowcaseAdminButtonSubmit),
-        $form->generate_reset_button($lang->myShowcaseAdminButtonReset)
+        $form->generate_submit_button($lang->myshowcase_admin_button_submit),
+        $form->generate_reset_button($lang->myshowcase_admin_button_reset)
     ]);
 
     $form->end();
@@ -552,16 +552,19 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     if (!$newPage && empty($fieldsetData)) {
         flash_message($lang->myShowcaseAdminErrorInvalidShowcase, 'error');
 
-        admin_redirect($pageTabs['myShowcaseAdminFieldSets']['link']);
+        admin_redirect($pageTabs['myshowcase_admin_field_sets']['link']);
     }
 
-    $page->output_header($lang->myShowcaseAdminFieldSets);
+    $page->output_header($lang->myshowcase_admin_field_sets);
 
-    $page->output_nav_tabs($pageTabs, $newPage ? 'myShowcaseAdminFieldSetsNew' : 'myShowcaseAdminFieldSetsEdit');
+    $page->output_nav_tabs(
+        $pageTabs,
+        $newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit'
+    );
 
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            flash_message($lang->myShowcaseAdminErrorInvalidPostKey, 'error');
+            flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect($url->build());
         }
@@ -569,7 +572,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         $errorMessages = [];
 
         if (!$mybb->get_input('set_name')) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorMissingRequiredFields;
+            $errorMessages[] = $lang->myshowcase_admin_error_missing_required_fields;
         }
 
         $existingFieldSets = $cache_manager->get(
@@ -591,7 +594,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             })(
                 $mybb->get_input('set_name')
             )) {
-            $errorMessages[] = $lang->myShowcaseAdminErrorDuplicatedName;
+            $errorMessages[] = $lang->myshowcase_admin_error_duplicated_name;
         }
 
         if (!is_writable($languagePath)) {
@@ -627,9 +630,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             log_admin_action(['fieldsetID' => $fieldsetID]);
 
             if ($newPage) {
-                flash_message($lang->myShowcaseAdminSuccessNewFieldset, 'success');
+                flash_message($lang->myshowcase_admin_success_new_fieldset, 'success');
             } else {
-                flash_message($lang->myShowcaseAdminSuccessEditFieldset, 'success');
+                flash_message($lang->myshowcase_admin_success_edit_fieldset, 'success');
             }
 
             admin_redirect($url->build());
@@ -639,20 +642,20 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $mybb->input = array_merge($fieldsetData, $mybb->input);
 
     $form = new Form(
-        $pageTabs[$newPage ? 'myShowcaseAdminFieldSetsNew' : 'myShowcaseAdminFieldSetsEdit']['link'],
+        $pageTabs[$newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit']['link'],
         'post',
-        $newPage ? 'myShowcaseAdminFieldSetsNew' : 'myShowcaseAdminFieldSetsEdit'
+        $newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit'
     );
 
     echo $form->generate_hidden_field('my_post_key', $mybb->post_code);
 
     $formContainer = new FormContainer(
-        $pageTabs[$newPage ? 'myShowcaseAdminFieldSetsNew' : 'myShowcaseAdminFieldSetsEdit']['title']
+        $pageTabs[$newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit']['title']
     );
 
     $formContainer->output_row(
-        $lang->myShowcaseAdminFieldSetsNewFormName . '<em>*</em>',
-        $lang->myShowcaseAdminFieldSetsNewFormNameDescription,
+        $lang->myshowcase_admin_field_sets_new_form_name . '<em>*</em>',
+        $lang->myshowcase_admin_field_sets_new_form_name_description,
         $form->generate_text_box('set_name', $mybb->get_input('set_name'), ['id' => 'set_name']),
         'set_name'
     );
@@ -662,8 +665,8 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $formContainer->end();
 
     $form->output_submit_wrapper([
-        $form->generate_submit_button($lang->myShowcaseAdminButtonSubmit),
-        $form->generate_reset_button($lang->myShowcaseAdminButtonReset)
+        $form->generate_submit_button($lang->myshowcase_admin_button_submit),
+        $form->generate_reset_button($lang->myshowcase_admin_button_reset)
     ]);
 
     $form->end();
@@ -685,7 +688,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $page->output_header($lang->myshowcase_admin_fields);
 
-    $page->output_nav_tabs($pageTabs, 'myShowcaseAdminFields');
+    $page->output_nav_tabs($pageTabs, 'myshowcase_admin_fields');
 
     hooksRun('admin_view_fields_start');
 
@@ -722,27 +725,27 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $formContainer = new FormContainer($lang->myshowcase_field_list);
 
     $formContainer->output_row_header(
-        $lang->myShowcaseAdminFieldsTableHeaderID,
+        $lang->myshowcase_admin_fields_table_header_id,
         ['width' => '1%', 'class' => 'align_center']
     );
 
     $formContainer->output_row_header(
-        $lang->myShowcaseAdminFieldsTableHeaderName,
+        $lang->myshowcase_admin_fields_table_header_name,
         ['class' => 'align_center']
     );
 
     $formContainer->output_row_header(
-        $lang->myShowcaseAdminFieldsTableHeaderLabel,
+        $lang->myshowcase_admin_fields_table_header_label,
         ['class' => 'align_center']
     );
 
     $formContainer->output_row_header(
-        $lang->myShowcaseAdminFieldsTableHeaderHtmlType,
+        $lang->myshowcase_admin_fields_table_header_html_type,
         ['width' => '5%', 'class' => 'align_center']
     );
 
     $formContainer->output_row_header(
-        $lang->myShowcaseAdminFieldsTableHeaderFieldType,
+        $lang->myshowcase_admin_fields_table_header_field_type,
         ['width' => '5%', 'class' => 'align_center']
     );
 
@@ -888,7 +891,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $fieldsetData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
 
     if (!$fieldsetData) {
-        flash_message($lang->myShowcaseAdminErrorInvalidFieldset, 'error');
+        flash_message($lang->myshowcase_admin_error_invalid_fieldset, 'error');
 
         admin_redirect($url->build());
     }
@@ -896,7 +899,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $showcaseObjects = showcaseGet(["field_set_id='{$fieldsetID}'"], [], ['limit' => 1]);
 
     if (!empty($showcaseObjects)) {
-        flash_message($lang->myShowcaseAdminErrorFieldsetDeleteFailed, 'error');
+        flash_message($lang->myshowcase_admin_error_fieldset_delete_failed, 'error');
 
         admin_redirect($url->build());
     }
@@ -907,7 +910,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            flash_message($lang->myShowcaseAdminErrorInvalidPostKey, 'error');
+            flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect($url->build());
         }
@@ -943,9 +946,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         log_admin_action(['fieldsetID' => $fieldsetID]);
 
         if (fieldsetGet(["set_id='{$fieldsetID}'"])) {
-            flash_message($lang->myShowcaseAdminErrorFieldsetDelete, 'error');
+            flash_message($lang->myshowcase_admin_error_fieldset_delete, 'error');
         } else {
-            flash_message($lang->myShowcaseAdminSuccessFieldsetDeleted, 'success');
+            flash_message($lang->myshowcase_admin_success_fieldset_deleted, 'success');
         }
 
         admin_redirect($url->build());
@@ -953,7 +956,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $page->output_confirm_action(
         $url->build(['action' => 'delete', 'set_id' => $fieldsetID]),
-        $lang->sprintf($lang->myShowcaseAdminConfirmFieldsetDelete, $fieldsetName)
+        $lang->sprintf($lang->myshowcase_admin_confirm_fieldset_delete, $fieldsetName)
     );
 } elseif ($pageAction === 'editOption') {
     $field_definition = fieldsGet(
@@ -993,7 +996,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     $page->output_header($lang->myshowcase_admin_fields);
 
-    $page->output_nav_tabs($pageTabs, 'myShowcaseAdminFieldsOptions');
+    $page->output_nav_tabs($pageTabs, 'myshowcase_admin_fields_options');
 
     hooksRun('admin_option_edit_start');
 
@@ -1338,7 +1341,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $fieldsetData = fieldsetGet(["field_data_id='{$fieldDataID}'"], ['set_name'], ['limit' => 1]);
 
     if (!$fieldsetData) {
-        flash_message($lang->myShowcaseAdminErrorInvalidFieldset, 'error');
+        flash_message($lang->myshowcase_admin_error_invalid_fieldset, 'error');
 
         admin_redirect($url->build());
     }
@@ -1367,7 +1370,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            flash_message($lang->myShowcaseAdminErrorInvalidPostKey, 'error');
+            flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect(
                 $url->build(['action' => 'editOption', 'field_data_id' => $fieldDataID]),
@@ -1406,7 +1409,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
             'action' => 'deleteOption',
             'field_data_id' => $fieldDataID
         ]),
-        $lang->sprintf($lang->myShowcaseAdminConfirmFieldsetDelete, $fieldsetData['set_name'])
+        $lang->sprintf($lang->myshowcase_admin_confirm_fieldset_delete, $fieldsetData['set_name'])
     );
 } elseif ($pageAction == 'deleteField') {
     $fieldsetData = fieldsetGet(["set_id='{$fieldsetID}'"], ['set_name'], ['limit' => 1]);
@@ -1448,7 +1451,7 @@ if (in_array($pageAction, ['newField', 'editField'])) {
 
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            flash_message($lang->myShowcaseAdminErrorInvalidPostKey, 'error');
+            flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect($url->build());
         }
@@ -1490,9 +1493,9 @@ if (in_array($pageAction, ['newField', 'editField'])) {
         log_admin_action(['fieldsetID' => $fieldsetID, 'fieldID' => $field_id]);
 
         if (fieldsGet(["set_id='{$fieldsetID}'", "field_id='{$field_id}'"])) {
-            flash_message($lang->myShowcaseAdminErrorFieldDeleteFailed, 'error');
+            flash_message($lang->myshowcase_admin_error_field_delete_failed, 'error');
         } else {
-            flash_message($lang->myShowcaseAdminSuccessFieldDeleted, 'success');
+            flash_message($lang->myshowcase_admin_success_field_deleted, 'success');
         }
 
         admin_redirect($url->build(['action' => 'viewFields', 'set_id' => $fieldsetID]));
@@ -1501,14 +1504,14 @@ if (in_array($pageAction, ['newField', 'editField'])) {
     $page->output_confirm_action(
         $url->build(['action' => 'deleteField', 'field_id' => $field_id, 'set_id' => $fieldsetID]),
         $lang->sprintf(
-            $lang->myShowcaseAdminConfirmFieldDelete,
+            $lang->myshowcase_admin_confirm_field_delete,
             $field_key
-        ) . ($fieldIsInUse ? $lang->myShowcaseAdminConfirmFieldDeleteExisting : '')
+        ) . ($fieldIsInUse ? $lang->myshowcase_admin_confirm_field_delete_existing : '')
     );
 } else {
     $page->output_header($lang->myshowcase_admin_fields);
 
-    $page->output_nav_tabs($pageTabs, 'myShowcaseAdminFieldSets');
+    $page->output_nav_tabs($pageTabs, 'myshowcase_admin_field_sets');
 
     hooksRun('admin_fields_start');
 

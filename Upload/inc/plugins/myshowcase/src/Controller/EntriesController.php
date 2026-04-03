@@ -669,7 +669,7 @@ class EntriesController extends BaseController
 
         if ($is_update) {
             add_breadcrumb(
-                $this->context->language->myShowcaseButtonEntryUpdate,
+                $this->context->language->myshowcase_button_entry_update,
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -679,7 +679,7 @@ class EntriesController extends BaseController
             );
         } else {
             add_breadcrumb(
-                $this->context->language->myShowcaseButtonEntryCreate,
+                $this->context->language->myshowcase_main_button_entry_create,
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryCreate,
                 ),
@@ -963,7 +963,7 @@ class EntriesController extends BaseController
 
                     redirect(
                         $mainUrl,
-                        $is_update ? $this->context->language->myShowcaseEntryEntryUpdatedStatus : $this->context->language->myShowcaseEntryEntryCreatedStatus
+                        $is_update ? $this->context->language->myshowcase_entry_entry_updated_status : $this->context->language->myshowcase_entry_entry_created_status
                     );
                 } else {
                     redirect(
@@ -974,7 +974,7 @@ class EntriesController extends BaseController
                                 'entry_slug_custom' => $entry->entry_slug_custom
                             ]
                         ),
-                        $is_update ? $this->context->language->myShowcaseEntryEntryUpdated : $this->context->language->myShowcaseEntryEntryCreated
+                        $is_update ? $this->context->language->myshowcase_entry_entry_updated : $this->context->language->myshowcase_entry_entry_created
                     );
                 }
 

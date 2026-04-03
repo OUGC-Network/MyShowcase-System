@@ -214,12 +214,12 @@ trait FieldTrait
 
         if (!$this->user_value) {
             global $lang;
-            //$this->user_value = $lang->myShowcaseEntryFieldValueEmpty;
+            //$this->user_value = $lang->myshowcase_entry_field_value_empty;
         }
 
         if (!$this->user_value_display) {
             global $lang;
-            //$this->user_value_display = $lang->myShowcaseEntryFieldValueEmpty;
+            //$this->user_value_display = $lang->myshowcase_entry_field_value_empty;
         }
 
         $this->attachmentsFetch($attachments_manager, $attachments_repository, $entry);

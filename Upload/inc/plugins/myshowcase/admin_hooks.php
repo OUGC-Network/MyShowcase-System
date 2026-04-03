@@ -21,7 +21,7 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Service\CacheManager;
-use MyShowcase\Showcase;
+use MyShowcase\Util\BuildShowcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
@@ -67,7 +67,7 @@ function admin_user_groups_delete_commit(): bool
     $groupID = (int)$usergroup['gid'];
 
     foreach (showcaseGet() as $showcase_id => $showcase) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         foreach (
             $showcase->context->permissions_repository->queryPermission(["group_id='{$groupID}'"]
@@ -100,7 +100,7 @@ function admin_user_groups_edit_graph_tabs(array &$tabs): array
 
     loadLanguage();
 
-    $tabs['myshowcase'] = $lang->MyShowcaseGroupsTab;
+    $tabs['myshowcase'] = $lang->myshowcase_groups_tab;
 
     return $tabs;
 }
@@ -114,7 +114,7 @@ function admin_user_groups_edit_graph(): void
 
     echo '<div id="tab_myshowcase">';
 
-    $formContainer = new FormContainer($lang->MyShowcaseGroupsTab);
+    $formContainer = new FormContainer($lang->myshowcase_groups_tab);
 
     $tables_data = [];
 
@@ -308,8 +308,8 @@ function admin_formcontainer_output_row(array &$hookArguments): array
     }, showcaseGet(queryFields: ['name']));
 
     $hookArguments['this']->output_row(
-        $lang->MyShowcaseAttachmentTypesAllowedShowcases,
-        $lang->MyShowcaseAttachmentTypesAllowedShowcasesDescription,
+        $lang->myshowcase_attachment_types_allowed_showcases,
+        $lang->myshowcase_attachment_types_allowed_showcases_description,
         $form->generate_select_box(
             'myshowcase_ids[]',
             $selectOptions,
@@ -325,8 +325,8 @@ function admin_formcontainer_output_row(array &$hookArguments): array
     );
 
     $hookArguments['this']->output_row(
-        $lang->MyShowcaseAttachmentTypesMinimumImageDimensions,
-        $lang->MyShowcaseAttachmentTypesMinimumImageDimensionsDescription,
+        $lang->myshowcase_attachment_types_minimum_image_dimensions,
+        $lang->myshowcase_attachment_types_minimum_image_dimensions_description,
         $form->generate_text_box(
             'myshowcase_image_minimum_dimensions',
             $mybb->get_input('myshowcase_image_minimum_dimensions')
@@ -335,8 +335,8 @@ function admin_formcontainer_output_row(array &$hookArguments): array
     );
 
     $hookArguments['this']->output_row(
-        $lang->MyShowcaseAttachmentTypesMaximumImageDimensions,
-        $lang->MyShowcaseAttachmentTypesMaximumImageDimensionsDescription,
+        $lang->myshowcase_attachment_types_maximum_image_dimensions,
+        $lang->myshowcase_attachment_types_maximum_image_dimensions_description,
         $form->generate_text_box(
             'myshowcase_image_maximum_dimensions',
             $mybb->get_input('myshowcase_image_maximum_dimensions')

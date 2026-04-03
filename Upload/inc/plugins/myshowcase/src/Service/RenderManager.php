@@ -811,12 +811,12 @@ class RenderManager
             )) {
             if (ContentTypes::Entry) {
                 $deletedMessage = $this->context->language->sprintf(
-                    $this->context->language->myShowcaseEntryDeletedMessage,
+                    $this->context->language->myshowcase_entry_deleted_message,
                     $userName
                 );
             } else {
                 $deletedMessage = $this->context->language->sprintf(
-                    $this->context->language->myShowcaseCommentDeletedMessage,
+                    $this->context->language->myshowcase_comment_deleted_message,
                     $userName
                 );
             }
@@ -1270,12 +1270,12 @@ class RenderManager
         if ($this->context->current_user->getPermission(UserPermissions::AttachmentsLimitUploadQuotaAmount) ===
             PermissionEntity::NUMERIC_TYPE_UNLIMITED) {
             $usageQuoteNote = $this->context->language->sprintf(
-                $this->context->language->myShowcaseAttachmentsUsageQuote,
-                $this->context->language->myShowcaseAttachmentsUsageQuoteUnlimited
+                $this->context->language->myshowcase_attachments_usage_quote,
+                $this->context->language->myshowcase_attachments_usage_quote_unlimited
             );
         } else {
             $usageQuoteNote = $this->context->language->sprintf(
-                $this->context->language->myShowcaseAttachmentsUsageQuote,
+                $this->context->language->myshowcase_attachments_usage_quote,
                 get_friendly_size(
                     $this->context->current_user->getPermission(
                         UserPermissions::AttachmentsLimitUploadQuotaAmount
@@ -1298,7 +1298,7 @@ class RenderManager
 
         if ($totalUserUsage > 0) {
             $usageDetails = $this->context->language->sprintf(
-                $this->context->language->myShowcaseAttachmentsUsageDetails,
+                $this->context->language->myshowcase_attachments_usage_details,
                 get_friendly_size($totalUserUsage)
             );
 

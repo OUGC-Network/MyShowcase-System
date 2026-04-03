@@ -69,16 +69,16 @@ class AttachmentsController extends BaseController
             $this->errorNoPermission();
         }
 
-        /**
-         * @var CustomFieldEntity $field
-         */
-        $field = $this->context->custom_fields_collection->filter(
-            fn(CustomFieldEntity $field) => $field->field_key === $mybb->get_input('field_id', \MyBB::INPUT_INT)
-        );
+        $field_id_input = $mybb->get_input('field_id', \MyBB::INPUT_INT);
 
-        if (!$field_key || empty($field->field_id)) {
+        /** @var CustomFieldEntity|false $field */
+        $field = $this->context->custom_fields_collection->offsetGet($field_id_input);
+
+        if (!$field instanceof CustomFieldEntity || empty($field->field_id)) {
             $this->errorNoPermission();
         }
+
+        $field_key = $field->field_key;
 
         if (empty($_FILES[$field_key])) {
             $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
@@ -268,9 +268,6 @@ class AttachmentsController extends BaseController
 
         hooksRun('controller_attachments_download_start', $this);
 
-        if ($this->attachment_data['field_id'] !== 0) {
-            // todo, check field permissions
-        }
 
         if (empty($this->attachment_data['attachment_name'])) {
             $this->error($lang->error_invalidattachment);
@@ -308,7 +305,7 @@ class AttachmentsController extends BaseController
         }
 
         // Don't check the permissions on preview
-        if ($this->context->current_user->uid !== (int)$this->attachment_data['user_id']) {
+        if ((int)$this->context->current_user->user_id !== (int)$this->attachment_data['user_id']) {
             if (!$this->context->current_user->hasPermission(
                     UserPermissions::AttachmentsCanDownload
                 ) && !$this->is_thumbnail) {
@@ -327,7 +324,7 @@ class AttachmentsController extends BaseController
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($this->download_count_increase && !$this->is_thumbnail && $this->context->current_user->uid !== (int)$this->attachment_data['user_id']) {
+        if ($this->download_count_increase && !$this->is_thumbnail && (int)$this->context->current_user->user_id !== (int)$this->attachment_data['user_id']) {
             if (!is_member($attachment_type_data['allowed_groups'])) {
                 $this->errorNoPermission();
             }

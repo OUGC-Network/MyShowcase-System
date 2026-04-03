@@ -83,7 +83,7 @@ class CommentsController extends BaseController
                 $this->errorNoPermission();
                 break;
             case self::INVALID_ENTRY:
-                $this->error($lang->myShowcaseReportErrorInvalidEntry);
+                $this->error($lang->myshowcase_report_error_invalid_entry);
         }
 
         if ($is_update && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanUpdate)) {
@@ -130,7 +130,7 @@ class CommentsController extends BaseController
         $attachmentsUpload = $this->context->render_manager->buildAttachmentsUpload($is_update, ContentTypes::Comment);
 
         $buttonText = $is_update
-            ? $lang->myShowcaseCommentCreateUpdateFormButtonUpdate
+            ? $lang->myshowcase_comment_create_update_form_button_update
             : $lang->myshowcase_view_entry_button_create_comment;
 
         hooksRun('controller_comments_create_update_end', $this);
@@ -174,7 +174,7 @@ class CommentsController extends BaseController
 
         if ($is_update) {
             add_breadcrumb(
-                $lang->myShowcaseButtonCommentUpdate,
+                $lang->myshowcase_button_comment_update,
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     ['entry_slug' => $entry->entry_slug, 'comment_slug' => $comment_slug]
@@ -185,7 +185,7 @@ class CommentsController extends BaseController
         }
 
         add_breadcrumb(
-            $lang->myShowcaseButtonCommentCreate,
+            $lang->myshowcase_button_comment_create,
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::CommentCreate,
                 ['entry_slug' => $entry->entry_slug]
@@ -302,13 +302,13 @@ class CommentsController extends BaseController
         if (isset($comment_data->status) && $comment_data->status === ContentStatuses::SoftDeleted) {
             redirect(
                 $this->showcase->urlGetEntry($entry->entry_slug, $entry->entry_slug_custom),
-                $is_update ? $lang->myShowcaseCommentUpdatedStatus : $lang->myShowcaseCommentCreatedStatus
+                $is_update ? $lang->myshowcase_comment_updated_status : $lang->myshowcase_comment_created_status
             );
         }
 
         redirect(
             $this->showcase->urlGetComment($comment_data->comment_slug),
-            $is_update ? $lang->myShowcaseCommentUpdated : $lang->myShowcaseCommentCreated
+            $is_update ? $lang->myshowcase_comment_updated : $lang->myshowcase_comment_created
         );
     }
 

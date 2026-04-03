@@ -327,7 +327,7 @@ abstract class BaseController
                 $this->errorNoPermission();
                 break;
             case self::INVALID_ENTRY:
-                $this->error($this->context->language->myShowcaseReportErrorInvalidEntry);
+                $this->error($this->context->language->myshowcase_report_error_invalid_entry);
         }
 
         /** @var EntryEntity $entry */

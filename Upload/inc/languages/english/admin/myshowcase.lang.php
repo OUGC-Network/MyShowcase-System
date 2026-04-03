@@ -12,34 +12,34 @@
  */
 
 $l = [
-    'myShowcaseSystem' => 'MyShowcase System',
-    'myShowcaseSystemDescription' => 'Create and manage showcase sections for user to enter information about their property or collections.',
+    'myshowcase_system' => 'MyShowcase System',
+    'myshowcase_system_description' => 'Create and manage showcase sections for user to enter information about their property or collections.',
 
-    'myShowcaseSystemPluginLibrary' => 'This plugin requires <a href="{1}">PluginLibrary</a> version {2} or later to be uploaded to your forum.',
+    'myshowcase_system_plugin_library' => 'This plugin requires <a href="{1}">PluginLibrary</a> version {2} or later to be uploaded to your forum.',
 
-    'myShowcaseAdminButtonSubmit' => 'Submit',
-    'myShowcaseAdminButtonSubmitOther' => 'Submit Other',
-    'myShowcaseAdminButtonSubmitSaveModeratorPermissions' => 'Save Moderator Permissions',
-    'myShowcaseAdminButtonSubmitAddModeratorGroup' => 'Add Group Moderator',
-    'myShowcaseAdminButtonSubmitAddModeratorUser' => 'Add User Moderator',
-    'myShowcaseAdminButtonReset' => 'Reset',
-    'myShowcaseAdminButtonEdit' => 'Edit',
-    'myShowcaseAdminButtonDelete' => 'Delete',
+    'myshowcase_admin_button_submit' => 'Submit',
+    'myshowcase_admin_button_submit_other' => 'Submit Other',
+    'myshowcase_admin_button_submit_save_moderator_permissions' => 'Save Moderator Permissions',
+    'myshowcase_admin_button_submit_add_moderator_group' => 'Add Group Moderator',
+    'myshowcase_admin_button_submit_add_moderator_user' => 'Add User Moderator',
+    'myshowcase_admin_button_reset' => 'Reset',
+    'myshowcase_admin_button_edit' => 'Edit',
+    'myshowcase_admin_button_delete' => 'Delete',
 
-    'myShowcaseAdminErrorInvalidPostKey' => 'Invalid post key',
-    'myShowcaseAdminErrorMissingRequiredFields' => 'Some required fields are missing.',
-    'myShowcaseAdminErrorRegularExpression' => 'The selected regular expression seems to be invalid.',
+    'myshowcase_admin_error_invalid_post_key' => 'Invalid post key',
+    'myshowcase_admin_error_missing_required_fields' => 'Some required fields are missing.',
+    'myshowcase_admin_error_regular_expression' => 'The selected regular expression seems to be invalid.',
 
     'report_content_showcase_comments' => 'Showcase comments',
 
-    'MyShowcaseGroupsTab' => 'MyShowcase',
+    'myshowcase_groups_tab' => 'MyShowcase',
 
-    'MyShowcaseAttachmentTypesAllowedShowcases' => 'Enabled in Showcase',
-    'MyShowcaseAttachmentTypesAllowedShowcasesDescription' => 'Enable this attachment type for specific showcases. The "Enabled?" setting above does not apply to showcases.',
-    'MyShowcaseAttachmentTypesMinimumImageDimensions' => 'Showcase Minimum Image Dimensions',
-    'MyShowcaseAttachmentTypesMinimumImageDimensionsDescription' => 'Smallest acceptable image dimensions, in WxH format, eg 60x30.',
-    'MyShowcaseAttachmentTypesMaximumImageDimensions' => 'Showcase Maximum Image Dimensions',
-    'MyShowcaseAttachmentTypesMaximumImageDimensionsDescription' => 'Largest acceptable image dimensions, in WxH format, eg 1920x1080.',
+    'myshowcase_attachment_types_allowed_showcases' => 'Enabled in Showcase',
+    'myshowcase_attachment_types_allowed_showcases_description' => 'Enable this attachment type for specific showcases. The "Enabled?" setting above does not apply to showcases.',
+    'myshowcase_attachment_types_minimum_image_dimensions' => 'Showcase Minimum Image Dimensions',
+    'myshowcase_attachment_types_minimum_image_dimensions_description' => 'Smallest acceptable image dimensions, in WxH format, eg 60x30.',
+    'myshowcase_attachment_types_maximum_image_dimensions' => 'Showcase Maximum Image Dimensions',
+    'myshowcase_attachment_types_maximum_image_dimensions_description' => 'Largest acceptable image dimensions, in WxH format, eg 1920x1080.',
 
     'myshowcase_admin_permissions_category_main' => 'Main Page',
     'myshowcase_admin_permissions_category_parser' => 'Parser',

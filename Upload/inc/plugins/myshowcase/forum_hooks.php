@@ -22,11 +22,11 @@ use MyShowcase\Enum\AttachmentsDisplayType;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\Routes;
+use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
-use MyShowcase\Showcase;
 use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\QuotesUtil;
 use Twig\Error\LoaderError;
@@ -41,25 +41,10 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
  * Add global notices for unapproved and reported showcases
  *
  */
-#[NoReturn] function global_start(): void
+#[NoReturn]
+function global_start(): void
 {
     return;
-    if (!defined('THIS_SCRIPT') || THIS_SCRIPT !== 'showcase.php') {
-        return;
-    }
-
-    global $db, $mybb, $lang;
-    global $showcase;
-
-    $showcase = new Showcase($db, $mybb, $lang);
-
-    if (empty($showcase->context->showcase['custom_theme_id'])) {
-        return;
-    }
-
-    if (empty($showcase->context->mybb->user['style']) || !empty($showcase->context->showcase['custom_theme_force'])) {
-        $showcase->context->mybb->user['style'] = (int)$showcase->context->showcase['custom_theme_id'];
-    }
 }
 
 /**
@@ -74,90 +59,12 @@ function global_intermediate(): bool
     $myShowcaseGlobalMessagesUnapprovedEntries = $myShowcaseGlobalMessagesReportedEntries = '';
 
     return false;
-
-    global $db, $cache;
-
-    $cache_manager = new CacheManager($db, $cache);
-
-    $moderatorsCache = $cache_manager->get(CacheDataTypes::Moderators);
-
-    $unapprovedEntriesNotices = $reportedEntriesNotices = [];
-
-    $unapprovedEntriesNotices[] = $showcaseObject->render_manager->templateGet('globalMessageUnapprovedEntries', [
-        'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
-        'unapprovedText' => $unapprovedText,
-    ]);
-
-    foreach (
-        $cache_manager->get(
-            CacheDataTypes::Config
-        ) as $showcase_id => $showcase_data
-    ) {
-        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
-
-        $entries_repository = new EntriesRepository(
-            $showcase->context->database,
-            $showcase->context->mybb,
-            $showcase->context->showcase
-        );
-
-        //if showcase is is_enabled...
-        if ($showcase->context->showcase->is_enabled) {
-            //load language if we are going to use it
-            if ($showcase->current_user->hasPermission(
-                    UserPermissions::EntriesCanView
-                ) || $showcase->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-                loadLanguage();
-            }
-
-            //awaiting approval
-            if ($showcase->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-                /*
-                 $unapprovedEntriesUrl = url(
-                    \MyShowcase\Plugin\RouterUrls::Main,
-                    getParams: array_merge($showcase->urlParams, ['unapproved' => 1])
-                )->getRelativeUrl();
-                */
-                $unapprovedEntriesUrl = '';
-
-                $totalUnapprovedEntries = $entries_repository->queryEntryCount(
-                    ["status='" . ContentStatuses::AwaitingApproval . "'"]
-                );
-
-                if ($totalUnapprovedEntries > 0) {
-                    $unapprovedText = $lang->sprintf(
-                        $lang->myshowcase_unapproved_count,
-                        $showcase->context->showcase->name,
-                        my_number_format($totalUnapprovedEntries)
-                    );
-
-                    $unapprovedEntriesNotices[] = $showcase->render_manager->templateGet(
-                        'globalMessageUnapprovedEntries',
-                        [
-                            'unapprovedEntriesUrl' => $unapprovedEntriesUrl,
-                            'unapprovedText' => $unapprovedText,
-                        ]
-                    );
-                }
-            }
-        }
-    }
-
-    if (!empty($unapprovedEntriesNotices)) {
-        $myShowcaseGlobalMessagesUnapprovedEntries = implode('', $unapprovedEntriesNotices);
-    }
-
-    if (!empty($reportedEntriesNotices)) {
-        $myShowcaseGlobalMessagesReportedEntries = implode('', $reportedEntriesNotices);
-    }
-
-    return true;
 }
 
 //build info for who's online
 function fetch_wol_activity_end(array &$user_activity): array
 {
-    global $user, $mybb, $cache;
+    global $db, $user, $mybb, $cache;
 
     //get file_name of location
     $split_loc = explode('.php', $user_activity['location']);
@@ -196,7 +103,7 @@ function fetch_wol_activity_end(array &$user_activity): array
             $user_activity['myshowcase_mainfile'] = $myshowcase->route_identifier;
 
             if ($parameters['action'] === 'view') {
-                $user_activity['activity'] = 'myShowcaseMainTableHeadView';
+                $user_activity['activity'] = 'myshowcase_main_table_head_view';
                 if (is_numeric($parameters['entry_id'])) {
                     $user_activity['entry_id'] = $parameters['entry_id'];
                 }
@@ -247,7 +154,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
         //cleaning borrowed from Google SEO plugin
         $pattern = '!"#$%&\'( )*+,-./:;<=>?@[\]^_`{|}~';
         $pattern = preg_replace(
-            "/[\\\\\\^\\-\\[\\]\\/]/u",
+            "/[\\\\\[\\]\\/\\-^]/u",
             "\\\\\\0",
             $pattern
         );
@@ -556,23 +463,6 @@ function postbit(array &$post): array
     // todo, maybe integrate with link tools instead
     // todo, add setting for image attachments to use mybb->asset_url() method for urls
 
-    return $post;
-
-    global $mybb, $_SERVER, $lang, $showcase_objects;
-
-    if (!empty($showcase_objects)) {
-        foreach ($showcase_objects as $showcase_id => $showcase_data) {
-            $showcase_data = $cache_manager->get(
-                CacheDataTypes::Config
-            )[$showcase_id] ?? [];
-
-            if ($showcase_data['uids'][$post['uid']] > 0) {
-                $post['user_details'] .= '<br />' . $showcase_data['name'] . ':  <a href="' . $showcase_data['showcase_url'] . $showcase_data['route_identifier'] . '?order_by=username&keywords=' . rawurlencode(
-                        $post['username']
-                    ) . '&exact_match=1">' . $showcase_data['uids'][$post['uid']] . '</a>';
-            }
-        }
-    }
 
     return $post;
 }
@@ -609,7 +499,7 @@ function report_type(): void
         if (empty($entryData)) {
             global $lang;
 
-            $error = $lang->myShowcaseReportEntryInvalid;
+            $error = $lang->myshowcase_report_entry_invalid;
 
             return;
         }
@@ -661,7 +551,7 @@ function report_type(): void
         if (empty($commentData) || empty($entryData)) {
             global $lang;
 
-            $error = $lang->myShowcaseReportCommentInvalid;
+            $error = $lang->myshowcase_report_comment_invalid;
 
             return;
         }
@@ -706,7 +596,7 @@ function modcp_reports_report(): void
         );
 
         $report_data['content'] = $lang->sprintf(
-            $lang->myShowcaseReportEntryContent,
+            $lang->myshowcase_report_entry_content,
             $showcase->context->routing->generateUrl(
                 Routes::EntryView,
                 [
@@ -751,9 +641,13 @@ function modcp_reports_report(): void
         );
 
         $report_data['content'] = $lang->sprintf(
-            $lang->myShowcaseReportCommentContent,
-            $showcase->getBasicUrl(
-            ) . "/view/{$entryData['entry_slug']}/{$entryData['entry_slug_custom']}/comment/{$commentData['comment_slug']}" . '#commentID' . $commentData['comment_slug'],
+            $lang->myshowcase_report_comment_content,
+            $showcase->context->showcase->showcase_url . $showcase->context->routing->generateUrl(
+                Routes::CommentView,
+                [
+                    'comment_slug' => $commentData['comment_slug'],
+                ]
+            ) . '#commentID' . $commentData['comment_slug'],
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id2'])['username'] ?? ''),
                 $report['id2'] ?? 0
@@ -761,7 +655,7 @@ function modcp_reports_report(): void
         );
 
         $report_data['content'] .= $lang->sprintf(
-            $lang->myShowcaseReportCommentContentEntryUser,
+            $lang->myshowcase_report_comment_content_entry_user,
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id3'])['username']),
                 $report['id3'] ?? 0

@@ -165,7 +165,7 @@ class AttachmentsManager
     ): array
     {
         if (isset($attachment_data['error']) && $attachment_data['error'] !== 0) {
-            $error_message = $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->context->language->error_uploadfailed_detail;
+            $error_message = $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_detail;
 
             $error_message .= match ($attachment_data['error']) {
                 self::UPLOAD_ERROR_INI_SIZE => $this->context->language->error_uploadfailed_php1,
@@ -184,7 +184,7 @@ class AttachmentsManager
         }
 
         if (!is_uploaded_file($attachment_data['tmp_name']) || empty($attachment_data['tmp_name'])) {
-            return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->context->language->error_uploadfailed_php4];
+            return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_php4];
         }
 
         $attachment_extension = my_strtolower(get_extension($attachment_data['name']));
@@ -208,7 +208,7 @@ class AttachmentsManager
 
         if (!empty($field_id)) {
             if (empty($field_definition)) {
-                return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed]; // todo, update lang
+                return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed]; // todo, update lang
             }
 
             if ($attachment_data['size'] < $field_definition['minimum_size'] * 1024 && !empty($field_definition['minimum_size'])) {
@@ -322,7 +322,7 @@ class AttachmentsManager
         }
 
         if ($file_upload_result['error']) {
-            $error_message = $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->context->language->error_uploadfailed_detail;
+            $error_message = $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_detail;
 
             switch ($file_upload_result['error']) {
                 case self::UPLOAD_ERROR_INVALID:
@@ -340,7 +340,7 @@ class AttachmentsManager
 
         // Let's just double-check that it exists
         if (!file_exists($this->context->showcase->attachments_uploads_path . '/' . $file_name)) {
-            return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed . $this->context->language->error_uploadfailed_detail . $this->context->language->error_uploadfailed_lost];
+            return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_detail . $this->context->language->error_uploadfailed_lost];
         }
 
         $this->insert_data = [
@@ -390,7 +390,7 @@ class AttachmentsManager
             if (!is_array($full_image_dimensions)) {
                 delete_uploaded_file($this->context->showcase->attachments_uploads_path . '/' . $file_name);
 
-                return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed];
+                return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed];
             }
 
             if (!empty($attachment_type_data['image_minimum_dimensions_width'])) {
@@ -400,7 +400,7 @@ class AttachmentsManager
 
                     return [
                         'error' => $this->context->language->sprintf(
-                            $this->context->language->myShowcaseAttachmentsUploadErrorMinimumDimensions,
+                            $this->context->language->myshowcase_attachments_upload_error_minimum_dimensions,
                             htmlspecialchars_uni($this->insert_data['attachment_name']),
                             $attachment_type_data['image_minimum_dimensions_width'],
                             $attachment_type_data['image_minimum_dimensions_height']
@@ -416,7 +416,7 @@ class AttachmentsManager
 
                     return [
                         'error' => $this->context->language->sprintf(
-                            $this->context->language->myShowcaseAttachmentsUploadErrorMaximumDimensions,
+                            $this->context->language->myshowcase_attachments_upload_error_maximum_dimensions,
                             htmlspecialchars_uni($this->insert_data['attachment_name']),
                             $attachment_type_data['image_maximum_dimensions_width'],
                             $attachment_type_data['image_maximum_dimensions_height']
@@ -466,7 +466,7 @@ class AttachmentsManager
             if ($full_image_dimensions[2] !== $image_mime || !$image_mime) {
                 delete_uploaded_file($this->context->showcase->attachments_uploads_path . '/' . $file_name);
 
-                return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorInvalidType];
+                return ['error' => $this->context->language->myshowcase_attachments_upload_error_invalid_type];
             }
 
             require_once MYBB_ROOT . 'inc/functions_image.php';
@@ -486,7 +486,7 @@ class AttachmentsManager
                 if ($thumbnail_image_data['code'] === self::ERROR_THUMBNAIL_FAILED) {
                     delete_uploaded_file($this->context->showcase->attachments_uploads_path . '/' . $file_name);
 
-                    return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorUploadFailed];
+                    return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed];
                 }
 
                 // we only generate thumbnails for large images
@@ -494,7 +494,7 @@ class AttachmentsManager
                     if (empty($thumbnail_image_data['filename'])) {
                         delete_uploaded_file($this->context->showcase->attachments_uploads_path . '/' . $file_name);
 
-                        return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorThumbnailFailure];
+                        return ['error' => $this->context->language->myshowcase_attachments_upload_error_thumbnail_failure];
                     }
 
                     $this->return_data['thumbnail_name'] = $this->insert_data['thumbnail_name'] = $thumbnail_image_data['filename'];
@@ -506,7 +506,7 @@ class AttachmentsManager
                     if (!is_array($thumbnail_image_dimensions)) {
                         delete_uploaded_file($this->context->showcase->attachments_uploads_path . '/' . $file_name);
 
-                        return ['error' => $this->context->language->myShowcaseAttachmentsUploadErrorThumbnailFailure];
+                        return ['error' => $this->context->language->myshowcase_attachments_upload_error_thumbnail_failure];
                     }
 
                     $this->return_data['thumbnail_dimensions'] = $this->insert_data['thumbnail_dimensions'] = "{$thumbnail_image_dimensions[0]}x{$thumbnail_image_dimensions[1]}";

@@ -36,8 +36,8 @@
 {% block body %}
     <div class="page-content">
         <header class="page-header">
-            <h1 class="title title--page">{{ lang.myShowcaseNewEditFormTitle }}</h1>
-            <p class="page-description">{{ lang.myShowcaseNewEditFormTitleDescription }}</p>
+            <h1 class="title title--page">{{ lang.myshowcase_new_edit_form_title }}</h1>
+            <p class="page-description">{{ lang.myshowcase_new_edit_form_title_description }}</p>
         </header>
 
         {# Forum rules #}
@@ -56,7 +56,7 @@
 
         {% if is_preview_page %}
             <section class="block block--container">
-                <h1 class="title title--major title--separation">{{ lang.myShowcaseNewEditEntryPreview }}</h1>
+                <h1 class="title title--major title--separation">{{ lang.myshowcase_new_edit_entry_preview }}</h1>
                 <div id="posts_container">
                     <div id="posts">
                         {{ entry_preview|raw }}
@@ -77,11 +77,11 @@
                 {% if config.entries_enable_subject %}
                     <div class="row row--form field">
                         <h3 class="field__name visually-hidden"><label
-                                    for="subject">{{ lang.myShowcaseNewEditFormEntrySubject }}</label></h3>
+                                    for="subject">{{ lang.myshowcase_new_edit_form_entry_subject }}</label></h3>
                         <div class="compose__subject">
                             <input type="text" class="textbox textbox--subject" name="subject" maxlength="120"
                                    id="subject"
-                                   placeholder="{{ lang.myShowcaseNewEditFormEntrySubjectPlaceholder }}"
+                                   placeholder="{{ lang.myshowcase_new_edit_form_entry_subject_placeholder }}"
                                    value="{{ mybb.input.subject is defined ? mybb.input.subject }}" tabindex="1"
                                    form="contentForm"/>
                         </div>
@@ -114,14 +114,14 @@
                                     <div id="multiquote_unloaded">
                                         <span class="smalltext">
                                             {% if external_quotes == 1 %}
-                                                {{ lang.myShowcaseNewEditFormEntryMultiQuoteSingular }}
+                                                {{ lang.myshowcase_new_edit_form_entry_multi_quote_singular }}
                                             {% else %}
-                                                {{ trans('myShowcaseNewEditFormEntryMultiQuotePlural', external_quotes) }}
+                                                {{ trans('myshowcase_new_edit_form_entry_multi_quote_plural', external_quotes) }}
                                             {% endif %}
                                             <a href="./entry.php?fid={{ config.showcase_id }}&amp;load_all_quotes=1"
-                                               onclick="return Post.loadMultiQuotedAll();">{% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuotePlusSingular }}{% else %}{{ trans('myShowcaseNewEditFormEntryMultiQuotePlusPlural', external_quotes) }}{% endif %}</a>,
+                                               onclick="return Post.loadMultiQuotedAll();">{% if external_quotes == 1 %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_plus_singular }}{% else %}{{ trans('myshowcase_new_edit_form_entry_multi_quote_plus_plural', external_quotes) }}{% endif %}</a>,
                                             <a href="javascript:void(0)"
-                                               onclick="Post.clearMultiQuoted(); return false;">{% if external_quotes == 1 %}{{ lang.myShowcaseNewEditFormEntryMultiQuoteDeselectSingular }}{% else %}{{ lang.myShowcaseNewEditFormEntryMultiQuoteDeselectPlural }}{% endif %}</a>
+                                               onclick="Post.clearMultiQuoted(); return false;">{% if external_quotes == 1 %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_deselect_singular }}{% else %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_deselect_plural }}{% endif %}</a>
                                         </span>
                                     </div>
                                 {% endif %}
@@ -154,7 +154,7 @@
                                 <button type="submit" name="preview" value="preview" class="button button--basic"
                                         form="contentForm">
                                     {{ include('partials/icon.twig', {icon: 'comment-dots', class: 'button__icon'}, with_context = false) }}
-                                    <span class="button__text">{{ lang.myShowcaseNewEditFormButtonPreviewEntry }}</span>
+                                    <span class="button__text">{{ lang.myshowcase_new_edit_form_button_preview_entry }}</span>
                                 </button>
                             </div>
                         </div>
@@ -242,7 +242,7 @@
                         form="contentForm">
                     {{ include('partials/icon.twig', {icon: 'edit', class: 'button__icon'}, with_context = false) }}
                     <span class="button__text">
-                            {{ is_update_page ? lang.myShowcaseNewEditFormButtonUpdateEntry : lang.myShowcaseNewEditFormButtonCreateEntry }}
+                            {{ is_update_page ? lang.myshowcase_new_edit_form_button_update_entry : lang.myshowcase_new_edit_form_button_create_entry }}
                     </span>
                 </button>
             </div>

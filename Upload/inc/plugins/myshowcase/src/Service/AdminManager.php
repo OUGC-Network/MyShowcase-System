@@ -102,7 +102,7 @@ class AdminManager
 
         loadLanguage();
 
-        $this->page->add_breadcrumb_item($this->language->myShowcaseSystem, $this->url->build());
+        $this->page->add_breadcrumb_item($this->language->myshowcase_system, $this->url->build());
 
         $this->page->add_breadcrumb_item($this->language->myShowcaseAdminSummary, $this->url->build());
 
@@ -442,7 +442,7 @@ EOL;
                                 $showcase_data['name']
                             )
                         )) {
-                        $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedName;
+                        $error_messages[] = $this->language->myshowcase_admin_error_duplicated_name;
                     }
 
                     if (!empty($showcase_data['route_identifier']) && (
@@ -786,8 +786,8 @@ EOL;
             $form_container->end();
 
             $form->output_submit_wrapper([
-                $form->generate_submit_button($this->language->myShowcaseAdminButtonSubmit),
-                $form->generate_reset_button($this->language->myShowcaseAdminButtonReset)
+                $form->generate_submit_button($this->language->myshowcase_admin_button_submit),
+                $form->generate_reset_button($this->language->myshowcase_admin_button_reset)
             ]);
 
             $form->end();
@@ -982,7 +982,7 @@ EOL;
             ]);
 
             $form_container->output_cell(
-                "<a href=\"{$edit_moderator_url}\">{$this->language->myShowcaseAdminButtonEdit}</a>",
+                "<a href=\"{$edit_moderator_url}\">{$this->language->myshowcase_admin_button_edit}</a>",
                 ['class' => 'align_center']
             );
 
@@ -995,7 +995,7 @@ EOL;
                 ]) . '#tab_moderators';
 
             $form_container->output_cell(
-                "<a href=\"{$delete_moderator_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myShowcaseAdminConfirmModeratorDelete}')\">{$this->language->myShowcaseAdminButtonDelete}</a>",
+                "<a href=\"{$delete_moderator_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myShowcaseAdminConfirmModeratorDelete}')\">{$this->language->myshowcase_admin_button_delete}</a>",
                 ['class' => 'align_center']
             );
 
@@ -1016,7 +1016,7 @@ EOL;
         $form->output_submit_wrapper(
             [
                 $form->generate_submit_button(
-                    $this->language->myShowcaseAdminButtonSubmitSaveModeratorPermissions
+                    $this->language->myshowcase_admin_button_submit_save_moderator_permissions
                 )
             ]
         );
@@ -1066,7 +1066,7 @@ EOL;
         $form_container->end();
 
         $form->output_submit_wrapper(
-            [$form->generate_submit_button($this->language->myShowcaseAdminButtonSubmitAddModeratorGroup)]
+            [$form->generate_submit_button($this->language->myshowcase_admin_button_submit_add_moderator_group)]
         );
 
         $form->end();
@@ -1144,7 +1144,7 @@ EOL;
 		</script>';
 
         $form->output_submit_wrapper(
-            [$form->generate_submit_button($this->language->myShowcaseAdminButtonSubmitAddModeratorUser)]
+            [$form->generate_submit_button($this->language->myshowcase_admin_button_submit_add_moderator_user)]
         );
 
         $form->end();
@@ -1214,7 +1214,7 @@ EOL;
 
         if ($this->mybb->request_method === 'post') {
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
-                flash_message($this->language->myShowcaseAdminErrorInvalidPostKey, 'error');
+                flash_message($this->language->myshowcase_admin_error_invalid_post_key, 'error');
 
                 admin_redirect($this->url->build());
             }
@@ -1258,7 +1258,7 @@ EOL;
 
         if ($this->mybb->request_method === 'post') {
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
-                flash_message($this->language->myShowcaseAdminErrorInvalidPostKey, 'error');
+                flash_message($this->language->myshowcase_admin_error_invalid_post_key, 'error');
 
                 admin_redirect($this->url->build());
             }

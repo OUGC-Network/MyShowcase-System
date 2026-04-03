@@ -14,15 +14,14 @@
 declare(strict_types=1);
 
 use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
-use MyShowcase\Showcase;
+use MyShowcase\Util\BuildShowcase;
 
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
 
 function task_myshowcase(array $taskData): array
 {
-    global $db, $mybb, $lang;
+    global $db, $mybb;
 
     foreach (
         (new CacheManager($db, $mybb->cache))->get(
@@ -34,9 +33,9 @@ function task_myshowcase(array $taskData): array
         if ($showcasePruneTime[0] > 0 && $showcase_data['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
             $pruneTime = (int)strtotime('-' . $showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
 
-            $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+            $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
-            $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+            $entries_repository = $showcase->context->entries_repository;
 
             foreach (
                 $entries_repository->queryEntries(

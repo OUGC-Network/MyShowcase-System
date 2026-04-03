@@ -15,30 +15,29 @@ declare(strict_types=1);
 
 namespace MyShowcase\Hooks\Shared;
 
-use MyShowcase\Repository\EntriesRepository;
-use MyShowcase\Showcase;
+use MyShowcase\Util\BuildShowcase;
 use UserDataHandler;
 
 use function MyShowcase\Plugin\Functions\showcaseGet;
 
 function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDataHandler
 {
-    if (is_array($dataHandler->delete_uids)) {
-        $userIDs = $dataHandler->delete_uids;
+    $delete_uids = $dataHandler->delete_uids;
+
+    if (is_array($delete_uids)) {
+        $userIDs = $delete_uids;
     } else {
-        $userIDs = explode(',', (string)$dataHandler->delete_uids);
+        $userIDs = explode(',', is_string($delete_uids) ? $delete_uids : '');
     }
 
     if (!$userIDs) {
         return $dataHandler;
     }
 
-    global $db, $mybb, $lang;
-
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
-        $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+        $entries_repository = $showcase->context->entries_repository;
 
         foreach ($userIDs as $userID) {
             foreach (

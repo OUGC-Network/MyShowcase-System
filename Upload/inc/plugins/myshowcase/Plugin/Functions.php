@@ -30,7 +30,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
-use MyShowcase\Showcase;
+use MyShowcase\Util\BuildShowcase;
 use Postparser;
 use ReflectionClass;
 
@@ -135,21 +135,22 @@ function showcaseDefaultModeratorPermissions(): array
 {
     return [
         ModeratorPermissions::EntriesCanView => false,
-        ModeratorPermissions::EntriesCanView => false,
-        ModeratorPermissions::EntriesCanView => false,
-        ModeratorPermissions::CommentsCanView => false
+        ModeratorPermissions::CommentsCanView => false,
+        ModeratorPermissions::CanManageAttachments => false,
+        ModeratorPermissions::CanManageReports => false,
+        ModeratorPermissions::CanManageLogs => false,
     ];
 }
 
 function showcaseDelete(int $showcase_id): bool
 {
-    global $db, $mybb, $lang;
+    global $db;
 
     $hookArguments = [
         'showcaseID' => &$showcase_id,
     ];
 
-    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+    $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
@@ -157,13 +158,13 @@ function showcaseDelete(int $showcase_id): bool
         $showcase->context->permissions_repository->deletePermission($permissionID);
     }
 
-    $moderators_repository = new ModeratorsRepository($showcase->database, $showcase->config);
+    $moderators_repository = $showcase->context->moderators_repository;
 
     foreach ($moderators_repository->queryModerators() as $moderatorID => $moderatorData) {
         $moderators_repository->deleteModerator($moderatorID);
     }
 
-    $comments_repository = new CommentsRepository($db, $showcase->config);
+    $comments_repository = $showcase->context->comments_repository;
 
     foreach (
         $comments_repository->queryComments(query_fields: ['comment_id']) as $commentID => $commentData
@@ -171,7 +172,7 @@ function showcaseDelete(int $showcase_id): bool
         $comments_repository->deleteComment($commentID);
     }
 
-    $attachments_repository = new AttachmentsRepository($showcase->database, $showcase->config);
+    $attachments_repository = $showcase->context->attachments_repository;
 
     foreach ($attachments_repository->queryAttachments() as $attachmentID => $attachmentData) {
         $attachments_repository->deleteAttachment($attachmentID);
@@ -257,18 +258,18 @@ function showcaseDataTableDrop(int $showcase_id): bool
 
 function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
 {
-    global $db, $mybb, $lang;
+    global $db;
 
     $hookArguments = [
         'showcaseID' => &$showcase_id,
         'fieldName' => &$field_name,
     ];
 
-    $showcase = new Showcase($db, $mybb, $lang, showcase_id: $showcase_id);
+    $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    $entries_repository = new EntriesRepository($showcase->database, $showcase->mybb, $showcase->config);
+    $entries_repository = $showcase->context->entries_repository;
 
     foreach ($entries_repository->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
         $entries_repository->deleteEntry($entryID);
@@ -783,10 +784,10 @@ function fieldDefaultTypes(): array
     loadLanguage();
 
     return [
-        FieldDefaultTypes::AsDefined => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeAsDefined,
-        FieldDefaultTypes::IsNull => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeNull,
-        FieldDefaultTypes::CurrentTimestamp => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeTimeStamp,
-        FieldDefaultTypes::UUID => $lang->myShowcaseAdminFieldsCreateUpdateFormDefaultTypeUUID,
+        FieldDefaultTypes::AsDefined => $lang->myshowcase_admin_fields_create_update_form_default_type_as_defined,
+        FieldDefaultTypes::IsNull => $lang->myshowcase_admin_fields_create_update_form_default_type_null,
+        FieldDefaultTypes::CurrentTimestamp => $lang->myshowcase_admin_fields_create_update_form_default_type_time_stamp,
+        FieldDefaultTypes::UUID => $lang->myshowcase_admin_fields_create_update_form_default_type_uuid,
     ];
 }
 

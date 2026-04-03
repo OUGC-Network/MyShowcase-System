@@ -96,7 +96,7 @@ $l = array_merge([
 
     'myShowcaseAdminErrorInvalidShowcase' => 'Invalid showcase',
     'myShowcaseAdminErrorNoFieldSets' => 'Can not create a new showcase as there are no field sets defined.',
-    'myShowcaseAdminErrorDuplicatedName' => 'The selected name is already in use.',
+    'myshowcase_admin_error_duplicated_name' => 'The selected name is already in use.',
     'myShowcaseAdminErrorDuplicatedScriptFile' => 'The selected script file is already in use.',
     'myShowcaseAdminErrorDuplicatedTemplatePrefix' => 'The selected template prefix is already in use.',
     'myShowcaseAdminErrorTableDelete' => "This showcase's data table contains data and can not be deleted separately. If you wish to delete the populated table, delete the entire showcase.",
@@ -408,16 +408,18 @@ $l = array_merge([
     'myShowcaseAdminSummaryPermissionsFormSet' => 'Set Custom Permissions',
     'myShowcaseAdminSummaryPermissionsFormSave' => 'Save Custom Permissions',
 
-    'myShowcaseAdminSummaryPermissionsFormCustomPermissions' => 'Custom Permissions',
-    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsDescription' => 'Here you can modify the full custom permissions for an individual group for a single showcase.',
+    'myshowcase_admin_summary_permissions_form_custom_permissions' => 'Custom Permissions',
+    'myshowcase_admin_summary_permissions_form_custom_permissions_description' => 'Here you can modify the full custom permissions for an individual group for a single showcase.',
 
-    'myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess' => 'The showcase custom permissions have been saved successfully.',
+    'myshowcase_admin_summary_permissions_form_custom_permissions_success' => 'The showcase custom permissions have been saved successfully.',
 
-    'myShowcaseAdminSummaryPermissionsFormConfirmClear' => 'Are you sure you wish to clear this custom permission?',
+    'myshowcase_admin_summary_permissions_form_confirm_clear' => 'Are you sure you wish to clear this custom permission?',
 
-    'myShowcaseAdminSummaryPermissionsFormButtonSubmit' => 'Save Custom Permissions',
+    'myshowcase_admin_summary_permissions_form_button_submit' => 'Save Custom Permissions',
 
-    'myShowcaseAdminSummaryPermissionsClearConfirm' => 'Are you sure you wish to clear this custom permission?',
-    'myShowcaseAdminSummaryPermissionsClearSuccess' => 'The custom permissions for this showcase have been cleared successfully.',
+    'myshowcase_admin_summary_permissions_clear_confirm' => 'Are you sure you wish to clear this custom permission?',
+    'myshowcase_admin_summary_permissions_clear_success' => 'The custom permissions for this showcase have been cleared successfully.',
 
 ], $l);
+
+

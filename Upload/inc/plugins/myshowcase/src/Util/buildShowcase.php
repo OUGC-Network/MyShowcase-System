@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace MyShowcase\Util;
 
-use Exception;
 use MyShowcase\Container;
 use MyShowcase\Showcase;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -28,10 +27,6 @@ readonly class BuildShowcase
         $container = (new Container($showcaseId, $routeIdentifier))->container;
 
         /** @var ContainerBuilder $container */
-        try {
-            return $container->get('showcase');
-        } catch (Exception) {
-            return new Showcase($showcaseId, $routeIdentifier);
-        }
+        return $container->get('showcase');
     }
 }
