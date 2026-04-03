@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 namespace MyShowcase;
 
-use _PHPStan_ea7072c0a\Symfony\Component\String\Exception\RuntimeException;
 use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
@@ -29,6 +28,7 @@ use MyShowcase\Service\CommentsManager;
 use MyShowcase\Service\RenderManager;
 use MyShowcase\Service\UsersManager;
 use MyShowcase\Entity\ShowcaseEntity;
+use RuntimeException;
 
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -84,7 +84,7 @@ class Showcase
         $this->initializeFieldset();
         $this->registerBinaryFields();
 
-        $hookArguments = hooksRun('system_showcase_construct_end', ['showcaseObject' => &$this]);
+        hooksRun('system_showcase_construct_end', ['showcaseObject' => &$this]);
 
         $this->attachment_types = $this->context->cache_manager->get(
             CacheDataTypes::AttachmentTypes
@@ -214,7 +214,7 @@ class Showcase
         }
 
         $dataFields = TABLES_DATA['myshowcase_permissions'];
-        $hookArguments = hooksRun('admin_user_groups_edit_graph_start', ['dataFields' => &$dataFields]);
+        hooksRun('admin_user_groups_edit_graph_start', ['dataFields' => &$dataFields]);
 
         $permissions = $this->buildDefaultGroupPermissions($dataFields);
         $permissions = $this->applyUsergroupPermissions($permissions, $dataFields, $groupID);

@@ -25,7 +25,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
-use MyShowcase\Util\buildShowcase;
+use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\SelectableLists;
 use MyShowcase\Util\StringUtil;
 use Random\RandomException;
@@ -293,7 +293,7 @@ function pluginActivation(): bool
     global $lang;
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $comments_repository = new CommentsRepository($showcase->context->database, $showcase->context->showcase);
 
@@ -323,7 +323,7 @@ function pluginActivation(): bool
     /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $dataTableStructure = dataTableStructureGet($showcase_id);
 

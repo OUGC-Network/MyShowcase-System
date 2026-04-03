@@ -19,7 +19,7 @@ use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
-use MyShowcase\Util\validationHelpers;
+use MyShowcase\Util\ValidationHelpers;
 use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
 
@@ -30,8 +30,6 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
-
-use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
@@ -59,7 +57,7 @@ class EntriesManager
     private array $validation_errors = [];
     private EntryEntity $validation_entry;
     private bool $validation_data_is_valid = true;
-    private $validation_method = self::VALIDATION_METHOD_INSERT;
+    private string $validation_method = self::VALIDATION_METHOD_INSERT;
 
     public function __construct(
         public readonly ShowcaseContext $context,
@@ -75,10 +73,10 @@ class EntriesManager
         return $this->entries;
     }
 
-    public function getEntryByID(int $entry_id): EntryEntity|bool
+    public function getEntryByID(int $entry_id): ?EntryEntity
     {
         if (!$this->entries->offsetExists($entry_id)) {
-            return false;
+            return null;
         }
 
         return $this->entries->offsetGet($entry_id);
@@ -212,10 +210,6 @@ class EntriesManager
         }
 
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT && empty($this->validation_entry->user_id)) {
-            $this->validation_entry->user_id = $this->context->current_user->uid;
-        }
-
-        if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->user_id)) {
             $this->validation_entry->user_id = $this->context->current_user->uid;
         }
 
@@ -420,7 +414,7 @@ class EntriesManager
             $this->validation_entry->ipaddress = $this->context->mybb->session->ipaddress;
             unset($this->validation_entry->last_comment_id);
         } elseif (isset($this->validation_entry->ipaddress) &&
-            !((new validationHelpers())->validateIpAddress($this->validation_entry->ipaddress, true))) {
+            !((new ValidationHelpers())->validateIpAddress($this->validation_entry->ipaddress, true))) {
             $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_ipaddress);
         }
 

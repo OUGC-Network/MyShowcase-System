@@ -27,7 +27,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Showcase;
-use MyShowcase\Util\buildShowcase;
+use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\QuotesUtil;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -93,7 +93,7 @@ function global_intermediate(): bool
             CacheDataTypes::Config
         ) as $showcase_id => $showcase_data
     ) {
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $entries_repository = new EntriesRepository(
             $showcase->context->database,
@@ -294,7 +294,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
 
                 $entryID = $plugin_array['user_activity']['entry_id'];
 
-                $showcase = (new buildShowcase())->getShowcase($showcase_id);
+                $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
                 $entries_repository = new EntriesRepository(
                     $showcase->context->database,
@@ -388,7 +388,7 @@ function showthread_start(): bool
         //get myshowcase counts for users in thread
         if (count($uids)) {
             foreach ($showcase_objects as $showcase_id) {
-                $showcase = (new buildShowcase())->getShowcase($showcase_id);
+                $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
                 $entries_repository = new EntriesRepository(
                     $showcase->context->database,
@@ -449,7 +449,7 @@ function postbit(array &$post): array
                     continue;
                 }
 
-                $showcase = (new buildShowcase())->getShowcase($showcase_id);
+                $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
                 // todo, cache attachment objects per showcase to reduce queries
                 foreach (
@@ -593,7 +593,7 @@ function report_type(): void
 
         $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $entries_repository = new EntriesRepository(
             $showcase->context->database,
@@ -638,7 +638,7 @@ function report_type(): void
 
         $showcase_id = $mybb->get_input('showcaseID', MyBB::INPUT_INT);
 
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $entries_repository = new EntriesRepository(
             $showcase->context->database,
@@ -692,7 +692,7 @@ function modcp_reports_report(): void
 
         $entryID = (int)$report['id2'];
 
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $entries_repository = new EntriesRepository(
             $showcase->context->database,
@@ -728,7 +728,7 @@ function modcp_reports_report(): void
 
         $commentID = (int)$report['id2'];
 
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $entries_repository = new EntriesRepository(
             $showcase->context->database,
@@ -793,7 +793,7 @@ function parse_message_me_mycode(string &$message): string
             continue;
         }
 
-        $showcase = (new buildShowcase())->getShowcase($showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
         $message = (new QuotesUtil($showcase->context))->mycode_parse_quotes($message);
     }

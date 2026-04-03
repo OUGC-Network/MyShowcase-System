@@ -23,7 +23,7 @@ use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\ShowcasesRepository;
 use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Showcase;
-use MyShowcase\Util\buildShowcase;
+use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\UrlUtil;
 use MysqlPdoDbDriver;
 use PopupMenu;
@@ -153,7 +153,7 @@ EOL;
 
     public function showcaseClearPermissions(): void
     {
-        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase->context->showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
@@ -205,7 +205,7 @@ EOL;
 
     public function showcasePermissions(): void
     {
-        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase->context->showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
@@ -387,7 +387,7 @@ EOL;
         $is_create_page = $this->mybb->get_input('action') === 'create';
 
         if (!$is_create_page) {
-            $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
+            $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
             if (empty($showcase->context->showcase)) {
                 flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
@@ -1158,7 +1158,7 @@ EOL;
 
     private function showcaseTableCreateRebuild(): void
     {
-        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase)) {
             flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
@@ -1204,7 +1204,7 @@ EOL;
 
         $showcaseName = $showcase_data['name'];
 
-        $showcase = (new buildShowcase())->getShowcase($this->showcase_id);
+        $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if ($showcase->context->entries_repository->queryEntries()) {
             flash_message($this->language->myShowcaseAdminErrorTableDrop, 'error');
@@ -1360,7 +1360,7 @@ EOL;
             $form_container->construct_row();
         } else {
             foreach ($showcaseObjects as $showcase_id => $showcase_data) {
-                $showcase = (new buildShowcase())->getShowcase($showcase_id);
+                $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
                 $showcaseTotalEntries = $showcaseTotalAttachments = $showcaseTotalFilesSize = $showcaseTotalComments = 0;
 

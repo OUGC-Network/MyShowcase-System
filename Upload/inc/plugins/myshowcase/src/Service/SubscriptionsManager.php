@@ -9,7 +9,7 @@ use DB_PgSQL;
 use DB_SQLite;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Event\Listener\EntryDeletedSubscriptonListener;
+use MyShowcase\Event\Listener\EntryDeletedSubscriptionListener;
 use MyShowcase\Repository\SubscriptionsRepository;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
@@ -23,13 +23,13 @@ readonly class SubscriptionsManager
         private array $config,
         private EventDispatcher $event_dispatcher,
     ) {
-        $this->context->subscriptions_repository = new SubscriptionsRepository(
+        $this->subscriptions_repository = new SubscriptionsRepository(
             $this->database, $this->config,
         );
 
         $this->event_dispatcher->addListener(
             EntryDeletedEvent::NAME,
-            new EntryDeletedSubscriptonListener($this->context->subscriptions_repository)
+            new EntryDeletedSubscriptionListener($this->subscriptions_repository)
         );
     }
 }

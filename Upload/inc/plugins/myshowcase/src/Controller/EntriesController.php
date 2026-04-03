@@ -178,7 +178,7 @@ class EntriesController extends BaseController
                     foreach ($selected_entries as $entry) {
                         $this->context->entries_repository->deleteEntry($entry->entry_id);
                         $this->context->event_dispatcher->dispatch(
-                            new EntryDeletedEvent($this->entry_id),
+                            new EntryDeletedEvent($entry->entry_id),
                             EntryDeletedEvent::NAME
                         );
                     }
@@ -1278,13 +1278,6 @@ class EntriesController extends BaseController
             'online_users' => [],
             'comments_count' => 0,
             'url' => [
-                'entry' => $this->context->routing->generateUrl(
-                    Routes::EntryView,
-                    [
-                        'entry_slug' => $entry->entry_slug,
-                        'entry_slug_custom' => $entry->entry_slug_custom
-                    ]
-                ),
                 'entry' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
