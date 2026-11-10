@@ -22,7 +22,7 @@ enum FormTypes
     public const Select = 'select';
     public const SelectMultipleGroups = 'select_multiple_groups';
     public const SelectTimeInterval = 'select_time_interval';
-    public const SelectFieldset = 'select_fieldset';
+    public const SelectCollection = 'select_collection';
     public const SelectTheme = 'select_theme';
     public const SelectRulesType = 'select_rules_type';
     public const SelectFilterField = 'select_filter_field';

@@ -128,7 +128,7 @@ class EntriesManager
 
         foreach ($fields_data as $field_key => $field_value) {
             $field_definition = array_filter(
-                $this->context->fieldset_fields,
+                $this->context->collection_fields,
                 function ($field_definition) use ($field_key): bool {
                     return $field_definition['field_key'] === $field_key;
                 }
@@ -440,7 +440,7 @@ class EntriesManager
                 ) !== 1) {
                 $this->validateSetError(
                     'invalid_value1',
-                    [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                    [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                 );
             }
 
@@ -449,13 +449,13 @@ class EntriesManager
                     if ($this->validation_entry->getAttachmentsByFieldID($field_id)->count() < 1) {
                         $this->validateSetError(
                             'required_field',
-                            [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                            [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                         );
                     }
                 } else {
                     $this->validateSetError(
                         'required_field',
-                        [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                     );
                 }
             }
@@ -470,14 +470,14 @@ class EntriesManager
                         if (!is_numeric($fieldValue)) {
                             $this->validateSetError(
                                 'invalid_value2',
-                                [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                                [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                             );
                         }
                     }
                 } elseif (!is_numeric($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
                     $this->validateSetError(
                         'invalid_value3',
-                        [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                     );
                 }
             } elseif (fieldTypeMatchChar($field->field_definition['field_type']) ||
@@ -485,7 +485,7 @@ class EntriesManager
                 if (!is_scalar($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
                     $this->validateSetError(
                         'invalid_value4',
-                        [$this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key']]
+                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
                     );
                 }
 
@@ -497,7 +497,7 @@ class EntriesManager
                         $this->validateSetError(
                             'invalid_length_minimum',
                             [
-                                $this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key'],
+                                $this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key'],
                                 my_strlen($this->validation_entry->extra_data[$field->field_definition['field_key']]),
                                 my_number_format($field->field_definition['minimum_length']),
                                 my_number_format($field->field_definition['maximum_length']),
@@ -512,7 +512,7 @@ class EntriesManager
                         $this->validateSetError(
                             'invalid_length_maximum',
                             [
-                                $this->context->language->{'myshowcase_fieldset_field_' . $field->field_definition['field_key']} ?? 'myshowcase_fieldset_field_' . $field->field_definition['field_key'],
+                                $this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key'],
                                 my_strlen($this->validation_entry->extra_data[$field->field_definition['field_key']]),
                                 my_number_format($field->field_definition['minimum_length']),
                                 my_number_format($field->field_definition['maximum_length']),
@@ -523,7 +523,7 @@ class EntriesManager
             }
         }
 
-        foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
+        foreach ($this->context->collection_fields as $field_id => $field_definition) {
             if (!$field_definition['is_enabled'] ||
                 !isset($this->validation_entry->extra_data[$field_definition['field_key']]) ||
                 !is_member($field_definition['allowed_groups_fill'])) {
@@ -552,7 +552,7 @@ class EntriesManager
                     foreach ($this->validation_entry->extra_data[$field->field_key] as $field_data_id) {
                         $field_data_id = (int)$field_data_id;
 
-                        if (!isset($this->context->fieldset_fields[$field_data_id])) {
+                        if (!isset($this->context->collection_fields[$field_data_id])) {
                             continue;
                         }
 
@@ -628,12 +628,12 @@ class EntriesManager
         if ($this->validation_method === self::VALIDATION_METHOD_UPDATE) {
             $this->validation_entry->entry_id = $this->context->entries_repository->updateEntry(
                 $this->validation_entry,
-                $this->context->fieldset_fields
+                $this->context->collection_fields
             );
         } else {
             $this->validation_entry->entry_id = $this->context->entries_repository->insertEntry(
                 $this->validation_entry,
-                $this->context->fieldset_fields
+                $this->context->collection_fields
             );
         }
 

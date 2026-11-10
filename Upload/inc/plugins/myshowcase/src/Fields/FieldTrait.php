@@ -112,7 +112,7 @@ trait FieldTrait
         AttachmentsManager $attachments_manager,
         AttachmentsRepository $attachments_repository,
         EntryEntity $entry,
-        int $fieldset_id,
+        int $collection_id,
         array $input = []
     ): void {
         if (!$this->field_definition['display_in_view_page'] ||
@@ -141,7 +141,7 @@ trait FieldTrait
                             fieldDataGet(
                                 [
                                     "field_data_id='{$value_id}'",
-                                    "set_id='{$fieldset_id}'",
+                                    "collection_id='{$collection_id}'",
                                     "field_id='{$this->field_definition['field_id']}'"
                                 ],
                                 [
@@ -285,7 +285,7 @@ trait FieldTrait
     {
         global $lang;
 
-        $fieldDescription = $this->field_definition['description'] ?? ($lang->{'myshowcase_fieldset_field_' . $this->field_definition['field_key'] . '_description'} ?? '');
+        $fieldDescription = $this->field_definition['description'] ?? ($lang->{'myshowcase_collection_field_' . $this->field_definition['field_key'] . '_description'} ?? '');
 
         if ($fieldDescription) {
             if ($this->field_definition['allow_multiple_values']) {
@@ -350,12 +350,12 @@ trait FieldTrait
         return $this->selectable_values;
     }
 
-    public function fetchSelectableValues(int $fieldset_id, bool $verify_fill_permission = false): void
+    public function fetchSelectableValues(int $collection_id, bool $verify_fill_permission = false): void
     {
         foreach (
             fieldDataGet(
                 [
-                    "set_id='{$fieldset_id}'",
+                    "collection_id='{$collection_id}'",
                     "field_id='{$this->field_definition['field_id']}'"
                 ],
                 [

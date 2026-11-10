@@ -180,7 +180,7 @@
                 {% if false and custom_field.isViewableInMain() %}
                     <div class="column-headings__column thread__replies">
                         <a href="{{ url.sort[custom_field.field_key] }}"
-                           class="sort-results__link sort-results__link--comments-approved">{{ attribute(lang, 'myshowcase_fieldset_field_' ~ custom_field.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == custom_field.field_key %}{{ ascDesc }}{% endif %}
+                           class="sort-results__link sort-results__link--comments-approved">{{ attribute(lang, 'myshowcase_collection_field_' ~ custom_field.field_key) }}</a> {% if url_params.order_by is defined and url_params.order_by == custom_field.field_key %}{{ ascDesc }}{% endif %}
                     </div>
                 {% endif %}
             {% endfor %}
@@ -277,7 +277,7 @@
                     {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
                     <label>
                         <select name="sort">
-                            {% for field_key, field_display_name in showcase.fieldset_display_fields %}
+                            {% for field_key, field_display_name in showcase.collection_display_fields %}
                                 <option value="{{ field_key }}"{% if url_params.order_by is defined and field_key == url_params.order_by %} selected{% endif %}>{{ lang.myshowcase_main_sort_field }}
                                     : {% if attribute(lang, 'myshowcase_main_sort_field_' ~ field_key) is defined %}{{ attribute(lang, 'myshowcase_main_sort_field_' ~ field_key) }}{% else %}{{ field_key }}{% endif %}</option>
                             {% endfor %}

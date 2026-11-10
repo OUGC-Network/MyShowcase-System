@@ -89,7 +89,8 @@ class EntriesController extends BaseController
      * @throws SyntaxError
      * @throws RandomException
      */
-    #[NoReturn] #[Route('/', name: 'main', methods: ['GET'])]
+    #[NoReturn]
+    #[Route('/', name: 'main', methods: ['GET'])]
     public function main(): string
     {
         $this->verifyPassword();
@@ -327,8 +328,8 @@ class EntriesController extends BaseController
          * @var CustomFieldEntity $field
          */
         foreach ($this->context->custom_fields_collection as $field_id => $field) {
-            if (!isset($this->context->language->{"myshowcase_fieldset_field_{$field->field_key}"})) {
-                $this->context->language->{"myshowcase_fieldset_field_{$field->field_key}"} = "myshowcase_fieldset_field_{$field->field_key}";
+            if (!isset($this->context->language->{"myshowcase_collection_field_{$field->field_key}"})) {
+                $this->context->language->{"myshowcase_collection_field_{$field->field_key}"} = "myshowcase_collection_field_{$field->field_key}";
             }
         }
 
@@ -1114,7 +1115,8 @@ class EntriesController extends BaseController
      * @throws LoaderError
      * @throws SyntaxError|RandomException
      */
-    #[NoReturn] #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
+    #[NoReturn]
+    #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     #[Route('/api/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     public function view(string $entry_slug, string $entry_slug_custom): string
     {
@@ -1645,7 +1647,8 @@ class EntriesController extends BaseController
         }
     }
 
-    #[NoReturn] private function redirectAfterModeration(
+    #[NoReturn]
+    private function redirectAfterModeration(
         string $message,
         array $url_params = ['clear_selected' => 1]
     ): void {
@@ -1741,7 +1744,7 @@ class EntriesController extends BaseController
                             } else {
                                 $search_where_clauses[] = "(table_{$field->field_key}.value='{$this->context->database->escape_string($keyword)}' OR table_{$field->field_key}.display_style='{$this->context->database->escape_string($keyword)}')";
                             }
-                            //$search_where_clauses[] = "table_{$field->field_key}.set_id='{$this->context->config->field_set_id}'";
+                            //$search_where_clauses[] = "table_{$field->field_key}.collection_id='{$this->context->config->collection_id}'";
                         } elseif (empty($this->context->render_manager->url_params['exact_match'])) {
                             $search_where_clauses[] = "{$alias}.{$field->field_key} LIKE '%{$this->context->database->escape_string($keyword)}%'";
                         } else {

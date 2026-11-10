@@ -10,6 +10,7 @@ use DB_SQLite;
 use DefaultPage;
 use Form;
 use FormContainer;
+use JetBrains\PhpStorm\NoReturn;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Container;
@@ -33,7 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
-use function MyShowcase\Plugin\Functions\fieldsetGet;
+use function MyShowcase\Plugin\Functions\collectionGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
@@ -59,6 +60,7 @@ class AdminManager
     private array $permissions_cache;
     private array $groups_cache;
 
+    #[NoReturn]
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
         private readonly MyBB $mybb,
@@ -114,10 +116,10 @@ class AdminManager
             ];
         }
 
-        $fieldsetObjects = (function (): array {
-            return array_map(function ($fieldsetData) {
-                return $fieldsetData['set_name'];
-            }, $this->cache_manager->get(CacheDataTypes::Fieldsets));
+        $collectionObjects = (function (): array {
+            return array_map(function ($collectionData) {
+                return $collectionData['name'];
+            }, $this->cache_manager->get(CacheDataTypes::Collections));
         })();
 
         $this->permissions_cache = $this->cache_manager->get(CacheDataTypes::Permissions);
@@ -139,7 +141,13 @@ EOL;
         } elseif (in_array($this->mybb->get_input('action'), ['create', 'update'])) {
             $this->showcaseCreateUpdate();
         } elseif (in_array($this->mybb->get_input('action'), ['create_table', 'rebuild_table'])) {
-            $this->showcaseTableCreateRebuild();
+            try {
+                $this->showcaseTableCreateRebuild();
+            } catch (\Exception $e) {
+                flash_message($e->getMessage(), 'error');
+
+                admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+            }
         } elseif ($this->mybb->get_input('action') === 'drop_table') {
             $this->showcaseTableDrop();
         } elseif ($this->mybb->get_input('action') === 'delete') {
@@ -421,8 +429,10 @@ EOL;
                         }
                     }
 
-                    if (isset($showcase_data['field_set_id']) && showcaseDataTableExists($this->showcase_id)) {
-                        unset($showcase_data['field_set_id']);
+                    if (isset($showcase_data['collection_id']) &&
+                        showcaseDataTableExists($this->showcase_id) &&
+                        (!empty($showcase->context->showcase->collection_id))) {
+                        unset($showcase_data['collection_id']);
                     }
 
                     if (isset($showcase_data['name']) && (
@@ -704,7 +714,10 @@ EOL;
 
         $this->page->output_tab_control($categories);
 
-        $this->mybb->input = array_merge((array)$showcase->context->showcase, $this->mybb->input);
+        $this->mybb->input = array_merge(
+            isset($showcase->context->showcase) ? (array)$showcase->context->showcase : [],
+            $this->mybb->input
+        );
 
         $categories_objects = [];
 
@@ -755,7 +768,7 @@ EOL;
                         $field_definition,
                         $category_key,
                         'myshowcase_admin_summary_create_update',
-                        showcase_config: (array)$showcase->context->showcase ?? ['showcase_id' => 0]
+                        showcase_config: $showcase->context->showcase ?? ['showcase_id' => 0]
                     )
                 );
             }
@@ -1048,7 +1061,7 @@ EOL;
                     $groupObjects = [];
 
                     foreach ($this->groups_cache as $groupData) {
-                        $this->group_id = $groupData['gid'];
+                        $this->group_id = (int)$groupData['gid'];
 
                         $group_title = htmlspecialchars_uni($groupData['title']);
 
@@ -1374,7 +1387,7 @@ EOL;
 
                 $attachments_repository = new AttachmentsRepository($this->database, $showcase->context->showcase);
 
-                $fieldsetID = (int)$showcase_data['field_set_id'];
+                $collection_id = (int)$showcase_data['collection_id'];
 
                 if ($showcase->data_table_exists) {
                     $showcaseTotalEntries = $entries_repository->queryEntryCount();
@@ -1386,12 +1399,14 @@ EOL;
                     $showcaseTotalComments = $comments_repository->queryCommentCount();
                 }
 
+                $url_edit = $this->url->build(['action' => 'update', 'showcase_id' => $showcase_id]);
+
                 // Build popup menu
                 $popup = new PopupMenu("myshowcase_{$showcase_id}", $this->language->options);
 
                 $popup->add_item(
                     $this->language->myshowcase_summary_edit,
-                    $this->url->build(['action' => 'update', 'showcase_id' => $showcase_id])
+                    $url_edit,
                 );
 
                 //grab status images at same time
@@ -1442,7 +1457,7 @@ EOL;
 
                 $form_container->output_cell($showcase_id, ['class' => 'align_center']);
 
-                $form_container->output_cell($showcase_data['name']);
+                $form_container->output_cell("<a href='{$url_edit}'>{$showcase_data['name']}</a>");
 
                 $form_container->output_cell($showcaseTotalEntries, ['class' => 'align_center']);
 
@@ -1455,12 +1470,14 @@ EOL;
                     ['class' => 'align_center']
                 );
 
+                $collection_data = collectionGet(
+                    ["collection_id='{$collection_id}'"],
+                    ['name'],
+                    ['limit' => 1]
+                );
+
                 $form_container->output_cell(
-                    fieldsetGet(
-                        ["set_id='{$fieldsetID}'"],
-                        ['set_name'],
-                        ['limit' => 1]
-                    )['set_name'] . ' (ID=' . $fieldsetID . ')',
+                    ($collection_data['name'] ?? '') . ' (ID=' . $collection_id . ')',
                     ['class' => 'align_center']
                 );
 

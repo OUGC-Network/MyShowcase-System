@@ -7,8 +7,8 @@ namespace MyShowcase\Entity;
 readonly class ShowcaseEntity
 {
     public function __construct(
-        public int $showcase_id = 0,
-        public int $field_set_id = 0,
+        public ?int $showcase_id = null,
+        public ?int $collection_id = null,
         public string $name = '',
         public string $description = '',
         public string $route_identifier = '',

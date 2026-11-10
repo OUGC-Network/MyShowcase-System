@@ -17,7 +17,7 @@ enum CacheDataTypes
 {
     public const Config = 1;
     public const Fields = 2;
-    public const Fieldsets = 3;
+    public const Collections = 3;
     public const Moderators = 4;
     public const Permissions = 5;
     public const FieldData = 6;

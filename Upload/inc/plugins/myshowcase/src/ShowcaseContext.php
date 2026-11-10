@@ -59,7 +59,7 @@ class ShowcaseContext
         public readonly ?RenderManager $render_manager = null,
         public ?ShowcaseEntity $showcase = null,
         public Collection $custom_fields_collection = new Collection(),
-        public array $fieldset_fields = []
+        public array $collection_fields = []
     ) {
     }
 }

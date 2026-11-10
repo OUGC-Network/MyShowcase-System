@@ -34,8 +34,8 @@ $plugins->run_hooks('admin_myshowcase_help_begin');
 
 $tabs = [
     'main' => 'Main',
-    'summary' => 'Summary',
-    'fields' => 'Field Settings',
+    'summary' => 'Showcases',
+    'fields' => 'Collections',
     'edit' => 'Edit Showcase',
     'cache' => 'Rebuild Cache',
     'other' => 'Other Items'

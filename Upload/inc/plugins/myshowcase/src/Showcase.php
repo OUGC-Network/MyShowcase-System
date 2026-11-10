@@ -51,7 +51,7 @@ class Showcase
     public readonly UserEntity $current_user;
     private array $tables_data;
     public array $config;
-    public array $fieldset_fields = [];
+    public array $collection_fields = [];
     public array $attachment_types = [];
     private array $parser_options = [
         'filter_badwords' => true,
@@ -81,10 +81,10 @@ class Showcase
 
         $this->initializeCurrentUser();
         $this->configureParserOptions();
-        $this->initializeFieldset();
+        $this->initializeCollection();
         $this->registerBinaryFields();
 
-        hooksRun('system_showcase_construct_end', ['showcaseObject' => &$this]);
+        hooksRun('system_showcase_construct_end', $this);
 
         $this->attachment_types = $this->context->cache_manager->get(
             CacheDataTypes::AttachmentTypes
@@ -159,19 +159,19 @@ class Showcase
         ]);
     }
 
-    private function initializeFieldset(): void
+    private function initializeCollection(): void
     {
-        if (!$this->context->showcase->field_set_id) {
+        if (!$this->context->showcase->collection_id) {
             return;
         }
 
-        $this->context->fieldset_fields = $this->context->cache_manager->get(
+        $this->context->collection_fields = $this->context->cache_manager->get(
             CacheDataTypes::Fields
-        )[$this->context->showcase->field_set_id] ?? [];
+        )[$this->context->showcase->collection_id] ?? [];
 
-        foreach ($this->context->fieldset_fields as $field_id => $field_definition) {
+        foreach ($this->context->collection_fields as $field_id => $field_definition) {
             if (!$field_definition['is_enabled']) {
-                unset($this->context->fieldset_fields[$field_id]);
+                unset($this->context->collection_fields[$field_id]);
             }
         }
 
@@ -195,7 +195,7 @@ class Showcase
     {
         $fields = $this->context->cache_manager->get(
             CacheDataTypes::Fields
-        )[$this->context->showcase->field_set_id] ?? [];
+        )[$this->context->showcase->collection_id] ?? [];
 
         foreach ($fields as $field_id => $field_definition) {
             $this->context->custom_fields_collection[$field_id] = new CustomFieldEntity(...$field_definition);

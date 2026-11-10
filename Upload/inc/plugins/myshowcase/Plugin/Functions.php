@@ -189,7 +189,27 @@ function showcaseDelete(int $showcase_id): bool
 
 function showcaseGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
 {
+    $key = md5(serialize($whereClauses + $queryFields + $queryOptions));
+
+    static $showcaseObjects = [];
+
+    if (isset($showcaseObjects[$key])) {
+        return $showcaseObjects[$key];
+    }
+
     global $db;
+
+    static $tableExists = null;
+
+    if ($tableExists === null) {
+        $tableExists = $db->table_exists('myshowcase_config');
+    }
+
+    if (!$tableExists) {
+        //return [];
+    }
+
+    global $mybb;
 
     $query = $db->simple_select(
         'myshowcase_config',
@@ -202,13 +222,13 @@ function showcaseGet(array $whereClauses = [], array $queryFields = [], array $q
         return (array)$db->fetch_array($query);
     }
 
-    $showcaseObjects = [];
+    $showcaseObjects[$key] = [];
 
     while ($showcase_data = $db->fetch_array($query)) {
-        $showcaseObjects[(int)$showcase_data['showcase_id']] = $showcase_data;
+        $showcaseObjects[$key][(int)$showcase_data['showcase_id']] = $showcase_data;
     }
 
-    return $showcaseObjects;
+    return $showcaseObjects[$key];
 }
 
 function showcaseDataTableExists(int $showcase_id): bool
@@ -280,53 +300,53 @@ function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
     return true;
 }
 
-function fieldsetInsert(array $fieldsetData, bool $isUpdate = false, $fieldsetID = 0): int
+function collectionInsert(array $collectionData, bool $isUpdate = false, $collection_id = 0): int
 {
     global $db;
 
-    $tablesData = TABLES_DATA['myshowcase_fieldsets'];
+    $tablesData = TABLES_DATA['myshowcase_collections'];
 
     $insertData = [];
 
     $hookArguments = [
         'insertData' => &$insertData,
-        'fieldsetData' => &$fieldsetData,
+        'collectionData' => &$collectionData,
         'isUpdate' => $isUpdate,
-        'fieldsetID' => &$fieldsetID,
+        'collectionID' => &$collection_id,
         'tableData' => &$tablesData,
     ];
 
     foreach ($tablesData as $field_name => $field_definition) {
-        if (isset($fieldsetData[$field_name])) {
-            $insertData[$field_name] = sanitizeTableFieldValue($fieldsetData[$field_name], $field_definition['type']);
+        if (isset($collectionData[$field_name])) {
+            $insertData[$field_name] = sanitizeTableFieldValue($collectionData[$field_name], $field_definition['type']);
         }
     }
 
-    $hookArguments = hooksRun('fieldset_insert_update_end', $hookArguments);
+    $hookArguments = hooksRun('collection_insert_update_end', $hookArguments);
 
     if ($isUpdate) {
-        $db->update_query('myshowcase_fieldsets', $insertData, "set_id='{$fieldsetID}'");
+        $db->update_query('myshowcase_collections', $insertData, "collection_id='{$collection_id}'");
     } else {
-        $db->insert_query('myshowcase_fieldsets', $insertData);
+        $db->insert_query('myshowcase_collections', $insertData);
 
-        $fieldsetID = (int)$db->insert_id();
+        $collection_id = (int)$db->insert_id();
     }
 
-    return $fieldsetID;
+    return $collection_id;
 }
 
-function fieldsetUpdate(array $fieldsetData, int $fieldsetID): int
+function collectionUpdate(array $collectionData, int $collection_id): int
 {
-    return fieldsetInsert($fieldsetData, true, $fieldsetID);
+    return collectionInsert($collectionData, true, $collection_id);
 }
 
-function fieldsetGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
+function collectionGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
 {
     global $db;
 
     $query = $db->simple_select(
-        'myshowcase_fieldsets',
-        implode(',', array_merge(['set_id'], $queryFields)),
+        'myshowcase_collections',
+        implode(',', array_merge(['collection_id'], $queryFields)),
         implode(' AND ', $whereClauses),
         $queryOptions
     );
@@ -335,30 +355,30 @@ function fieldsetGet(array $whereClauses = [], array $queryFields = [], array $q
         return (array)$db->fetch_array($query);
     }
 
-    $fieldsetData = [];
+    $collectionData = [];
 
-    while ($fieldset = $db->fetch_array($query)) {
-        $fieldsetData[(int)$fieldset['set_id']] = $fieldset;
+    while ($collection = $db->fetch_array($query)) {
+        $collectionData[(int)$collection['collection_id']] = $collection;
     }
 
-    return $fieldsetData;
+    return $collectionData;
 }
 
-function fieldsetDelete(int $fieldsetID): bool
+function collectionDelete(int $collection_id): bool
 {
     global $db;
 
     $hookArguments = [
-        'fieldsetID' => &$fieldsetID,
+        'collectionID' => &$collection_id,
     ];
 
-    $hookArguments = hooksRun('fieldset_delete_start', $hookArguments);
+    $hookArguments = hooksRun('collection_delete_start', $hookArguments);
 
-    foreach (fieldDataGet(["set_id='{$fieldsetID}'"]) as $fieldDataID => $fieldDataData) {
+    foreach (fieldDataGet(["collection_id='{$collection_id}'"]) as $fieldDataID => $fieldDataData) {
         fieldDataDelete($fieldDataID);
     }
 
-    $db->delete_query('myshowcase_fieldsets', "set_id='{$fieldsetID}'");
+    $db->delete_query('myshowcase_collections', "collection_id='{$collection_id}'");
 
     return true;
 }
@@ -531,15 +551,15 @@ function dataTableStructureGet(int $showcase_id = 0): array
 {
     global $db;
 
-    $dataTableStructure = DATA_TABLE_STRUCTURE['myshowcase_data'];
+    $dataTableStructure = [];
 
     if ($showcase_id &&
-        ($showcase_data = showcaseGet(["showcase_id='{$showcase_id}'"], ['field_set_id'], ['limit' => 1]))) {
-        $fieldsetID = (int)$showcase_data['field_set_id'];
+        ($showcase_data = showcaseGet(["showcase_id='{$showcase_id}'"], ['collection_id'], ['limit' => 1]))) {
+        $collection_id = (int)$showcase_data['collection_id'];
 
         foreach (
             fieldsGet(
-                ["set_id='{$fieldsetID}'"],
+                ["collection_id='{$collection_id}'"],
                 ['field_key', 'field_type', 'maximum_length', 'is_required', 'default_value', 'default_type']
             ) as $field_id => $field_definition
         ) {

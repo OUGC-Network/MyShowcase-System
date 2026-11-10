@@ -25,7 +25,7 @@ $l['myshowcase_summary_comment_count'] = 'Comments';
 $l['myshowcase_summary_image_folder'] = 'Image Folder';
 $l['myshowcase_summary_main_file'] = 'Script File';
 $l['myshowcase_summary_forum_folder'] = 'Relative Path';
-$l['myshowcase_summary_field_set'] = 'Field Set';
+$l['myshowcase_summary_field_set'] = 'Collection';
 
 //status
 $l['myshowcase_summary_status'] = 'Status';
@@ -51,7 +51,7 @@ $l['myshowcase_summary_deletetable'] = 'Drop Table';
 $l['myshowcase_summary_seo'] = 'Show SEO';
 
 $l = array_merge([
-    'myShowcaseAdminSummary' => 'Summary',
+    'myShowcaseAdminSummary' => 'Showcases',
     'myShowcaseAdminSummaryDescription' => 'View and manage showcases.',
 
     'myShowcaseAdminSummaryNew' => 'Add New Showcase',
@@ -95,7 +95,7 @@ $l = array_merge([
     'myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsernameDescription' => 'Username of the moderator to be added.',
 
     'myShowcaseAdminErrorInvalidShowcase' => 'Invalid showcase',
-    'myShowcaseAdminErrorNoFieldSets' => 'Can not create a new showcase as there are no field sets defined.',
+    'myShowcaseAdminErrorNoCollections' => 'Can not create a new showcase as there are no collections defined.',
     'myshowcase_admin_error_duplicated_name' => 'The selected name is already in use.',
     'myShowcaseAdminErrorDuplicatedScriptFile' => 'The selected script file is already in use.',
     'myShowcaseAdminErrorDuplicatedTemplatePrefix' => 'The selected template prefix is already in use.',
@@ -151,8 +151,8 @@ $l = array_merge([
     'myshowcase_admin_summary_create_update_category_moderators' => 'Moderators',
     'myshowcase_admin_summary_create_update_category_moderators_description' => 'Moderators Options',
 
-    'myshowcase_admin_summary_create_update_field_set_id' => 'Field Set',
-    'myshowcase_admin_summary_create_update_field_set_id_description' => 'The field set used to define the structure of the showcase data table. This cannot be changed after the table is created.',
+    'myshowcase_admin_summary_create_update_collection_id' => 'Collection',
+    'myshowcase_admin_summary_create_update_collection_id_description' => 'The collection used to define the structure of the showcase data table. This cannot be changed after the table is created.',
     'myshowcase_admin_summary_create_update_name' => 'Name',
     'myshowcase_admin_summary_create_update_name_description' => 'The name used in links, titles, and references for this showcase.',
     'myshowcase_admin_summary_create_update_description' => 'Description',
@@ -307,6 +307,7 @@ $l = array_merge([
     'myshowcase_admin_summary_create_update_comments_display_reputations' => 'Display Reputations',
     'myshowcase_admin_summary_create_update_comments_display_reputations_description' => 'Display users reputation points in comments.',
     'myshowcase_admin_summary_create_update_comments_enable_update_notes' => 'Enable Update Notes',
+    'myshowcase_admin_summary_create_update_comments_enable_update_notes_description' => 'Allow users to provide an update reason when editing comments.',
     'myshowcase_admin_summary_create_update_comments_enable_edit_reasons_description' => 'Allow users to provide an update reason when editing comments.',
     'myshowcase_admin_summary_create_update_comments_per_page' => 'Comments Per Page',
     'myshowcase_admin_summary_create_update_comments_per_page_description' => 'Number of comments to display per page.',

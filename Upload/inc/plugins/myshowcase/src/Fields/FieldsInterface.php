@@ -35,7 +35,7 @@ interface FieldsInterface
         AttachmentsManager $attachments_manager,
         AttachmentsRepository $attachments_repository,
         EntryEntity $entry,
-        int $fieldset_id,
+        int $collection_id,
         array $input = []
     ): void;
 
@@ -61,5 +61,5 @@ interface FieldsInterface
 
     public function getSelectableValues(): Collection;
 
-    public function fetchSelectableValues(int $fieldset_id, bool $verify_fill_permission = false): void;
+    public function fetchSelectableValues(int $collection_id, bool $verify_fill_permission = false): void;
 }

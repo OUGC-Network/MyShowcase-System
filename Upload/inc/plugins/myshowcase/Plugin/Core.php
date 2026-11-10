@@ -482,12 +482,12 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'field_set_id' => [
+        'collection_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0,
             'category' => 'general',
-            'input_type' => FormTypes::SelectFieldset,
+            'input_type' => FormTypes::SelectCollection,
         ],
         'name' => [
             'type' => 'VARCHAR',
@@ -1123,14 +1123,14 @@ const TABLES_DATA = [
             'default' => '',
         ],
     ],
-    'myshowcase_fieldsets' => [
-        'set_id' => [ // todo, rename to fieldset_id
+    'myshowcase_collections' => [
+        'collection_id' => [ // todo, rename to collection_id
             'type' => 'INT',
             'unsigned' => true,
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'set_name' => [
+        'name' => [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => ''
@@ -1686,7 +1686,7 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'set_id' => [
+        'collection_id' => [
             'type' => 'INT',
             'unsigned' => true,
             'default' => 0
@@ -1840,13 +1840,13 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'input_type' => FormTypes::Number,
+            //'input_type' => FormTypes::Number,
         ],
         'render_order' => [
             'unsigned' => true,
             'type' => 'TINYINT',
             'default' => 0,
-            'input_type' => FormTypes::Number,
+            //'input_type' => FormTypes::Number,
         ],
         // todo, remove this legacy updating the database and updating the format field to TINYINT
         'format' => [
@@ -1867,19 +1867,21 @@ const TABLES_DATA = [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'quickSetting' => true,
+            'quick_setting' => true,
         ],
         'is_required' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'input_type' => FormTypes::YesNo,
+            //'input_type' => FormTypes::YesNo,
+            'quick_setting' => true,
         ],
         'parser_enable' => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,
-            'input_type' => FormTypes::YesNo,
+            //'input_type' => FormTypes::YesNo,
+            'quick_setting' => true,
         ],
         'parser_allow_html' => [
             'type' => 'TINYINT',
@@ -1959,8 +1961,8 @@ const TABLES_DATA = [
             'default' => 0,
             'input_type' => FormTypes::YesNo,
         ],
-        'unique_keys' => ['set_field_name' => ['set_id', 'field_key']]
-        //'unique_keys' => ['setid_fid' => ['set_id', 'field_id']]
+        'unique_keys' => ['set_field_name' => ['collection_id', 'field_key']]
+        //'unique_keys' => ['setid_fid' => ['collection_id', 'field_id']]
     ],
     'myshowcase_field_data' => [
         'field_data_id' => [
@@ -1969,7 +1971,7 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'set_id' => [
+        'collection_id' => [
             'type' => 'INT',
             'unsigned' => true,
         ],
@@ -2022,7 +2024,7 @@ const TABLES_DATA = [
             'input_type' => FormTypes::SelectMultipleGroups,
             'formMultiple' => true,
         ],
-        //'unique_keys' => ['set_field_value_id' => ['set_id', 'field_id', 'value_id']]
+        //'unique_keys' => ['set_field_value_id' => ['collection_id', 'field_id', 'value_id']]
     ],
     'myshowcase_logs' => [
         'log_id' => [
@@ -2121,7 +2123,7 @@ const FIELDS_DATA = [
 // maximum comment length
 // enable entry length
 
-// todo, field settings
+// todo, collection settings
 // limit files per field
 // watermark images
 // generate thumbnails

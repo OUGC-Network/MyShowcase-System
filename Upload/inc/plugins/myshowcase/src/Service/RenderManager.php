@@ -59,7 +59,7 @@ class RenderManager
     public array $error_messages = [];
     public array $url_params = [];
     public int $current_page = 1;
-    public array $fieldset_display_fields = [];
+    public array $collection_display_fields = [];
     public array $template_context = [];
 
     public function __construct(
@@ -79,14 +79,14 @@ class RenderManager
             $this->url_params['unapproved'] = $this->context->mybb->get_input('unapproved', MyBB::INPUT_INT);
         }
 
-        $this->fieldset_display_fields = (new SelectableLists($this->context->language))->sortFieldsEntryList();
+        $this->collection_display_fields = (new SelectableLists($this->context->language))->sortFieldsEntryList();
 
         /**
          * @var CustomFieldEntity $field
          */
         foreach ($this->context->custom_fields_collection as $field_id => $field) {
             if ($field->isViewableInMain()) {
-                $this->fieldset_display_fields[$field->field_key] = '';
+                $this->collection_display_fields[$field->field_key] = '';
             }
         }
 
@@ -98,7 +98,7 @@ class RenderManager
 
         $this->url_params['order_by'] = $this->context->mybb->get_input('order_by');
 
-        if (!array_key_exists($this->url_params['order_by'], $this->fieldset_display_fields)) {
+        if (!array_key_exists($this->url_params['order_by'], $this->collection_display_fields)) {
             unset($this->url_params['order_by']);
         }
 
@@ -140,7 +140,7 @@ class RenderManager
     {
         $this->template_context = array_merge_recursive([
             'showcase' => [
-                'fieldset_display_fields' => $this->fieldset_display_fields,
+                'collection_display_fields' => $this->collection_display_fields,
                 'custom_fields_collection' => $this->context->custom_fields_collection,
                 'version' => DEBUG ? TIME_NOW : VERSION_CODE,
             ],

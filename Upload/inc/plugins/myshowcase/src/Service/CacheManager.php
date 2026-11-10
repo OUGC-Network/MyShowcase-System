@@ -18,7 +18,7 @@ use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
-use function MyShowcase\Plugin\Functions\fieldsetGet;
+use function MyShowcase\Plugin\Functions\collectionGet;
 use function MyShowcase\Plugin\Functions\fieldsGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\showcaseGet;
@@ -111,16 +111,16 @@ readonly class CacheManager
                 }
 
                 break;
-            case CacheDataTypes::Fieldsets:
-                $fieldsetObjects = fieldsetGet(
+            case CacheDataTypes::Collections:
+                $collectionObjects = collectionGet(
                     [],
-                    ['set_id', 'set_name']
+                    ['collection_id', 'name']
                 );
 
-                foreach ($fieldsetObjects as $fieldsetID => $fieldsetData) {
-                    $cache_data[$fieldsetID] = [
-                        'set_id' => (int)$fieldsetData['set_id'],
-                        'set_name' => (string)$fieldsetData['set_name'],
+                foreach ($collectionObjects as $collection_id => $collectionData) {
+                    $cache_data[$collection_id] = [
+                        'collection_id' => (int)$collectionData['collection_id'],
+                        'name' => (string)$collectionData['name'],
                     ];
                 }
 
@@ -139,7 +139,7 @@ readonly class CacheManager
                 foreach ($fieldObjects as $field_id => $field_data) {
                     foreach ($tablesData['myshowcase_fields'] as $field_name => $field_definition) {
                         if (isset($field_data[$field_name])) {
-                            $cache_data[(int)$field_data['set_id']][$field_id][$field_name] = castTableFieldValue(
+                            $cache_data[(int)$field_data['collection_id']][$field_id][$field_name] = castTableFieldValue(
                                 $field_data[$field_name],
                                 $field_definition['type']
                             );
@@ -151,12 +151,12 @@ readonly class CacheManager
             case CacheDataTypes::FieldData;
                 $fieldDataObjects = fieldDataGet(
                     [],
-                    ['set_id', 'field_id', 'value_id', 'value', 'value_id', 'display_order'],
+                    ['collection_id', 'field_id', 'value_id', 'value', 'value_id', 'display_order'],
                     ['order_by' => 'display_order']
                 );
 
                 foreach ($fieldDataObjects as $fieldDataID => $field_definition) {
-                    $cache_data[(int)$field_definition['set_id']][$fieldDataID][(int)$field_definition['value_id']] = $field_definition;
+                    $cache_data[(int)$field_definition['collection_id']][$fieldDataID][(int)$field_definition['value_id']] = $field_definition;
                 }
 
                 break;

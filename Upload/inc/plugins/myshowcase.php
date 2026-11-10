@@ -26,6 +26,25 @@ use function MyShowcase\Plugin\Functions\hooksAdd;
 
 use const MyShowcase\ROOT;
 
+if (!function_exists('_d')) {
+    function _d(): never
+    {
+        echo '<pre>';
+        debug_print_backtrace();
+        var_dump(func_get_args());
+        echo '</pre>';
+        exit;
+    }
+
+    function _d2(): void
+    {
+        echo '<pre>';
+        debug_print_backtrace();
+        var_dump(func_get_args());
+        echo '</pre>';
+    }
+}
+
 defined('IN_MYBB') || die('This file cannot be accessed directly.');
 
 // You can uncomment the lines below to avoid storing some settings in the DB
@@ -140,11 +159,11 @@ function update_myshowcase_fields(): bool
     return true;
 }
 
-function update_myshowcase_fieldsets(): bool
+function update_myshowcase_collections(): bool
 {
     global $db, $cache;
 
-    (new CacheManager($db, $cache))->update(CacheDataTypes::Fieldsets);
+    (new CacheManager($db, $cache))->update(CacheDataTypes::Collections);
 
     return true;
 }
@@ -172,25 +191,3 @@ global $mybb;
 $mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true;
 
 $mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
-
-if (!function_exists('_dump')) {
-    #[NoReturn] function _dump(): never
-    {
-        echo '<pre>';
-
-        var_dump(generate_backtrace(), func_get_args());
-
-        echo '</pre>';
-
-        exit;
-    }
-}
-
-#[NoReturn] function _dump2(): void
-{
-    echo '<pre>';
-
-    var_dump(generate_backtrace(), func_get_args());
-
-    echo '</pre>';
-}

@@ -33,11 +33,11 @@ readonly class SelectableLists
     ) {
     }
 
-    public function fieldsetsList(): array
+    public function collectionsList(): array
     {
-        return array_map(function (array $fieldsetData): string {
-            return $fieldsetData['set_name'];
-        }, (new CacheManager($this->database, $this->mybb->cache))->get(CacheDataTypes::Fieldsets));
+        return array_map(function (array $collectionData): string {
+            return $collectionData['name'];
+        }, (new CacheManager($this->database, $this->mybb->cache))->get(CacheDataTypes::Collections));
     }
 
     public function timeIntervalList(string $language_prefix, string $section): array

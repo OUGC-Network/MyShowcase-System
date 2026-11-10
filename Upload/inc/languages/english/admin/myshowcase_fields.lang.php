@@ -14,12 +14,12 @@
 declare(strict_types=1);
 
 /**
- * FIELDSETS
+ * Collections
  */
 
 //main words
-$l['myshowcase_fields_title'] = 'Field Sets';
-$l['myshowcase_fields_new'] = 'New Field Set';
+$l['myshowcase_fields_title'] = 'Collections';
+$l['myshowcase_fields_new'] = 'New Collection';
 
 //headers
 $l['myshowcase_fields_id'] = 'ID';
@@ -32,29 +32,29 @@ $l['myshowcase_fields_assigned_to'] = 'Assigned To';
 $l['myshowcase_fields_save_changes'] = 'Save Changes';
 
 //messages
-$l['myshowcase_fields_invalid_name'] = 'The selected field set name is already in use.';
-$l['myshowcase_fields_invalid_id'] = 'The selected field set ID is invalid.';
-$l['myshowcase_fields_no_fieldsets'] = 'There are no field sets present.';
-$l['myshowcase_fields_already_exists'] = 'The selected field set name or file is already in use.';
+$l['myshowcase_fields_invalid_name'] = 'The selected collection name is already in use.';
+$l['myshowcase_fields_invalid_id'] = 'The selected collection ID is invalid.';
+$l['myshowcase_fields_no_collections'] = 'There are no collections present.';
+$l['myshowcase_fields_already_exists'] = 'The selected collection name or file is already in use.';
 
-$l['myshowcase_fields_add_success'] = 'The field set was successfully added.';
-$l['myshowcase_fields_edit_success'] = 'The field set was successfully edited.';
-$l['myshowcase_fields_delete_success'] = 'The field set was successfully deleted.';
-$l['myshowcase_fields_update_success'] = 'The field set was successfully updated or added.';
+$l['myshowcase_fields_add_success'] = 'The collection was successfully added.';
+$l['myshowcase_fields_edit_success'] = 'The collection was successfully edited.';
+$l['myshowcase_fields_delete_success'] = 'The collection was successfully deleted.';
+$l['myshowcase_fields_update_success'] = 'The collection was successfully updated or added.';
 
-$l['myshowcase_fields_add_failed'] = 'The field set not added.';
-$l['myshowcase_fields_edit_failed'] = 'The field set was not edited.';
-$l['myshowcase_fields_delete_failed'] = 'The field set was not deleted.';
+$l['myshowcase_fields_add_failed'] = 'The collection not added.';
+$l['myshowcase_fields_edit_failed'] = 'The collection was not edited.';
+$l['myshowcase_fields_delete_failed'] = 'The collection was not deleted.';
 
 $l['myshowcase_fields_confirm'] = 'Confirm';
 $l['myshowcase_fields_confirm_delete'] = 'Confirm Delete';
 
-$l['myshowcase_fields_no_fields'] = 'The specified field set has no fields.';
+$l['myshowcase_fields_no_fields'] = 'The specified collection has no fields.';
 
 $l['myshowcase_fields_lang_not_writable'] = 'The language folder, "{1}",  is not writable. Please corect and try again.';
-$l['myshowcase_fields_lang_exists_no'] = 'The default language file for this fieldset does not exist.';
-$l['myshowcase_fields_lang_exists_yes'] = 'The default language file for this fieldset exists.';
-$l['myshowcase_fields_lang_exists_write'] = 'The default language file for this fieldset exists but is not writable.';
+$l['myshowcase_fields_lang_exists_no'] = 'The default language file for this collection does not exist.';
+$l['myshowcase_fields_lang_exists_yes'] = 'The default language file for this collection exists.';
+$l['myshowcase_fields_lang_exists_write'] = 'The default language file for this collection exists but is not writable.';
 $l['myshowcase_fields_lang_exists'] = 'Language File';
 
 /**
@@ -69,6 +69,8 @@ $l['myshowcase_field_fdid'] = 'FDID';
 $l['myshowcase_field_value'] = 'Value';
 $l['myshowcase_field_valueid'] = 'Value ID';
 
+$l['myshowcase_collection_fields'] = 'Fields';
+$l['myshowcase_field_options'] = 'Options';
 $l['myshowcase_field_delete'] = 'Delete';
 $l['myshowcase_field_edit_options'] = 'Edit Options';
 
@@ -105,22 +107,22 @@ $l['myshowcase_field_invalid_opt'] = 'The selected field option is invalid.';
 $l['myshowcase_field_year_order'] = 'For the DATE field the MIN and MAX values need to be in the proper order.';
 
 $l = array_merge([
-    'myshowcase_admin_field_sets' => 'Field Sets',
+    'myshowcase_admin_field_sets' => 'Collections',
     'myshowcase_admin_field_sets_description' => 'View and manage fields sets for showcases.',
 
-    'myshowcase_admin_field_sets_new' => 'New Field Set',
-    'myshowcase_admin_field_sets_new_description' => 'Create a new field set for showcases.',
+    'myshowcase_admin_field_sets_new' => 'New Collection',
+    'myshowcase_admin_field_sets_new_description' => 'Create a new collection for showcases.',
     'myshowcase_admin_field_sets_new_form_name' => 'Name',
-    'myshowcase_admin_field_sets_new_form_name_description' => 'The name of the field set.',
+    'myshowcase_admin_field_sets_new_form_name_description' => 'The name of the collection.',
 
-    'myshowcase_admin_field_sets_edit' => 'Edit Field Set',
-    'myshowcase_admin_field_sets_edit_description' => 'Edit a field set for showcases.',
+    'myshowcase_admin_field_sets_edit' => 'Edit Collection',
+    'myshowcase_admin_field_sets_edit_description' => 'Edit a collection for showcases.',
 
     'myshowcase_admin_fields' => 'Fields',
     'myshowcase_admin_fields_description' => 'View and manage fields for showcases.',
 
     'myshowcase_admin_fields_new' => 'New Field',
-    'myshowcase_admin_fields_new_description' => 'Create a new field for this fieldset.',
+    'myshowcase_admin_fields_new_description' => 'Create a new field for this collection.',
     'myshowcase_admin_fields_create_update_form_field_key' => 'Field Key',
     'myshowcase_admin_fields_create_update_form_field_key_description' => 'The unique table field key for this field.',
     'myshowcase_admin_fields_create_update_form_placeholder' => 'Placeholder',
@@ -188,16 +190,19 @@ $l = array_merge([
     'myshowcase_admin_fields_create_update_form_parse' => 'Parse',
     'myshowcase_admin_fields_create_update_form_parse_description' => 'Parse the content of this field using the MyBB parser.',
     'myshowcase_admin_summary_add_edit_parser' => 'Parser Options',
+    'myshowcase_admin_fields_create_update_form_parser_enable' => 'Enable Parser',
     'myshowcase_admin_fields_create_update_form_parser_allow_html' => 'Allow HTML',
     'myshowcase_admin_fields_create_update_form_parser_allow_mycode' => 'Allow MyCode',
     'myshowcase_admin_fields_create_update_form_parser_allow_smiles' => 'Allow Smiles',
     'myshowcase_admin_fields_create_update_form_parser_allow_image_code' => 'Allow Image MyCode',
     'myshowcase_admin_fields_create_update_form_parser_allow_video_code' => 'Allow Video MyCode',
+    'myshowcase_admin_fields_create_update_form_parser_affects_message_length' => 'Parser Affects Message Length',
     'myshowcase_admin_fields_create_update_form_enable_search' => 'Enable Search',
     'myshowcase_admin_fields_create_update_form_enable_search_description' => 'Enable searching the content of this field.',
     'myshowcase_admin_fields_create_update_form_enable_slug' => 'Enable Slug',
     'myshowcase_admin_fields_create_update_form_enable_slug_description' => 'Enable generating slugs from this field.',
     'myshowcase_admin_fields_create_update_form_enable_subject' => 'Enable Subject',
+    'myshowcase_admin_fields_create_update_form_enable_description' => 'Enable Description.',
     'myshowcase_admin_fields_create_update_form_enable_subject_description' => 'Enable using this field as part of the subject.',
     'myshowcase_admin_fields_create_update_form_enable_editor' => 'Enable Editor',
     'myshowcase_admin_fields_create_update_form_enable_editor_description' => 'Enable the rich text editor for this field.',
@@ -207,38 +212,40 @@ $l = array_merge([
     'myshowcase_admin_fields_create_update_form_filter_on_save_description' => 'Apply a function filter on save.',
 
     'myshowcase_admin_fields_edit' => 'Edit Field',
-    'myshowcase_admin_fields_edit_description' => 'Edit a field for this fieldset.',
+    'myshowcase_admin_fields_edit_description' => 'Edit a field for this collection.',
 
     'myshowcase_admin_fields_options' => 'Field Options',
     'myshowcase_admin_fields_options_description' => 'View and manage field options for this field.',
 
-    'myshowcase_admin_error_invalid_fieldset' => 'Invalid fieldset',
+    'myshowcase_admin_error_invalid_collection' => 'Invalid collection',
     'myshowcase_admin_error_duplicated_name' => 'The selected name is already in use.',
-    'myshowcase_admin_error_fieldset_delete_failed' => 'Can not perform that action, specified field set is being used by a showcase.',
-    'myshowcase_admin_error_fieldset_delete' => 'The fieldset was not deleted.',
+    'myshowcase_admin_error_collection_delete_failed' => 'Can not perform that action, specified collection is being used by a showcase.',
+    'myshowcase_admin_error_collection_delete' => 'The collection was not deleted.',
     'myshowcase_admin_error_invalid_field' => 'Invalid field',
     'myshowcase_admin_error_field_delete_failed' => 'The field deletion failed.',
     'myshowcase_admin_error_invalid_min_max' => 'Invalid minimum/maximum values.',
 
-    'myshowcase_admin_success_new_fieldset' => 'The fieldset was successfully added.',
-    'myshowcase_admin_success_edit_fieldset' => 'The fieldset was successfully updated.',
-    'myshowcase_admin_success_fieldset_deleted' => 'The fieldset was successfully deleted.',
+    'myshowcase_admin_success_new_collection' => 'The collection was successfully added.',
+    'myshowcase_admin_success_edit_collection' => 'The collection was successfully updated.',
+    'myshowcase_admin_success_collection_deleted' => 'The collection was successfully deleted.',
     'myshowcase_admin_success_new_field' => 'The field was successfully added.',
     'myshowcase_admin_success_edit_field' => 'The field was successfully updated.',
     'myshowcase_admin_success_field_deleted' => 'The field was successfully deleted.',
 
-    'myshowcase_admin_confirm_fieldset_delete' => 'Are you sure you want to delete the "{1}" fieldset? ',
+    'myshowcase_admin_confirm_collection_delete' => 'Are you sure you want to delete the "{1}" collection? ',
     'myshowcase_admin_confirm_field_delete' => 'Are you sure you want to delete the "{1}" field?',
     'myshowcase_admin_confirm_field_delete_existing' => '<br/>The field is already in use in a table and data could be lost.',
 
     'myshowcase_admin_fields_table_header_id' => 'FID',
-    'myshowcase_admin_fields_table_header_name' => 'Field Key',
-    'myshowcase_admin_fields_table_header_label' => 'Field Label',
-    'myshowcase_admin_fields_table_header_html_type' => 'HTML Type',
-    'myshowcase_admin_fields_table_header_field_type' => 'Field Type',
-    'myshowcase_admin_fields_table_header_enabled' => 'Enabled',
+    'myshowcase_admin_fields_table_header_name' => 'Field key',
+    'myshowcase_admin_fields_table_header_label' => 'Field label',
+    'myshowcase_admin_fields_table_header_html_type' => 'HTML type',
+    'myshowcase_admin_fields_table_header_field_type' => 'Field type',
+    'myshowcase_admin_fields_table_header_display_order' => 'Display order',
+    'myshowcase_admin_fields_table_header_render_order' => 'Render order',
+    'myshowcase_admin_fields_table_header_is_enabled' => 'Enabled',
     'myshowcase_admin_fields_table_header_is_required' => 'Required',
-    'myshowcase_admin_fields_table_header_parse' => 'Parse',
+    'myshowcase_admin_fields_table_header_parser_enable' => 'Parser',
     'myshowcase_admin_fields_table_header_enable_search' => 'Search',
     'myshowcase_admin_fields_table_header_enable_slug' => 'Slug',
     'myshowcase_admin_fields_table_header_enable_subject' => 'Subject',

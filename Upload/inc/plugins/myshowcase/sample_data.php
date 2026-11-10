@@ -15,11 +15,11 @@ declare(strict_types=1);
 
 //----------------------------------------------------------
 //
-// sample entries for the fieldset, based on 4x4 trucks
+// sample entries for the collection, based on 4x4 trucks
 //
 // schema:
 //
-// field_key - string, lowercase name of fieldset
+// field_key - string, lowercase name of collection
 //----------------------------------------------------------
 
 use MyShowcase\Enum\FieldHtmlTypes;
@@ -27,11 +27,11 @@ use MyShowcase\Enum\FieldTypes;
 
 global
 
-$custom_fieldsets;
+$custom_collections;
 
-$custom_fieldsets = [];
+$custom_collections = [];
 
-$custom_fieldsets[] = ['Trucks'];
+$custom_collections[] = ['Trucks'];
 
 //----------------------------------------------------------
 //
@@ -39,7 +39,7 @@ $custom_fieldsets[] = ['Trucks'];
 //
 // schema:
 //
-// set_id - int, 1 is default for new installs
+// collection_id - int, 1 is default for new installs
 // field_key - string, lowercase name of field
 // html_type - string, html input type. acceptable types are textarea, textbox, radio, checkbox and db. 'db' type uses myshowcase_field_data for obtaining options
 // is_enabled - int, 1 to enable field, 0 to disable

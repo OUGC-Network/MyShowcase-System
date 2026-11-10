@@ -130,25 +130,16 @@ if (!function_exists('MyShowcase\Plugin\Functions\hooksRun')) {
 
 hooksRun('script_file_start');
 
-//change directory back to current where script is
+//change directory back to current where a script is
 chdir($currentWorkingDirectoryPath);
 
 hooksRun('script_file_intermediate');
 
-global $showcase;
-
-if (!isset($showcase)) {
-    global $db, $mybb, $lang;
-    //$showcase = new Showcase($db, $mybb, $lang);
-}
-
-$container = (new Container())->container;
-
-/** @var ContainerBuilder $container */
 /** @var Showcase $showcase */
 try {
-    $showcase = $container->get('showcase');
+    $showcase = (new Container())->container->get('showcase');
 } catch (Exception $e) {
+    error($e->getMessage());
 }
 
 /*
@@ -157,7 +148,7 @@ $showcase->event_dispatcher->addListener(
     new RouteMatchedListener(RouteMatchedEvent $comments_repository)
 );*/
 
-if (!$showcase->data_table_exists || !$showcase->context->showcase->field_set_id) {
+if (!$showcase->data_table_exists || !$showcase->context->showcase->collection_id) {
     error('This showcase has not been installed or activated yet.');
 }
 

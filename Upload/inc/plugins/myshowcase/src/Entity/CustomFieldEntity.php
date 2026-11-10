@@ -16,7 +16,7 @@ final  class CustomFieldEntity
 
     public function __construct(
         public int $field_id = 0,
-        public int $set_id = 0,
+        public int $collection_id = 0,
         public string $field_key = '',
         public string $field_label = '',
         public string $placeholder = '',
@@ -108,7 +108,7 @@ final  class CustomFieldEntity
         foreach (
             fieldDataGet(
                 [
-                    "set_id='{$this->set_id}'",
+                    "collection_id='{$this->collection_id}'",
                     "field_id='{$this->field_id}'"
                 ],
                 [

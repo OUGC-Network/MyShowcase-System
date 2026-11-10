@@ -19,6 +19,7 @@ use Form;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Entity\PermissionEntity;
+use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Repository\CommentsRepository;
@@ -141,7 +142,7 @@ function pluginActivation(): bool
             'myshowcase_config' => [
                 // todo, drop thumb_width, thumb_height, maximum_text_field_length, prune_time
                 'id' => 'showcase_id',
-                'fieldsetid' => 'field_set_id',
+                'fieldsetid' => 'collection_id',
                 'f2gpath' => 'showcase_url',
                 'allowsmilies' => 'parser_allow_smilies',
                 'allowbbcode' => 'parser_allow_mycode_in_entries',
@@ -199,12 +200,12 @@ function pluginActivation(): bool
                 'isgroup' => 'group_id',
             ],
             'myshowcase_fieldsets' => [
-                'setid' => 'set_id',
-                'setname' => 'set_name',
+                'setid' => 'collection_id',
+                'setname' => 'name',
             ],
             'myshowcase_fields' => [
                 'fid' => 'field_id',
-                'setid' => 'set_id',
+                'setid' => 'collection_id',
                 'name' => 'field_key',
                 'min_length' => 'minimum_length',
                 'max_length' => 'maximum_length',
@@ -219,7 +220,7 @@ function pluginActivation(): bool
                 'fieldDataID' => 'field_data_id',
                 'valueid' => 'value_id',
                 'disporder' => 'display_order',
-                'setid' => 'set_id',
+                'setid' => 'collection_id',
                 'fid' => 'field_id',
             ],
             'myshowcase_data' => [
@@ -245,7 +246,7 @@ function pluginActivation(): bool
             }
         }
 
-        if ($tableName === 'myshowcase_data') {
+        if ($tableName === 'myshowcase_data' && $db->table_exists('myshowcase_config')) {
             foreach (showcaseGet() as $showcase_id => $showcase_data) {
                 if (showcaseDataTableExists($showcase_id)) {
                     foreach ($tableData as $oldColumnName => $newColumnName) {
@@ -364,19 +365,6 @@ function pluginActivation(): bool
     global $db, $cache;
 
     $cache_manager = new CacheManager($db, $cache);
-
-    foreach (
-        [
-            CacheDataTypes::Config,
-            CacheDataTypes::Permissions,
-            CacheDataTypes::Fieldsets,
-            CacheDataTypes::Fields,
-            CacheDataTypes::FieldData,
-            CacheDataTypes::Moderators
-        ] as $cacheType
-    ) {
-        $cache_manager->update($cacheType);
-    }
 
     return true;
 }
@@ -519,7 +507,7 @@ function taskInstallation(int $action = 1): bool
             'day' => $_,
             'weekday' => $_,
             'month' => $_,
-            'is_enabled' => 1,
+            'enabled' => 1,
             'logging' => 1
         ];
 
@@ -619,10 +607,14 @@ function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
                 }
             }
 
-            $query .= implode("',\n'", $fields);
+            $query .= implode(",\n", $fields);
 
             $query .= ") ENGINE=MyISAM{$collation};";
 
+            if (str_contains($query, "entries_can_view") &&
+                str_contains($query, "entries_can_view")) {
+                //_d($query);
+            }
             $db->write_query($query);
         }
     }
@@ -872,7 +864,7 @@ function languageModify(
     $languageLines .= ' * License:' . PHP_EOL;
     $languageLines .= ' * File: \inc\langauges\\' . $lang->language . '\myshowcase.lang.php ' . PHP_EOL;
     $languageLines .= ' *' . PHP_EOL;
-    $languageLines .= ' * MyShowcase language file for fieldset' . PHP_EOL;
+    $languageLines .= ' * MyShowcase language file for collection' . PHP_EOL;
     $languageLines .= ' */' . PHP_EOL . PHP_EOL;
 
     fwrite($fp, $languageLines);
@@ -902,7 +894,7 @@ function buildPermissionsRow(
     string $language_prefix = 'myShowcaseAdminSummaryAddEdit',
     bool $display_extra_text = false,
     array $input = [],
-    ?array $showcase_config = null,
+    null|ShowcaseEntity|array $showcase_config = null,
 ): string {
     $input_code = '';
 
@@ -916,6 +908,10 @@ function buildPermissionsRow(
         $options['class'] .= "\" maxlength=\"{$definition['size']}";
     } elseif (isset($definition['max'])) {
         $options['class'] .= "\" max=\"{$definition['max']}";
+    }
+
+    if ($showcase_config instanceof ShowcaseEntity) {
+        $showcase_config = (array)$showcase_config;
     }
 
     switch ($definition['input_type']) {
@@ -950,7 +946,7 @@ function buildPermissionsRow(
 
             break;
         case FormTypes::SelectTimeInterval:
-        case FormTypes::SelectFieldset:
+        case FormTypes::SelectCollection:
         case FormTypes::SelectTheme:
         case FormTypes::SelectRulesType:
         case FormTypes::SelectFilterField:
@@ -973,12 +969,14 @@ function buildPermissionsRow(
 
             if ($definition['input_type'] === FormTypes::SelectTimeInterval) {
                 $select_array = (new SelectableLists($lang))->timeIntervalList($language_prefix, $section);
-            } elseif ($definition['input_type'] === FormTypes::SelectFieldset) {
+            } elseif ($definition['input_type'] === FormTypes::SelectCollection) {
                 global $db, $mybb;
 
-                $select_array = (new SelectableLists($lang, $db, $mybb))->fieldsetsList();
+                $select_array = (new SelectableLists($lang, $db, $mybb))->collectionsList();
 
-                if (showcaseDataTableExists($showcase_config['showcase_id'])) {
+                if (isset($showcase_config['showcase_id']) &&
+                    showcaseDataTableExists($showcase_config['showcase_id']) &&
+                    (!isset($showcase_config['collection_id'])) || !empty($showcase_config['collection_id'])) {
                     $options['class'] .= '" disabled="disabled';
                 }
             } elseif ($definition['input_type'] === FormTypes::SelectTheme) {
@@ -1146,7 +1144,7 @@ function buildPermissionsRow(
 
             break;
         default:
-            _dump($definition);
+            _dump(12345, $definition);
     }
 
     return $input_code;

@@ -66,12 +66,23 @@ class EntriesRepository
             $query_fields = implode(', ', $query_fields);
         }
 
-        $query = $this->database->simple_select(
-            implode(" LEFT JOIN {$this->database->table_prefix}", $query_tables),
-            $query_fields,
-            implode(' AND ', $where_clauses),
-            $query_options
-        );
+        try {
+            $query = $this->database->simple_select(
+                implode(" LEFT JOIN {$this->database->table_prefix}", $query_tables),
+                $query_fields,
+                implode(' AND ', $where_clauses),
+                $query_options
+            );
+        } catch (\Exception $e) {
+            _d2(
+                implode(" LEFT JOIN {$this->database->table_prefix}", $query_tables),
+                $query_fields,
+                implode(' AND ', $where_clauses),
+                $query_options
+            );
+
+            error($e->getMessage());
+        }
 
         while ($entry = $this->database->fetch_array($query)) {
             yield $entry;
@@ -108,7 +119,7 @@ class EntriesRepository
         array $where_clauses = [],
         array $query_tables = [],
     ): int {
-        return $this->queryEntry(
+        return (int)$this->queryEntry(
             $where_clauses,
             'COUNT(entry_id) AS total_entries',
             query_tables: $query_tables,
@@ -283,11 +294,11 @@ class EntriesRepository
     }
 
     public function fetchEntries(
-        Collection $fieldset_fields,
+        Collection $collection_fields,
         array $where_clauses = [],
         array $query_options = []
     ): array {
-        [$query_fields, $query_tables] = $this->buildQueryFieldsAndTables($fieldset_fields);
+        [$query_fields, $query_tables] = $this->buildQueryFieldsAndTables($collection_fields);
 
         $query_options = $this->normalizeSortOptions($query_options);
 
@@ -309,7 +320,7 @@ class EntriesRepository
         return $entry_objects;
     }
 
-    private function buildQueryFieldsAndTables(Collection $fieldset_fields): array
+    private function buildQueryFieldsAndTables(Collection $collection_fields): array
     {
         $query_fields = array_map(
             fn(string $name): string => str_starts_with($name, 'entry_data.') ? $name : 'entry_data.' . $name,
@@ -319,8 +330,9 @@ class EntriesRepository
         $query_tables = [];
 
         /** @var CustomFieldEntity $field */
-        foreach ($fieldset_fields as $field) {
-            if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select])) {
+        foreach ($collection_fields as $field) {
+            if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select]
+            )) {
                 $alias = "table_{$field->field_key}";
                 $query_tables[] = "myshowcase_field_data {$alias} ON ({$alias}.field_data_id = entry_data.{$field->field_key} AND {$alias}.field_id = '{$field->field_id}')";
             }
@@ -367,8 +379,8 @@ class EntriesRepository
         return $query_options;
     }
 
-    public function fetchEntry(Collection $fieldset_fields, array $where_clauses = []): array
+    public function fetchEntry(Collection $collection_fields, array $where_clauses = []): array
     {
-        return $this->fetchEntries($fieldset_fields, $where_clauses, ['limit' => 1])[0] ?? [];
+        return $this->fetchEntries($collection_fields, $where_clauses, ['limit' => 1])[0] ?? [];
     }
 }

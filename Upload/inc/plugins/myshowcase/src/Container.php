@@ -39,7 +39,7 @@ class Container
 
         $this->container->set('mybb', $mybb);
 
-        $this->container->set('cache', $mybb->cache);
+        $this->container->set('mybb.cache', $mybb->cache);
 
         $this->container->set('language', $lang);
 
@@ -47,7 +47,7 @@ class Container
             ->setArguments([
                 new Reference('database'),
                 new Reference('mybb'),
-                new Reference('cache'),
+                new Reference('mybb.cache'),
                 new Reference('language'),
                 new Reference('routing'),
                 new Reference('event.dispatcher'),
@@ -67,7 +67,7 @@ class Container
                 new Reference('render.manager'),
                 new Reference('showcase.entity'),
                 new Reference('fields.collection'),
-                '%fieldset_fields%',
+                '%collection_fields%',
             ])
             ->setPublic(true)
             ->setLazy(true);
@@ -118,7 +118,7 @@ class Container
             ->setLazy(true);
 
         $this->container->register('cache.manager', CacheManager::class)
-            ->setArguments([new Reference('database'), new Reference('cache')])
+            ->setArguments([new Reference('database'), new Reference('mybb.cache')])
             ->setLazy(true);
 
         $this->container->register('users.manager', UsersManager::class)
@@ -147,7 +147,7 @@ class Container
         $this->container->register('fields.collection', Collection::class)
             ->setLazy(true);
 
-        $this->container->setParameter('fieldset_fields', []);
+        $this->container->setParameter('collection_fields', []);
 
         $this->container->register('showcase', Showcase::class)
             ->setArguments([new Reference('showcase.context'), $showcase_id, $route_identifier])

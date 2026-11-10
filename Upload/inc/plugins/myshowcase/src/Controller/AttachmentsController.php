@@ -52,7 +52,8 @@ class AttachmentsController extends BaseController
      * @throws RandomException
      */
     #[Route('/upload/{post_hash}', name: 'entry_create_upload', methods: ['POST'])]
-    #[NoReturn] public function uploadAttachment(
+    #[NoReturn]
+    public function uploadAttachment(
         ?string $post_hash = null,
         ?string $entry_slug = null,
     ): void {
@@ -84,7 +85,7 @@ class AttachmentsController extends BaseController
             $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
         }
 
-        $field_definition = $this->context->fieldset_fields[$field->field_id];
+        $field_definition = $this->context->collection_fields[$field->field_id];
 
         if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
             !is_member($field_definition['allowed_groups_fill'])) {
@@ -119,7 +120,7 @@ class AttachmentsController extends BaseController
                 $_FILES[$field_key],
                 $entry,
                 field_id: $field->field_id,
-                field_definition: $field->field_id ? $this->context->fieldset_fields[$field->field_id] : [],
+                field_definition: $field->field_id ? $this->context->collection_fields[$field->field_id] : [],
                 do_watermark: $mybb->get_input('attachment_watermark_file', MyBB::INPUT_BOOL),
             );
 
@@ -158,7 +159,8 @@ class AttachmentsController extends BaseController
         }
     }
 
-    #[NoReturn] public function getAttachments(
+    #[NoReturn]
+    public function getAttachments(
         ?string $post_hash = null,
         ?string $entry_slug = null,
         ?string $entry_slug_custom = null,
@@ -181,7 +183,7 @@ class AttachmentsController extends BaseController
 
         if ($field_key) {
             $field_id = array_filter(
-                $this->context->fieldset_fields,
+                $this->context->collection_fields,
                 fn($field_data) => $field_data['field_key'] === $field_key
             )[0]['field_id'] ?? 0;
 
@@ -189,7 +191,7 @@ class AttachmentsController extends BaseController
                 $this->errorNoPermission();
             }
 
-            $field_definition = $this->context->fieldset_fields[$field_id];
+            $field_definition = $this->context->collection_fields[$field_id];
 
             if ($field_definition['html_type'] !== FieldHtmlTypes::File ||
                 !is_member($field_definition['allowed_groups_fill'])) {
@@ -221,7 +223,8 @@ class AttachmentsController extends BaseController
     }
 
     #[Route('/attachment/{attachment_hash}/{attachment_name}', name: 'attachment_view', methods: ['GET'])]
-    #[NoReturn] public function downloadAttachment(
+    #[NoReturn]
+    public function downloadAttachment(
         string $attachment_hash,
         string $attachment_name,
     ): void {
@@ -231,7 +234,8 @@ class AttachmentsController extends BaseController
     }
 
     #[Route('/thumbnail/{attachment_hash}/{attachment_name}', name: 'thumbnail_view', methods: ['GET'])]
-    #[NoReturn] public function viewThumbnail(
+    #[NoReturn]
+    public function viewThumbnail(
         string $attachment_hash,
         string $attachment_name,
     ): void {

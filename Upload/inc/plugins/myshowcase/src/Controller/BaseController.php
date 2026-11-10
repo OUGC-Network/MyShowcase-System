@@ -320,7 +320,8 @@ abstract class BaseController
         return false;
     }
 
-    #[NoReturn] public function redirect(?string $entry_slug = null, ?string $comment_slug = null): void
+    #[NoReturn]
+    public function redirect(?string $entry_slug = null, ?string $comment_slug = null): void
     {
         switch ($this->verifyPermission($entry_slug, $comment_slug)) {
             case self::NO_PERMISSION:
@@ -464,7 +465,7 @@ abstract class BaseController
 
             $this->attachFieldAttachments($field, $entry);
 
-            $field->fetchSelectableValues($field->field_definition['set_id'], $is_create_update_page);
+            $field->fetchSelectableValues($field->field_definition['collection_id'], $is_create_update_page);
 
             $field
                 ->valueSet($entry->getExtraData($field->field_definition['field_key']) ?? '')
@@ -472,7 +473,7 @@ abstract class BaseController
                     $this->context->attachments_manager,
                     $this->context->attachments_repository,
                     $entry,
-                    $field->field_definition['set_id'],
+                    $field->field_definition['collection_id'],
                     $this->context->mybb->input
                 );
 
@@ -481,10 +482,13 @@ abstract class BaseController
             if ($field->field_definition['html_type'] === FieldHtmlTypes::File) {
                 $field->setExtraData(
                     'accept_element',
-                    implode(',', array_merge(
-                        array_column($attachment_types, 'mime_type'),
-                        array_column($attachment_types, 'file_extension')
-                    ))
+                    implode(
+                        ',',
+                        array_merge(
+                            array_column($attachment_types, 'mime_type'),
+                            array_column($attachment_types, 'file_extension')
+                        )
+                    )
                 );
             }
 
@@ -496,8 +500,7 @@ abstract class BaseController
     {
         foreach (
             $entry->getAttachments()->filter(
-                fn(AttachmentEntity $attachment): bool =>
-                    $attachment->field_id === $field->field_definition['field_id']
+                fn(AttachmentEntity $attachment): bool => $attachment->field_id === $field->field_definition['field_id']
             ) as $attachment_data
         ) {
             $field->addAttachment($attachment_data);
@@ -522,7 +525,8 @@ abstract class BaseController
         $field->setExtraData('code_buttons', $code_buttons)->setExtraData('smiles_inserter', $smiles_inserter);
     }
 
-    #[NoReturn] public function success(object|array $params = [], int $status_code = 200): void
+    #[NoReturn]
+    public function success(object|array $params = [], int $status_code = 200): void
     {
         header("Content-type: application/json; charset={$this->context->language->settings['charset']}");
 
@@ -533,7 +537,8 @@ abstract class BaseController
         exit;
     }
 
-    #[NoReturn] public function error(string $error = '', int $status_code = 500): void
+    #[NoReturn]
+    public function error(string $error = '', int $status_code = 500): void
     {
         if ($this->is_api_request) {
             header("Content-type: application/json; charset={$this->context->language->settings['charset']}");
@@ -548,7 +553,8 @@ abstract class BaseController
         exit;
     }
 
-    #[NoReturn] public function errorNoPermission(int $status_code = 401): void
+    #[NoReturn]
+    public function errorNoPermission(int $status_code = 401): void
     {
         if ($this->is_api_request) {
             $this->error($this->context->language->error_nopermission_guest_1, $status_code);
