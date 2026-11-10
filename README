@@ -1,0 +1,13 @@
+
+    include MYBB_ROOT . '/inc/adminfunctions_templates.php';
+
+    find_replace_templatesets('header', '#' . preg_quote('{$myShowcaseGlobalMessagesUnapprovedEntries}') . '#', '');
+
+    find_replace_templatesets('header', '#' . preg_quote('{$myShowcaseGlobalMessagesReportedEntries}') . '#', '');
+    require_once MYBB_ROOT . 'inc/adminfunctions_templates.php';
+
+    find_replace_templatesets(
+        'header',
+        '#' . preg_quote('{$pm_notice}') . '#',
+        '{$pm_notice}{$myShowcaseGlobalMessagesUnapprovedEntries}{$myShowcaseGlobalMessagesReportedEntries}'
+    );
