@@ -1,0 +1,9 @@
+{
+  "config": {
+    "name": "Organisations",
+    "description": "Settings related to organisations.",
+    "route_identifier": "organisations",
+    "showcase_url": "organisations",
+    "custom_template_prefix": "organisations"
+  }
+}
