@@ -98,7 +98,7 @@ class CommentsRepository
     public function queryCommentCount(
         array $where_clauses = []
     ): int {
-        return $this->queryComment(
+        return (int)$this->queryComment(
             $where_clauses,
             'COUNT(comment_data.comment_id) AS total_comments'
         )['total_comments'];

@@ -74,25 +74,23 @@ class UsersManager
 
         $permissions_cache[$user->uid] = [];
 
-        $user_permissions = &$permissions_cache[$user->uid];
-
         // we apply the more restrictive permissions by default
         foreach (PermissionsFactory::$permission_options_map as $permission_name => $permission_definition) {
             switch ($permission_definition['input_type']) {
                 case FormTypes::PermissionBoolean:
-                    $user_permissions[$permission_name] = PermissionEntity::BOOLEAN_TYPE_DISALLOW;
+                    $permissions_cache[$user->uid][$permission_name] = PermissionEntity::BOOLEAN_TYPE_DISALLOW;
 
                     break;
                 case FormTypes::Number:
                     if (empty($permission_definition['highest'])) {
-                        $user_permissions[$permission_name] = PermissionEntity::NUMERIC_TYPE_INFINITY;
+                        $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_INFINITY;
                     } else {
-                        $user_permissions[$permission_name] = PermissionEntity::NUMERIC_TYPE_LOWER;
+                        $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_LOWER;
                     }
 
                     break;
                 case FormTypes::SelectTimeInterval:
-                    $user_permissions[$permission_name] = PermissionEntity::TIME_INTERVAL_TYPE_DAYS;
+                    $permissions_cache[$user->uid][$permission_name] = PermissionEntity::TIME_INTERVAL_TYPE_DAYS;
 
                     break;
             }
@@ -100,7 +98,7 @@ class UsersManager
 
         // if disabled, we keep restrictive defaults
         if (empty($this->context->showcase->is_enabled)) {
-            $user->setPermissions($user_permissions);
+            $user->setPermissions($permissions_cache[$user->uid]);
 
             return;
         }
@@ -157,22 +155,22 @@ class UsersManager
 
                 switch ($permission_definition['input_type']) {
                     case FormTypes::PermissionBoolean:
-                        if ($user_permissions[$permission_name] === PermissionEntity::BOOLEAN_TYPE_NEVER) {
+                        if ($permissions_cache[$user->uid][$permission_name] === PermissionEntity::BOOLEAN_TYPE_NEVER) {
                             break;
                         }
 
                         switch ($permission_data[$permission_name]) {
                             case PermissionEntity::BOOLEAN_TYPE_NEVER:
-                                $user_permissions[$permission_name] = PermissionEntity::BOOLEAN_TYPE_NEVER;
+                                $permissions_cache[$user->uid][$permission_name] = PermissionEntity::BOOLEAN_TYPE_NEVER;
 
                                 break;
                             case PermissionEntity::BOOLEAN_TYPE_ALLOW:
-                                $user_permissions[$permission_name] = PermissionEntity::BOOLEAN_TYPE_ALLOW;
+                                $permissions_cache[$user->uid][$permission_name] = PermissionEntity::BOOLEAN_TYPE_ALLOW;
 
                                 break;
                             case PermissionEntity::BOOLEAN_TYPE_DISALLOW:
-                                $user_permissions[$permission_name] = max(
-                                    $user_permissions[$permission_name],
+                                $permissions_cache[$user->uid][$permission_name] = max(
+                                    (float)$permissions_cache[$user->uid][$permission_name],
                                     PermissionEntity::BOOLEAN_TYPE_DISALLOW
                                 );
 
@@ -184,20 +182,20 @@ class UsersManager
                     case FormTypes::SelectTimeInterval:
                         if (!empty($permission_definition['zero_unlimited']) &&
                             $permission_data[$permission_name] === PermissionEntity::NUMERIC_TYPE_UNLIMITED) {
-                            $user_permissions[$permission_name] = PermissionEntity::NUMERIC_TYPE_UNLIMITED;
+                            $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_UNLIMITED;
 
                             break;
                         }
 
                         if (empty($permission_definition['highest'])) {
-                            $user_permissions[$permission_name] = min(
-                                $user_permissions[$permission_name],
-                                $permission_data[$permission_name]
+                            $permissions_cache[$user->uid][$permission_name] = min(
+                                (float)$permissions_cache[$user->uid][$permission_name],
+                                (float)$permission_data[$permission_name]
                             );
                         } else {
-                            $user_permissions[$permission_name] = max(
-                                $user_permissions[$permission_name],
-                                $permission_data[$permission_name]
+                            $permissions_cache[$user->uid][$permission_name] = max(
+                                (float)$permissions_cache[$user->uid][$permission_name],
+                                (float)$permission_data[$permission_name]
                             );
                         }
                 }
@@ -208,6 +206,6 @@ class UsersManager
 
         // todo, get moderator permissions
 
-        $user->setPermissions($user_permissions);
+        $user->setPermissions($permissions_cache[$user->uid]);
     }
 }

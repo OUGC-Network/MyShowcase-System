@@ -90,7 +90,10 @@ class AttachmentsRepository
     public function queryAttachmentCount(
         array $where_clauses = []
     ): int {
-        return $this->queryAttachment($where_clauses, 'COUNT(attachment_id) AS total_attachments')['total_attachments'];
+        return (int)$this->queryAttachment(
+            $where_clauses,
+            'COUNT(attachment_id) AS total_attachments'
+        )['total_attachments'];
     }
 
     public function queryAttachmentSum(
