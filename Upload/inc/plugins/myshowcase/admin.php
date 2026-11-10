@@ -347,7 +347,7 @@ function pluginActivation(): bool
             $unique_found = false;
 
             while (!$unique_found) {
-                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength') / 2);
+                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
 
                 $unique_found = !$showcase->context->entries_repository->queryEntry(
                     ["entry_slug='{$showcase->context->database->escape_string($generated_slug)}'"],
