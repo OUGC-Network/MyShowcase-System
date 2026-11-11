@@ -20,7 +20,9 @@ PHP 8.2 or higher.
 Database engines: MySQL / MariaDB (mysqli or mysql_pdo), PostgreSQL (pgsql or pgsql_pdo) and
 SQLite. The plugin creates its own tables when you activate it, using the SQL that suits the
 database engine your board runs on. You do not have to run any SQL by hand.
-- New tables on MySQL / MariaDB are created with the InnoDB storage engine.
+- New tables on MySQL / MariaDB are created with the InnoDB storage engine. Tables of an earlier
+  build that are still MyISAM are converted when you activate the plugin (see "Upgrading earlier
+  3.0 development installs" below).
 - Fulltext indexes on showcase fields are only created where your database supports them
   (MySQL / MariaDB, InnoDB from MySQL 5.6). PostgreSQL and SQLite skip them.
 
@@ -78,12 +80,30 @@ When you activate the plugin it updates the database by itself:
   skipped and the plugin shows a message with the table, the column and how many values are
   duplicated. Your data is never changed. Remove the duplicates, then activate the plugin
   again to create the index.
-- MySQL / MariaDB tables that an earlier build created as MyISAM stay MyISAM; this version does
-  not convert them. To convert one yourself, run
-  ALTER TABLE <prefix>myshowcase_<table> ENGINE=InnoDB;
-  in your database tool. On a large board this can take a long time and locks the table while it
-  runs, so do it during a quiet period and on a copy first. InnoDB fulltext indexes need MySQL 5.6
-  or higher.
+- MySQL / MariaDB tables that an earlier build created as MyISAM are converted to InnoDB. This
+  covers the MyShowcase tables (their names start with your board's table prefix followed by
+  myshowcase_, for example mybb_myshowcase_config) and the data table of each showcase
+  (myshowcase_data1, myshowcase_data2, ...). Tables of MyBB itself are never touched, and tables
+  that are already InnoDB are skipped, so activating again does nothing more.
+  * The conversion only runs on MySQL 5.6 or higher and MariaDB 10.0.5 or higher, because older
+    servers cannot keep the fulltext indexes on InnoDB tables. The plugin asks the database
+    server for its version when you activate it.
+  * On an older server nothing is converted. The tables stay MyISAM and the plugin shows a
+    warning in the ACP that names the server version and says the tables were left as they are.
+    The plugin still activates and works. If the version cannot be read, the same kind of warning
+    is shown.
+  * If one table cannot be converted, the plugin shows a warning that names the table and the
+    database error, leaves that table as it is, and carries on with the others.
+  * Converting is slow on a large board: the database rebuilds each table, and while it does,
+    that table is locked, so visitors cannot use the showcases. Activate the plugin during a quiet
+    period and make a backup of your database first.
+  * PostgreSQL and SQLite boards are not affected.
+- The table myshowcase_moderators gets five new columns: entries_can_view, can_manage_comments,
+  can_manage_attachments, can_manage_reports and can_manage_logs. They store the permissions you
+  give to a moderator in ACP > MyShowcase Admin (edit a showcase, Moderators tab). They are added
+  by the same activation step that adds any other missing column, existing moderators keep all
+  their rows and start with every permission off (0), and the plugin cache of moderators is
+  rebuilt at the end of the activation.
 
 ============================================================================================
 Upgrading:
