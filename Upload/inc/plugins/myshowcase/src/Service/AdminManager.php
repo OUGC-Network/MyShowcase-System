@@ -435,89 +435,23 @@ EOL;
                         unset($showcase_data['collection_id']);
                     }
 
-                    if (isset($showcase_data['name']) && (
-                            !$showcase_data['name'] ||
-                            in_array($showcase_data['name'], array_column($this->showcases_cache, 'name')) &&
-                            (function (string $showcaseName): bool {
-                                $duplicatedName = false;
-
-                                foreach ($this->showcases_cache as $showcase_data) {
-                                    if ($showcase_data['name'] === $showcaseName && $showcase_data['showcase_id'] !== $this->showcase_id) {
-                                        $duplicatedName = true;
-                                    }
-                                }
-
-                                return $duplicatedName;
-                            })(
-                                $showcase_data['name']
-                            )
-                        )) {
-                        $error_messages[] = $this->language->myshowcase_admin_error_duplicated_name;
-                    }
-
-                    if (!empty($showcase_data['route_identifier']) && (
-                            in_array(
-                                $showcase_data['route_identifier'],
-                                array_column($this->showcases_cache, 'route_identifier')
-                            ) &&
-                            (function (string $route_identifier): bool {
-                                $duplicateScript = false;
-
-                                foreach ($this->showcases_cache as $showcase_data) {
-                                    if ($showcase_data['route_identifier'] === $route_identifier && $showcase_data['showcase_id'] !== $this->showcase_id) {
-                                        $duplicateScript = true;
-                                    }
-                                }
-
-                                return $duplicateScript;
-                            })(
-                                $showcase_data['route_identifier']
-                            )
-                        )) {
-                        $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedScriptFile;
-                    }
-
                     if (isset($showcase_data['custom_template_prefix'])) {
-                        $showcase_data['custom_template_prefix'] = preg_replace(
-                            '/[^\da-z]/i',
-                            '',
-                            my_strtolower($showcase_data['custom_template_prefix'])
+                        $showcase_data['custom_template_prefix'] = ShowcaseService::normalizeTemplatePrefix(
+                            $showcase_data['custom_template_prefix']
                         );
                     }
 
-                    if (!empty($showcase_data['custom_template_prefix']) && (
-                            in_array(
-                                $showcase_data['custom_template_prefix'],
-                                array_column($this->showcases_cache, 'custom_template_prefix')
-                            ) &&
-                            (function (string $templatePrefix): bool {
-                                $duplicatedTemplatePrefix = false;
-
-                                foreach ($this->showcases_cache as $showcase_data) {
-                                    if ($showcase_data['custom_template_prefix'] === $templatePrefix && $showcase_data['showcase_id'] !== $this->showcase_id) {
-                                        $duplicatedTemplatePrefix = true;
-                                    }
-                                }
-
-                                return $duplicatedTemplatePrefix;
-                            })(
-                                $showcase_data['custom_template_prefix']
-                            ))) {
-                        $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedTemplatePrefix;
+                    foreach ((new ShowcaseService($this->cache_manager))->validate($showcase_data, $this->showcase_id) as $error) {
+                        $error_messages[] = $this->language->{$error['key']} ?? $error['message'];
                     }
 
                     hooksRun('admin_summary_add_edit_post_main_other');
 
                     if (!$error_messages) {
-                        if ($is_create_page) {
-                            $showcase_repository = new ShowcasesRepository($this->database,);
-
-                            $this->showcase_id = $showcase_repository->insertShowcase($showcase_data);
-                        } else {
-                            $showcase->context->showcases_repository->updateShowcase($showcase_data);
-                        }
-
-                        $this->cache_manager->update(CacheDataTypes::Config);
+                        $this->showcase_id = (new ShowcaseService($this->cache_manager))->save(
+                            $showcase_data,
+                            $is_create_page ? 0 : $this->showcase_id
+                        );
 
                         if ($is_create_page) {
                             log_admin_action(['showcase_id' => $this->showcase_id]);

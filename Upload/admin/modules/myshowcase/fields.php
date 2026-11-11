@@ -17,6 +17,8 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\CollectionService;
+use MyShowcase\Service\FieldService;
 use MyShowcase\Util\UrlUtil;
 
 use function MyShowcase\Admin\buildDbFieldDefinition;
@@ -52,6 +54,10 @@ global $lang, $cache, $db, $plugins, $mybb;
 global $page;
 
 $cache_manager = new CacheManager($db, $cache,);
+
+$fieldService = new FieldService($cache_manager);
+
+$collectionService = new CollectionService($cache_manager);
 
 loadLanguage();
 
@@ -284,49 +290,20 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         })();
 
         if (isset($insertData['field_key'])) {
-            $insertData['field_key'] = trim(
-                my_strtolower(
-                    preg_replace(
-                        '#[^\w]#',
-                        '_',
-                        $insertData['field_key']
-                    )
-                ),
-                '_'
-            );
+            $insertData['field_key'] = $fieldService->normalizeKey($insertData['field_key']);
         }
 
         $errorMessages = [];
 
-        if (!$insertData['field_key']) {
-            $errorMessages[] = $lang->myshowcase_admin_error_missing_required_fields;
-        }
-
-        if ($insertData['minimum_length'] > $insertData['maximum_length']) {
-            $errorMessages[] = $lang->myshowcase_admin_error_invalid_min_max;
-        }
-
-        $existingFields = $cache_manager->get(
-            CacheDataTypes::Fields
-        )[$collection_id] ?? [];
-
-        if (in_array($insertData['field_key'], array_column($existingFields, 'field_key')) &&
-            (function (string $field_key) use ($collection_id, $existingFields, $field_id): bool {
-                $duplicatedName = false;
-
-                foreach ($existingFields as $field_definition) {
-                    if ($field_definition['field_key'] === $field_key &&
-                        /*$field_definition['collection_id'] !== $collection_id &&*/
-                        $field_definition['field_id'] !== $field_id) {
-                        $duplicatedName = true;
-                    }
-                }
-
-                return $duplicatedName;
-            })(
-                $insertData['field_key']
-            )) {
-            $errorMessages[] = $lang->myshowcase_admin_error_duplicated_name;
+        foreach (
+            $fieldService->validate(
+                $insertData,
+                $collection_id,
+                $newPage ? 0 : $field_id,
+                $newPage ? null : $field_definition['field_key']
+            ) as $error
+        ) {
+            $errorMessages[] = $lang->{$error['key']} ?? $error['message'];
         }
 
         $fieldDefaultOption = 0;
@@ -335,54 +312,17 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             unset($insertData['field_key']);
         }
 
-        if (!empty($insertData['regular_expression']) &&
-            preg_match($insertData['regular_expression'], '') === false) {
-            $errorMessages[] = $lang->myshowcase_admin_error_regular_expression;
-        }
-
         if ($errorMessages) {
             $page->output_inline_error($errorMessages);
         } else {
             $insertData = hooksRun('admin_field_new_edit_post', $insertData);
 
-            if ($newPage) {
-                $field_id = fieldsInsert($insertData);
-            } else {
-                if ($fieldIsInUse && isset($insertData['field_key']) && $insertData['field_key'] !== $field_definition['field_key']) {
-                    foreach (showcaseGet(["collection_id='{$collection_id}'"]) as $showcase_id => $showcase_data) {
-                        if (showcaseDataTableExists($showcase_id)) {
-                            $dataTableStructure = dataTableStructureGet($showcase_id);
-
-                            if (showcaseDataTableFieldExists($showcase_id, $field_definition['field_key']) &&
-                                !showcaseDataTableFieldExists($showcase_id, $insertData['field_key'])) {
-                                showcaseDataTableFieldRename(
-                                    $showcase_id,
-                                    $field_definition['field_key'],
-                                    $insertData['field_key'],
-                                    buildDbFieldDefinition($dataTableStructure[$field_definition['field_key']])
-                                );
-                            }
-                        }
-                    }
-                }
-
-                fieldsUpdate($insertData, $field_id);
-
-                if (isset($field_definition['field_key']) &&
-                    in_array($field_definition['html_type'], [
-                        FieldHtmlTypes::CheckBox,
-                        FieldHtmlTypes::Radio,
-                        FieldHtmlTypes::Select,
-                    ])) {
-                    foreach (
-                        fieldDataGet(
-                            ["field_id='{$field_id}'", "collection_id='{$collection_id}'"]
-                        ) as $fieldDataID => $fieldDataData
-                    ) {
-                        fieldDataUpdate(['field_key' => $field_definition['field_key']], $fieldDataID);
-                    }
-                }
-            }
+            $field_id = $fieldService->save(
+                $insertData,
+                $collection_id,
+                $newPage ? 0 : $field_id,
+                ['english' => $mybb->get_input('label')]
+            );
 
             $fieldOptionID = 0;
 
@@ -396,20 +336,6 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
                 $fieldOptionID = fieldDataInsert($fieldOptionData);
             }
-
-            if ($canEditLanguageFile) {
-                languageModify(
-                    'myshowcase_fs' . $collection_id,
-                    [
-                        'myshowcase_collection_field_' . ($insertData['field_key'] ?? $field_definition['field_key']) =>
-                            $mybb->get_input('label') ?? $mybb->get_input('field_key')
-                    ]
-                );
-            }
-
-            $cache_manager->update(CacheDataTypes::Fields);
-
-            $cache_manager->update(CacheDataTypes::FieldData);
 
             log_admin_action(
                 ['collectionID' => $collection_id, 'fieldID' => $field_id, 'fieldOptionID' => $fieldOptionID]
@@ -575,30 +501,8 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
         $errorMessages = [];
 
-        if (!$mybb->get_input('name')) {
-            $errorMessages[] = $lang->myshowcase_admin_error_missing_required_fields;
-        }
-
-        $existingCollections = $cache_manager->get(
-            CacheDataTypes::Collections
-        );
-
-        if (in_array($mybb->get_input('name'), array_column($existingCollections, 'name')) && (function (
-                string $showcaseName
-            ) use ($collection_id, $existingCollections): bool {
-                $duplicatedName = false;
-
-                foreach ($existingCollections as $collectionData) {
-                    if ($collectionData['name'] === $showcaseName && $collectionData['collection_id'] !== $collection_id) {
-                        $duplicatedName = true;
-                    }
-                }
-
-                return $duplicatedName;
-            })(
-                $mybb->get_input('name')
-            )) {
-            $errorMessages[] = $lang->myshowcase_admin_error_duplicated_name;
+        foreach ($collectionService->validate($mybb->get_input('name'), $newPage ? 0 : $collection_id) as $error) {
+            $errorMessages[] = $lang->{$error['key']} ?? $error['message'];
         }
 
         if (!is_writable($languagePath)) {
@@ -617,19 +521,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         } else {
             $collectionData = hooksRun('admin_collection_new_edit_post', $collectionData);
 
-            if ($newPage) {
-                $collection_id = collectionInsert($collectionData);
-            } else {
-                collectionUpdate($collectionData, $collection_id);
-            }
-
-            $cache_manager->update(CacheDataTypes::Config);
-
-            $cache_manager->update(CacheDataTypes::Fields);
-
-            $cache_manager->update(CacheDataTypes::FieldData);
-
-            $cache_manager->update(CacheDataTypes::Collections);
+            $collection_id = $collectionService->save($collectionData, $newPage ? 0 : $collection_id);
 
             log_admin_action(['collectionID' => $collection_id]);
 
@@ -1097,7 +989,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                     }
                 })();
 
-                fieldDataUpdate($insertData, $fieldDataID);
+                $fieldService->saveOption($insertData, $fieldDataID);
             }
         }
 
@@ -1133,7 +1025,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                 }
             })();
 
-            fieldDataInsert($insertData);
+            $fieldService->saveOption($insertData);
         }
 
         hooksRun('admin_option_edit_post');
