@@ -417,6 +417,9 @@ function fieldsInsert(array $field_data, bool $isUpdate = false, int $field_id =
         $db->update_query('myshowcase_fields', $insertData, "field_id='{$field_id}'");
     } else {
         $db->insert_query('myshowcase_fields', $insertData);
+
+        // Same as collectionInsert() and fieldDataInsert(): hand back the id the database generated.
+        $field_id = (int)$db->insert_id();
     }
 
     return $field_id;
