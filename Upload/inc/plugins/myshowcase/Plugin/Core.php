@@ -1109,7 +1109,7 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'json_hash' => [
-            'type' => 'CHAR',
+            'type' => 'VARCHAR',
             'size' => 64,
             'default' => '',
         ],
@@ -1174,7 +1174,7 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'json_hash' => [
-            'type' => 'CHAR',
+            'type' => 'VARCHAR',
             'size' => 64,
             'default' => '',
         ],
@@ -2046,7 +2046,7 @@ const TABLES_DATA = [
             'default' => 0,
         ],
         'json_hash' => [
-            'type' => 'CHAR',
+            'type' => 'VARCHAR',
             'size' => 64,
             'default' => '',
         ],
