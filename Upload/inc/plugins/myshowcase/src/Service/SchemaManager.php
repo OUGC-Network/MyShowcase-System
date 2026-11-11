@@ -997,6 +997,12 @@ final class SchemaManager
             return (string)(0 + $value);
         }
 
+        // PostgreSQL reports the default '' of a bytea column as '\x' (hex form).
+        if (in_array($base, ['bytea', 'binary', 'varbinary', 'blob'], true) && str_starts_with($value, '\\x') &&
+            ctype_xdigit(substr($value, 2) . '0') && strlen($value) % 2 === 0) {
+            return (string)hex2bin(substr($value, 2));
+        }
+
         return $value;
     }
 
