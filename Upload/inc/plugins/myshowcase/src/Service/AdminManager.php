@@ -416,7 +416,10 @@ EOL;
                 case 'entries':
                 case 'comments':
                 case 'attachments':
+                case 'subscriptions':
                     $showcase_data = [];
+
+                    $collection_change_ignored = false;
 
                     foreach (TABLES_DATA['myshowcase_config'] as $field_name => $field_definition) {
                         if (empty($field_definition['category']) ||
@@ -432,7 +435,69 @@ EOL;
                     if (isset($showcase_data['collection_id']) &&
                         showcaseDataTableExists($this->showcase_id) &&
                         (!empty($showcase->context->showcase->collection_id))) {
+                        $collection_change_ignored = (int)$showcase_data['collection_id'] !== (int)$showcase->context->showcase->collection_id;
+
                         unset($showcase_data['collection_id']);
+                    }
+
+                    if (isset($showcase_data['subscriptions_enable'])) {
+                        $showcase_data['subscriptions_enable'] = empty($showcase_data['subscriptions_enable']) ? 0 : 1;
+                    }
+
+                    if (isset($showcase_data['subscriptions_message_length'])) {
+                        $showcase_data['subscriptions_message_length'] = min(
+                            255,
+                            max(0, (int)$showcase_data['subscriptions_message_length'])
+                        );
+                    }
+
+                    // The route identifier is the first segment of the showcase URL, which the router matches with [a-z0-9]+.
+                    if (isset($showcase_data['route_identifier']) &&
+                        !preg_match('/^[a-z0-9]+$/', (string)$showcase_data['route_identifier'])) {
+                        $error_messages[] = $this->language->myshowcase_admin_error_invalid_route_identifier
+                            ?? 'The script file must not be empty and may only contain lowercase letters and digits.';
+                    }
+
+                    if (isset($showcase_data['name']) && (
+                            !$showcase_data['name'] ||
+                            in_array($showcase_data['name'], array_column($this->showcases_cache, 'name')) &&
+                            (function (string $showcaseName): bool {
+                                $duplicatedName = false;
+
+                                foreach ($this->showcases_cache as $showcase_data) {
+                                    if ($showcase_data['name'] === $showcaseName && $showcase_data['showcase_id'] !== $this->showcase_id) {
+                                        $duplicatedName = true;
+                                    }
+                                }
+
+                                return $duplicatedName;
+                            })(
+                                $showcase_data['name']
+                            )
+                        )) {
+                        $error_messages[] = $this->language->myshowcase_admin_error_duplicated_name;
+                    }
+
+                    if (!empty($showcase_data['route_identifier']) && (
+                            in_array(
+                                $showcase_data['route_identifier'],
+                                array_column($this->showcases_cache, 'route_identifier')
+                            ) &&
+                            (function (string $route_identifier): bool {
+                                $duplicateScript = false;
+
+                                foreach ($this->showcases_cache as $showcase_data) {
+                                    if ($showcase_data['route_identifier'] === $route_identifier && $showcase_data['showcase_id'] !== $this->showcase_id) {
+                                        $duplicateScript = true;
+                                    }
+                                }
+
+                                return $duplicateScript;
+                            })(
+                                $showcase_data['route_identifier']
+                            )
+                        )) {
+                        $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedScriptFile;
                     }
 
                     if (isset($showcase_data['custom_template_prefix'])) {
@@ -462,7 +527,15 @@ EOL;
                                 ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
                             );
 
-                            flash_message($this->language->myShowcaseAdminSuccessShowcaseUpdated, 'success');
+                            if ($collection_change_ignored) {
+                                flash_message(
+                                    $this->language->myshowcase_admin_warning_collection_change_ignored
+                                    ?? 'The settings were saved, but the collection was not changed because the showcase already has a data table.',
+                                    'error'
+                                );
+                            } else {
+                                flash_message($this->language->myShowcaseAdminSuccessShowcaseUpdated, 'success');
+                            }
                         }
 
                         admin_redirect(
@@ -1149,6 +1222,9 @@ EOL;
 
         hooksRun('admin_summary_table_create_rebuild_start');
 
+        // $showcase->data_table_exists was read before the table was created: ask the database again.
+        $table_existed = $showcase->data_table_exists;
+
         $conversionErrors = count(SchemaManager::columnErrors());
 
         dbVerifyTables(["myshowcase_data{$this->showcase_id}" => $data_table_structure]);
@@ -1159,13 +1235,13 @@ EOL;
             admin_redirect($this->url->build());
         }
 
-        if ($showcase->data_table_exists) {
+        if (showcaseDataTableExists($this->showcase_id)) {
             log_admin_action([
                 'showcase_id' => $this->showcase_id,
-                'data_table_exists' => $showcase->data_table_exists
+                'data_table_exists' => $table_existed
             ]);
 
-            if ($showcase->data_table_exists) {
+            if ($table_existed) {
                 flash_message($this->language->myShowcaseAdminSuccessTableRebuilt, 'success');
             } else {
                 flash_message($this->language->myShowcaseAdminSuccessTableCreated, 'success');
