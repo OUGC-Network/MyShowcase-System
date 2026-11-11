@@ -224,7 +224,11 @@ function showcaseGet(
     );
 
     if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
+        // fetch_array() gives null on MySQL but false on SQLite and PostgreSQL when no row matches; (array)false
+        // would be [false], which is not empty.
+        $row = $db->fetch_array($query);
+
+        return is_array($row) ? $row : [];
     }
 
     $showcaseObjects[$key] = [];
@@ -358,7 +362,11 @@ function collectionGet(array $whereClauses = [], array $queryFields = [], array 
     );
 
     if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
+        // fetch_array() gives null on MySQL but false on SQLite and PostgreSQL when no row matches; (array)false
+        // would be [false], which is not empty.
+        $row = $db->fetch_array($query);
+
+        return is_array($row) ? $row : [];
     }
 
     $collectionData = [];
@@ -444,7 +452,11 @@ function fieldsGet(array $whereClauses = [], array $queryFields = [], array $que
     );
 
     if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
+        // fetch_array() gives null on MySQL but false on SQLite and PostgreSQL when no row matches; (array)false
+        // would be [false], which is not empty.
+        $row = $db->fetch_array($query);
+
+        return is_array($row) ? $row : [];
     }
 
     $field_definition = [];
@@ -525,7 +537,11 @@ function fieldDataGet(array $whereClauses = [], array $queryFields = [], array $
     );
 
     if (isset($queryOptions['limit']) && $queryOptions['limit'] === 1) {
-        return (array)$db->fetch_array($query);
+        // fetch_array() gives null on MySQL but false on SQLite and PostgreSQL when no row matches; (array)false
+        // would be [false], which is not empty.
+        $row = $db->fetch_array($query);
+
+        return is_array($row) ? $row : [];
     }
 
     $field_definition = [];
