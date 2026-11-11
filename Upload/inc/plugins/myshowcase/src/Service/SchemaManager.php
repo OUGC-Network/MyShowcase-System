@@ -960,6 +960,27 @@ final class SchemaManager
         return $value;
     }
 
+    /**
+     * Pure: a MySQL or MariaDB default as a plain value. MariaDB 10.2.7+ reports text defaults quoted ('abc') and
+     * the missing default of a nullable column as the string NULL; MySQL reports the bare value and a real NULL.
+     */
+    public static function mysqlDefault(?string $reported, bool $isNullable): ?string
+    {
+        if ($reported === null) {
+            return null;
+        }
+
+        if (strlen($reported) >= 2 && $reported[0] === "'" && str_ends_with($reported, "'")) {
+            return str_replace("''", "'", substr($reported, 1, -1));
+        }
+
+        if ($isNullable && $reported === 'NULL') {
+            return null;
+        }
+
+        return $reported;
+    }
+
     /** Pure: a plain default value in one form per column type (0.00 and 0 are the same number). */
     private static function canonicalDefault(?string $value, string $normalizedType): ?string
     {
@@ -1071,11 +1092,15 @@ final class SchemaManager
             $query = $db->write_query("SHOW COLUMNS FROM `{$fullName}`");
 
             while ($row = $db->fetch_array($query)) {
+                $isNullable = strtoupper((string)$row['Null']) === 'YES';
+
+                $default = self::mysqlDefault($row['Default'] === null ? null : (string)$row['Default'], $isNullable);
+
                 $columns[(string)$row['Field']] = [
                     'type' => (string)$row['Type'],
-                    'null' => strtoupper((string)$row['Null']) === 'YES',
-                    'default' => $row['Default'] === null ? null : (string)$row['Default'],
-                    'raw_default' => $row['Default'] === null ? null : (string)$row['Default'],
+                    'null' => $isNullable,
+                    'default' => $default,
+                    'raw_default' => $default,
                     'auto' => str_contains(strtolower((string)$row['Extra']), 'auto_increment'),
                     'pk' => strtoupper((string)$row['Key']) === 'PRI' ? 1 : 0,
                 ];
@@ -1279,6 +1304,24 @@ final class SchemaManager
      * Second and later runs find nothing to change, so no table is rewritten.
      */
     private static function alterChangedColumns(string $table, array $columns): void
+    {
+        global $db;
+
+        // MyBB's drivers throw a DbException for a failed query only while error_reporting is on; with it off they
+        // call exit() after the failed query, which would skip the rollback and the warning. Make sure the exception
+        // is thrown (it is caught below) and give the setting back afterwards.
+        $previousReporting = $db->error_reporting ?? 1;
+
+        $db->error_reporting = 1;
+
+        try {
+            self::alterChangedColumnsGuarded($table, $columns);
+        } finally {
+            $db->error_reporting = $previousReporting;
+        }
+    }
+
+    private static function alterChangedColumnsGuarded(string $table, array $columns): void
     {
         global $db;
 
