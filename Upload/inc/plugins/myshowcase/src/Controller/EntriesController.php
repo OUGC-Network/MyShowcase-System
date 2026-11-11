@@ -530,7 +530,7 @@ class EntriesController extends BaseController
 
                     if (!$field->parser_enable && $entryFieldText !== false) {
                         // todo, remove this legacy updating the database and updating the format field to TINYINT
-                        formatField($field->format, $entryFieldText);
+                        formatField((int)$field->format, $entryFieldText);
                     } elseif ($entryFieldText !== false) {
                         $entryFieldText = postParser()->parse_message((string)$entryFieldText, $parser_options);
                     }
@@ -1710,6 +1710,11 @@ class EntriesController extends BaseController
             }
         } else {
             $query_options['order_dir'] = $this->context->render_manager->url_params['order_dir'];
+        }
+
+        if ($content_type === ContentTypes::Comment) {
+            // Comments written in the same second keep their order: the id breaks the tie in the same direction.
+            $query_options['order_by'] = "{$query_options['order_by']} {$query_options['order_dir']}, comment_id";
         }
 
         if (isset($this->context->render_manager->url_params['user_id'])) {
