@@ -13,6 +13,8 @@ Upload/vendor/**
 package.xml
 Upload/composer.json
 Upload/composer.lock
+!Upload/inc/plugins/myshowcase/composer.json
+!Upload/inc/plugins/myshowcase/composer.lock
 
 # AWS User-specific
 .idea/**/aws.xml
