@@ -74,13 +74,6 @@ class EntriesRepository
                 $query_options
             );
         } catch (\Exception $e) {
-            _d2(
-                implode(" LEFT JOIN {$this->database->table_prefix}", $query_tables),
-                $query_fields,
-                implode(' AND ', $where_clauses),
-                $query_options
-            );
-
             error($e->getMessage());
         }
 

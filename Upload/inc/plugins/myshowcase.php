@@ -26,25 +26,6 @@ use function MyShowcase\Plugin\Functions\hooksAdd;
 
 use const MyShowcase\ROOT;
 
-if (!function_exists('_d')) {
-    function _d(): never
-    {
-        echo '<pre>';
-        debug_print_backtrace();
-        var_dump(func_get_args());
-        echo '</pre>';
-        exit;
-    }
-
-    function _d2(): void
-    {
-        echo '<pre>';
-        debug_print_backtrace();
-        var_dump(func_get_args());
-        echo '</pre>';
-    }
-}
-
 defined('IN_MYBB') || die('This file cannot be accessed directly.');
 
 // You can uncomment the lines below to avoid storing some settings in the DB
@@ -59,7 +40,7 @@ define('MyShowcase\SETTINGS', [
     'parserMyCodeAffectsLength' => true,
 ]);
 
-define('MyShowcase\DEBUG', true);
+defined('MyShowcase\DEBUG') || define('MyShowcase\DEBUG', false);
 
 define('MyShowcase\ROOT', constant('MYBB_ROOT') . 'inc/plugins/myshowcase');
 
