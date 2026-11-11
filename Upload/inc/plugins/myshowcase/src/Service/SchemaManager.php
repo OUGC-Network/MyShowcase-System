@@ -426,6 +426,16 @@ final class SchemaManager
         return "ALTER SEQUENCE IF EXISTS {$prefix}{$oldSequence} RENAME TO {$prefix}{$newSequence}";
     }
 
+    public static function dropSequenceSql(string $sequence, string $prefix): string
+    {
+        return "DROP SEQUENCE IF EXISTS {$prefix}{$sequence}";
+    }
+
+    public static function dropTableSql(string $table, string $engine, string $prefix): string
+    {
+        return 'DROP TABLE IF EXISTS ' . self::quoteIdentifier($prefix . $table, $engine);
+    }
+
     /**
      * @param string $kind regular, unique or fulltext
      */
@@ -748,6 +758,24 @@ final class SchemaManager
                 self::escaper()
             )
         );
+    }
+
+    /** Drops a table together with the sequences PostgreSQL keeps for its serial columns. */
+    public static function dropTable(string $table, array $sequenceColumns = []): void
+    {
+        global $db;
+
+        $engine = self::engine();
+
+        $prefix = $db->table_prefix;
+
+        self::run(self::dropTableSql($table, $engine, $prefix));
+
+        if ($engine === self::ENGINE_PGSQL) {
+            foreach ($sequenceColumns as $column) {
+                self::run(self::dropSequenceSql("{$table}_{$column}_seq", $prefix));
+            }
+        }
     }
 
     // ------------------------------------------------------------------------------------------------------------

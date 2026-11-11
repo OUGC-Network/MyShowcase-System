@@ -31,6 +31,7 @@ use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\SelectableLists;
 use MyShowcase\Util\StringUtil;
 use Random\RandomException;
+use ReflectionClass;
 
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
@@ -439,8 +440,20 @@ function pluginUninstallation(): bool
             }
         }
 
-        foreach (dbTables() as $tableName => $tableData) {
-            $db->drop_table($tableName);
+        foreach (dbTables() as $tableName => $tableSchema) {
+            SchemaManager::dropTable(
+                $tableName,
+                array_filter([$tableSchema['primary']])
+            );
+        }
+
+        // Sequences left behind on PostgreSQL by installations that were migrated from field sets.
+        if (SchemaManager::engine() === SchemaManager::ENGINE_PGSQL) {
+            foreach (['set_id', 'setid'] as $legacyColumn) {
+                $db->write_query(
+                    SchemaManager::dropSequenceSql("myshowcase_fieldsets_{$legacyColumn}_seq", $db->table_prefix)
+                );
+            }
         }
 
         foreach (FIELDS_DATA as $tableName => $tableData) {
@@ -467,19 +480,8 @@ function pluginUninstallation(): bool
         $mybb->cache->delete('ougc_plugins');
     }
 
-    foreach (
-        [
-            'myshowcase_mylaerts',
-            'myshowcase_config',
-            'myshowcase_fields',
-            'myshowcase_field_data',
-            'myshowcase_fieldsets',
-            'myshowcase_permissions',
-            'myshowcase_moderators',
-            'myshowcase_version'
-        ] as $cache_name
-    ) {
-        $mybb->cache->delete($cache_name);
+    foreach ((new ReflectionClass(CacheDataTypes::class))->getConstants() as $cacheType) {
+        $mybb->cache->delete("myshowcase_{$cacheType}");
     }
 
     taskUninstallation();

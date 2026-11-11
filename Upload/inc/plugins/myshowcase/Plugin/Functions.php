@@ -30,6 +30,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
+use MyShowcase\Service\SchemaManager;
 use MyShowcase\Util\BuildShowcase;
 use Postparser;
 use ReflectionClass;
@@ -271,7 +272,8 @@ function showcaseDataTableDrop(int $showcase_id): bool
 
     $hookArguments = hooksRun('showcase_data_table_drop_start', $hookArguments);
 
-    $db->drop_table('myshowcase_data' . $showcase_id);
+    // entry_id is the serial column; gid is its name in installations that were never migrated.
+    SchemaManager::dropTable('myshowcase_data' . $showcase_id, ['entry_id', 'gid']);
 
     return true;
 }
