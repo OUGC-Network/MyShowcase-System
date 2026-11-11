@@ -1435,6 +1435,17 @@ final class SchemaManager
         return null;
     }
 
+    /**
+     * Why changing a column of an existing table to the given definition would lose data, or null when it would
+     * not (see the column-change paths). Reads only.
+     */
+    public static function conversionLossFor(string $table, string $column, array $definition): ?string
+    {
+        $actual = self::actualColumns($table)[$column] ?? null;
+
+        return $actual === null ? null : self::conversionLoss($table, $column, $definition, $actual, self::engine());
+    }
+
     private static function changeMysqlColumn(
         string $table,
         string $column,

@@ -732,12 +732,16 @@ function languageModify(
 
     $languagePath = $languagePath . '/' . $languageFileName . '.lang.php';
 
+    // include, not include_once: the sync writes the same file many times in one request, and a file that was
+    // already included would not define $l again, so the entries written before would be lost.
+    $l = [];
+
     if (file_exists($languagePath)) {
         if (!is_writable($languagePath)) {
             return false;
         }
 
-        include_once $languagePath;
+        include $languagePath;
     }
 
     if (!isset($l) || !is_array($l)) {
