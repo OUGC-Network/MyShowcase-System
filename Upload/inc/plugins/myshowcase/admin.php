@@ -117,6 +117,8 @@ function pluginActivation(): bool
 
     global $db;
 
+    SchemaManager::migrateCollections(TABLES_DATA);
+
     foreach (
         [
             'myshowcase_attachments' => [
@@ -200,7 +202,7 @@ function pluginActivation(): bool
                 'uid' => 'user_id',
                 'isgroup' => 'group_id',
             ],
-            'myshowcase_fieldsets' => [
+            'myshowcase_collections' => [
                 'setid' => 'collection_id',
                 'setname' => 'name',
             ],
