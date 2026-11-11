@@ -19,6 +19,10 @@ use MyShowcase\Enum\FormTypes;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\CollectionService;
 use MyShowcase\Service\FieldService;
+use MyShowcase\Service\JsonSync\JsonLock;
+use MyShowcase\Service\JsonSync\JsonStatus;
+use MyShowcase\Service\JsonSync\JsonSync;
+use MyShowcase\Service\JsonSync\JsonUi;
 use MyShowcase\Util\UrlUtil;
 
 use function MyShowcase\Admin\buildDbFieldDefinition;
@@ -58,6 +62,10 @@ $cache_manager = new CacheManager($db, $cache,);
 $fieldService = new FieldService($cache_manager);
 
 $collectionService = new CollectionService($cache_manager);
+
+$jsonSync = new JsonSync($cache_manager);
+
+$jsonLock = JsonLock::default();
 
 loadLanguage();
 
@@ -252,6 +260,17 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             admin_redirect($url->build());
         }
 
+        // A field a JSON file manages takes the file's values, whatever the form sent (disabled inputs send nothing).
+        $managedValues = $newPage ? [] : $jsonLock->values('field', $field_definition);
+
+        foreach ($managedValues as $managedColumn => $managedValue) {
+            if (in_array($managedColumn, ['allowed_groups_fill', 'allowed_groups_view'], true)) {
+                $mybb->input[$managedColumn . '_type'] = 'all';
+            } elseif ($managedColumn !== 'field_label') {
+                $mybb->input[$managedColumn] = $managedValue;
+            }
+        }
+
         foreach (['allowed_groups_fill', 'allowed_groups_view'] as $settingName) {
             if ($mybb->get_input($settingName . '_type') === 'all') {
                 $mybb->input[$settingName] = [-1];
@@ -375,6 +394,19 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         $pageTabs[$newPage ? 'myshowcase_admin_fields_new' : 'myshowcase_admin_fields_edit']['title']
     );
 
+    $fieldManagedColumns = $newPage ? [] : $jsonLock->managedColumns('field', $field_definition);
+
+    if (!$newPage) {
+        $formContainer->output_row(
+            JsonUi::text('json_file'),
+            '',
+            $field_definition['json_file'] !== ''
+                ? htmlspecialchars(JsonUi::text('managed_by', $field_definition['json_file']))
+                : htmlspecialchars(JsonUi::text('custom')),
+            'json_file_info'
+        );
+    }
+
     foreach ($tablesData['myshowcase_fields'] as $field_name => $field_definition) {
         if (!isset($field_definition['input_type']) || isset($field_definition['quick_setting'])) {
             continue;
@@ -433,10 +465,13 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                 break;
         }
 
+        $isManaged = in_array($field_name, $fieldManagedColumns, true) ||
+            ($field_name === 'field_label' && in_array('field_label', $fieldManagedColumns, true));
+
         $formContainer->output_row(
             ($lang->{'myshowcase_admin_fields_create_update_form_' . $field_name} ?? 'myshowcase_admin_fields_create_update_form_' . $field_name) . (empty($field_definition['formRequired']) ? '' : '<em>*</em>'),
-            $lang->{'myshowcase_admin_fields_create_update_form_' . $field_name . '_description'},
-            $formInput,
+            $lang->{'myshowcase_admin_fields_create_update_form_' . $field_name . '_description'} . ($isManaged ? JsonUi::managedNote() : ''),
+            $isManaged ? JsonUi::disable($formInput) : $formInput,
             $field_name,
             ['id' => $field_name . '_row']
         );
@@ -477,7 +512,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
     hooksRun('admin_collection_new_edit_start');
 
-    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name'], ['limit' => 1]);
+    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name', 'json_file', 'json_version'], ['limit' => 1]);
 
     if (!$newPage && empty($collectionData)) {
         flash_message($lang->myShowcaseAdminErrorInvalidShowcase, 'error');
@@ -497,6 +532,26 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
             admin_redirect($url->build());
+        }
+
+        // Choosing another JSON file (or None) goes to the preview (or detach) page instead of saving this form.
+        if (!$newPage && $mybb->get_input('json_file') !== (string)$collectionData['json_file']) {
+            flash_message(JsonUi::text('other_changes_not_saved'), 'error');
+
+            admin_redirect(
+                $mybb->get_input('json_file') === ''
+                    ? JsonUi::url(['action' => 'detach', 'type' => 'collection', 'id' => $collection_id], false)
+                    : JsonUi::url([
+                        'action' => 'preview', 'type' => 'collection', 'id' => $collection_id, 'mode' => 'link',
+                        'file' => $mybb->get_input('json_file'),
+                    ], false)
+            );
+        }
+
+        $managedValues = $newPage ? [] : $jsonLock->values('collection', $collectionData);
+
+        if (isset($managedValues['name'])) {
+            $mybb->input['name'] = $managedValues['name'];
         }
 
         $errorMessages = [];
@@ -549,12 +604,25 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         $pageTabs[$newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit']['title']
     );
 
+    $nameIsManaged = !$newPage && in_array('name', $jsonLock->managedColumns('collection', $collectionData), true);
+
+    $nameInput = $form->generate_text_box('name', $mybb->get_input('name'), ['id' => 'name']);
+
     $formContainer->output_row(
         $lang->myshowcase_admin_field_sets_new_form_name . '<em>*</em>',
-        $lang->myshowcase_admin_field_sets_new_form_name_description,
-        $form->generate_text_box('name', $mybb->get_input('name'), ['id' => 'name']),
+        $lang->myshowcase_admin_field_sets_new_form_name_description . ($nameIsManaged ? JsonUi::managedNote() : ''),
+        $nameIsManaged ? JsonUi::disable($nameInput) : $nameInput,
         'name'
     );
+
+    if (!$newPage) {
+        $formContainer->output_row(
+            JsonUi::text('json_file'),
+            JsonUi::text('json_file_description'),
+            JsonUi::fileSelect($form, 'json_file', 'collection', (string)$collectionData['json_file']),
+            'json_file'
+        );
+    }
 
     hooksRun('admin_collection_new_edit_end');
 
@@ -569,7 +637,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
     $page->output_footer();
 } elseif ($pageAction === 'viewFields') {
-    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name'], ['limit' => 1]);
+    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name', 'json_file', 'json_version', 'json_hash'], ['limit' => 1]);
 
     if (empty($collectionData)) {
         flash_message($lang->myshowcase_fields_invalid_id, 'error');
@@ -602,7 +670,8 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             $insertData = hooksRun('admin_view_fields_update_post', $insertData);
 
             if ($insertData) {
-                fieldsUpdate($insertData, $field_id);
+                // The service puts the file's values back for the columns a JSON file manages.
+                $fieldService->save($insertData, $collection_id, $field_id);
             }
         }
 
@@ -675,6 +744,13 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
     unset($queryFields['unique_keys']);
 
+    $collectionFile = $collectionData['json_file'] !== '' ? $jsonSync->load($collectionData['json_file']) : null;
+
+    if ($collectionFile !== null) {
+        echo '<p>' . JsonUi::text('json_file') . ': ' . htmlspecialchars($collectionData['json_file'])
+            . JsonUi::rowInfo('collection', (int)$collection_id, $collectionData, $jsonSync->statusOf($collectionData, 'collection')) . '</p>';
+    }
+
     $fieldObjects = fieldsGet(["collection_id='{$collection_id}'"],
         array_keys($queryFields),
         ['order_by' => 'display_order']);
@@ -700,8 +776,28 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                 ['action' => 'edit_field', 'field_id' => $field_id, 'collection_id' => $collection_id]
             );
 
+            $fieldBadge = '';
+
+            if ($collectionFile !== null) {
+                if ($field_definition['json_file'] === '') {
+                    $fieldBadge = JsonUi::customBadge();
+                } else {
+                    $entryHash = null;
+
+                    foreach ($collectionFile['data']['fields'] ?? [] as $entry) {
+                        if ($entry['field_key'] === $field_definition['field_key']) {
+                            $entryHash = \MyShowcase\Service\JsonSync\JsonHash::hash($entry);
+                        }
+                    }
+
+                    $fieldBadge = ' ' . JsonUi::badge(JsonStatus::ofField($field_definition, $collectionFile, $entryHash));
+                }
+            }
+
+            $fieldManaged = $jsonLock->managedColumns('field', $field_definition);
+
             $formContainer->output_cell(
-                "<a href='{$url_edit}'>{$field_definition['field_key']}</a>",
+                "<a href='{$url_edit}'>{$field_definition['field_key']}</a>" . $fieldBadge,
                 ['class' => 'align_left']
             );
 
@@ -725,36 +821,38 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             );
 
             $formContainer->output_cell(
-                $form->generate_numeric_field(
+                (in_array('display_order', $fieldManaged, true) ? '\\MyShowcase\\Service\\JsonSync\\JsonUi::disable' : 'strval')($form->generate_numeric_field(
                     'display_order[' . $field_id . ']',
                     (int)$field_definition['display_order'],
                     ['class' => 'align_center" style="max-width: 5em;'],
-                ),
+                )),
                 ['class' => 'align_center']
             );
 
             $formContainer->output_cell(
-                $form->generate_numeric_field(
+                (in_array('render_order', $fieldManaged, true) ? '\\MyShowcase\\Service\\JsonSync\\JsonUi::disable' : 'strval')($form->generate_numeric_field(
                     'render_order[' . $field_id . ']',
                     (int)$field_definition['render_order'],
                     ['class' => 'align_center" style="max-width: 5em;'],
-                ),
+                )),
                 ['class' => 'align_center']
             );
 
-            (function (array $values) use ($tablesData, $field_id, $formContainer, $form) {
+            (function (array $values) use ($tablesData, $field_id, $formContainer, $form, $fieldManaged) {
                 foreach ($tablesData['myshowcase_fields'] as $field_name => $field_definition) {
                     if (empty($field_definition['quick_setting'])) {
                         continue;
                     }
 
+                    $checkBox = $form->generate_check_box(
+                        $field_name . '[' . $field_id . ']',
+                        1,
+                        '',
+                        ['checked' => $values[$field_name]],
+                    );
+
                     $formContainer->output_cell(
-                        $form->generate_check_box(
-                            $field_name . '[' . $field_id . ']',
-                            1,
-                            '',
-                            ['checked' => $values[$field_name]],
-                        ),
+                        in_array($field_name, $fieldManaged, true) ? JsonUi::disable($checkBox) : $checkBox,
                         ['class' => 'align_center']
                     );
                 }
@@ -891,7 +989,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 } elseif ($pageAction === 'edit_option') {
     $field_definition = fieldsGet(
         ["field_id='{$field_id}'", "collection_id='{$collection_id}'"],
-        ['field_key', 'html_type'],
+        ['field_key', 'html_type', 'json_file'],
         ['limit' => 1]
     );
 
@@ -1133,6 +1231,13 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
             $maximumViewOrder = max($maximumViewOrder, $fieldOptionData['display_order']);
 
+            // The columns of this option the JSON file of the field sets are shown disabled.
+            $optionManaged = array_keys($jsonLock->optionValues($field_definition, (int)$fieldOptionData['value_id']));
+
+            $optionInput = static fn(string $column, string $html): string => in_array($column, $optionManaged, true)
+                ? JsonUi::disable($html)
+                : $html;
+
             $formContainer->output_cell(
                 my_number_format($fieldDataID),
                 ['class' => 'align_center']
@@ -1148,20 +1253,20 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             );
 
             $formContainer->output_cell(
-                $form->generate_text_box(
+                $optionInput('value', $form->generate_text_box(
                     "value[{$fieldDataID}]",
                     $fieldOptionData['value'],
                     ['id' => "value[{$fieldDataID}]", 'class' => 'field150']
-                ),
+                )),
                 ['class' => 'align_center']
             );
 
             $formContainer->output_cell(
-                $form->generate_text_box(
+                $optionInput('display_style', $form->generate_text_box(
                     "display_style[{$fieldDataID}]",
                     $fieldOptionData['display_style'],
                     ['id' => "display_style[{$fieldDataID}]", 'class' => 'field250']
-                ),
+                )),
                 ['class' => 'align_center']
             );
 
@@ -1186,11 +1291,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             );
 
             $formContainer->output_cell(
-                $form->generate_numeric_field(
+                $optionInput('display_order', $form->generate_numeric_field(
                     "display_order[{$fieldDataID}]",
                     $fieldOptionData['display_order'],
                     ['id' => "display_order[{$fieldDataID}]", 'class' => 'align_center field50', 'min' => 0]
-                ),
+                )),
                 ['class' => 'align_center']
             );
 
@@ -1362,6 +1467,12 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         );
     }
 
+    if (($deletionBlock = $fieldService->deletionBlock($field_id)) !== null) {
+        flash_message($lang->{$deletionBlock['key']} ?? $deletionBlock['message'], 'error');
+
+        admin_redirect($url->build(['action' => 'viewFields', 'collection_id' => $collection_id]));
+    }
+
     $showcaseObjects = showcaseGet(["collection_id='{$collection_id}'"]);
 
     $field_key = $field_definition['field_key'] ?? $field_definition['field_id'];
@@ -1477,7 +1588,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
     $formContainer->output_row_header($lang->controls, ['width' => '10%', 'class' => 'align_center']);
 
-    $collectionObjects = collectionGet([], ['collection_id', 'name'], ['order_by' => 'name']);
+    $collectionObjects = collectionGet([], ['collection_id', 'name', 'json_file', 'json_version', 'json_hash'], ['order_by' => 'name']);
 
     if (!$collectionObjects) {
         $formContainer->output_cell($lang->myshowcase_fields_no_collections, ['colspan' => 6]);
@@ -1533,6 +1644,8 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                 $url->build(['action' => 'delete', 'collection_id' => $collection_id]),
             );
 
+            $popup->add_item(JsonUi::text('export'), JsonUi::url(['action' => 'export', 'type' => 'collection', 'id' => $collection_id]));
+
             //grab status images for language file
             $languageFile = $languagePath . '/myshowcase_fs' . $collection_id . '.lang.php';
 
@@ -1555,7 +1668,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             $formContainer->output_cell($collection_id, ['class' => 'align_center']);
 
             $formContainer->output_cell(
-                "<a href='{$url_edit}'>{$result['name']}</a>",
+                "<a href='{$url_edit}'>{$result['name']}</a>" . (
+                $result['json_file'] !== ''
+                    ? JsonUi::rowInfo('collection', (int)$collection_id, $result, $jsonSync->statusOf($result, 'collection'))
+                    : ''
+                ),
             );
 
             $formContainer->output_cell($totalFields, ['class' => 'align_center']);

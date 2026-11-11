@@ -29,6 +29,7 @@ $l['myshowcase_admin_perm_new'] = 'Can create new showcases?';
 $l['myshowcase_admin_perm_edit'] = 'Can edit existing showcases?';
 $l['myshowcase_admin_perm_cats'] = 'Can edit showcase categories?';
 $l['myshowcase_admin_perm_fields'] = 'Can adjust collections settings?';
+$l['myshowcase_admin_perm_json_sync'] = 'Can link, create, apply and export JSON files?';
 $l['myshowcase_admin_perm_cache'] = 'Can rebuild showcase cache?';
 $l['myshowcase_admin_perm_help'] = 'Can view help page?';
 

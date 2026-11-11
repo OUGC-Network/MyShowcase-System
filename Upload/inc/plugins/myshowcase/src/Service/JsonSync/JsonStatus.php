@@ -23,6 +23,8 @@ final class JsonStatus
     public const FILE_MISSING = 'file_missing';
     public const INVALID = 'invalid';
     public const CUSTOM = 'custom';
+    /** A showcase whose collection is not linked to the collection file the showcase file names. */
+    public const COLLECTION_DETACHED = 'collection_detached';
 
     /**
      * @param array{json_version: string, json_hash: string} $row

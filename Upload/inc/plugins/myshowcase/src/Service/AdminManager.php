@@ -31,6 +31,10 @@ use PopupMenu;
 use PostgresPdoDbDriver;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
+use MyShowcase\Service\JsonSync\JsonLock;
+use MyShowcase\Service\JsonSync\JsonSync;
+use MyShowcase\Service\JsonSync\JsonUi;
+
 use function MyShowcase\Admin\buildPermissionsRow;
 use function MyShowcase\Admin\dbVerifyTables;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -417,6 +421,21 @@ EOL;
                 case 'comments':
                 case 'attachments':
                 case 'subscriptions':
+                    if (!$is_create_page && $this->mybb->get_input('type') === 'general' &&
+                        isset($this->mybb->input['json_file']) &&
+                        $this->mybb->get_input('json_file') !== $showcase->context->showcase->json_file) {
+                        flash_message(JsonUi::text('other_changes_not_saved'), 'error');
+
+                        admin_redirect(
+                            $this->mybb->get_input('json_file') === ''
+                                ? JsonUi::url(['action' => 'detach', 'type' => 'showcase', 'id' => $this->showcase_id], false)
+                                : JsonUi::url([
+                                'action' => 'preview', 'type' => 'showcase', 'id' => $this->showcase_id, 'mode' => 'link',
+                                'file' => $this->mybb->get_input('json_file'),
+                            ], false)
+                        );
+                    }
+
                     $showcase_data = [];
 
                     $collection_change_ignored = false;
@@ -765,20 +784,35 @@ EOL;
                 $this->language->{'myshowcase_admin_summary_create_update_category_' . $category_key . '_description'}
             );
 
+            $managedColumns = $is_create_page ? [] : JsonLock::default()->managedColumns('showcase', (array)$showcase->context->showcase);
+
             foreach ($categories_objects[$category_key]['single'] as $field_name => $field_definition) {
+                $settingHtml = buildPermissionsRow(
+                    $this->mybb,
+                    $form,
+                    $this->language,
+                    $field_name,
+                    $field_definition,
+                    $category_key,
+                    'myshowcase_admin_summary_create_update',
+                    showcase_config: $showcase->context->showcase ?? ['showcase_id' => 0]
+                );
+
+                $isManaged = in_array($field_name, $managedColumns, true);
+
                 $form_container->output_row(
                     $this->language->{'myshowcase_admin_summary_create_update_' . $field_name} ?? 'myshowcase_admin_summary_create_update_' . $field_name,
-                    $this->language->{'myshowcase_admin_summary_create_update_' . $field_name . '_description'} ?? 'myshowcase_admin_summary_create_update_' . $field_name . '_description',
-                    buildPermissionsRow(
-                        $this->mybb,
-                        $form,
-                        $this->language,
-                        $field_name,
-                        $field_definition,
-                        $category_key,
-                        'myshowcase_admin_summary_create_update',
-                        showcase_config: $showcase->context->showcase ?? ['showcase_id' => 0]
-                    )
+                    ($this->language->{'myshowcase_admin_summary_create_update_' . $field_name . '_description'} ?? 'myshowcase_admin_summary_create_update_' . $field_name . '_description')
+                    . ($isManaged ? JsonUi::managedNote() : ''),
+                    $isManaged ? JsonUi::disable($settingHtml) : $settingHtml
+                );
+            }
+
+            if ($category_key === 'general' && !$is_create_page) {
+                $form_container->output_row(
+                    JsonUi::text('json_file'),
+                    JsonUi::text('json_file_description'),
+                    JsonUi::fileSelect($form, 'json_file', 'showcase', (string)$showcase->context->showcase->json_file)
                 );
             }
 
@@ -786,7 +820,7 @@ EOL;
                 $settingCode = '';
 
                 foreach ($section_settings as $field_name => $field_definition) {
-                    $settingCode .= buildPermissionsRow(
+                    $settingHtml = buildPermissionsRow(
                         $this->mybb,
                         $form,
                         $this->language,
@@ -796,6 +830,10 @@ EOL;
                         'myshowcase_admin_summary_create_update',
                         true,
                     );
+
+                    $settingCode .= in_array($field_name, $managedColumns, true)
+                        ? JsonUi::disable($settingHtml) . JsonUi::managedNote()
+                        : $settingHtml;
                 }
 
                 $form_container->output_row(
@@ -1503,11 +1541,20 @@ EOL;
                     $this->url->build(['action' => 'delete', 'showcase_id' => $showcase_id])
                 );
 
+                $popup->add_item(
+                    JsonUi::text('export'),
+                    JsonUi::url(['action' => 'export', 'type' => 'showcase', 'id' => $showcase_id])
+                );
+
                 $showcase_data['attachments_uploads_path'] = $showcase_data['attachments_uploads_path'] ?? $this->language->myshowcase_summary_not_specified;
 
                 $form_container->output_cell($showcase_id, ['class' => 'align_center']);
 
-                $form_container->output_cell("<a href='{$url_edit}'>{$showcase_data['name']}</a>");
+                $jsonInfo = ($showcase_data['json_file'] ?? '') !== ''
+                    ? JsonUi::rowInfo('showcase', (int)$showcase_id, $showcase_data, (new JsonSync($this->cache_manager))->statusOf($showcase_data, 'showcase'))
+                    : '';
+
+                $form_container->output_cell("<a href='{$url_edit}'>{$showcase_data['name']}</a>" . $jsonInfo);
 
                 $form_container->output_cell($showcaseTotalEntries, ['class' => 'align_center']);
 

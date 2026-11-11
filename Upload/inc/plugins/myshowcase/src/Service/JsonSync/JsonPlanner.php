@@ -269,6 +269,17 @@ final class JsonPlanner
             return $plan;
         }
 
+        if ($row !== null) {
+            $linked = $collectionState['row'] ?? null;
+
+            if ($linked === null || (int)$linked['collection_id'] !== (int)$row['collection_id']) {
+                // Never plan a new collection for a showcase that exists: its collection was detached, or is another one.
+                $plan['errors'][] = "The collection of this showcase is not linked to \"{$decoded['collection']}.json\". Link the collection to that file first.";
+
+                return $plan;
+            }
+        }
+
         if (($collectionState['row'] ?? null) === null) {
             $collectionPlan = self::collection($state['collection_file'], $state['collection_file_path'], $collectionState);
 

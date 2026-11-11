@@ -32,6 +32,7 @@ $l = [
     'myshowcase_admin_error_field_key_reserved' => 'The field key is the name of a column the entries table already has.',
     'myshowcase_admin_error_invalid_html_type' => 'The HTML type is not one of the supported types.',
     'myshowcase_admin_error_invalid_field_type' => 'The database type is not one of the supported types.',
+    'myshowcase_admin_error_field_delete_managed' => 'This field is managed by a JSON file. Remove it from the file and apply the file, or detach the collection from the file.',
     'myshowcase_admin_error_regular_expression' => 'The selected regular expression seems to be invalid.',
 
     'myshowcase_admin_warning_duplicate_unique_index' => 'MyShowcase: the unique index {1} on table {2} (column {3}) was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin again to create it.',

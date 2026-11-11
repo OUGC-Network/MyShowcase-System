@@ -40,13 +40,23 @@ final class JsonSync
      */
     public function load(string $relativePath): array
     {
-        $type = JsonFiles::typeOf($relativePath);
+        return self::inspect($this->files, $relativePath);
+    }
 
-        $read = $this->files->read($relativePath);
+    /**
+     * Reads and validates a file.
+     *
+     * @return array{exists: bool, valid: bool, errors: array, data: ?array, version?: string, hash?: string}
+     */
+    public static function inspect(JsonFiles $files, string $relativePath): array
+    {
+        $type = JsonFiles::typeOf($relativePath);
 
         if ($type === null) {
             return ['exists' => false, 'valid' => false, 'errors' => [['path' => '$', 'message' => 'not a valid file name']], 'data' => null];
         }
+
+        $read = $files->read($relativePath);
 
         if (!$read['exists']) {
             return ['exists' => false, 'valid' => false, 'errors' => [], 'data' => null];
@@ -69,12 +79,25 @@ final class JsonSync
         return $result;
     }
 
-    /** Status of a collection row or a showcase row (see JsonStatus) against the file it is linked to. */
-    public function statusOf(array $row): string
+    /**
+     * Status of a collection row or a showcase row (see JsonStatus) against the file it is linked to. A showcase
+     * whose collection is not linked to the collection file it names any more is collection_detached.
+     */
+    public function statusOf(array $row, string $type = 'collection'): string
     {
         $file = $this->load((string)$row['json_file']);
 
-        return JsonStatus::of($row, $file);
+        $status = JsonStatus::of($row, $file);
+
+        if ($type === 'showcase' && $file['valid']) {
+            $collection = JsonState::collectionRow(JsonFiles::relativePath('collection', (string)$file['data']['collection']));
+
+            if ($collection === null || (int)$collection['collection_id'] !== (int)$row['collection_id']) {
+                return JsonStatus::COLLECTION_DETACHED;
+            }
+        }
+
+        return $status;
     }
 
     /**
@@ -95,7 +118,21 @@ final class JsonSync
         }
 
         if ($empty['type'] === 'collection') {
-            return JsonPlanner::collection($file['data'], $relativePath, JsonState::collection($relativePath, $this->files));
+            $row = null;
+
+            if (!empty($options['collection_id'])) {
+                $rows = collectionGet(["collection_id='" . (int)$options['collection_id'] . "'"], JsonState::columnNames('myshowcase_collections'));
+
+                $row = $rows ? reset($rows) : null;
+
+                $linked = JsonState::collectionRow($relativePath);
+
+                if ($linked !== null && $row !== null && (int)$linked['collection_id'] !== (int)$row['collection_id']) {
+                    return $empty + ['errors' => ["The collection \"{$linked['name']}\" is already linked to this file."]];
+                }
+            }
+
+            return JsonPlanner::collection($file['data'], $relativePath, JsonState::collection($relativePath, $this->files, $row));
         }
 
         return JsonPlanner::showcase(

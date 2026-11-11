@@ -16,6 +16,7 @@ namespace MyShowcase\Service;
 
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Service\JsonSync\JsonLock;
 
 use function MyShowcase\Admin\languageModify;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -146,9 +147,19 @@ final class FieldService
      * @param array<string, string> $labels Language directory => label text; empty to leave the language file alone.
      * @return int The id of the field.
      */
-    public function save(array $data, int $collectionId, int $fieldId = 0, array $labels = []): int
+    public function save(array $data, int $collectionId, int $fieldId = 0, array $labels = [], bool $fromSync = false): int
     {
-        $old = $fieldId ? (fieldsGet(["field_id='{$fieldId}'"], ['field_key', 'html_type'])[$fieldId] ?? []) : [];
+        $old = $fieldId ? (fieldsGet(["field_id='{$fieldId}'"], ['field_key', 'html_type', 'json_file'])[$fieldId] ?? []) : [];
+
+        // Only the sync writes the json_* columns; a linked field always ends up with the values of its file.
+        if (!$fromSync) {
+            $data = JsonLock::stripJson($data);
+
+            if ($old && $old['json_file'] !== '') {
+                $data = JsonLock::default()->enforce('field', $old, $data);
+            }
+        }
+
 
         $renamed = $old && isset($data['field_key']) && $data['field_key'] !== $old['field_key'];
 
@@ -236,13 +247,43 @@ final class FieldService
      *
      * @return int The id of the option row.
      */
-    public function saveOption(array $data, int $fieldDataId = 0): int
+    public function saveOption(array $data, int $fieldDataId = 0, bool $fromSync = false): int
     {
+        if (!$fromSync && $fieldDataId) {
+            $option = fieldDataGet(["field_data_id='{$fieldDataId}'"], ['field_id', 'value_id'])[$fieldDataId] ?? null;
+
+            $field = $option ? (fieldsGet(["field_id='{$option['field_id']}'"], ['field_key', 'json_file'])[(int)$option['field_id']] ?? null) : null;
+
+            if ($field !== null && $field['json_file'] !== '') {
+                $data = array_merge($data, JsonLock::default()->optionValues($field, (int)$option['value_id']));
+            }
+        }
+
         if ($fieldDataId) {
             return fieldDataUpdate($data, $fieldDataId);
         }
 
         return fieldDataInsert($data);
+    }
+
+    /**
+     * Why a field can not be deleted, or null when it can. A field a JSON file manages has to be removed from the
+     * file (and the file applied) or its collection detached; fields of your own can be deleted.
+     *
+     * @return array{key: string, message: string}|null
+     */
+    public function deletionBlock(int $fieldId): ?array
+    {
+        $field = fieldsGet(["field_id='{$fieldId}'"], ['field_key', 'json_file'])[$fieldId] ?? null;
+
+        if ($field === null || $field['json_file'] === '') {
+            return null;
+        }
+
+        return [
+            'key' => 'myshowcase_admin_error_field_delete_managed',
+            'message' => "The field {$field['field_key']} is managed by {$field['json_file']}. Remove it from the file and apply the file, or detach the collection from the file.",
+        ];
     }
 
     public function refreshOptionCaches(): void

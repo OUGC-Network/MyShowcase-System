@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace MyShowcase\Service;
 
 use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Service\JsonSync\JsonLock;
 
 use function MyShowcase\Plugin\Functions\collectionGet;
 use function MyShowcase\Plugin\Functions\collectionInsert;
@@ -58,8 +59,18 @@ final class CollectionService
      *
      * @return int The id of the collection.
      */
-    public function save(array $data, int $collectionId = 0): int
+    public function save(array $data, int $collectionId = 0, bool $fromSync = false): int
     {
+        if (!$fromSync) {
+            $data = JsonLock::stripJson($data);
+
+            $row = $collectionId ? (collectionGet(["collection_id='{$collectionId}'"], ['name', 'json_file'])[$collectionId] ?? null) : null;
+
+            if ($row !== null && $row['json_file'] !== '') {
+                $data = JsonLock::default()->enforce('collection', $row, $data);
+            }
+        }
+
         if ($collectionId) {
             collectionUpdate($data, $collectionId);
         } else {

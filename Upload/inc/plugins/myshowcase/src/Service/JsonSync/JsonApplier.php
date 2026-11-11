@@ -128,6 +128,15 @@ final class JsonApplier
         if ($plan['type'] === 'collection') {
             $row = JsonState::collectionRow($plan['file']);
 
+            if ($row === null && !empty($this->context['options']['collection_id'])) {
+                $rows = \MyShowcase\Plugin\Functions\collectionGet(
+                    ["collection_id='" . (int)$this->context['options']['collection_id'] . "'"],
+                    JsonState::columnNames('myshowcase_collections')
+                );
+
+                $row = $rows ? reset($rows) : null;
+            }
+
             $this->context['collection_id'] = $row ? (int)$row['collection_id'] : null;
 
             $this->context['old_version'] = (string)($row['json_version'] ?? '');
@@ -215,14 +224,14 @@ final class JsonApplier
 
         $this->checked($this->collections->validate($name));
 
-        $this->context['collection_id'] = $this->collections->save(['name' => $name, 'json_file' => $this->context['file']]);
+        $this->context['collection_id'] = $this->collections->save(['name' => $name, 'json_file' => $this->context['file']], 0, true);
     }
 
     private function collectionUpdate(string $name): void
     {
         $this->checked($this->collections->validate($name, $this->collectionId()));
 
-        $this->collections->save(['name' => $name], $this->collectionId());
+        $this->collections->save(['name' => $name], $this->collectionId(), true);
     }
 
     private function fieldRow(string $fieldKey): ?array
@@ -247,7 +256,7 @@ final class JsonApplier
 
         $this->checked($this->fields->validate(['field_key' => $to], $this->collectionId(), (int)$row['field_id'], $from));
 
-        $this->fields->save(['field_key' => $to], $this->collectionId(), (int)$row['field_id']);
+        $this->fields->save(['field_key' => $to], $this->collectionId(), (int)$row['field_id'], [], true);
     }
 
     private function fieldSave(array $entry): void
@@ -267,14 +276,14 @@ final class JsonApplier
 
             $this->checked($this->fields->validate($columns, $this->collectionId()));
 
-            $this->fields->save($columns, $this->collectionId(), 0, $labels);
+            $this->fields->save($columns, $this->collectionId(), 0, $labels, true);
 
             return;
         }
 
         $this->checked($this->fields->validate($columns + ['field_key' => $key], $this->collectionId(), (int)$row['field_id'], $key));
 
-        $this->fields->save($columns, $this->collectionId(), (int)$row['field_id'], $labels);
+        $this->fields->save($columns, $this->collectionId(), (int)$row['field_id'], $labels, true);
     }
 
     private function fieldUnlink(string $fieldKey): void
@@ -285,7 +294,9 @@ final class JsonApplier
             $this->fields->save(
                 ['json_file' => '', 'json_version' => '', 'json_synced_at' => 0, 'json_hash' => ''],
                 $this->collectionId(),
-                (int)$row['field_id']
+                (int)$row['field_id'],
+                [],
+                true
             );
         }
     }
@@ -312,7 +323,8 @@ final class JsonApplier
 
             $this->fields->saveOption(
                 $data + ['collection_id' => $this->collectionId(), 'field_id' => $fieldId, 'field_key' => $fieldKey],
-                $existing ? (int)array_key_first($existing) : 0
+                $existing ? (int)array_key_first($existing) : 0,
+                true
             );
         }
 
@@ -360,7 +372,7 @@ final class JsonApplier
     {
         $fileColumns = ['json_version' => $version, 'json_synced_at' => time()];
 
-        $this->collections->save($fileColumns + ['json_hash' => $hash, 'json_file' => $this->context['file']], $this->collectionId());
+        $this->collections->save($fileColumns + ['json_hash' => $hash, 'json_file' => $this->context['file']], $this->collectionId(), true);
 
         foreach ($this->context['decoded']['fields'] as $entry) {
             $row = $this->fieldRow($entry['field_key']);
@@ -369,7 +381,9 @@ final class JsonApplier
                 $this->fields->save(
                     $fileColumns + ['json_hash' => JsonHash::hash($entry), 'json_file' => $this->context['file']],
                     $this->collectionId(),
-                    (int)$row['field_id']
+                    (int)$row['field_id'],
+                    [],
+                    true
                 );
             }
         }
@@ -384,7 +398,7 @@ final class JsonApplier
         $options = $this->context['options'];
 
         if ($this->context['showcase_id']) {
-            $this->showcases->save($columns, $this->context['showcase_id']);
+            $this->showcases->save($columns, $this->context['showcase_id'], true);
 
             return;
         }
@@ -401,14 +415,15 @@ final class JsonApplier
 
         $this->checked($this->showcases->validate($identity));
 
-        $this->context['showcase_id'] = $this->showcases->save($columns + $identity);
+        $this->context['showcase_id'] = $this->showcases->save($columns + $identity, 0, true);
     }
 
     private function writeShowcaseVersion(string $version, string $hash): void
     {
         $this->showcases->save(
             ['json_version' => $version, 'json_hash' => $hash, 'json_synced_at' => time(), 'json_file' => $this->context['file']],
-            (int)$this->context['showcase_id']
+            (int)$this->context['showcase_id'],
+            true
         );
     }
 }

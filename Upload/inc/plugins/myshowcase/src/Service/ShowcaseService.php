@@ -17,6 +17,9 @@ namespace MyShowcase\Service;
 use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Repository\ShowcasesRepository;
+use MyShowcase\Service\JsonSync\JsonLock;
+
+use function MyShowcase\Plugin\Functions\showcaseGet;
 
 /** Validates and writes showcases (myshowcase_config). */
 final class ShowcaseService
@@ -83,9 +86,19 @@ final class ShowcaseService
      *
      * @return int The id of the showcase.
      */
-    public function save(array $data, int $showcaseId = 0): int
+    public function save(array $data, int $showcaseId = 0, bool $fromSync = false): int
     {
         global $db;
+
+        if (!$fromSync) {
+            $data = JsonLock::stripJson($data);
+
+            $row = $showcaseId ? (showcaseGet(["showcase_id='{$showcaseId}'"], ['json_file', 'collection_id'], [], false)[$showcaseId] ?? null) : null;
+
+            if ($row !== null && $row['json_file'] !== '') {
+                $data = JsonLock::default()->enforce('showcase', $row, $data);
+            }
+        }
 
         if ($showcaseId) {
             $repository = new ShowcasesRepository($db, null, new ShowcaseEntity(showcase_id: $showcaseId));

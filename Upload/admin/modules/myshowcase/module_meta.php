@@ -75,6 +75,7 @@ function myshowcase_action_handler(string $action): string
         'summary' => ['active' => 'summary', 'file' => 'summary.php'],
         'new' => ['active' => 'new', 'file' => 'summary.php'],
         'fields' => ['active' => 'fields', 'file' => 'fields.php'],
+        'json_sync' => ['active' => 'json_sync', 'file' => 'json_sync.php'],
     ];
 
     $actions = hooksRun('admin_action_handler', $actions);
@@ -99,6 +100,7 @@ function myshowcase_admin_permissions(): array
         'new' => $lang->myshowcase_admin_perm_new,
         'edit' => $lang->myshowcase_admin_perm_edit,
         'fields' => $lang->myshowcase_admin_perm_fields,
+        'json_sync' => $lang->myshowcase_admin_perm_json_sync,
         'cache' => $lang->myshowcase_admin_perm_cache,
     ];
 
