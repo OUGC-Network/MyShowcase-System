@@ -169,7 +169,8 @@ class UsersManager
 
                                 break;
                             case PermissionEntity::BOOLEAN_TYPE_DISALLOW:
-                                $permissions_cache[$user->uid][$permission_name] = max(
+                                // Boolean flags stay integers: PermissionEntity types several of them as int.
+                                $permissions_cache[$user->uid][$permission_name] = (int)max(
                                     (float)$permissions_cache[$user->uid][$permission_name],
                                     PermissionEntity::BOOLEAN_TYPE_DISALLOW
                                 );
