@@ -196,7 +196,7 @@ readonly class CacheManager
             case CacheDataTypes::AttachmentTypes;
                 $query = $this->database->simple_select(
                     'attachtypes',
-                    'atid AS attachment_type_id, name AS type_name, mimetype AS mime_type, extension AS file_extension, maxsize AS maximum_size, icon AS type_icon, forcedownload AS force_download, groups AS allowed_groups, myshowcase_ids, myshowcase_image_minimum_dimensions, myshowcase_image_maximum_dimensions',
+                    'atid AS attachment_type_id, name AS type_name, mimetype AS mime_type, extension AS file_extension, maxsize AS maximum_size, icon AS type_icon, forcedownload AS force_download, ' . $this->database->table_prefix . 'attachtypes.groups AS allowed_groups, myshowcase_ids, myshowcase_image_minimum_dimensions, myshowcase_image_maximum_dimensions',
                     "myshowcase_ids!=''"
                 );
 
