@@ -90,6 +90,10 @@ class RenderManager
             }
         }
 
+        // The column header links also sort by the subject and by the number of comments.
+        $this->collection_display_fields['subject'] = '';
+        $this->collection_display_fields['comments'] = '';
+
         $this->url_params['order_dir'] = $this->context->mybb->get_input('order_dir');
 
         if (!in_array($this->url_params['order_dir'], [SortDirections::Ascending, SortDirections::Descending])) {

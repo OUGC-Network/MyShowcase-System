@@ -356,7 +356,7 @@ class EntriesController extends BaseController
 
             $templatesContext['pagination'] = multipage(
                 $templatesContext['total_entries'],
-                $this->context->showcase->main_per_page,
+                $this->mainPerPage(),
                 $this->context->mybb->input['page'],
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::Main,
@@ -1778,13 +1778,21 @@ class EntriesController extends BaseController
         }
     }
 
+    /**
+     * Entries per page of the main list: 0 (or less) falls back to 10.
+     */
+    private function mainPerPage(): int
+    {
+        return $this->context->showcase->main_per_page > 0 ? $this->context->showcase->main_per_page : 10;
+    }
+
     private function buildQueryLimit(
         array &$query_options,
         int $total_items,
         int $content_type = ContentTypes::Entry
     ): void {
         if ($content_type === ContentTypes::Entry) {
-            $query_options['limit'] = $this->context->showcase->main_per_page;
+            $query_options['limit'] = $this->mainPerPage();
         } else {
             $query_options['limit'] = $this->context->showcase->comments_per_page;
         }

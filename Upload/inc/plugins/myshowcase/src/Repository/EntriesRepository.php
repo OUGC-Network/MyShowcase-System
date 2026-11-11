@@ -295,7 +295,7 @@ class EntriesRepository
     ): array {
         [$query_fields, $query_tables] = $this->buildQueryFieldsAndTables($collection_fields);
 
-        $query_options = $this->normalizeSortOptions($query_options);
+        $query_options = $this->normalizeSortOptions($query_options, $collection_fields);
 
         hooksRun('entry_fetch_start', $this);
 
@@ -338,13 +338,42 @@ class EntriesRepository
         return [$query_fields, $query_tables];
     }
 
-    private function normalizeSortOptions(array $query_options): array
+    /**
+     * Columns an entry list may be sorted by: the fixed columns below (a few under the name the sort links use) and
+     * the keys of the collection's fields. Anything else sorts by the posting date.
+     */
+    private function sortColumn(?string $requested, Collection $collection_fields): string
+    {
+        $columns = [
+            'dateline' => 'dateline',
+            'username' => 'username',
+            'user_id' => 'user_id',
+            'views' => 'views',
+            'subject' => 'subject',
+            'comments' => 'comments_approved',
+            'comments_approved' => 'comments_approved',
+            // There is no last_comment column: the id of the last comment is the closest recency value.
+            'last_comment' => 'last_comment_id',
+        ];
+
+        /** @var CustomFieldEntity $field */
+        foreach ($collection_fields as $field) {
+            $columns[$field->field_key] ??= $field->field_key;
+        }
+
+        return $columns[(string)$requested] ?? 'dateline';
+    }
+
+    private function normalizeSortOptions(array $query_options, Collection $collection_fields): array
     {
         if (!in_array($query_options['order_dir'] ?? '', [SortDirections::Ascending, SortDirections::Descending])) {
             $query_options['order_dir'] = SortDirections::Ascending;
         }
 
-        $order_field = $query_options['order_by'] ?? $this->showcase->main_sort_default_field;
+        $order_field = $this->sortColumn(
+            $query_options['order_by'] ?? $this->showcase->main_sort_default_field,
+            $collection_fields
+        );
         $order_dir = $query_options['order_dir'];
 
         $query_options['order_by'] = "entry_data.{$order_field} {$order_dir}"
