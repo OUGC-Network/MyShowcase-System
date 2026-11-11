@@ -26,6 +26,7 @@ use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
+use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -338,9 +339,9 @@ trait FieldTrait
 
         if (!$this->attachments->contains($attachment_data)) {
             if (!empty($attachment_data['attachment_id'])) {
-                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...$attachment_data);
+                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...stringKeysOnly($attachment_data));
             } else {
-                $this->attachments[] = new AttachmentEntity(...$attachment_data);
+                $this->attachments[] = new AttachmentEntity(...stringKeysOnly($attachment_data));
             }
         }
     }

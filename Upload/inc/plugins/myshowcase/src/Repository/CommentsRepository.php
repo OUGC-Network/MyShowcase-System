@@ -15,6 +15,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
@@ -141,7 +142,7 @@ class CommentsRepository
 
             return $this->comment_id;
         } else {
-            $this->comment_id = (int)$this->database->insert_query('myshowcase_comments', $this->insert_data);
+            $this->comment_id = (int)$this->database->insert_query('myshowcase_comments', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_comments']));
         }
 
         return $this->comment_id;

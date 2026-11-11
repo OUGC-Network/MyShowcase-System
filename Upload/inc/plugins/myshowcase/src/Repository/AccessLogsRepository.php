@@ -16,6 +16,8 @@ use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
+
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class AccessLogsRepository
@@ -114,7 +116,7 @@ class AccessLogsRepository
                 "access_log_id='{$access_log_id}'"
             );
         } else {
-            $access_log_id = (int)$this->database->insert_query('myshowcase_access_logs', $insert_data);
+            $access_log_id = (int)$this->database->insert_query('myshowcase_access_logs', omitEmptyAutoIncrement($insert_data, TABLES_DATA['myshowcase_access_logs']));
         }
 
         $this->event_dispatcher->dispatch(

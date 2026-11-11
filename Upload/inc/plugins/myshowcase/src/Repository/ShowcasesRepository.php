@@ -13,6 +13,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -73,7 +74,7 @@ class ShowcasesRepository
 
             return $this->showcase->showcase_id;
         } else {
-            return (int)$this->database->insert_query('myshowcase_config', $this->insert_data);
+            return (int)$this->database->insert_query('myshowcase_config', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_config']));
         }
     }
 

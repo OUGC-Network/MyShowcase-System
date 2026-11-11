@@ -23,6 +23,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
 
+use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -107,7 +108,7 @@ class CommentsManager
             }
         }
 
-        return new CommentEntity(...$comment_data);
+        return new CommentEntity(...stringKeysOnly($comment_data));
     }
 
     /**

@@ -12,6 +12,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -131,10 +132,7 @@ class PermissionsRepository
 
             return $this->permission_id;
         } else {
-            $this->permission_id = (int)$this->database->insert_query(
-                'myshowcase_permissions',
-                $this->insert_data
-            );
+            $this->permission_id = (int)$this->database->insert_query('myshowcase_permissions', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_permissions']));
         }
 
         return $this->permission_id;

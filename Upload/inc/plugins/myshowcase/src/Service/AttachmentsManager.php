@@ -24,6 +24,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
 
+use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
@@ -88,7 +89,7 @@ class AttachmentsManager
             return;
         }
 
-        $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...$attachment_data);
+        $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...stringKeysOnly($attachment_data));
     }
 
     public function getTotalAttachments(): int

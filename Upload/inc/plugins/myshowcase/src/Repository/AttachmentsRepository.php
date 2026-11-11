@@ -12,6 +12,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -142,7 +143,7 @@ class AttachmentsRepository
 
             return $this->attachment_id;
         } else {
-            return (int)$this->database->insert_query('myshowcase_attachments', $this->insert_data);
+            return (int)$this->database->insert_query('myshowcase_attachments', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_attachments']));
         }
     }
 

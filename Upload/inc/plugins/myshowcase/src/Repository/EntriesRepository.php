@@ -29,6 +29,8 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
+
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesRepository
@@ -170,7 +172,7 @@ class EntriesRepository
         } else {
             $entry->entry_id = (int)$this->database->insert_query(
                 'myshowcase_data' . $this->showcase->showcase_id,
-                $this->insert_data
+                omitEmptyAutoIncrement($this->insert_data, DATA_TABLE_STRUCTURE['myshowcase_data'])
             );
         }
 

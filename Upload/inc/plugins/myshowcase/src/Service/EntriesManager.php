@@ -23,6 +23,7 @@ use MyShowcase\Util\ValidationHelpers;
 use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
 
+use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
@@ -124,7 +125,7 @@ class EntriesManager
 
         //$entry_data['extra_data'] = $extra_data;
 
-        $entry = new EntryEntity(...$entry_data);
+        $entry = new EntryEntity(...stringKeysOnly($entry_data));
 
         foreach ($fields_data as $field_key => $field_value) {
             $field_definition = array_filter(

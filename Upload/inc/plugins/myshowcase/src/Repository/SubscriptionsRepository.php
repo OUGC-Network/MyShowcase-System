@@ -16,6 +16,8 @@ use PostgresPdoDbDriver;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
+
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class SubscriptionsRepository
@@ -132,10 +134,7 @@ class SubscriptionsRepository
 
             return $this->subscription_id;
         } else {
-            $this->subscription_id = (int)$this->database->insert_query(
-                'myshowcase_subscriptions',
-                $this->insert_data
-            );
+            $this->subscription_id = (int)$this->database->insert_query('myshowcase_subscriptions', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_subscriptions']));
         }
 
         return $this->subscription_id;

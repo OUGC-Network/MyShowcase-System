@@ -7,6 +7,7 @@ namespace MyShowcase\Entity;
 use DateTime;
 use MyShowcase\Collection\Collection;
 
+use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class CommentEntity
@@ -85,9 +86,9 @@ class CommentEntity
 
         if (!$this->attachments->contains($attachment_data)) {
             if (!empty($attachment_data['attachment_id'])) {
-                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...$attachment_data);
+                $this->attachments[$attachment_data['attachment_id']] = new AttachmentEntity(...stringKeysOnly($attachment_data));
             } else {
-                $this->attachments[] = new AttachmentEntity(...$attachment_data);
+                $this->attachments[] = new AttachmentEntity(...stringKeysOnly($attachment_data));
             }
         }
     }

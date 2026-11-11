@@ -837,6 +837,34 @@ function castTableFieldValue(mixed $value, string $fieldType): mixed
     return $value;
 }
 
+/**
+ * Keeps only the string keys of a fetched row. The SQLite driver's fetch_array() also returns numeric keys, which
+ * cannot be spread into a constructor that takes named arguments.
+ */
+function stringKeysOnly(array $row): array
+{
+    return array_filter($row, 'is_string', ARRAY_FILTER_USE_KEY);
+}
+
+/**
+ * Removes auto-increment columns whose value is 0 or empty from the data of an INSERT, so every engine generates the
+ * id (SQLite and PostgreSQL would store a literal 0).
+ *
+ * @param array<string, mixed> $insertData
+ * @param array<string, mixed> $tableDefinition Column definitions (TABLES_DATA entry).
+ */
+function omitEmptyAutoIncrement(array $insertData, array $tableDefinition): array
+{
+    foreach ($tableDefinition as $columnName => $definition) {
+        if (is_array($definition) && !empty($definition['auto_increment']) && array_key_exists($columnName, $insertData) &&
+            empty($insertData[$columnName])) {
+            unset($insertData[$columnName]);
+        }
+    }
+
+    return $insertData;
+}
+
 function sanitizeTableFieldValue(mixed $value, string $fieldType)
 {
     global $db;
@@ -885,7 +913,7 @@ function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID 
     if ($isUpdate) {
         $db->update_query('myshowcase_attachments_download_logs', $insertData, "log_id='{$logID}'");
     } else {
-        $logID = (int)$db->insert_query('myshowcase_attachments_download_logs', $insertData);
+        $logID = (int)$db->insert_query('myshowcase_attachments_download_logs', omitEmptyAutoIncrement($insertData, $tablesData));
     }
 
     return $logID;

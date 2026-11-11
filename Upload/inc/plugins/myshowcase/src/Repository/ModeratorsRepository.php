@@ -13,6 +13,7 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -88,7 +89,7 @@ class ModeratorsRepository
                 "moderator_id='{$this->moderator_id}'"
             );
         } else {
-            $this->moderator_id = (int)$this->database->insert_query('myshowcase_moderators', $this->insert_data);
+            $this->moderator_id = (int)$this->database->insert_query('myshowcase_moderators', omitEmptyAutoIncrement($this->insert_data, TABLES_DATA['myshowcase_moderators']));
         }
 
         return $this->moderator_id;
