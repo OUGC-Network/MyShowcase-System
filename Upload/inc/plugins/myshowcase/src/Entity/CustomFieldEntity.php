@@ -59,6 +59,10 @@ final  class CustomFieldEntity
         public int $enable_description = 0,
         public int $enable_editor = 0,
         public int $read_only = 0,
+        public string $json_file = '',
+        public string $json_version = '',
+        public int $json_synced_at = 0,
+        public string $json_hash = '',
     ) {
         $this->selectable_values = new Collection();
     }

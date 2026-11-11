@@ -1092,6 +1092,27 @@ const TABLES_DATA = [
             'class' => 'field150',
             'max' => 255,
         ],
+        // Written only by the JSON sync engine, never by an ACP form (no category or input_type on purpose).
+        'json_file' => [
+            'type' => 'VARCHAR',
+            'size' => 255,
+            'default' => '',
+        ],
+        'json_version' => [
+            'type' => 'VARCHAR',
+            'size' => 20,
+            'default' => '',
+        ],
+        'json_synced_at' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'json_hash' => [
+            'type' => 'CHAR',
+            'size' => 64,
+            'default' => '',
+        ],
     ],
     'myshowcase_access_logs' => [
         'access_log_id' => [
@@ -1135,6 +1156,27 @@ const TABLES_DATA = [
             'type' => 'VARCHAR',
             'size' => 50,
             'default' => ''
+        ],
+        // Written only by the JSON sync engine, never by an ACP form (no category or input_type on purpose).
+        'json_file' => [
+            'type' => 'VARCHAR',
+            'size' => 255,
+            'default' => '',
+        ],
+        'json_version' => [
+            'type' => 'VARCHAR',
+            'size' => 20,
+            'default' => '',
+        ],
+        'json_synced_at' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'json_hash' => [
+            'type' => 'CHAR',
+            'size' => 64,
+            'default' => '',
         ],
     ],
     'myshowcase_permissions' => [
@@ -1986,6 +2028,27 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
             'input_type' => FormTypes::YesNo,
+        ],
+        // Written only by the JSON sync engine, never by an ACP form (no category or input_type on purpose).
+        'json_file' => [
+            'type' => 'VARCHAR',
+            'size' => 255,
+            'default' => '',
+        ],
+        'json_version' => [
+            'type' => 'VARCHAR',
+            'size' => 20,
+            'default' => '',
+        ],
+        'json_synced_at' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'json_hash' => [
+            'type' => 'CHAR',
+            'size' => 64,
+            'default' => '',
         ],
         'unique_keys' => ['set_field_name' => ['collection_id', 'field_key']]
         //'unique_keys' => ['setid_fid' => ['collection_id', 'field_id']]
