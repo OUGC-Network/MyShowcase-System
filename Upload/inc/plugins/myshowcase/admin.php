@@ -287,6 +287,9 @@ function pluginActivation(): bool
 
     dbVerifyColumns();
 
+    // The slug updates below read the showcase configuration from the cache.
+    cachesRebuild();
+
     /*~*~* RUN UPDATES START *~*~*/
 
     $db->update_query(
@@ -372,11 +375,34 @@ function pluginActivation(): bool
 
     $mybb->cache->update('ougc_plugins', $plugins);
 
+    cachesRebuild();
+
+    return true;
+}
+
+/**
+ * Rebuilds the plugin caches.
+ */
+function cachesRebuild(): void
+{
     global $db, $cache;
 
     $cache_manager = new CacheManager($db, $cache);
 
-    return true;
+    // CacheDataTypes::Moderators is not rebuilt: CacheManager selects permission columns that
+    // myshowcase_moderators does not define.
+    foreach (
+        [
+            CacheDataTypes::Config,
+            CacheDataTypes::Permissions,
+            CacheDataTypes::Collections,
+            CacheDataTypes::Fields,
+            CacheDataTypes::FieldData,
+            CacheDataTypes::AttachmentTypes,
+        ] as $cacheType
+    ) {
+        $cache_manager->update($cacheType);
+    }
 }
 
 function pluginDeactivation(): bool
@@ -523,10 +549,10 @@ function taskInstallation(int $action = 1): bool
 
         $new_task['nextrun'] = fetch_next_run($new_task);
 
-        $cache->update_tasks();
-
         $db->insert_query('tasks', $new_task);
     }
+
+    $cache->update_tasks();
 
     return true;
 }
