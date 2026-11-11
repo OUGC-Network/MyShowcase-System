@@ -112,6 +112,13 @@ class CommentsController extends BaseController
             $this->errorNoPermission();
         }
 
+        // Only the author, or a moderator, may edit a comment.
+        if ($is_update && ($edited_comment = $this->context->comments_manager->getComments()->offsetGet($this->comment_id)) &&
+            $edited_comment->user_id !== $this->context->current_user->uid &&
+            !$this->context->current_user->hasPermission(UserPermissions::CommentsCanApprove)) {
+            $this->errorNoPermission();
+        }
+
         if (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanPost)) {
             $this->errorNoPermission();
         }

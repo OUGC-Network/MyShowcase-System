@@ -655,6 +655,12 @@ class EntriesController extends BaseController
             $this->context->entries_manager->addEntry($entry);
 
             $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
+
+            // Only the author, or a moderator, may edit an entry.
+            if ($entry->user_id !== $this->context->current_user->uid &&
+                !$this->context->current_user->hasPermission(UserPermissions::EntriesCanApprove)) {
+                $this->errorNoPermission();
+            }
         } else {
             $entry = new EntryEntity();
         }

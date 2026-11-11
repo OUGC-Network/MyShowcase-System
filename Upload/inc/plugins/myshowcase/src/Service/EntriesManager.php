@@ -244,10 +244,13 @@ class EntriesManager
         if (isset($this->validation_entry->subject)) {
             $subject_length = my_strlen($this->validation_entry->subject);
 
-            $max_subject_length = min(
-                DATA_TABLE_STRUCTURE['myshowcase_data']['subject']['size'],
-                $this->context->showcase->entries_subject_maximum_length
-            );
+            // A maximum of 0 means no limit other than the size of the column.
+            $max_subject_length = $this->context->showcase->entries_subject_maximum_length > 0
+                ? min(
+                    DATA_TABLE_STRUCTURE['myshowcase_data']['subject']['size'],
+                    $this->context->showcase->entries_subject_maximum_length
+                )
+                : DATA_TABLE_STRUCTURE['myshowcase_data']['subject']['size'];
 
             if ($subject_length < $this->context->showcase->entries_subject_minimum_length ||
                 $subject_length > $max_subject_length) {
@@ -273,8 +276,10 @@ class EntriesManager
                 $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_entry->message));
             }
 
+            // A maximum of 0 means no limit.
             if ($message_length < $this->context->showcase->entries_message_minimum_length ||
-                $message_length > $this->context->showcase->entries_message_maximum_length) {
+                ($this->context->showcase->entries_message_maximum_length > 0 &&
+                    $message_length > $this->context->showcase->entries_message_maximum_length)) {
                 $this->validateSetError(
                     $this->context->language->myshowcase_validation_errors_entry_invalid_message_length,
                     [
@@ -300,7 +305,7 @@ class EntriesManager
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->dateline)) {
             $this->validation_entry->dateline = $current_date_time;
         } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE && isset($this->validation_entry->dateline) &&
-            $this->validation_entry->dateline > $current_date_time) {
+            $this->changedOnUpdate('dateline') && $this->validation_entry->dateline > $current_date_time) {
             $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_dateline);
         }
 
@@ -348,20 +353,21 @@ class EntriesManager
             );
         }
 
-        if (isset($this->validation_entry->update_dateline) && $this->validation_entry->update_dateline > $current_date_time) {
+        // On an update the time is stamped below, whatever the form sent.
+        if (isset($this->validation_entry->update_dateline) && $this->validation_method !== self::VALIDATION_METHOD_UPDATE &&
+            $this->validation_entry->update_dateline > $current_date_time) {
             $this->validateSetError(
                 $this->context->language->myshowcase_validation_errors_entry_invalid_update_dateline
             );
-        } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE && !isset($this->validation_entry->update_dateline)) {
+        } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE) {
+            // An update always stamps the time it happens.
             $this->validation_entry->update_dateline = $current_date_time;
         }
 
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT) {
             unset($this->validation_entry->edit_user_id);
-        } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE && isset($this->validation_entry->edit_user_id) &&
-            !get_user($this->validation_entry->edit_user_id)) {
-            $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_update_user);
-        } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE && !isset($this->validation_entry->edit_user_id)) {
+        } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE) {
+            // The user who edits is the one who is recorded; the stored value (0 on a never-edited entry) is not checked.
             $this->validation_entry->edit_user_id = $this->context->current_user->uid;
         }
 
@@ -383,6 +389,7 @@ class EntriesManager
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT) {
             unset($this->validation_entry->last_comment_id);
         } elseif ($this->validation_method === self::VALIDATION_METHOD_UPDATE && isset($this->validation_entry->last_comment_user_id) &&
+            $this->changedOnUpdate('last_comment_user_id') &&
             !($last_comment_user = get_user($this->validation_entry->last_comment_user_id))) {
             $this->validateSetError(
                 $this->context->language->myshowcase_validation_errors_entry_invalid_last_comment_user
@@ -414,8 +421,8 @@ class EntriesManager
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->ipaddress)) {
             $this->validation_entry->ipaddress = $this->context->mybb->session->ipaddress;
             unset($this->validation_entry->last_comment_id);
-        } elseif (isset($this->validation_entry->ipaddress) &&
-            !((new ValidationHelpers())->validateIpAddress($this->validation_entry->ipaddress, true))) {
+        } elseif (isset($this->validation_entry->ipaddress) && $this->changedOnUpdate('ipaddress') &&
+            !((new ValidationHelpers())->validateIpAddress($this->validation_entry->ipaddress, false))) {
             $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_ipaddress);
         }
 
@@ -680,5 +687,31 @@ class EntriesManager
     public function validationEntryUpdate(): EntryEntity
     {
         return $this->validationEntryInsert();
+    }
+
+    private ?array $stored_entry_row = null;
+
+    /**
+     * On an update only the values that differ from the stored ones are validated. Everything else was accepted when
+     * it was stored (for example the 0 of an entry that was never edited).
+     */
+    private function changedOnUpdate(string $column): bool
+    {
+        if ($this->validation_method !== self::VALIDATION_METHOD_UPDATE || empty($this->validation_entry->entry_id)) {
+            return true;
+        }
+
+        $this->stored_entry_row ??= $this->context->entries_repository->queryEntry(
+            ["entry_data.entry_id='" . (int)$this->validation_entry->entry_id . "'"],
+            ['entry_data.dateline', 'entry_data.update_dateline', 'entry_data.edit_user_id', 'entry_data.last_comment_user_id', 'entry_data.ipaddress'],
+        );
+
+        $value = $this->validation_entry->$column ?? null;
+
+        if ($value instanceof DateTime) {
+            $value = $value->format('Y-m-d H:i:s');
+        }
+
+        return (string)$value !== (string)($this->stored_entry_row[$column] ?? '');
     }
 }
