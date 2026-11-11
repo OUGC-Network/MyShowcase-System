@@ -934,7 +934,8 @@ class RenderManager
 
         if ($this->context->showcase->entries_enable_message && $post_type === ContentTypes::Entry) {
             $parser_options = [
-                'allow_html' => !empty($this->context->showcase->parser_allow_html_in_entries) ||
+                // Raw HTML needs both the showcase option and this author's permission.
+                'allow_html' => !empty($this->context->showcase->parser_allow_html_in_entries) &&
                     $this->user_data->hasPermission(UserPermissions::ParserAllowHtmlInEntries),
                 'allow_mycode' => !empty($this->context->showcase->parser_allow_mycode_in_entries),
                 'allow_smilies' => !empty($this->context->showcase->parser_allow_smiles_in_entries),
@@ -954,24 +955,21 @@ class RenderManager
                 ['me_username' => $this->user_data->username ?? $entry->username] + $parser_options
             );
         } elseif ($post_type === ContentTypes::Comment) {
-            static $parser_options = null;
+            // Built for every comment: the HTML permission belongs to the comment's own author.
+            $parser_options = [
+                'allow_html' => !empty($this->context->showcase->parser_allow_html_in_comments) &&
+                    $this->user_data->hasPermission(UserPermissions::ParserAllowHtmlInComments),
+                'allow_mycode' => !empty($this->context->showcase->parser_allow_mycode_in_comments),
+                'allow_smilies' => !empty($this->context->showcase->parser_allow_smiles_in_comments),
+                'allow_imgcode' => !empty($this->context->showcase->parser_allow_image_code_in_comments),
+                'allow_videocode' => !empty($this->context->showcase->parser_allow_video_code_in_comments),
+                'filter_badwords' => true,
+                'shorten_urls' => false,
+                'highlight' => false,
+            ];
 
-            if ($parser_options === null) {
-                $parser_options = [
-                    'allow_html' => !empty($this->context->showcase->parser_allow_html_in_comments) ||
-                        $this->user_data->hasPermission(UserPermissions::ParserAllowHtmlInComments),
-                    'allow_mycode' => !empty($this->context->showcase->parser_allow_mycode_in_comments),
-                    'allow_smilies' => !empty($this->context->showcase->parser_allow_smiles_in_comments),
-                    'allow_imgcode' => !empty($this->context->showcase->parser_allow_image_code_in_comments),
-                    'allow_videocode' => !empty($this->context->showcase->parser_affects_message_length_in_comments),
-                    'filter_badwords' => true,
-                    'shorten_urls' => false,
-                    'highlight' => false,
-                ];
-
-                if (isset($this->url_params['highlight'])) {
-                    $parser_options['highlight'] = $this->url_params['highlight'];
-                }
+            if (isset($this->url_params['highlight'])) {
+                $parser_options['highlight'] = $this->url_params['highlight'];
             }
 
             $comment->message = postParser()->parse_message(
@@ -1320,14 +1318,23 @@ class RenderManager
 
     public function editorBuild(string &$code_buttons, string &$smiles_inserter, string $identifier = 'comment'): void
     {
-        if ($this->context->showcase->parser_allow_mycode_in_entries &&
+        // The default identifier belongs to the comment form; every other one belongs to an entry or a field.
+        $allow_mycode = $identifier === 'comment'
+            ? $this->context->showcase->parser_allow_mycode_in_comments
+            : $this->context->showcase->parser_allow_mycode_in_entries;
+
+        $allow_smiles = $identifier === 'comment'
+            ? $this->context->showcase->parser_allow_smiles_in_comments
+            : $this->context->showcase->parser_allow_smiles_in_entries;
+
+        if ($allow_mycode &&
             (!$this->context->current_user->uid || !empty($this->context->mybb->user['showcodebuttons']))) {
             $code_buttons = build_mycode_inserter(
                 $identifier,
-                $this->context->showcase->parser_allow_smiles_in_entries
+                $allow_smiles
             );
 
-            if ($this->context->showcase->parser_allow_smiles_in_entries) {
+            if ($allow_smiles) {
                 $smiles_inserter = build_clickable_smilies();
             }
         }

@@ -931,7 +931,9 @@ class EntriesController extends BaseController
                     }
 
                     $parser_options = [
-                        'allow_html' => !empty($this->context->mybb->settings['sightml']),
+                        'allow_html' => !empty($this->context->showcase->parser_allow_html_in_entries) &&
+                            ($entry_author = $this->context->users_manager->getUserByID((int)$entry->user_id)) &&
+                            $entry_author->hasPermission(UserPermissions::ParserAllowHtmlInEntries),
                         'allow_mycode' => !empty($this->context->mybb->settings['sigmycode']),
                         'allow_smilies' => !empty($this->context->mybb->settings['sigsmilies']),
                         'allow_imgcode' => !empty($this->context->mybb->settings['sigimgcode']),

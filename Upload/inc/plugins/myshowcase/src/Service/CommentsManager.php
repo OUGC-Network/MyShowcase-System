@@ -179,7 +179,7 @@ class CommentsManager
         }
 
         if (isset($this->validation_data->message)) {
-            if ($this->context->showcase->parser_affects_message_length_in_entries) {
+            if ($this->context->showcase->parser_affects_message_length_in_comments) {
                 $message_length = my_strlen($this->validation_data->message);
             } else {
                 $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_data->message));
