@@ -857,7 +857,7 @@ function buildPermissionsRow(
 
                 if (isset($showcase_config['showcase_id']) &&
                     showcaseDataTableExists($showcase_config['showcase_id']) &&
-                    (!isset($showcase_config['collection_id'])) || !empty($showcase_config['collection_id'])) {
+                    (!isset($showcase_config['collection_id']) || !empty($showcase_config['collection_id']))) {
                     $options['class'] .= '" disabled="disabled';
                 }
             } elseif ($definition['input_type'] === FormTypes::SelectTheme) {
@@ -1025,7 +1025,7 @@ function buildPermissionsRow(
 
             break;
         default:
-            _dump(12345, $definition);
+            break;
     }
 
     return $input_code;
