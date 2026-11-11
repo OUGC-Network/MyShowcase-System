@@ -137,8 +137,6 @@ final class SchemaManager
     ): string {
         $type = strtolower((string)$definition['type']);
 
-        $size = $definition['size'] ?? null;
-
         $isAutoIncrement = !empty($definition['auto_increment']);
 
         if ($isAutoIncrement && $engine === self::ENGINE_SQLITE) {
@@ -146,12 +144,7 @@ final class SchemaManager
             return 'INTEGER PRIMARY KEY';
         }
 
-        $sql = self::typeSql($type, $size, $engine, $isAutoIncrement, !empty($definition['unsigned']));
-
-        if (!empty($definition['unsigned']) && $engine === self::ENGINE_MYSQL &&
-            (in_array($type, self::INT_TYPES, true) || in_array($type, self::FLOAT_TYPES, true))) {
-            $sql .= ' UNSIGNED';
-        }
+        $sql = self::typeSqlFor($definition, $engine);
 
         $isNullable = isset($definition['null']);
 
@@ -613,14 +606,12 @@ final class SchemaManager
         }
 
         foreach ($schema['columns'] as $column => $definition) {
-            if ($db->field_exists($column, $table)) {
-                if ($engine === self::ENGINE_MYSQL) {
-                    self::run(self::modifyColumnSql($table, $column, $definition, $prefix, $escape));
-                }
-            } else {
+            if (!$db->field_exists($column, $table)) {
                 self::run(self::addColumnSql($table, $column, $definition, $engine, $prefix, $escape));
             }
         }
+
+        self::alterChangedColumns($table, $schema['columns']);
     }
 
     /**
@@ -750,6 +741,9 @@ final class SchemaManager
         'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The'
             . ' field sets were not migrated to collections; merge the two tables manually and activate the plugin'
             . ' again.',
+        'myshowcase_admin_warning_column_conversion_failed' => 'MyShowcase: the column {2} of table {1} could not be'
+            . ' changed from {3} to {4} and was left as it is ({5}). No data was changed. Fix the data and rebuild the'
+            . ' table or activate the plugin again to retry.',
         'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be'
             . ' dropped ({3}). Its values were copied to {4}.',
     ];
@@ -818,21 +812,804 @@ final class SchemaManager
 
         $escape = self::escaper();
 
-        foreach (self::schemaOf($tableObject)['columns'] as $column => $definition) {
-            if ($db->field_exists($column, $table)) {
-                if ($engine === self::ENGINE_MYSQL) {
-                    self::run(self::modifyColumnSql($table, $column, $definition, $prefix, $escape));
-                }
-            } else {
+        $columns = self::schemaOf($tableObject)['columns'];
+
+        foreach ($columns as $column => $definition) {
+            if (!$db->field_exists($column, $table)) {
                 self::run(self::addColumnSql($table, $column, $definition, $engine, $prefix, $escape));
             }
         }
+
+        self::alterChangedColumns($table, $columns);
     }
 
     /** Column definition for the current engine, for callers that add, change or rename a single column. */
     public static function currentColumnDefinition(array $definition, bool $addingColumn = false): string
     {
         return self::columnDefinition($definition, self::engine(), self::escaper(), $addingColumn);
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Detecting and changing the type of existing columns
+    // ------------------------------------------------------------------------------------------------------------
+
+    private const FAMILY_INT = ['tinyint', 'smallint', 'mediumint', 'int', 'bigint'];
+
+    private const FAMILY_FRACTION = ['decimal', 'float', 'double'];
+
+    /** One line per column change that failed: table, column, old type, new type and the database message. */
+    private static array $columnErrors = [];
+
+    /** One line per column change that was applied. */
+    private static array $columnChanges = [];
+
+    /** @return string[] */
+    public static function columnErrors(): array
+    {
+        return self::$columnErrors;
+    }
+
+    /** @return string[] */
+    public static function columnChanges(): array
+    {
+        return self::$columnChanges;
+    }
+
+    /** Type of a column as it is written in a column definition, for the given engine (no NULL or DEFAULT). */
+    public static function typeSqlFor(array $definition, string $engine): string
+    {
+        $type = strtolower((string)$definition['type']);
+
+        $sql = self::typeSql(
+            $type,
+            $definition['size'] ?? null,
+            $engine,
+            !empty($definition['auto_increment']),
+            !empty($definition['unsigned'])
+        );
+
+        if (!empty($definition['unsigned']) && $engine === self::ENGINE_MYSQL &&
+            (in_array($type, self::INT_TYPES, true) || in_array($type, self::FLOAT_TYPES, true))) {
+            $sql .= ' UNSIGNED';
+        }
+
+        return $sql;
+    }
+
+    /**
+     * Pure: one spelling for a column type, so that what the database reports (int(10) unsigned, integer,
+     * character varying(255), timestamp without time zone, ...) can be compared with what the definition asks for.
+     *
+     * Integer display widths are dropped, as are the digits of date and time types. SQLite stores any integer type
+     * as INTEGER, so all of them are the same there; unsigned only exists on MySQL.
+     */
+    public static function normalizeType(string $type, string $engine): string
+    {
+        $type = strtolower(trim((string)preg_replace('/\s+/', ' ', $type)));
+
+        $unsigned = str_contains($type, ' unsigned') || str_starts_with($type, 'unsigned ');
+
+        $type = trim(str_replace(['unsigned', 'zerofill'], '', $type));
+
+        if (!preg_match('/^([a-z][a-z0-9 ]*)(?:\(\s*([^)]*?)\s*\))?\s*([a-z ]*)$/', $type, $matches)) {
+            return $type;
+        }
+
+        $base = trim($matches[1] . ' ' . $matches[3]);
+
+        $arguments = str_replace(' ', '', $matches[2] ?? '');
+
+        $base = match ($base) {
+            'integer', 'int4', 'serial' => 'int',
+            'int2', 'smallserial' => 'smallint',
+            'int8', 'bigserial' => 'bigint',
+            'numeric' => 'decimal',
+            'character varying', 'varchar2' => 'varchar',
+            'character' => 'char',
+            'double precision', 'float8' => 'double',
+            'float4', 'real' => 'float',
+            'timestamp without time zone', 'timestamp with time zone' => 'timestamp',
+            'time without time zone' => 'time',
+            default => $base,
+        };
+
+        if (in_array($base, self::FAMILY_INT, true)) {
+            if ($engine === self::ENGINE_SQLITE) {
+                return 'integer';
+            }
+
+            return $base . ($unsigned && $engine === self::ENGINE_MYSQL ? ' unsigned' : '');
+        }
+
+        if (in_array($base, ['varchar', 'char', 'varbinary', 'binary', 'decimal', 'float', 'double'], true) &&
+            $arguments !== '') {
+            return $base . '(' . $arguments . ')' . ($unsigned && $engine === self::ENGINE_MYSQL ? ' unsigned' : '');
+        }
+
+        return $base . ($unsigned && $engine === self::ENGINE_MYSQL ? ' unsigned' : '');
+    }
+
+    /**
+     * Pure: the value of a DEFAULT clause as the database reports it (PostgreSQL: 'x'::character varying, 0,
+     * nextval(...); SQLite: 'x' or 0) reduced to the plain value, or null when there is no usable default.
+     */
+    public static function defaultFromSql(?string $sqlDefault): ?string
+    {
+        if ($sqlDefault === null) {
+            return null;
+        }
+
+        $value = trim($sqlDefault);
+
+        while (preg_match('/^(.*)::[a-z][a-z0-9 ]*(?:\(\d+(?:,\s*\d+)?\))?(?:\[\])?$/is', $value, $matches)) {
+            $value = trim($matches[1]);
+        }
+
+        while (preg_match('/^\((.*)\)$/s', $value, $matches)) {
+            $value = trim($matches[1]);
+        }
+
+        if (strcasecmp($value, 'null') === 0 || str_starts_with(strtolower($value), 'nextval(')) {
+            return null;
+        }
+
+        if (strlen($value) >= 2 && $value[0] === "'" && str_ends_with($value, "'")) {
+            return str_replace("''", "'", substr($value, 1, -1));
+        }
+
+        return $value;
+    }
+
+    /** Pure: a plain default value in one form per column type (0.00 and 0 are the same number). */
+    private static function canonicalDefault(?string $value, string $normalizedType): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $base = preg_replace('/\(.*$/', '', $normalizedType);
+
+        $base = trim(str_replace(' unsigned', '', (string)$base));
+
+        if ((in_array($base, self::FAMILY_INT, true) || in_array($base, self::FAMILY_FRACTION, true)) &&
+            is_numeric($value)) {
+            return (string)(0 + $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Pure: the columns whose type, nullability or default differ from the definition.
+     *
+     * @param array<string, array{type: string, null: bool, default: ?string, auto: bool}> $actual As reported by
+     *        actualColumns(), with defaults already reduced to plain values.
+     * @param array<string, array> $columns The wanted columns (SchemaManager::schemaOf()['columns']).
+     * @return array<string, array{old: string, new: string, type: bool, null: bool, default: bool}>
+     */
+    public static function planColumnChanges(array $actual, array $columns, string $engine): array
+    {
+        $plan = [];
+
+        foreach ($columns as $name => $definition) {
+            if (!isset($actual[$name]) || !empty($definition['auto_increment']) || !empty($actual[$name]['auto'])) {
+                continue;
+            }
+
+            $current = $actual[$name];
+
+            $newType = self::typeSqlFor($definition, $engine);
+
+            $normalizedNew = self::normalizeType($newType, $engine);
+
+            $typeChanged = self::normalizeType($current['type'], $engine) !== $normalizedNew;
+
+            $isNullable = isset($definition['null']);
+
+            $nullChanged = $current['null'] !== $isNullable;
+
+            $defaultChanged = false;
+
+            $wantedDefault = $definition['default'] ?? null;
+
+            // TIMESTAMP and UUID are generated by the plugin, no DEFAULT clause is written for them.
+            if (!in_array($wantedDefault, ['TIMESTAMP', 'UUID'], true)) {
+                $type = strtolower((string)$definition['type']);
+
+                if ($wantedDefault !== null && !(in_array($type, self::TEXT_TYPES, true) &&
+                        $engine === self::ENGINE_MYSQL)) {
+                    $wanted = self::canonicalDefault((string)$wantedDefault, $normalizedNew);
+                } else {
+                    $wanted = null;
+                }
+
+                $found = self::canonicalDefault($current['default'], $normalizedNew);
+
+                if ($wanted !== $found) {
+                    // Adding a NOT NULL column without default to PostgreSQL or SQLite gives it an empty default
+                    // (addColumnSql), which is not a difference.
+                    $isEmptyDefault = $wanted === null && !$isNullable && $engine !== self::ENGINE_MYSQL &&
+                        $found === self::canonicalDefault(
+                            self::defaultFromSql(self::emptyDefaultSql($type)),
+                            $normalizedNew
+                        );
+
+                    $defaultChanged = !$isEmptyDefault;
+                }
+            }
+
+            if ($typeChanged || $nullChanged || $defaultChanged) {
+                $plan[$name] = [
+                    'old' => $current['type'],
+                    'new' => $newType,
+                    'type' => $typeChanged,
+                    'null' => $nullChanged,
+                    'default' => $defaultChanged,
+                ];
+            }
+        }
+
+        return $plan;
+    }
+
+    /**
+     * What the database says about the columns of a table, in table order.
+     *
+     * @return array<string, array{type: string, null: bool, default: ?string, auto: bool, pk: int, raw_default: ?string}>
+     */
+    public static function actualColumns(string $table): array
+    {
+        global $db;
+
+        $engine = self::engine();
+
+        $fullName = $db->table_prefix . $table;
+
+        $columns = [];
+
+        if ($engine === self::ENGINE_MYSQL) {
+            $query = $db->write_query("SHOW COLUMNS FROM `{$fullName}`");
+
+            while ($row = $db->fetch_array($query)) {
+                $columns[(string)$row['Field']] = [
+                    'type' => (string)$row['Type'],
+                    'null' => strtoupper((string)$row['Null']) === 'YES',
+                    'default' => $row['Default'] === null ? null : (string)$row['Default'],
+                    'raw_default' => $row['Default'] === null ? null : (string)$row['Default'],
+                    'auto' => str_contains(strtolower((string)$row['Extra']), 'auto_increment'),
+                    'pk' => strtoupper((string)$row['Key']) === 'PRI' ? 1 : 0,
+                ];
+            }
+
+            self::free($query);
+
+            return $columns;
+        }
+
+        $escapedName = $db->escape_string($fullName);
+
+        if ($engine === self::ENGINE_PGSQL) {
+            $query = $db->write_query(
+                'SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale,'
+                . ' is_nullable, column_default, is_identity FROM information_schema.columns'
+                . " WHERE table_name='{$escapedName}' AND table_schema = ANY (current_schemas(false))"
+                . ' ORDER BY ordinal_position'
+            );
+
+            while ($row = $db->fetch_array($query)) {
+                $type = strtolower((string)$row['data_type']);
+
+                if ($type === 'character varying' || $type === 'character') {
+                    $type = ($type === 'character' ? 'char' : 'varchar') .
+                        ($row['character_maximum_length'] ? '(' . (int)$row['character_maximum_length'] . ')' : '');
+                } elseif ($type === 'numeric' && $row['numeric_precision'] !== null) {
+                    $type = 'numeric(' . (int)$row['numeric_precision'] . ',' . (int)$row['numeric_scale'] . ')';
+                }
+
+                $rawDefault = $row['column_default'] === null ? null : (string)$row['column_default'];
+
+                $columns[(string)$row['column_name']] = [
+                    'type' => $type,
+                    'null' => strtoupper((string)$row['is_nullable']) === 'YES',
+                    'default' => self::defaultFromSql($rawDefault),
+                    'raw_default' => $rawDefault,
+                    'auto' => ($rawDefault !== null && str_starts_with(strtolower($rawDefault), 'nextval(')) ||
+                        strtoupper((string)$row['is_identity']) === 'YES',
+                    'pk' => 0,
+                ];
+            }
+
+            self::free($query);
+
+            return $columns;
+        }
+
+        $query = $db->write_query("PRAGMA table_info('{$escapedName}')");
+
+        while ($row = $db->fetch_array($query)) {
+            $rawDefault = $row['dflt_value'] === null ? null : (string)$row['dflt_value'];
+
+            $columns[(string)$row['name']] = [
+                'type' => (string)$row['type'],
+                'null' => (int)$row['notnull'] === 0,
+                'default' => self::defaultFromSql($rawDefault),
+                'raw_default' => $rawDefault,
+                'auto' => false,
+                'pk' => (int)$row['pk'],
+            ];
+        }
+
+        self::free($query);
+
+        // A single INTEGER PRIMARY KEY is the rowid and counts as auto-increment (columnDefinition() writes it so).
+        $primary = array_keys(array_filter($columns, static fn(array $column) => $column['pk'] > 0));
+
+        if (count($primary) === 1 && strtolower($columns[$primary[0]]['type']) === 'integer') {
+            $columns[$primary[0]]['auto'] = true;
+        }
+
+        return $columns;
+    }
+
+    /**
+     * Pure: the PostgreSQL statements that bring one column to its definition. Run them in a transaction.
+     *
+     * A default has to be dropped before the type changes (it may not convert), and is set again afterwards.
+     *
+     * @return string[]
+     */
+    public static function pgsqlAlterColumnStatements(
+        string $table,
+        string $column,
+        array $definition,
+        array $change,
+        string $prefix,
+        callable $escape
+    ): array {
+        $target = "{$prefix}{$table}";
+
+        $alter = "ALTER TABLE {$target} ALTER COLUMN {$column}";
+
+        $statements = [];
+
+        $newType = self::typeSqlFor($definition, self::ENGINE_PGSQL);
+
+        $default = self::defaultSql(
+            $definition,
+            strtolower((string)$definition['type']),
+            self::ENGINE_PGSQL,
+            $escape
+        );
+
+        if ($change['type']) {
+            $statements[] = "{$alter} DROP DEFAULT";
+
+            $statements[] = "{$alter} TYPE {$newType} USING {$column}::{$newType}";
+
+            if ($default !== null) {
+                $statements[] = "{$alter} SET DEFAULT {$default}";
+            }
+        } elseif ($change['default']) {
+            $statements[] = $default !== null ? "{$alter} SET DEFAULT {$default}" : "{$alter} DROP DEFAULT";
+        }
+
+        if ($change['null']) {
+            $statements[] = isset($definition['null']) ? "{$alter} DROP NOT NULL" : "{$alter} SET NOT NULL";
+        }
+
+        return $statements;
+    }
+
+    /**
+     * Pure: the statements of the SQLite table rebuild (https://www.sqlite.org/lang_altertable.html, "Making Other
+     * Kinds Of Table Schema Changes"): create the new table, copy every row, drop the old table, rename the new
+     * one. Columns the definition does not know keep their current definition, so no data is lost.
+     *
+     * @return array{create: string, copy: string, columns: string[], temporary: string}
+     */
+    public static function sqliteRebuildStatements(
+        string $table,
+        array $actual,
+        array $columns,
+        array $plan,
+        string $prefix,
+        callable $escape
+    ): array {
+        $lines = [];
+
+        $primary = [];
+
+        foreach ($actual as $name => $column) {
+            if ($column['pk'] > 0) {
+                $primary[$column['pk']] = $name;
+            }
+        }
+
+        ksort($primary);
+
+        $inlinePrimary = count($primary) === 1 && strtolower($actual[reset($primary)]['type']) === 'integer';
+
+        foreach ($actual as $name => $column) {
+            if (isset($plan[$name]) && isset($columns[$name])) {
+                $lines[] = "\"{$name}\" " . self::columnDefinition($columns[$name], self::ENGINE_SQLITE, $escape);
+
+                continue;
+            }
+
+            $line = "\"{$name}\"" . ($column['type'] !== '' ? ' ' . $column['type'] : '');
+
+            if ($inlinePrimary && $column['pk'] > 0) {
+                $line .= ' PRIMARY KEY';
+            } else {
+                if (!$column['null']) {
+                    $line .= ' NOT NULL';
+                }
+
+                if ($column['raw_default'] !== null) {
+                    $line .= ' DEFAULT ' . $column['raw_default'];
+                }
+            }
+
+            $lines[] = $line;
+        }
+
+        if ($primary !== [] && !$inlinePrimary) {
+            $lines[] = 'PRIMARY KEY (' . implode(', ', array_map(static fn(string $name) => "\"{$name}\"", $primary)) . ')';
+        }
+
+        $temporary = "{$prefix}{$table}__rebuild";
+
+        $names = array_keys($actual);
+
+        $list = implode(', ', array_map(static fn(string $name) => "\"{$name}\"", $names));
+
+        return [
+            'create' => "CREATE TABLE {$temporary} (\n  " . implode(",\n  ", $lines) . "\n)",
+            'copy' => "INSERT INTO {$temporary} ({$list}) SELECT {$list} FROM {$prefix}{$table}",
+            'columns' => $names,
+            'temporary' => $temporary,
+        ];
+    }
+
+    /**
+     * Brings the existing columns of a table to their definitions (type, nullability, default) on every engine. A
+     * column that cannot be converted is left as it is and reported by a warning (see columnErrors()); nothing is
+     * ever truncated, rounded or dropped to make a conversion fit.
+     *
+     * Second and later runs find nothing to change, so no table is rewritten.
+     */
+    private static function alterChangedColumns(string $table, array $columns): void
+    {
+        global $db;
+
+        $engine = self::engine();
+
+        $actual = self::actualColumns($table);
+
+        $plan = self::planColumnChanges($actual, $columns, $engine);
+
+        if ($plan === []) {
+            return;
+        }
+
+        $prefix = $db->table_prefix;
+
+        if ($engine === self::ENGINE_SQLITE) {
+            try {
+                self::rebuildSqliteTable($table, $actual, $columns, $plan);
+
+                foreach ($plan as $column => $change) {
+                    self::$columnChanges[] = "{$prefix}{$table}.{$column}: {$change['old']} -> {$change['new']}";
+                }
+            } catch (\Throwable $exception) {
+                foreach ($plan as $column => $change) {
+                    self::columnFailed($table, $column, $change, $exception->getMessage());
+                }
+            }
+
+            return;
+        }
+
+        foreach ($plan as $column => $change) {
+            try {
+                if ($engine === self::ENGINE_MYSQL) {
+                    self::changeMysqlColumn($table, $column, $columns[$column], $change, $actual[$column]);
+                } else {
+                    self::changePgsqlColumn($table, $column, $columns[$column], $change, $actual[$column]);
+                }
+
+                self::$columnChanges[] = "{$prefix}{$table}.{$column}: {$change['old']} -> {$change['new']}";
+            } catch (\Throwable $exception) {
+                self::columnFailed($table, $column, $change, $exception->getMessage());
+            }
+        }
+    }
+
+    private static function columnFailed(string $table, string $column, array $change, string $message): void
+    {
+        global $db;
+
+        $values = [$db->table_prefix . $table, $column, $change['old'], $change['new'], $message];
+
+        self::$columnErrors[] = self::warningText('myshowcase_admin_warning_column_conversion_failed', $values);
+
+        self::warnKey('myshowcase_admin_warning_column_conversion_failed', $values);
+    }
+
+    /**
+     * Why converting the data to the new type would lose some of it, or null when it would not. The database would
+     * truncate (PostgreSQL's explicit cast to varchar(n)) or round (decimal to integer) without a word.
+     */
+    private static function conversionLoss(
+        string $table,
+        string $column,
+        array $definition,
+        array $current,
+        string $engine
+    ): ?string {
+        global $db;
+
+        if ($engine === self::ENGINE_SQLITE) {
+            return null;
+        }
+
+        $quote = static fn(string $name): string => $engine === self::ENGINE_MYSQL ? "`{$name}`" : $name;
+
+        $tableName = $quote($db->table_prefix . $table);
+
+        $columnName = $quote($column);
+
+        $newType = self::normalizeType(self::typeSqlFor($definition, $engine), $engine);
+
+        $oldType = self::normalizeType($current['type'], $engine);
+
+        if (preg_match('/^(?:var)?char\((\d+)\)/', $newType, $matches)) {
+            $cast = $engine === self::ENGINE_MYSQL ? 'CHAR' : 'TEXT';
+
+            $count = (int)(self::queryRow(
+                "SELECT COUNT(*) AS total FROM {$tableName} WHERE CHAR_LENGTH(CAST({$columnName} AS {$cast})) > {$matches[1]}"
+            )['total'] ?? 0);
+
+            if ($count > 0) {
+                return "{$count} row(s) hold a value longer than {$matches[1]} characters";
+            }
+        }
+
+        $oldBase = preg_replace('/[( ].*$/', '', $oldType);
+
+        $newBase = preg_replace('/[( ].*$/', '', $newType);
+
+        if (in_array($oldBase, self::FAMILY_FRACTION, true) && in_array($newBase, self::FAMILY_INT, true)) {
+            $count = (int)(self::queryRow(
+                "SELECT COUNT(*) AS total FROM {$tableName} WHERE {$columnName} <> FLOOR({$columnName})"
+            )['total'] ?? 0);
+
+            if ($count > 0) {
+                return "{$count} row(s) hold a fractional value that an integer would round";
+            }
+        }
+
+        return null;
+    }
+
+    private static function changeMysqlColumn(
+        string $table,
+        string $column,
+        array $definition,
+        array $change,
+        array $current
+    ): void {
+        global $db;
+
+        $loss = $change['type'] ? self::conversionLoss($table, $column, $definition, $current, self::ENGINE_MYSQL) : null;
+
+        if ($loss !== null) {
+            throw new \RuntimeException($loss);
+        }
+
+        // A MySQL that is not in strict mode truncates and converts without an error. ALTER TABLE is atomic, so in
+        // strict mode a value that does not fit leaves the table exactly as it was.
+        $previous = (string)(self::queryRow('SELECT @@SESSION.sql_mode AS sql_mode')['sql_mode'] ?? '');
+
+        self::run("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',STRICT_ALL_TABLES')");
+
+        try {
+            $result = self::run(
+                self::modifyColumnSql($table, $column, $definition, $db->table_prefix, self::escaper())
+            );
+
+            if ($result === false || $result === null) {
+                throw new \RuntimeException((string)$db->error_string());
+            }
+        } finally {
+            self::run("SET SESSION sql_mode = '" . $db->escape_string($previous) . "'");
+        }
+    }
+
+    private static function changePgsqlColumn(
+        string $table,
+        string $column,
+        array $definition,
+        array $change,
+        array $current
+    ): void {
+        global $db;
+
+        $loss = $change['type'] ? self::conversionLoss($table, $column, $definition, $current, self::ENGINE_PGSQL) : null;
+
+        if ($loss !== null) {
+            throw new \RuntimeException($loss);
+        }
+
+        $statements = self::pgsqlAlterColumnStatements(
+            $table,
+            $column,
+            $definition,
+            $change,
+            $db->table_prefix,
+            self::escaper()
+        );
+
+        self::run('BEGIN');
+
+        try {
+            foreach ($statements as $statement) {
+                if (self::run($statement) === false) {
+                    throw new \RuntimeException((string)$db->error_string());
+                }
+            }
+
+            self::run('COMMIT');
+        } catch (\Throwable $exception) {
+            try {
+                self::run('ROLLBACK');
+            } catch (\Throwable) {
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Rebuilds a SQLite table with the wanted column definitions, in one transaction. Rows, indexes and unique keys
+     * survive; if anything fails the old table is untouched.
+     */
+    private static function rebuildSqliteTable(string $table, array $actual, array $columns, array $plan): void
+    {
+        global $db;
+
+        $prefix = $db->table_prefix;
+
+        $fullName = $prefix . $table;
+
+        $escapedName = $db->escape_string($fullName);
+
+        $master = (string)(self::queryRow(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='{$escapedName}'"
+        )['sql'] ?? '');
+
+        // The rebuild writes the table again from what PRAGMA table_info knows; constraints it does not report would
+        // silently disappear, so refuse to rebuild such a table.
+        $uniqueConstraints = 0;
+
+        $query = $db->write_query("PRAGMA index_list('{$escapedName}')");
+
+        while ($row = $db->fetch_array($query)) {
+            if (($row['origin'] ?? '') === 'u') {
+                ++$uniqueConstraints;
+            }
+        }
+
+        self::free($query);
+
+        if ($uniqueConstraints > 0 || preg_match('/\b(REFERENCES|CHECK|GENERATED)\b/i', $master)) {
+            throw new \RuntimeException(
+                'the table has UNIQUE, CHECK, FOREIGN KEY or generated column constraints that a rebuild would not keep'
+            );
+        }
+
+        $objects = [];
+
+        $query = $db->write_query(
+            "SELECT name, sql FROM sqlite_master WHERE tbl_name='{$escapedName}' AND type IN ('index', 'trigger')"
+            . ' AND sql IS NOT NULL'
+        );
+
+        while ($row = $db->fetch_array($query)) {
+            $objects[] = (string)$row['sql'];
+        }
+
+        self::free($query);
+
+        $statements = self::sqliteRebuildStatements($table, $actual, $columns, $plan, $prefix, self::escaper());
+
+        $temporary = $statements['temporary'];
+
+        // Foreign keys have to be off while the table is swapped, and cannot be switched inside a transaction.
+        $foreignKeys = (int)(self::queryRow('PRAGMA foreign_keys')['foreign_keys'] ?? 0) === 1;
+
+        if ($foreignKeys) {
+            self::run('PRAGMA foreign_keys=OFF');
+        }
+
+        $started = false;
+
+        try {
+            self::run('BEGIN');
+
+            $started = true;
+
+            $before = (int)(self::queryRow("SELECT COUNT(*) AS total FROM {$fullName}")['total'] ?? 0);
+
+            self::run("DROP TABLE IF EXISTS {$temporary}");
+
+            self::run($statements['create']);
+
+            self::run($statements['copy']);
+
+            $copied = (int)(self::queryRow("SELECT COUNT(*) AS total FROM {$temporary}")['total'] ?? 0);
+
+            if ($copied !== $before) {
+                throw new \RuntimeException("{$copied} of {$before} rows were copied");
+            }
+
+            // SQLite keeps whatever it is given in a column of any type. A value that did not convert is reported
+            // instead of being kept as text in a number column.
+            foreach ($plan as $column => $change) {
+                if (!$change['type']) {
+                    continue;
+                }
+
+                $type = self::normalizeType($change['new'], self::ENGINE_SQLITE);
+
+                $allowed = match (true) {
+                    $type === 'integer' => "'integer'",
+                    preg_match('/^(float|double|decimal)/', $type) === 1 => "'integer', 'real'",
+                    default => null,
+                };
+
+                if ($allowed === null) {
+                    continue;
+                }
+
+                $bad = (int)(self::queryRow(
+                    "SELECT COUNT(*) AS total FROM {$temporary} WHERE \"{$column}\" IS NOT NULL AND typeof(\"{$column}\") NOT IN ({$allowed})"
+                )['total'] ?? 0);
+
+                if ($bad > 0) {
+                    throw new \RuntimeException("{$bad} row(s) of {$column} hold a value that is not a number of the new type");
+                }
+            }
+
+            self::run("DROP TABLE {$fullName}");
+
+            self::run("ALTER TABLE {$temporary} RENAME TO {$fullName}");
+
+            foreach ($objects as $sql) {
+                self::run($sql);
+            }
+
+            if ($foreignKeys && self::queryRow('PRAGMA foreign_key_check') !== []) {
+                throw new \RuntimeException('the foreign key check failed after the rebuild');
+            }
+
+            self::run('COMMIT');
+
+            $started = false;
+        } catch (\Throwable $exception) {
+            if ($started) {
+                try {
+                    self::run('ROLLBACK');
+                } catch (\Throwable) {
+                }
+            }
+
+            throw $exception;
+        } finally {
+            if ($foreignKeys) {
+                self::run('PRAGMA foreign_keys=ON');
+            }
+        }
     }
 
     public static function addColumn(string $table, string $column, array $definition): void
