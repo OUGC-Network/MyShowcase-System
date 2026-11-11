@@ -25,6 +25,7 @@ use MyShowcase\Enum\FormTypes;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\SchemaManager;
 use MyShowcase\Showcase;
 use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\SelectableLists;
@@ -236,11 +237,11 @@ function pluginActivation(): bool
                 if ($db->field_exists($oldColumnName, $tableName) &&
                     !$db->field_exists($newColumnName, $tableName) &&
                     isset(TABLES_DATA[$tableName][$newColumnName])) {
-                    $db->rename_column(
+                    SchemaManager::renameColumn(
                         $tableName,
                         $oldColumnName,
                         $newColumnName,
-                        buildDbFieldDefinition(TABLES_DATA[$tableName][$newColumnName])
+                        TABLES_DATA[$tableName][$newColumnName]
                     );
                 }
             }
@@ -252,11 +253,11 @@ function pluginActivation(): bool
                     foreach ($tableData as $oldColumnName => $newColumnName) {
                         if ($db->field_exists($oldColumnName, 'myshowcase_data' . $showcase_id) &&
                             !$db->field_exists($newColumnName, 'myshowcase_data' . $showcase_id)) {
-                            $db->rename_column(
+                            SchemaManager::renameColumn(
                                 'myshowcase_data' . $showcase_id,
                                 $oldColumnName,
                                 $newColumnName,
-                                buildDbFieldDefinition(DATA_TABLE_STRUCTURE[$tableName][$newColumnName])
+                                DATA_TABLE_STRUCTURE[$tableName][$newColumnName]
                             );
                         }
                     }
@@ -543,147 +544,27 @@ function _deactivate_task(): bool
     return true;
 }
 
+/**
+ * Table definitions split into columns, primary key and indexes (see SchemaManager::schemaOf()).
+ */
 function dbTables(array $tableObjects = TABLES_DATA): array
 {
     $tablesData = [];
 
     foreach ($tableObjects as $tableName => $tableData) {
-        foreach ($tableData as $field_name => $field_definition) {
-            if (!isset($field_definition['type'])) {
-                continue;
-            }
-
-            $tablesData[$tableName][$field_name] = buildDbFieldDefinition($field_definition);
-        }
-
-        foreach ($tableData as $field_name => $field_definition) {
-            if (isset($field_definition['primary_key'])) {
-                $tablesData[$tableName]['primary_key'] = $field_name;
-            }
-
-            if ($field_name === 'unique_keys') {
-                $tablesData[$tableName]['unique_keys'] = array_merge(
-                    $tablesData[$tableName]['unique_keys'] ?? [],
-                    $field_definition
-                );
-            }
-        }
+        $tablesData[$tableName] = SchemaManager::schemaOf($tableData);
     }
 
     return $tablesData;
 }
 
+/**
+ * Creates missing tables and adds missing columns.
+ */
 function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
 {
-    global $db;
-
-    $collation = $db->build_create_table_collation();
-
-    $tablePrefix = $db->table_prefix;
-
-    foreach (dbTables($tableObjects) as $tableName => $tableData) {
-        if ($db->table_exists($tableName)) {
-            foreach ($tableData as $field_name => $field_definition) {
-                if ($field_name === 'primary_key' || $field_name === 'unique_keys') {
-                    continue;
-                }
-
-                if ($db->field_exists($field_name, $tableName)) {
-                    $db->modify_column($tableName, "`{$field_name}`", $field_definition);
-                } else {
-                    $db->add_column($tableName, $field_name, $field_definition);
-                }
-            }
-        } else {
-            $query = "CREATE TABLE IF NOT EXISTS `{$tablePrefix}{$tableName}` (\n";
-
-            $fields = [];
-
-            foreach ($tableData as $field_name => $field_definition) {
-                if ($field_name === 'primary_key') {
-                    $fields[] = "PRIMARY KEY (`{$field_definition}`)";
-                } elseif ($field_name !== 'unique_keys') {
-                    $fields[] = "`{$field_name}` {$field_definition}";
-                }
-            }
-
-            $query .= implode(",\n", $fields);
-
-            $query .= ") ENGINE=MyISAM{$collation};";
-
-            if (str_contains($query, "entries_can_view") &&
-                str_contains($query, "entries_can_view")) {
-                //_d($query);
-            }
-            $db->write_query($query);
-        }
-    }
-
-    dbVerifyIndexes();
-
-    return true;
-}
-
-function dbVerifyIndexes(array $tableObjects = TABLES_DATA): bool
-{
-    global $db;
-
-    $tablePrefix = $db->table_prefix;
-
-    foreach (dbTables($tableObjects) as $tableName => $tableData) {
-        if (!$db->table_exists($tableName)) {
-            continue;
-        }
-
-        if (isset($tableData['unique_keys'])) {
-            foreach ($tableData['unique_keys'] as $keyName => $keyValue) {
-                if ($db->index_exists($tableName, $keyName)) {
-                    continue;
-                }
-
-                if (!is_array($keyValue)) {
-                    $keyValue = [$keyValue];
-                }
-
-                $keyValue = implode('`,`', $keyValue);
-
-                $db->write_query("ALTER TABLE {$tablePrefix}{$tableName} ADD UNIQUE KEY `{$keyName}` (`{$keyValue}`)");
-            }
-        }
-
-        if (isset($tableData['keys'])) {
-            foreach ($tableData['keys'] as $keyName => $keyValue) {
-                if ($db->index_exists($tableName, $keyName)) {
-                    continue;
-                }
-
-                if (!is_array($keyValue)) {
-                    $keyValue = [$keyValue];
-                }
-
-                $keyValue = implode('`,`', $keyValue);
-
-                $db->write_query("ALTER TABLE {$tablePrefix}{$tableName} ADD KEY `{$keyName}` (`{$keyValue}`)");
-            }
-        }
-
-        if (isset($tableData['full_keys'])) {
-            foreach ($tableData['full_keys'] as $keyName => $keyValue) {
-                if ($db->index_exists($tableName, $keyName)) {
-                    continue;
-                }
-
-                if (!is_array($keyValue)) {
-                    $keyValue = [$keyValue];
-                }
-
-                $keyValue = implode('`,`', $keyValue);
-
-                $db->write_query(
-                    "ALTER TABLE {$tablePrefix}{$tableName} ADD FULLTEXT KEY `{$keyName}` (`{$keyValue}`)"
-                );
-            }
-        }
+    foreach ($tableObjects as $tableName => $tableData) {
+        SchemaManager::verifyTable($tableName, $tableData);
     }
 
     return true;
@@ -691,20 +572,8 @@ function dbVerifyIndexes(array $tableObjects = TABLES_DATA): bool
 
 function dbVerifyColumns(array $fieldObjects = FIELDS_DATA): bool
 {
-    global $db;
-
     foreach ($fieldObjects as $tableName => $tableData) {
-        foreach ($tableData as $field_name => $field_definition) {
-            if (!isset($field_definition['type'])) {
-                continue;
-            }
-
-            if ($db->field_exists($field_name, $tableName)) {
-                $db->modify_column($tableName, "`{$field_name}`", buildDbFieldDefinition($field_definition));
-            } else {
-                $db->add_column($tableName, $field_name, buildDbFieldDefinition($field_definition));
-            }
-        }
+        SchemaManager::verifyCoreColumns($tableName, $tableData);
     }
 
     return true;
@@ -748,51 +617,12 @@ function dbVerifyColumnsExists(array $fieldObjects = FIELDS_DATA): bool
     return $isInstalledEach;
 }
 
+/**
+ * Column definition (without the column name) for the engine the board runs on.
+ */
 function buildDbFieldDefinition(array $field_definition): string
 {
-    $definitionString = '';
-
-    $definitionString .= $field_definition['type'];
-
-    if (isset($field_definition['size']) && (
-            !fieldTypeMatchText($field_definition['type']) ||
-            !fieldTypeMatchDateTime($field_definition['type'])
-        )) {
-        $definitionString .= "({$field_definition['size']})";
-    }
-
-    if (isset($field_definition['unsigned']) && (
-            !fieldTypeMatchChar($field_definition['type']) ||
-            !fieldTypeMatchText($field_definition['type']) ||
-            !fieldTypeMatchDateTime($field_definition['type']) ||
-            !fieldTypeMatchBinary($field_definition['type'])
-        )) {
-        if ($field_definition['unsigned'] === true) {
-            $definitionString .= ' UNSIGNED';
-        } else {
-            $definitionString .= ' SIGNED';
-        }
-    }
-
-    if (!isset($field_definition['null'])) {
-        $definitionString .= ' NOT';
-    }
-
-    $definitionString .= ' NULL';
-
-    if (isset($field_definition['auto_increment'])) {
-        $definitionString .= ' AUTO_INCREMENT';
-    }
-
-    if (isset($field_definition['default'])) {
-        if (in_array($field_definition['default'], ['TIMESTAMP', 'UUID'])) {
-            //$definitionString .= " DEFAULT {$field_definition['default']}";
-        } else {
-            $definitionString .= " DEFAULT '{$field_definition['default']}'";
-        }
-    }
-
-    return $definitionString;
+    return SchemaManager::currentColumnDefinition($field_definition);
 }
 
 /**
