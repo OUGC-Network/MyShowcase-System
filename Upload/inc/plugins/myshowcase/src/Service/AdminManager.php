@@ -548,11 +548,13 @@ EOL;
                         foreach ($this->showcase_input as $moderatorID => $permissions) {
                             $permissions = array_map('intval', $permissions);
 
+                            // Unchecked boxes are not submitted, so a missing flag means 0.
                             $moderator_data = [
                                 ModeratorPermissions::EntriesCanView => $permissions[ModeratorPermissions::EntriesCanView] ?? 0,
-                                ModeratorPermissions::EntriesCanView => $permissions[ModeratorPermissions::EntriesCanView] ?? 0,
-                                ModeratorPermissions::EntriesCanView => $permissions[ModeratorPermissions::EntriesCanView] ?? 0,
                                 ModeratorPermissions::CommentsCanView => $permissions[ModeratorPermissions::CommentsCanView] ?? 0,
+                                ModeratorPermissions::CanManageAttachments => $permissions[ModeratorPermissions::CanManageAttachments] ?? 0,
+                                ModeratorPermissions::CanManageReports => $permissions[ModeratorPermissions::CanManageReports] ?? 0,
+                                ModeratorPermissions::CanManageLogs => $permissions[ModeratorPermissions::CanManageLogs] ?? 0,
                             ];
 
                             $showcase->context->moderators_repository->updateModerator($moderator_data, $moderatorID);
@@ -939,9 +941,26 @@ EOL;
             )
         );
 
+        echo $form->generate_hidden_field('update', 'permissions');
+
+        $moderatorFlags = [
+            ModeratorPermissions::EntriesCanView,
+            ModeratorPermissions::CommentsCanView,
+            ModeratorPermissions::CanManageAttachments,
+            ModeratorPermissions::CanManageReports,
+            ModeratorPermissions::CanManageLogs,
+        ];
+
         $form_container->output_row_header(
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsName
         );
+
+        foreach ($moderatorFlags as $moderatorFlag) {
+            $form_container->output_row_header(
+                $this->language->{'myshowcase_admin_permissions_' . $moderatorFlag},
+                ['class' => 'align_center']
+            );
+        }
 
         $form_container->output_row_header(
             $this->language->myShowcaseAdminSummaryEditModeratorPermissionsControls,
@@ -956,6 +975,7 @@ EOL;
                     'group_id',
                     'group_id',
                     'showcase_id',
+                    ...$moderatorFlags,
                 ],
                 query_options: ['order_by' => 'group_id']
             ) as $moderator_data
@@ -983,6 +1003,18 @@ EOL;
                     "{$moderator_data['img']} <a href=\"index.php?module=user-users&amp;action=update&amp;user_id={$moderator_data['showcase_id']}\">" . htmlspecialchars_uni(
                         $userData['username']
                     ) . '</a>'
+                );
+            }
+
+            foreach ($moderatorFlags as $moderatorFlag) {
+                $form_container->output_cell(
+                    $form->generate_check_box(
+                        "showcase[{$moderator_data['moderator_id']}][{$moderatorFlag}]",
+                        1,
+                        '',
+                        ['checked' => !empty($moderator_data[$moderatorFlag])]
+                    ),
+                    ['class' => 'align_center']
                 );
             }
 
@@ -1018,7 +1050,7 @@ EOL;
         if (!$form_container->num_rows()) {
             $form_container->output_cell(
                 $this->language->myShowcaseAdminSummaryEditModeratorPermissionsEmpty,
-                ['colspan' => 6, 'class' => 'align_center']
+                ['colspan' => 8, 'class' => 'align_center']
             );
 
             $form_container->construct_row();
