@@ -1215,7 +1215,15 @@ EOL;
 
         hooksRun('admin_summary_table_create_rebuild_start');
 
+        $conversionErrors = count(SchemaManager::columnErrors());
+
         dbVerifyTables(["myshowcase_data{$this->showcase_id}" => $data_table_structure]);
+
+        // SchemaManager flashed one error for every column whose type could not be changed (the data does not fit
+        // the new type); do not report the rebuild as a success on top of that.
+        if (count(SchemaManager::columnErrors()) > $conversionErrors) {
+            admin_redirect($this->url->build());
+        }
 
         if ($showcase->data_table_exists) {
             log_admin_action([
