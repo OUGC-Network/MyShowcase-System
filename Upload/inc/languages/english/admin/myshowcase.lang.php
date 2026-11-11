@@ -34,6 +34,8 @@ $l = [
     'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB needs {3} or newer, so the MyShowcase tables were left as they are.',
     'myshowcase_admin_warning_innodb_version_unreadable' => 'The database server version could not be read ("{1}"), so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
     'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left as it is: {2}',
+    'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The field sets were not migrated to collections; merge the two tables manually and activate the plugin again.',
+    'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be dropped ({3}). Its values were copied to {4}.',
 
     'report_content_showcase_comments' => 'Showcase comments',
 

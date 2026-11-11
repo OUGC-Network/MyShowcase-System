@@ -708,6 +708,11 @@ final class SchemaManager
             . ' so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
         'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left'
             . ' as it is: {2}',
+        'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The'
+            . ' field sets were not migrated to collections; merge the two tables manually and activate the plugin'
+            . ' again.',
+        'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be'
+            . ' dropped ({3}). Its values were copied to {4}.',
     ];
 
     /** Pure: the English text of a warning that has a language key. */
@@ -1078,9 +1083,9 @@ final class SchemaManager
                 $oldRows = self::countRows($oldTable);
 
                 if ($newRows > 0 && $oldRows > 0) {
-                    self::warn(
-                        "MyShowcase: both {$prefix}{$oldTable} and {$prefix}{$newTable} contain rows. The field sets " .
-                        'were not migrated to collections; merge the two tables manually and activate the plugin again.'
+                    self::warnKey(
+                        'myshowcase_admin_warning_collections_both_tables_have_rows',
+                        [$prefix . $oldTable, $prefix . $newTable]
                     );
 
                     return $statements;
@@ -1198,9 +1203,9 @@ final class SchemaManager
                 try {
                     $execute("ALTER TABLE {$prefix}{$table} DROP COLUMN {$oldColumn}");
                 } catch (\Throwable $exception) {
-                    self::warn(
-                        "MyShowcase: the old column {$oldColumn} of {$prefix}{$table} could not be dropped " .
-                        '(' . $exception->getMessage() . '). Its values were copied to ' . $newColumn . '.'
+                    self::warnKey(
+                        'myshowcase_admin_warning_legacy_column_not_dropped',
+                        [$oldColumn, $prefix . $table, $exception->getMessage(), $newColumn]
                     );
                 }
             }
