@@ -1,0 +1,66 @@
+{
+    "type": "collection",
+    "version": "1.0.0",
+    "name": "Blog",
+    "fields": [
+        {
+            "field_key": "category",
+            "label": "Category",
+            "html_type": "select",
+            "field_type": "int",
+            "maximum_length": 10,
+            "is_enabled": 1,
+            "is_required": 1,
+            "display_order": 1,
+            "render_order": 1,
+            "enable_search": 1,
+            "options": [
+                {"value_id": 1, "value": "News", "display_order": 1},
+                {"value_id": 2, "value": "Tutorials", "display_order": 2},
+                {"value_id": 3, "value": "Opinion", "display_order": 3},
+                {"value_id": 4, "value": "Announcements", "display_order": 4}
+            ]
+        },
+        {
+            "field_key": "summary",
+            "label": "Summary",
+            "description": "A short introduction shown in the list of posts.",
+            "html_type": "textarea",
+            "field_type": "text",
+            "is_enabled": 1,
+            "display_order": 2,
+            "render_order": 2
+        },
+        {
+            "field_key": "tags",
+            "label": "Tags",
+            "placeholder": "news, release, howto",
+            "html_type": "text",
+            "field_type": "varchar",
+            "maximum_length": 120,
+            "is_enabled": 1,
+            "display_order": 3,
+            "enable_search": 1
+        },
+        {
+            "field_key": "cover_image",
+            "label": "Cover image",
+            "description": "The address of an image shown with the post.",
+            "html_type": "url",
+            "field_type": "varchar",
+            "maximum_length": 255,
+            "is_enabled": 1,
+            "display_order": 4
+        },
+        {
+            "field_key": "reading_time",
+            "label": "Reading time",
+            "description": "Minutes needed to read the post.",
+            "html_type": "number",
+            "field_type": "int",
+            "maximum_length": 5,
+            "is_enabled": 1,
+            "display_order": 5
+        }
+    ]
+}

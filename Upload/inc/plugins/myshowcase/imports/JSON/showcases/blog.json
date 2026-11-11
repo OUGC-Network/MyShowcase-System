@@ -1,0 +1,11 @@
+{
+    "type": "showcase",
+    "version": "1.0.0",
+    "collection": "blog",
+    "description": "A basic blog: every entry is a post with a subject, a message and comments.",
+    "entries_enable_subject": 1,
+    "entries_enable_message": 1,
+    "comments_enable": 1,
+    "main_per_page": 5,
+    "main_sort_default_field": "dateline"
+}
