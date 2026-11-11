@@ -297,6 +297,8 @@ $l = [
     'myshowcase_admin_permissions_can_use_custom_moderation_tools' => 'Can Use Custom Moderation Tools',
     'myshowcase_admin_permissions_can_use_custom_moderation_tools_description' => 'Allows users to use custom moderation tools.',
 
+    'myshowcase_admin_permissions_can_manage_comments' => 'Can Manage Comments',
+    'myshowcase_admin_permissions_can_manage_attachments' => 'Can Manage Attachments',
     'myshowcase_admin_permissions_can_manage_reports' => 'Can Manage Reports',
     'myshowcase_admin_permissions_can_manage_reports_description' => 'Allows users to manage user reports.',
     'myshowcase_admin_permissions_can_manage_logs' => 'Can Manage Logs',
