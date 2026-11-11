@@ -291,6 +291,8 @@ function pluginActivation(): bool
     // The slug updates below read the showcase configuration from the cache.
     cachesRebuild();
 
+    dbConvertTablesToInnoDb();
+
     /*~*~* RUN UPDATES START *~*~*/
 
     $db->update_query(
@@ -379,6 +381,23 @@ function pluginActivation(): bool
     cachesRebuild();
 
     return true;
+}
+
+/**
+ * Converts the plugin tables and the showcase data tables that are still on MyISAM to InnoDB (MySQL and MariaDB
+ * only; see SchemaManager::convertToInnoDb()). Core tables are never touched.
+ */
+function dbConvertTablesToInnoDb(): void
+{
+    $tables = array_keys(TABLES_DATA);
+
+    foreach (array_keys(showcaseGet()) as $showcase_id) {
+        if (showcaseDataTableExists((int)$showcase_id)) {
+            $tables[] = 'myshowcase_data' . (int)$showcase_id;
+        }
+    }
+
+    SchemaManager::convertToInnoDb($tables);
 }
 
 /**

@@ -779,6 +779,205 @@ final class SchemaManager
     }
 
     // ------------------------------------------------------------------------------------------------------------
+    // MyISAM to InnoDB conversion (MySQL and MariaDB only)
+    // ------------------------------------------------------------------------------------------------------------
+
+    /** First MySQL release that supports FULLTEXT indexes on InnoDB. */
+    public const MYSQL_MINIMUM_INNODB_VERSION = '5.6.0';
+
+    /** First MariaDB release that supports FULLTEXT indexes on InnoDB. */
+    public const MARIADB_MINIMUM_INNODB_VERSION = '10.0.5';
+
+    /**
+     * Reads the flavour and the version out of the string `SELECT VERSION()` returns.
+     *
+     * MariaDB reports itself in the string ("10.6.16-MariaDB"). Some set-ups prefix it with the fake replication
+     * version 5.5.5 ("5.5.5-10.6.16-MariaDB"); that prefix is not the server version.
+     *
+     * @return array{flavor: string, version: string}|null null when the string cannot be understood.
+     */
+    public static function parseServerVersion(string $versionString): ?array
+    {
+        $versionString = trim($versionString);
+
+        $isMariaDb = stripos($versionString, 'MariaDB') !== false;
+
+        if ($isMariaDb) {
+            $versionString = preg_replace('/^5\.5\.5-/', '', $versionString);
+        }
+
+        if (!preg_match('/^(\d+)\.(\d+)\.(\d+)/', $versionString, $matches)) {
+            return null;
+        }
+
+        return [
+            'flavor' => $isMariaDb ? 'mariadb' : 'mysql',
+            'version' => (int)$matches[1] . '.' . (int)$matches[2] . '.' . (int)$matches[3],
+        ];
+    }
+
+    /** True when the server version string is one on which converting to InnoDB is allowed. */
+    public static function serverSupportsInnoDbConversion(string $versionString): bool
+    {
+        $parsed = self::parseServerVersion($versionString);
+
+        if ($parsed === null) {
+            return false;
+        }
+
+        $minimum = $parsed['flavor'] === 'mariadb'
+            ? self::MARIADB_MINIMUM_INNODB_VERSION
+            : self::MYSQL_MINIMUM_INNODB_VERSION;
+
+        return version_compare($parsed['version'], $minimum, '>=');
+    }
+
+    /** True for the database types of the board that talk to MySQL or MariaDB (mysqli and mysql_pdo). */
+    public static function isMysqlDatabaseType(string $databaseType): bool
+    {
+        return str_starts_with($databaseType, 'mysql');
+    }
+
+    /** Statement that lists the engine of each given table of the current database. */
+    public static function tableEnginesSql(array $prefixedTables, callable $escape): string
+    {
+        $names = array_map(static fn(string $name): string => "'" . $escape($name) . "'", $prefixedTables);
+
+        return 'SELECT TABLE_NAME AS table_name, ENGINE AS table_engine FROM information_schema.TABLES'
+            . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (' . implode(',', $names) . ')';
+    }
+
+    public static function convertToInnoDbSql(string $table, string $prefix): string
+    {
+        return 'ALTER TABLE ' . self::quoteIdentifier($prefix . $table, self::ENGINE_MYSQL) . ' ENGINE=InnoDB';
+    }
+
+    /**
+     * Decides what the conversion does, without touching the database.
+     *
+     * @param string $versionString Result of SELECT VERSION().
+     * @param array<string, string> $engineByTable Engine of each table, keyed by table name without the prefix.
+     * @return array{status: string, statements: array<string, string>, message: string}
+     *     status is convert, skipped_version, skipped_unreadable or nothing_to_do. The statements are keyed by table name.
+     */
+    public static function innoDbConversionPlan(string $versionString, array $engineByTable, string $prefix): array
+    {
+        $parsed = self::parseServerVersion($versionString);
+
+        if ($parsed === null) {
+            return [
+                'status' => 'skipped_unreadable',
+                'statements' => [],
+                'message' => 'The database server version could not be read ("' . $versionString . '"), so the'
+                    . ' MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
+            ];
+        }
+
+        if (!self::serverSupportsInnoDbConversion($versionString)) {
+            $needed = $parsed['flavor'] === 'mariadb'
+                ? 'MariaDB ' . self::MARIADB_MINIMUM_INNODB_VERSION
+                : 'MySQL 5.6';
+
+            return [
+                'status' => 'skipped_version',
+                'statements' => [],
+                'message' => 'The database server is ' . ($parsed['flavor'] === 'mariadb' ? 'MariaDB' : 'MySQL')
+                    . ' ' . $parsed['version'] . '; converting to InnoDB needs ' . $needed . ' or newer, so the'
+                    . ' MyShowcase tables were left as they are.',
+            ];
+        }
+
+        $statements = [];
+
+        foreach ($engineByTable as $table => $engine) {
+            if (strtoupper($engine) === 'MYISAM') {
+                $statements[$table] = self::convertToInnoDbSql($table, $prefix);
+            }
+        }
+
+        return [
+            'status' => $statements ? 'convert' : 'nothing_to_do',
+            'statements' => $statements,
+            'message' => '',
+        ];
+    }
+
+    /**
+     * Converts the given plugin tables from MyISAM to InnoDB. Tables on any other engine are skipped, and nothing
+     * happens on engines other than MySQL and MariaDB.
+     *
+     * A refusal because of the server version, or the failure of one table, is reported as a warning and never stops
+     * the caller.
+     *
+     * @param string[] $tables Table names without the prefix. Only plugin tables belong here, never core tables.
+     * @return string[] Statements that were run.
+     */
+    public static function convertToInnoDb(array $tables): array
+    {
+        global $db;
+
+        if (!self::isMysqlDatabaseType((string)($db->type ?? '')) || !$tables) {
+            return [];
+        }
+
+        $prefix = $db->table_prefix;
+
+        $versionString = (string)(self::queryRow('SELECT VERSION() AS server_version')['server_version'] ?? '');
+
+        $engineByTable = [];
+
+        $query = $db->write_query(
+            self::tableEnginesSql(
+                array_map(static fn(string $table): string => $prefix . $table, $tables),
+                self::escaper()
+            )
+        );
+
+        while ($row = $db->fetch_array($query)) {
+            $engineByTable[strtolower((string)$row['table_name'])] = (string)$row['table_engine'];
+        }
+
+        self::free($query);
+
+        $engineByPluginTable = [];
+
+        foreach ($tables as $table) {
+            if (isset($engineByTable[strtolower($prefix . $table)])) {
+                $engineByPluginTable[$table] = $engineByTable[strtolower($prefix . $table)];
+            }
+        }
+
+        $plan = self::innoDbConversionPlan($versionString, $engineByPluginTable, $prefix);
+
+        if ($plan['status'] === 'skipped_version' || $plan['status'] === 'skipped_unreadable') {
+            self::warn($plan['message']);
+
+            return [];
+        }
+
+        $executed = [];
+
+        foreach ($plan['statements'] as $table => $statement) {
+            try {
+                $db->write_query($statement, 1);
+
+                if ($db->error_number()) {
+                    throw new \RuntimeException($db->error_string());
+                }
+
+                $executed[] = $statement;
+            } catch (\Throwable $exception) {
+                self::warn(
+                    'The table ' . $prefix . $table . ' could not be converted to InnoDB and was left as it is: '
+                    . $exception->getMessage()
+                );
+            }
+        }
+
+        return $executed;
+    }
+
+    // ------------------------------------------------------------------------------------------------------------
     // Field sets to collections migration
     // ------------------------------------------------------------------------------------------------------------
 
