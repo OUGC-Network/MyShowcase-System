@@ -85,9 +85,9 @@ When you activate the plugin it updates the database by itself:
   myshowcase_, for example mybb_myshowcase_config) and the data table of each showcase
   (myshowcase_data1, myshowcase_data2, ...). Tables of MyBB itself are never touched, and tables
   that are already InnoDB are skipped, so activating again does nothing more.
-  * The conversion only runs on MySQL 5.6 or higher and MariaDB 10.0.5 or higher, because older
-    servers cannot keep the fulltext indexes on InnoDB tables. The plugin asks the database
-    server for its version when you activate it.
+  * The conversion only runs on MySQL 5.7.7 or higher and MariaDB 10.2.2 or higher. Older
+    servers limit an InnoDB index key to 767 bytes, which wide text fields in your showcases can
+    exceed. The plugin asks the database server for its version when you activate it.
   * On an older server nothing is converted. The tables stay MyISAM and the plugin shows a
     warning in the ACP that names the server version and says the tables were left as they are.
     The plugin still activates and works. If the version cannot be read, the same kind of warning
@@ -98,6 +98,20 @@ When you activate the plugin it updates the database by itself:
     that table is locked, so visitors cannot use the showcases. Activate the plugin during a quiet
     period and make a backup of your database first.
   * PostgreSQL and SQLite boards are not affected.
+- Indexes the database refuses. When you activate the plugin it creates the indexes of its
+  tables, including one index for each required field of a showcase. If the database refuses
+  one of them, for example because the field is a very long text or the index key is too long
+  for the table's storage engine, the plugin skips that index and shows a warning in the ACP.
+  The warning names the table, the index, the column(s) and the message the database gave. The
+  plugin still activates, all the other indexes are created, and your data is never changed.
+  * The skipped index is tried again every time you activate the plugin, so nothing is stored
+    and nothing has to be reset. Deactivate and activate the plugin in ACP > Configuration >
+    Plugins once the cause is fixed.
+  * To fix the cause for a required field, open the showcase's fields in the ACP and give the
+    field a shorter Maximum Length, or change it to a different field type (a long text field
+    cannot be indexed on MySQL). Then activate the plugin again.
+  * Servers older than MySQL 5.7.7 and MariaDB 10.2.2 are the ones most likely to refuse an
+    index, because of the 767 byte limit above.
 - The table myshowcase_moderators gets five new columns: entries_can_view, can_manage_comments,
   can_manage_attachments, can_manage_reports and can_manage_logs. They store the permissions you
   give to a moderator in ACP > MyShowcase Admin (edit a showcase, Moderators tab). They are added
