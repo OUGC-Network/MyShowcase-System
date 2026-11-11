@@ -703,7 +703,7 @@ final class SchemaManager
             . ' was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin'
             . ' again to create it.',
         'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB'
-            . ' needs {3} or newer, so the MyShowcase tables were left as they are.',
+            . ' needs MySQL 5.7.7 or MariaDB 10.2.2 or newer, so the MyShowcase tables were left as they are.',
         'myshowcase_admin_warning_innodb_version_unreadable' => 'The database server version could not be read ("{1}"),'
             . ' so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
         'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left'
@@ -842,11 +842,14 @@ final class SchemaManager
     // MyISAM to InnoDB conversion (MySQL and MariaDB only)
     // ------------------------------------------------------------------------------------------------------------
 
-    /** First MySQL release that supports FULLTEXT indexes on InnoDB. */
-    public const MYSQL_MINIMUM_INNODB_VERSION = '5.6.0';
+    /**
+     * First MySQL release on which converting is allowed. From 5.7.7 InnoDB accepts index keys up to 3072 bytes by
+     * default instead of 767 bytes, which keeps wide utf8mb4 indexes from being refused.
+     */
+    public const MYSQL_MINIMUM_INNODB_VERSION = '5.7.7';
 
-    /** First MariaDB release that supports FULLTEXT indexes on InnoDB. */
-    public const MARIADB_MINIMUM_INNODB_VERSION = '10.0.5';
+    /** First MariaDB release on which converting is allowed (the same index key limit as MySQL 5.7.7). */
+    public const MARIADB_MINIMUM_INNODB_VERSION = '10.2.2';
 
     /**
      * Reads the flavour and the version out of the string `SELECT VERSION()` returns.
@@ -939,9 +942,7 @@ final class SchemaManager
         if (!self::serverSupportsInnoDbConversion($versionString)) {
             $warning = [
                 'myshowcase_admin_warning_innodb_version_too_old',
-                $parsed['flavor'] === 'mariadb'
-                    ? ['MariaDB', $parsed['version'], 'MariaDB ' . self::MARIADB_MINIMUM_INNODB_VERSION]
-                    : ['MySQL', $parsed['version'], 'MySQL 5.6'],
+                [$parsed['flavor'] === 'mariadb' ? 'MariaDB' : 'MySQL', $parsed['version']],
             ];
 
             return [

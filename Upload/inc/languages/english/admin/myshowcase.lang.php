@@ -31,7 +31,7 @@ $l = [
     'myshowcase_admin_error_regular_expression' => 'The selected regular expression seems to be invalid.',
 
     'myshowcase_admin_warning_duplicate_unique_index' => 'MyShowcase: the unique index {1} on table {2} (column {3}) was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin again to create it.',
-    'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB needs {3} or newer, so the MyShowcase tables were left as they are.',
+    'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB needs MySQL 5.7.7 or MariaDB 10.2.2 or newer, so the MyShowcase tables were left as they are.',
     'myshowcase_admin_warning_innodb_version_unreadable' => 'The database server version could not be read ("{1}"), so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
     'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left as it is: {2}',
     'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The field sets were not migrated to collections; merge the two tables manually and activate the plugin again.',
