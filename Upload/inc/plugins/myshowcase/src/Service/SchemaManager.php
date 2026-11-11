@@ -492,7 +492,8 @@ final class SchemaManager
         return static fn(string $value): string => $db->escape_string($value);
     }
 
-    private static function run(string $sql): void
+    /** @return mixed What the driver returned: false or null when it reports a failure instead of throwing. */
+    private static function run(string $sql): mixed
     {
         global $db;
 
@@ -511,11 +512,11 @@ final class SchemaManager
             if (preg_match('/^ALTER TABLE \S+ (RENAME COLUMN|DROP COLUMN) /i', $sql)) {
                 $db->db->query($sql)->closeCursor();
 
-                return;
+                return true;
             }
         }
 
-        $db->write_query($sql);
+        return $db->write_query($sql);
     }
 
     /**
@@ -625,8 +626,9 @@ final class SchemaManager
     /**
      * Adds regular, fulltext and unique indexes that are missing.
      *
-     * A unique index that cannot be created because the data holds duplicates is skipped with a warning; it is
-     * attempted again the next time the plugin is activated. No data is ever changed.
+     * A unique index that cannot be created because the data holds duplicates is skipped with a warning, and so is
+     * any index the database refuses (for example a key that is too long); both are attempted again the next time
+     * the plugin is activated. No data is ever changed.
      */
     public static function verifyIndexes(string $table, array $tableObject, bool $includeUnique = true): void
     {
@@ -644,14 +646,14 @@ final class SchemaManager
 
         foreach ($schema['keys'] as $key => $columns) {
             if (self::columnsExist($table, $columns) && !self::indexExists($table, $key)) {
-                self::run(self::createIndexSql($table, $key, $columns, 'regular', $engine, $prefix));
+                self::createIndexOrWarn($table, $key, $columns, 'regular', $engine, $prefix);
             }
         }
 
         foreach ($schema['full'] as $key => $columns) {
             if (self::columnsExist($table, $columns) && $db->supports_fulltext($table) &&
                 !self::indexExists($table, $key)) {
-                self::run(self::createIndexSql($table, $key, $columns, 'fulltext', $engine, $prefix));
+                self::createIndexOrWarn($table, $key, $columns, 'fulltext', $engine, $prefix);
             }
         }
 
@@ -677,7 +679,42 @@ final class SchemaManager
                 continue;
             }
 
-            self::run(self::createIndexSql($table, $key, $columns, 'unique', $engine, $prefix));
+            self::createIndexOrWarn($table, $key, $columns, 'unique', $engine, $prefix);
+        }
+    }
+
+    /**
+     * Runs one CREATE INDEX statement. If the database rejects it, the index is skipped and a warning names the
+     * table, the index, the columns and the database's message; the caller carries on with the next index.
+     */
+    private static function createIndexOrWarn(
+        string $table,
+        string $key,
+        array $columns,
+        string $kind,
+        string $engine,
+        string $prefix
+    ): void {
+        global $db;
+
+        try {
+            $result = self::run(self::createIndexSql($table, $key, $columns, $kind, $engine, $prefix));
+
+            // With error reporting switched off the MySQL drivers return false or null instead of throwing. The SQLite
+            // driver returns other values on success, so only the exception is used there and on PostgreSQL.
+            if ($engine === self::ENGINE_MYSQL && ($result === false || $result === null)) {
+                throw new \RuntimeException((string)$db->error_string());
+            }
+        } catch (\Throwable $exception) {
+            self::warnKey(
+                'myshowcase_admin_warning_index_failed',
+                [
+                    $prefix . $table,
+                    self::indexName($table, $key, $engine, $prefix),
+                    implode(', ', $columns),
+                    $exception->getMessage(),
+                ]
+            );
         }
     }
 
@@ -702,6 +739,8 @@ final class SchemaManager
         'myshowcase_admin_warning_duplicate_unique_index' => 'MyShowcase: the unique index {1} on table {2} (column {3})'
             . ' was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin'
             . ' again to create it.',
+        'myshowcase_admin_warning_index_failed' => 'MyShowcase: the index {2} on table {1} (column(s) {3}) could not be'
+            . ' created and was skipped ({4}). Fix the cause and activate the plugin again to retry it.',
         'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB'
             . ' needs MySQL 5.7.7 or MariaDB 10.2.2 or newer, so the MyShowcase tables were left as they are.',
         'myshowcase_admin_warning_innodb_version_unreadable' => 'The database server version could not be read ("{1}"),'
