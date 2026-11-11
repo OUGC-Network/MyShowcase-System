@@ -149,6 +149,9 @@ class EntriesManager
             ]);
 
             $entry->addCustomField($custom_field);
+
+            // insertEntry() reads the values to store from the extra data.
+            $entry->setExtraData($field_key, $field_value);
         }
 
         return $entry;
