@@ -356,6 +356,13 @@ class EntriesRepository
 
     private function applyPagination(array $query_options, int $total_entries): array
     {
+        // A single-entry lookup is not a page of a list: it must neither use nor reset the page of the request.
+        if (!empty($query_options['single_entry'])) {
+            unset($query_options['single_entry']);
+
+            return $query_options;
+        }
+
         if (!isset($query_options['limit']) || $query_options['limit'] <= 0) {
             return $query_options;
         }
@@ -376,6 +383,6 @@ class EntriesRepository
 
     public function fetchEntry(Collection $collection_fields, array $where_clauses = []): array
     {
-        return $this->fetchEntries($collection_fields, $where_clauses, ['limit' => 1])[0] ?? [];
+        return $this->fetchEntries($collection_fields, $where_clauses, ['limit' => 1, 'single_entry' => true])[0] ?? [];
     }
 }

@@ -123,29 +123,45 @@ class CommentsManager
         }
     }
 
+    public const VALIDATION_METHOD_INSERT = 'insert';
+
+    public const VALIDATION_METHOD_UPDATE = 'update';
+
+    public const POST_ICON_NONE = 0;
+
+    private ?CommentEntity $validation_data = null;
+
+    private string $validation_method = self::VALIDATION_METHOD_INSERT;
+
+    private array $validation_errors = [];
+
+    private bool $validated = false;
+
+    private int $comment_id = 0;
+
     /**
-     * Sets the data to be used for the data handler
-     *
-     * @param CommentEntity $comment
-     * @param string $method
-     * @return void
+     * Sets the comment to validate and to store.
      */
     public function validateSet(CommentEntity $comment, string $method = self::VALIDATION_METHOD_INSERT): void
     {
         $this->validation_data = $comment;
 
-        $this->validation_method = $comment;
+        $this->validation_method = $method;
+
+        $this->validation_errors = [];
+
+        $this->validated = false;
     }
 
     /**
      * Add an error to the error array.
      *
-     * @param string $error The error name.
+     * @param string $error The error text (a language string with {1}, {2}, ... placeholders is accepted).
      * @param array $data
      */
     public function validateSetError(string $error, array $data = []): void
     {
-        $this->validation_errors[$error] = $this->context->language->sprintf($error, ...$data);
+        $this->validation_errors[$error] = $data ? $this->context->language->sprintf($error, ...$data) : $error;
     }
 
     /**
@@ -164,140 +180,137 @@ class CommentsManager
 
         $hookArguments = hooksRun('data_handler_comment_validate_start', $hookArguments);
 
-        $commentData = $this->data;
+        $comment = $this->validation_data;
 
-        if (isset($commentData['showcase_id']) && (int)$commentData['showcase_id'] !== $this->showcase_id) {
-            $this->set_error('invalid showcase identifier');
+        if ($comment === null) {
+            $this->validateSetError('The comment to validate was not set.');
+
+            return false;
         }
 
-        if (isset($commentData['entry_id']) && (int)$commentData['entry_id'] !== $this->entry_id) {
-            $this->set_error('invalid entry identifier');
-        }
-
-        if (!empty($commentData['user_id']) && empty(get_user($this->data['user_id'])['uid'])) {
-            $this->set_error('invalid user identifier');
-        }
-
-        if (isset($this->validation_data->message)) {
+        if (isset($comment->message)) {
             if ($this->context->showcase->parser_affects_message_length_in_comments) {
-                $message_length = my_strlen($this->validation_data->message);
+                $message_length = my_strlen($comment->message);
             } else {
-                $message_length = my_strlen((new StringUtil())->stripCodes($this->validation_data->message));
+                $message_length = my_strlen((new StringUtil())->stripCodes($comment->message));
             }
 
-            if ($message_length < $this->context->showcase->comments_message_minimum_length ||
-                $message_length > $this->context->showcase->comments_message_maximum_length) {
+            $minimum_length = (int)$this->context->showcase->comments_message_minimum_length;
+
+            // A maximum of 0 means no limit.
+            $maximum_length = (int)$this->context->showcase->comments_message_maximum_length;
+
+            if ($message_length < $minimum_length || ($maximum_length > 0 && $message_length > $maximum_length)) {
                 $this->validateSetError(
                     $this->context->language->myshowcase_validation_errors_comment_invalid_message_length,
                     [
-                        my_number_format($this->context->showcase->comments_message_minimum_length),
-                        my_number_format($this->context->showcase->comments_message_maximum_length)
+                        my_number_format($minimum_length),
+                        $maximum_length > 0 ? my_number_format($maximum_length) : '∞',
                     ]
                 );
             }
         }
 
-        if (isset($this->validation_data->icon_id) && !$this->context->showcase->comments_allow_post_icons) {
-            unset($this->validation_data->icon_id);
-        }
-
-        if ($this->validation_data->icon_id !== self::POST_ICON_NONE &&
-            !isset($this->context->mybb->cache->read('posticons')[$this->validation_data->icon_id])) {
+        if ($this->context->showcase->comments_allow_post_icons && !empty($comment->icon_id) &&
+            $comment->icon_id !== self::POST_ICON_NONE &&
+            !isset($this->context->mybb->cache->read('posticons')[$comment->icon_id])) {
             $this->validateSetError($this->context->language->myshowcase_validation_errors_comment_invalid_icon);
         }
 
-        if (isset($commentData['status']) && !in_array(
-                $this->data['status'],
+        if (isset($comment->status) && !in_array(
+                $comment->status,
                 [
                     ContentStatuses::AwaitingApproval,
                     ContentStatuses::VisibleApproved,
                     ContentStatuses::SoftDeleted,
-                ]
+                ],
+                true
             )) {
-            $this->set_error('invalid status');
+            $this->validateSetError('The comment status is invalid.');
         }
 
-        if (!empty($commentData['edit_user_id']) && empty(get_user($this->data['edit_user_id'])['uid'])) {
-            $this->set_error('invalid edit user identifier');
-        }
-
-        $this->set_validated();
+        $this->validated = true;
 
         $hookArguments = hooksRun('data_handler_comment_validate_end', $hookArguments);
 
-        if ($this->get_errors()) {
-            return false;
-        }
-
-        return true;
+        return !$this->validation_errors;
     }
 
     /**
+     * Stores the validated comment. Returns comment_id, comment_slug and status.
+     *
      * @throws RandomException
      */
     public function validationCommentInsert(bool $isUpdate = false, int $commentID = 0): array
     {
-        global $db;
-
-        if (!$this->get_validated()) {
-            die('The comment needs to be validated before inserting it into the DB.');
+        if (!$this->validated || $this->validation_data === null) {
+            throw new \LogicException('The comment needs to be validated before inserting it into the database.');
         }
 
-        if (count($this->get_errors()) > 0) {
-            die('The comment is not valid.');
+        if ($this->validation_errors) {
+            throw new \LogicException('The comment is not valid.');
         }
+
+        $comment = $this->validation_data;
 
         $this->comment_id = $commentID;
+
+        $return_data = [];
+
+        $insert_data = [];
+
+        foreach (['message', 'status', 'icon_id', 'post_hash', 'ipaddress', 'user_id', 'entry_id'] as $column) {
+            if (isset($comment->$column)) {
+                $insert_data[$column] = $comment->$column;
+            }
+        }
 
         $hookArguments = [
             'dataHandler' => &$this,
             'isUpdate' => &$isUpdate,
+            'insertData' => &$insert_data,
         ];
 
-        if ($isUpdate && !isset($this->return_data['comment_slug'])) {
-            $this->return_data['comment_slug'] = $this->context->comments_repository->queryComment(
+        if ($isUpdate) {
+            $return_data['comment_slug'] = $this->context->comments_repository->queryComment(
                 ["comment_id='{$this->comment_id}'"],
                 ['comment_slug'],
-            )['comment_slug'];
-        } elseif (!$isUpdate) {
-            $unique_found = false;
+            )['comment_slug'] ?? '';
 
-            while (!$unique_found) {
+            $insert_data['update_dateline'] = new \DateTime('@' . TIME_NOW);
+
+            $insert_data['edit_user_id'] = $this->context->current_user->uid;
+        } else {
+            do {
                 $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
 
                 $unique_found = !$this->context->comments_repository->queryComment(
                     ["comment_slug='{$this->context->database->escape_string($generated_slug)}'"]
                 );
+            } while (!$unique_found);
 
-                if ($unique_found) {
-                    $this->return_data['comment_slug'] = $this->data['comment_slug'] = $generated_slug;
-                }
-            }
-        }
+            $return_data['comment_slug'] = $insert_data['comment_slug'] = $generated_slug;
 
-        foreach ($this->data as $key => $value) {
-            $this->insert_data[$key] = $value;
+            $insert_data['dateline'] = $comment->dateline ?? new \DateTime('@' . TIME_NOW);
+
+            $insert_data['username'] = $this->context->current_user->username ?? '';
         }
 
         $hookArguments = hooksRun('data_handler_comment_insert_update_start', $hookArguments);
 
         if ($isUpdate) {
-            $this->context->comments_repository->updateComment($this->insert_data, $this->comment_id);
+            $this->context->comments_repository->updateComment($insert_data, $this->comment_id);
         } else {
-            $this->comment_id = $this->context->comments_repository->insertComment(
-                array_merge($this->insert_data, [
-                    'entry_id' => $this->entry_id
-                ])
-            );
+            $this->comment_id = $this->context->comments_repository->insertComment($insert_data);
         }
 
-        $this->return_data['comment_id'] = $this->comment_id;
+        $return_data['comment_id'] = $this->comment_id;
 
         // Assign any uploaded attachments with the specific post_hash to the newly created comment.
-        if (isset($this->data['post_hash'])) {
+        if (!$isUpdate && !empty($comment->post_hash)) {
             foreach (
                 $this->context->attachments_repository->queryAttachments(
-                    ["post_hash='{$db->escape_string($this->data['post_hash'])}'"]
+                    ["post_hash='{$this->context->database->escape_string($comment->post_hash)}'"]
                 ) as $attachmentID => $attachmentData
             ) {
                 $this->context->attachments_repository->updateAttachment(
@@ -307,13 +320,13 @@ class CommentsManager
             }
         }
 
-        if (isset($this->data['status'])) {
-            $this->return_data['status'] = $this->data['status'];
+        if (isset($comment->status)) {
+            $return_data['status'] = $comment->status;
         }
 
         $hookArguments = hooksRun('data_handler_comment_insert_update_end', $hookArguments);
 
-        return $this->return_data;
+        return $return_data;
     }
 
     /**

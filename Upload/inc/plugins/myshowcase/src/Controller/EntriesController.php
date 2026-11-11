@@ -1120,7 +1120,7 @@ class EntriesController extends BaseController
     #[NoReturn]
     #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     #[Route('/api/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
-    public function view(string $entry_slug, string $entry_slug_custom): string
+    public function view(string $entry_slug, string $entry_slug_custom = '', ?string $comment_slug = null): string
     {
         $this->verifyPassword();
 
@@ -1677,7 +1677,7 @@ class EntriesController extends BaseController
             );
 
             if (isset($this->context->render_manager->url_params['order_by']) &&
-                in_array($this->context->render_manager->url_params['order_by'], array_keys($comments_sort_fields))) {
+                in_array($this->context->render_manager->url_params['order_by'], $comments_sort_fields, true)) {
                 $query_options['order_by'] = $this->context->render_manager->url_params['order_by'];
             } else {
                 $query_options['order_by'] = array_shift($comments_sort_fields);
@@ -1693,7 +1693,11 @@ class EntriesController extends BaseController
             ))";
         }
         if (empty($this->context->render_manager->url_params['order_dir'])) {
-            if ($this->context->showcase->main_sort_direction) {
+            $sort_ascending = $content_type === ContentTypes::Comment
+                ? $this->context->showcase->comments_sort_direction
+                : $this->context->showcase->main_sort_direction;
+
+            if ($sort_ascending) {
                 $query_options['order_dir'] = SortDirections::Ascending;
             } else {
                 $query_options['order_dir'] = SortDirections::Descending;

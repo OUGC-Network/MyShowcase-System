@@ -18,6 +18,7 @@ namespace MyShowcase\Controller;
 use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\ContentStatuses;
+use MyShowcase\Service\CommentsManager;
 use MyShowcase\Enum\ContentTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
@@ -44,20 +45,42 @@ class CommentsController extends BaseController
     {
         $this->verifyPassword();
 
-        $whereClauses = [
-            "entry_id='{$entry_id}'",
-            "status='" . ContentStatuses::VisibleApproved . "'",
-        ];
+        $db = $this->context->database;
 
-        $hookArguments = hooksRun(
-            'controller_comments_update_entry_comments_count_start',
-            ['commentsController' => &$this, 'whereClauses' => &$whereClauses]
+        $counts = [ContentStatuses::AwaitingApproval => 0, ContentStatuses::VisibleApproved => 0, ContentStatuses::SoftDeleted => 0];
+
+        $query = $db->simple_select(
+            'myshowcase_comments',
+            'status, COUNT(*) AS total',
+            "showcase_id='{$this->context->showcase->showcase_id}' AND entry_id='{$entry_id}'",
+            ['group_by' => 'status']
         );
 
-        $this->context->entries_repository->updateEntry(
-            $this->context->entries_manager->generateEntry(
-                ['entry_id' => $entry_id, 'is_closed' => 0]
-            )
+        while ($row = $db->fetch_array($query)) {
+            $counts[(int)$row['status']] = (int)$row['total'];
+        }
+
+        $last_comment = $this->context->comments_repository->queryComment(
+            ["comment_data.entry_id='{$entry_id}'", "comment_data.status='" . ContentStatuses::VisibleApproved . "'"],
+            ['comment_data.comment_id', 'comment_data.user_id', 'comment_data.username'],
+            ['order_by' => 'comment_data.comment_id', 'order_dir' => 'DESC']
+        );
+
+        $hookArguments = ['commentsController' => &$this, 'entryID' => $entry_id, 'counts' => &$counts];
+
+        hooksRun('controller_comments_update_entry_comments_count_start', $hookArguments);
+
+        $db->update_query(
+            'myshowcase_data' . $this->context->showcase->showcase_id,
+            [
+                'comments_awaiting' => $counts[ContentStatuses::AwaitingApproval],
+                'comments_approved' => $counts[ContentStatuses::VisibleApproved],
+                'comments_deleted' => $counts[ContentStatuses::SoftDeleted],
+                'last_comment_id' => (int)($last_comment['comment_id'] ?? 0),
+                'last_comment_user_id' => (int)($last_comment['user_id'] ?? 0),
+                'last_comment_username' => $db->escape_string((string)($last_comment['username'] ?? '')),
+            ],
+            "entry_id='{$entry_id}'"
         );
     }
 
@@ -70,7 +93,6 @@ class CommentsController extends BaseController
     #[Route('/view/{entry_slug}/{entry_slug_custom}/comment', name: 'comment_create', methods: ['GET', 'POST'])]
     public function create(
         string $entry_slug,
-        string $entry_slug_custom,
         ?string $comment_slug = null,
         bool $is_update = false
     ): string {
@@ -221,7 +243,7 @@ class CommentsController extends BaseController
         if ($is_update) {
             $this->context->comments_manager->validateSet(
                 $this->context->comments_manager->generateComment($insertData),
-                $this->showcase::DATA_HANDLER_METHOD_UPDATE
+                CommentsManager::VALIDATION_METHOD_UPDATE
             );
         } else {
             $this->context->comments_manager->validateSet(
@@ -257,6 +279,7 @@ class CommentsController extends BaseController
         global $mybb;
 
         $insertData = [
+            'entry_id' => $this->entry_id,
             'message' => $mybb->get_input('message'),
             'status' => $this->determineCommentStatus($is_update),
         ];
@@ -296,18 +319,26 @@ class CommentsController extends BaseController
             ? $this->context->comments_manager->validationCommentUpdate($this->comment_id)
             : $this->context->comments_manager->validationCommentInsert();
 
+        $comment_data = (object)$comment_data;
+
         $this->updateEntryCommentsCount($entry->entry_id);
 
         // Soft-deleted comments redirect to entry page; users cannot deep-link deleted content
         if (isset($comment_data->status) && $comment_data->status === ContentStatuses::SoftDeleted) {
             redirect(
-                $this->showcase->urlGetEntry($entry->entry_slug, $entry->entry_slug_custom),
+                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    Routes::EntryView,
+                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ),
                 $is_update ? $lang->myshowcase_comment_updated_status : $lang->myshowcase_comment_created_status
             );
         }
 
         redirect(
-            $this->showcase->urlGetComment($comment_data->comment_slug),
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                Routes::CommentView,
+                ['comment_slug' => $comment_data->comment_slug]
+            ),
             $is_update ? $lang->myshowcase_comment_updated : $lang->myshowcase_comment_created
         );
     }
@@ -337,8 +368,8 @@ class CommentsController extends BaseController
         'GET',
         'POST',
     ])]
-    public function update(string $entry_slug, string $entry_slug_custom, string $comment_slug): string
+    public function update(string $entry_slug, string $comment_slug): string
     {
-        return $this->create($entry_slug, $entry_slug_custom, $comment_slug, true);
+        return $this->create($entry_slug, $comment_slug, true);
     }
 }

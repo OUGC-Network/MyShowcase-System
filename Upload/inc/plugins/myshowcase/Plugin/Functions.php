@@ -824,7 +824,8 @@ function castTableFieldValue(mixed $value, string $fieldType): mixed
         $value = (float)$value;
     } elseif (fieldTypeMatchDateTime($fieldType) && !($value instanceof DateTime)) {
         try {
-            $value = new DateTime($value, new DateTimeZone('UTC'));
+            // A Unix timestamp (TIME_NOW) is not a date string.
+            $value = new DateTime(is_int($value) ? '@' . $value : $value, new DateTimeZone('UTC'));
         } catch (Exception $e) {
             $value = null;
         }
