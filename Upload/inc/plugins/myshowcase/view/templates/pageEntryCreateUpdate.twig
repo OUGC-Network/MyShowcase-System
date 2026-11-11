@@ -44,8 +44,10 @@
         {% if config.rules_type > 1 and config.rules_content %}
             <section class="container container--forum-rules">
                 {% if config.rules_type == 3 %}
+                    {# Only http, https and relative links become links: any other scheme (javascript:, data:, ...) is shown as plain text. #}
+                    {% set rules_link_is_safe = config.rules_content matches '/^[\\x00-\\x20]*https?:/i' or not (config.rules_content matches '/^[\\x00-\\x20]*[a-z][^:\\/?#]*:/i') %}
                     <strong>
-                        <a href="{{ config.rules_content }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>
+                        {% if rules_link_is_safe %}<a href="{{ config.rules_content }}">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</a>{% else %}{{ config.rules_title|default(trans('forum_rules', config.name)) }}{% endif %}
                     </strong>
                 {% else %}
                     <h4 class="title title--container">{{ config.rules_title|default(trans('forum_rules', config.name)) }}</h4>
