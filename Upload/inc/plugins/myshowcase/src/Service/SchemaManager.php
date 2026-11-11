@@ -47,6 +47,9 @@ final class SchemaManager
 
     private const BINARY_TYPES = ['binary', 'varbinary'];
 
+    /** Messages produced while verifying the schema, kept for callers that cannot show flash messages. */
+    private static array $warnings = [];
+
     public static function engine(): string
     {
         global $db;
@@ -73,6 +76,11 @@ final class SchemaManager
             $type === 'sqlite' => self::ENGINE_SQLITE,
             default => self::ENGINE_MYSQL,
         };
+    }
+
+    public static function warnings(): array
+    {
+        return self::$warnings;
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -298,6 +306,25 @@ final class SchemaManager
         return $engine === self::ENGINE_MYSQL ? "`{$identifier}`" : $identifier;
     }
 
+    /**
+     * Name of an index inside the database. MySQL scopes index names to the table, PostgreSQL and SQLite to the
+     * whole database, so there they are prefixed with the table name.
+     */
+    public static function indexName(string $table, string $key, string $engine, string $prefix): string
+    {
+        if ($engine === self::ENGINE_MYSQL) {
+            return $key;
+        }
+
+        $name = "{$prefix}{$table}_{$key}";
+
+        if (strlen($name) > 63) {
+            $name = substr($name, 0, 54) . '_' . substr(md5($name), 0, 8);
+        }
+
+        return $name;
+    }
+
     public static function createTableSql(
         string $table,
         array $schema,
@@ -384,6 +411,51 @@ final class SchemaManager
         return "ALTER TABLE {$prefix}{$table} RENAME COLUMN {$oldColumn} TO {$newColumn}";
     }
 
+    /**
+     * @param string $kind regular, unique or fulltext
+     */
+    public static function createIndexSql(
+        string $table,
+        string $key,
+        array $columns,
+        string $kind,
+        string $engine,
+        string $prefix
+    ): string {
+        $name = self::indexName($table, $key, $engine, $prefix);
+
+        $columnList = implode(', ', array_map(static fn(string $column) => self::quoteIdentifier($column, $engine), $columns));
+
+        if ($engine === self::ENGINE_MYSQL) {
+            $keyword = match ($kind) {
+                'unique' => 'ADD UNIQUE KEY',
+                'fulltext' => 'ADD FULLTEXT KEY',
+                default => 'ADD KEY',
+            };
+
+            return "ALTER TABLE `{$prefix}{$table}` {$keyword} `{$name}` ({$columnList})";
+        }
+
+        $unique = $kind === 'unique' ? 'UNIQUE ' : '';
+
+        return "CREATE {$unique}INDEX {$name} ON {$prefix}{$table} ({$columnList})";
+    }
+
+    /** Number of distinct values that appear more than once in the given columns (NULLs never collide). */
+    public static function duplicatesCountSql(string $table, array $columns, string $engine, string $prefix): string
+    {
+        $list = implode(', ', array_map(static fn(string $column) => self::quoteIdentifier($column, $engine), $columns));
+
+        $notNull = implode(' AND ', array_map(
+            static fn(string $column) => self::quoteIdentifier($column, $engine) . ' IS NOT NULL',
+            $columns
+        ));
+
+        $tableName = self::quoteIdentifier($prefix . $table, $engine);
+
+        return "SELECT COUNT(*) AS duplicate_count FROM (SELECT 1 FROM {$tableName} WHERE {$notNull} GROUP BY {$list} HAVING COUNT(*) > 1) duplicates";
+    }
+
     // ------------------------------------------------------------------------------------------------------------
     // Executors
     // ------------------------------------------------------------------------------------------------------------
@@ -421,6 +493,78 @@ final class SchemaManager
         $db->write_query($sql);
     }
 
+    /**
+     * First row of a query. The result is freed straight away: SQLite refuses to drop or rebuild a table while a
+     * statement that has not been read to the end is still open.
+     */
+    private static function queryRow(string $sql): array
+    {
+        global $db;
+
+        $query = $db->write_query($sql);
+
+        $row = $db->fetch_array($query);
+
+        self::free($query);
+
+        return is_array($row) ? $row : [];
+    }
+
+    private static function free(mixed $query): void
+    {
+        global $db;
+
+        $db->free_result($query);
+
+        if ($query instanceof \PDOStatement) {
+            $query->closeCursor();
+        }
+    }
+
+    private static function countRows(string $table, string $where = ''): int
+    {
+        global $db;
+
+        return (int)(self::queryRow(
+            "SELECT COUNT(*) AS total FROM {$db->table_prefix}{$table}" . ($where !== '' ? " WHERE {$where}" : '')
+        )['total'] ?? 0);
+    }
+
+    public static function indexExists(string $table, string $key): bool
+    {
+        global $db;
+
+        $engine = self::engine();
+
+        $name = self::indexName($table, $key, $engine, $db->table_prefix);
+
+        if ($engine === self::ENGINE_MYSQL) {
+            $query = $db->write_query("SHOW INDEX FROM `{$db->table_prefix}{$table}`");
+
+            $exists = false;
+
+            while ($index = $db->fetch_array($query)) {
+                if ($index['Key_name'] === $name) {
+                    $exists = true;
+
+                    break;
+                }
+            }
+
+            self::free($query);
+
+            return $exists;
+        }
+
+        $name = $db->escape_string($name);
+
+        if ($engine === self::ENGINE_PGSQL) {
+            return (bool)self::queryRow("SELECT indexname FROM pg_indexes WHERE indexname='{$name}'");
+        }
+
+        return (bool)self::queryRow("SELECT name FROM sqlite_master WHERE type='index' AND name='{$name}'");
+    }
+
     /** Creates a table from its definition, or adds the columns it is missing. */
     public static function verifyTable(string $table, array $tableObject): void
     {
@@ -450,6 +594,88 @@ final class SchemaManager
             } else {
                 self::run(self::addColumnSql($table, $column, $definition, $engine, $prefix, $escape));
             }
+        }
+    }
+
+    /**
+     * Adds regular, fulltext and unique indexes that are missing.
+     *
+     * A unique index that cannot be created because the data holds duplicates is skipped with a warning; it is
+     * attempted again the next time the plugin is activated. No data is ever changed.
+     */
+    public static function verifyIndexes(string $table, array $tableObject, bool $includeUnique = true): void
+    {
+        global $db;
+
+        if (!$db->table_exists($table)) {
+            return;
+        }
+
+        $engine = self::engine();
+
+        $prefix = $db->table_prefix;
+
+        $schema = self::schemaOf($tableObject);
+
+        foreach ($schema['keys'] as $key => $columns) {
+            if (self::columnsExist($table, $columns) && !self::indexExists($table, $key)) {
+                self::run(self::createIndexSql($table, $key, $columns, 'regular', $engine, $prefix));
+            }
+        }
+
+        foreach ($schema['full'] as $key => $columns) {
+            if (self::columnsExist($table, $columns) && $db->supports_fulltext($table) &&
+                !self::indexExists($table, $key)) {
+                self::run(self::createIndexSql($table, $key, $columns, 'fulltext', $engine, $prefix));
+            }
+        }
+
+        if (!$includeUnique) {
+            return;
+        }
+
+        foreach ($schema['unique'] as $key => $columns) {
+            if (!self::columnsExist($table, $columns) || self::indexExists($table, $key)) {
+                continue;
+            }
+
+            $duplicates = (int)(self::queryRow(
+                self::duplicatesCountSql($table, $columns, $engine, $prefix)
+            )['duplicate_count'] ?? 0);
+
+            if ($duplicates > 0) {
+                self::warn(
+                    "MyShowcase: the unique index {$key} on table {$prefix}{$table} (column " .
+                    implode(', ', $columns) . ") was not created because {$duplicates} value(s) are duplicated. " .
+                    'Remove the duplicates and activate the plugin again to create it.'
+                );
+
+                continue;
+            }
+
+            self::run(self::createIndexSql($table, $key, $columns, 'unique', $engine, $prefix));
+        }
+    }
+
+    private static function columnsExist(string $table, array $columns): bool
+    {
+        global $db;
+
+        foreach ($columns as $column) {
+            if (!$db->field_exists($column, $table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function warn(string $message): void
+    {
+        self::$warnings[] = $message;
+
+        if (function_exists('flash_message')) {
+            flash_message(htmlspecialchars($message, ENT_QUOTES), 'error');
         }
     }
 

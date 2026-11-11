@@ -280,7 +280,8 @@ function pluginActivation(): bool
 
     $hookArguments = hooksRun('admin_activate_intermediate', $hookArguments);
 
-    dbVerifyTables($tablesData);
+    // Unique indexes are created at the end, once empty slugs have been filled in.
+    dbVerifyTables($tablesData, false);
 
     dbVerifyColumns();
 
@@ -329,7 +330,7 @@ function pluginActivation(): bool
 
         $dataTableStructure = dataTableStructureGet($showcase_id);
 
-        dbVerifyTables(["myshowcase_data{$showcase_id}" => $dataTableStructure]);
+        dbVerifyTables(["myshowcase_data{$showcase_id}" => $dataTableStructure], false);
 
         foreach (
             $showcase->context->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']
@@ -355,6 +356,12 @@ function pluginActivation(): bool
                 }
             }
         }
+    }
+
+    dbVerifyIndexes($tablesData);
+
+    foreach (showcaseGet() as $showcase_id => $showcase_data) {
+        dbVerifyIndexes(["myshowcase_data{$showcase_id}" => dataTableStructureGet($showcase_id)]);
     }
 
     $mybb->cache->update_usergroups();
@@ -559,12 +566,26 @@ function dbTables(array $tableObjects = TABLES_DATA): array
 }
 
 /**
- * Creates missing tables and adds missing columns.
+ * Creates missing tables and adds missing columns, then creates the regular, fulltext and unique indexes.
+ *
+ * @param bool $verifyUniqueKeys Create unique indexes too. Activation turns this off for its first pass and creates
+ *                               them once existing empty slugs have been filled in.
  */
-function dbVerifyTables(array $tableObjects = TABLES_DATA): bool
+function dbVerifyTables(array $tableObjects = TABLES_DATA, bool $verifyUniqueKeys = true): bool
 {
     foreach ($tableObjects as $tableName => $tableData) {
         SchemaManager::verifyTable($tableName, $tableData);
+    }
+
+    dbVerifyIndexes($tableObjects, $verifyUniqueKeys);
+
+    return true;
+}
+
+function dbVerifyIndexes(array $tableObjects = TABLES_DATA, bool $verifyUniqueKeys = true): bool
+{
+    foreach ($tableObjects as $tableName => $tableData) {
+        SchemaManager::verifyIndexes($tableName, $tableData, $verifyUniqueKeys);
     }
 
     return true;
