@@ -28,6 +28,10 @@ $l = [
 
     'myshowcase_admin_error_invalid_post_key' => 'Invalid post key',
     'myshowcase_admin_error_missing_required_fields' => 'Some required fields are missing.',
+    'myshowcase_admin_error_field_key_too_long' => 'The field key can not be longer than 30 characters.',
+    'myshowcase_admin_error_field_key_reserved' => 'The field key is the name of a column the entries table already has.',
+    'myshowcase_admin_error_invalid_html_type' => 'The HTML type is not one of the supported types.',
+    'myshowcase_admin_error_invalid_field_type' => 'The database type is not one of the supported types.',
     'myshowcase_admin_error_regular_expression' => 'The selected regular expression seems to be invalid.',
 
     'myshowcase_admin_warning_duplicate_unique_index' => 'MyShowcase: the unique index {1} on table {2} (column {3}) was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin again to create it.',

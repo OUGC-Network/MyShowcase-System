@@ -188,13 +188,17 @@ function showcaseDelete(int $showcase_id): bool
     return true;
 }
 
-function showcaseGet(array $whereClauses = [], array $queryFields = [], array $queryOptions = []): array
-{
+function showcaseGet(
+    array $whereClauses = [],
+    array $queryFields = [],
+    array $queryOptions = [],
+    bool $useMemo = true
+): array {
     $key = md5(serialize($whereClauses + $queryFields + $queryOptions));
 
     static $showcaseObjects = [];
 
-    if (isset($showcaseObjects[$key])) {
+    if ($useMemo && isset($showcaseObjects[$key])) {
         return $showcaseObjects[$key];
     }
 
@@ -232,11 +236,11 @@ function showcaseGet(array $whereClauses = [], array $queryFields = [], array $q
     return $showcaseObjects[$key];
 }
 
-function showcaseDataTableExists(int $showcase_id): bool
+function showcaseDataTableExists(int $showcase_id, bool $refresh = false): bool
 {
     static $dataTableExists = [];
 
-    if (!isset($dataTableExists[$showcase_id])) {
+    if ($refresh || !isset($dataTableExists[$showcase_id])) {
         global $db;
 
         $dataTableExists[$showcase_id] = (bool)$db->table_exists('myshowcase_data' . $showcase_id);

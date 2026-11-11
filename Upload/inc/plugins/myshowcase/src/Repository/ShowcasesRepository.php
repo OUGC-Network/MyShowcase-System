@@ -53,7 +53,8 @@ class ShowcasesRepository
                     $this->showcase_data[$field_name],
                     $field_definition['type']
                 );
-            } elseif (!$this->is_update) {
+            } elseif (!$this->is_update && empty($field_definition['auto_increment'])) {
+                // The generated id is left to the database; an explicit 0 becomes row 0 on SQLite and PostgreSQL.
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
                     $field_definition['default'] ?? '',
                     $field_definition['type']

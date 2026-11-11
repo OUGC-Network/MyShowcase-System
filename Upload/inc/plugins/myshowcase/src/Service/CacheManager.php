@@ -58,7 +58,8 @@ readonly class CacheManager
             case CacheDataTypes::Config:
                 $showcaseObjects = showcaseGet(
                     queryFields: array_keys($tablesData['myshowcase_config']),
-                    queryOptions: ['order_by' => 'display_order']
+                    queryOptions: ['order_by' => 'display_order'],
+                    useMemo: false
                 );
 
                 foreach ($showcaseObjects as $showcase_id => $showcase_data) {
