@@ -11,6 +11,37 @@
  */
 
 ============================================================================================
+Requirements:
+============================================================================================
+MyBB 1.9 (the plugin is declared compatible with 19*).
+
+PHP 8.2 or higher.
+
+Database engines: MySQL / MariaDB (mysqli or mysql_pdo), PostgreSQL (pgsql or pgsql_pdo) and
+SQLite. The plugin creates its own tables when you activate it, using the SQL that suits the
+database engine your board runs on. You do not have to run any SQL by hand.
+- New tables on MySQL / MariaDB are created with the InnoDB storage engine.
+- Fulltext indexes on showcase fields are only created where your database supports them
+  (MySQL / MariaDB, InnoDB from MySQL 5.6). PostgreSQL and SQLite skip them.
+
+PluginLibrary 13 or higher: <mybb_root>/inc/plugins/pluginlibrary.php
+
+Composer packages (run this once after uploading the files, and again after every upgrade):
+1) Open a terminal in the plugin folder:
+   cd <mybb_root>/inc/plugins/myshowcase
+2) Run:
+   composer install
+   This creates <mybb_root>/inc/plugins/myshowcase/vendor/. If Composer is not installed on your
+   server, run the command on your own computer and upload the vendor folder to the same place.
+   The files composer.json and composer.lock in that folder tell Composer what to install.
+
+The plugin does not install its own copy of Twig, symfony/http-foundation, symfony/routing,
+symfony/string or symfony/event-dispatcher. It uses the copies that MyBB 1.9 already ships in
+<mybb_root>/inc/vendor/ (Twig 3 and symfony/http-foundation among them), so a MyBB 1.9 board
+is required. Only the packages MyBB does not ship (symfony/form, symfony/dependency-injection,
+symfony/uid and teamtnt/tntsearch, plus what they need) are installed in the plugin's vendor folder.
+
+============================================================================================
 Installation:
 ============================================================================================
 If you want sample data installed, upload all files. 
@@ -24,6 +55,35 @@ want to have access to the MyShowcase System, click the MyShowcase tab and assig
 permissions you want (recommended all of them)
 
 Browse to ACP > MyShowcase Admin > Help Page for detailed instructions and notes.
+
+============================================================================================
+Upgrading earlier 3.0 development installs:
+============================================================================================
+This applies to a board that ran a 3.0 development build of the plugin (field sets were
+renamed to collections during 3.0 development). Back up your database first, then:
+1) Upload the files
+2) Run composer install in <mybb_root>/inc/plugins/myshowcase (see Requirements above)
+3) Deactivate and activate the plugin in ACP > Configuration > Plugins
+
+When you activate the plugin it updates the database by itself:
+- Field sets become collections. The table myshowcase_fieldsets is renamed to
+  myshowcase_collections, and the columns set_id / setid / field_set_id / fieldsetid become
+  collection_id (in myshowcase_collections, myshowcase_config, myshowcase_fields and
+  myshowcase_field_data) and set_name / setname becomes name. Existing rows and their ids are kept,
+  and activating again changes nothing. If both myshowcase_fieldsets and myshowcase_collections
+  already contain rows, nothing is migrated and the plugin shows a message: merge the two tables
+  by hand and activate again.
+- Unique indexes are added where the data allows it (for example one slug per entry). If a
+  unique index cannot be created because the table already holds duplicate values, that index is
+  skipped and the plugin shows a message with the table, the column and how many values are
+  duplicated. Your data is never changed. Remove the duplicates, then activate the plugin
+  again to create the index.
+- MySQL / MariaDB tables that an earlier build created as MyISAM stay MyISAM; this version does
+  not convert them. To convert one yourself, run
+  ALTER TABLE <prefix>myshowcase_<table> ENGINE=InnoDB;
+  in your database tool. On a large board this can take a long time and locks the table while it
+  runs, so do it during a quiet period and on a copy first. InnoDB fulltext indexes need MySQL 5.6
+  or higher.
 
 ============================================================================================
 Upgrading:
