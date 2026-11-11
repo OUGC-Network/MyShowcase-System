@@ -10,7 +10,6 @@ use DB_PgSQL;
 use DB_SQLite;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ModeratorPermissions;
-use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
@@ -161,23 +160,35 @@ readonly class CacheManager
 
                 break;
             case CacheDataTypes::Moderators;
-                $moderatorObjects = (new ModeratorsRepository($this->database,))
-                    ->queryModerators(
-                        [],
-                        [
-                            'moderator_id',
-                            'showcase_id',
-                            'user_id',
-                            'group_id',
-                            ModeratorPermissions::EntriesCanView,
-                            ModeratorPermissions::EntriesCanView,
-                            ModeratorPermissions::EntriesCanView,
-                            ModeratorPermissions::CommentsCanView
-                        ]
-                    );
+                // ModeratorsRepository::queryModerators() only reads the moderators of one showcase, so the
+                // cache, which holds all of them, reads the table directly.
+                $moderatorFields = [
+                    ModeratorPermissions::EntriesCanView,
+                    ModeratorPermissions::CommentsCanView,
+                    ModeratorPermissions::CanManageAttachments,
+                    ModeratorPermissions::CanManageReports,
+                    ModeratorPermissions::CanManageLogs,
+                ];
 
-                foreach ($moderatorObjects as $moderatorID => $moderatorData) {
-                    $cache_data[(int)$moderatorData['showcase_id']][$moderatorID] = $moderatorData;
+                $query = $this->database->simple_select(
+                    'myshowcase_moderators',
+                    implode(',', array_merge(['moderator_id', 'showcase_id', 'user_id', 'group_id'], $moderatorFields))
+                );
+
+                while ($moderatorData = $this->database->fetch_array($query)) {
+                    $moderatorID = (int)$moderatorData['moderator_id'];
+
+                    $cache_data[(int)$moderatorData['showcase_id']][$moderatorID] = [
+                        'moderator_id' => $moderatorID,
+                        'showcase_id' => (int)$moderatorData['showcase_id'],
+                        'user_id' => (int)$moderatorData['user_id'],
+                        'group_id' => (int)$moderatorData['group_id'],
+                    ];
+
+                    foreach ($moderatorFields as $moderatorField) {
+                        $cache_data[(int)$moderatorData['showcase_id']][$moderatorID][$moderatorField] =
+                            (int)$moderatorData[$moderatorField];
+                    }
                 }
 
                 break;
