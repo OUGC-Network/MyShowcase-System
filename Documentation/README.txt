@@ -120,6 +120,41 @@ When you activate the plugin it updates the database by itself:
   rebuilt at the end of the activation.
 
 ============================================================================================
+Behavior notes (settings of a showcase):
+============================================================================================
+You change these settings in the Admin CP: open ACP > MyShowcase > Showcases, then edit a showcase
+and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscriptions).
+
+- Maximum message length: 0 means "no limit". This applies to the maximum length of entry
+  messages (Entries tab), of entry subjects and of comment messages (Comments tab). A showcase
+  you have just created has 0 in these settings, so it accepts messages of any length until you
+  set a limit.
+- Entries per page (Main tab): 0 shows 10 entries per page. An empty or unknown "default sort
+  field" sorts by the date an entry was posted. The sort option "last comment" sorts by the id of
+  the last comment, so the entry with the newest comment comes last (or first, in descending order).
+- Raw HTML in entries and comments needs two things at the same time: the showcase option
+  (Parser tab: "Allow HTML in entries" or "Allow HTML in comments") and the permission of the
+  author's user group (ACP > MyShowcase > Showcases > edit > Permissions, "Allow HTML in
+  entries/comments"). It is decided for every entry and every comment from its own author's
+  groups. If either one is off, the HTML is shown as plain text.
+- Route identifier (General tab): the first part of the showcase address, for example "cars" in
+  https://example.com/cars/. It must not be empty and may only contain lowercase letters (a-z)
+  and digits (0-9), and no two showcases may use the same one. A showcase that already has an
+  identifier that does not follow this rule keeps working as it is; the rule is only checked when
+  you save the General tab, so you must then enter a valid identifier.
+- Password protected showcases (General tab): the visitor sees a password form on every page
+  until the password has been entered correctly. The password stays valid for the number of
+  minutes you set; "Check the IP address" ties it to the visitor's IP address. Wrong and
+  correct attempts are recorded in the table myshowcase_access_logs. Files (the attachment and
+  thumbnail addresses) cannot show the form: without a valid password they answer "403 Access
+  denied" and never send the file, so the visitor must open the showcase page and enter the
+  password first.
+- Collection (General tab): once the data table of a showcase exists, the collection cannot be
+  changed. If you try, the other settings are saved and the page tells you the collection was not
+  changed.
+- Subscriptions tab: the settings of this tab are saved like the others.
+
+============================================================================================
 Upgrading:
 ============================================================================================
 A note on upgrading: When you upload all the new files, you need to be sure to upload the 
