@@ -91,6 +91,10 @@ readonly class ShowcaseEntity
         public int $attachments_display_type = 1,
         public int $subscriptions_enable = 1,
         public int $subscriptions_message_length = 255,
+        public string $json_file = '',
+        public string $json_version = '',
+        public int $json_synced_at = 0,
+        public string $json_hash = '',
     ) {
     }
 }
