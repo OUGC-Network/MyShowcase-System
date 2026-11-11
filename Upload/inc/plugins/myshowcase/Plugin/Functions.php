@@ -333,9 +333,9 @@ function collectionInsert(array $collectionData, bool $isUpdate = false, $collec
     if ($isUpdate) {
         $db->update_query('myshowcase_collections', $insertData, "collection_id='{$collection_id}'");
     } else {
-        $db->insert_query('myshowcase_collections', $insertData);
-
-        $collection_id = (int)$db->insert_id();
+        // insert_query() returns the new id on every driver. Calling insert_id() again fails on MyBB's pgsql driver,
+        // which finds the table in the last query and that is no longer the INSERT.
+        $collection_id = (int)$db->insert_query('myshowcase_collections', $insertData);
     }
 
     return $collection_id;
@@ -420,10 +420,8 @@ function fieldsInsert(array $field_data, bool $isUpdate = false, int $field_id =
     if ($isUpdate) {
         $db->update_query('myshowcase_fields', $insertData, "field_id='{$field_id}'");
     } else {
-        $db->insert_query('myshowcase_fields', $insertData);
-
         // Same as collectionInsert() and fieldDataInsert(): hand back the id the database generated.
-        $field_id = (int)$db->insert_id();
+        $field_id = (int)$db->insert_query('myshowcase_fields', $insertData);
     }
 
     return $field_id;
@@ -504,9 +502,7 @@ function fieldDataInsert(array $field_data, bool $isUpdate = false, int $fieldDa
     if ($isUpdate) {
         $db->update_query('myshowcase_field_data', $insertData, "field_data_id='{$fieldDataID}'");
     } else {
-        $db->insert_query('myshowcase_field_data', $insertData);
-
-        $fieldDataID = (int)$db->insert_id();
+        $fieldDataID = (int)$db->insert_query('myshowcase_field_data', $insertData);
     }
 
     return $fieldDataID;
