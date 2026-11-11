@@ -48,6 +48,10 @@ class AttachmentsRepository
     ): iterable {
         $where_clauses[] = "showcase_id='{$this->showcase->showcase_id}'";
 
+        if (empty($query_fields)) {
+            $query_fields = 'attachment_id';
+        }
+
         if (is_array($query_fields)) {
             $query_fields = implode(', ', $query_fields);
         }

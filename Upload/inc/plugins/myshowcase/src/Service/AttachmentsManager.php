@@ -12,6 +12,7 @@ use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Entity\UserEntity;
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
@@ -142,6 +143,14 @@ class AttachmentsManager
         return false;
     }
 
+    /**
+     * Attachment types allowed in this showcase, from the attachment types cache.
+     */
+    private function attachmentTypes(): array
+    {
+        return $this->context->cache_manager->get(CacheDataTypes::AttachmentTypes)[$this->context->showcase->showcase_id] ?? [];
+    }
+
     public function getAttachmentByHash(string $attachment_hash): AttachmentEntity|bool
     {
         foreach ($this->attachments as $attachment_id => $attachment_data) {
@@ -194,7 +203,7 @@ class AttachmentsManager
 
         $attachment_type_data = false;
 
-        foreach ($this->attachment_types as $type_id => $type_data) {
+        foreach ($this->attachmentTypes() as $type_id => $type_data) {
             if ($type_data['file_extension'] === $attachment_extension &&
                 $type_data['mime_type'] === $attachment_mime) {
                 $attachment_type_data = $type_data;
@@ -660,11 +669,19 @@ class AttachmentsManager
 
         if ($existing_attachment_id && $is_update) {
             $this->context->attachments_repository->updateAttachment($this->insert_data, $existing_attachment_id);
+
+            $attachment_id = (int)$existing_attachment_id;
         } else {
-            $this->context->attachments_repository->insertAttachment($this->insert_data);
+            $attachment_id = (int)$this->context->attachments_repository->insertAttachment($this->insert_data);
         }
 
-        $this->return_data['attachment_id'] = $existing_attachment_id;
+        $this->return_data['attachment_id'] = $attachment_id;
+
+        $this->return_data['attachment_name'] = $this->insert_data['attachment_name'];
+
+        $this->return_data['file_size'] = $this->insert_data['file_size'];
+
+        $this->return_data['mime_type'] ??= $this->insert_data['mime_type'];
 
         return $this->return_data;
     }
