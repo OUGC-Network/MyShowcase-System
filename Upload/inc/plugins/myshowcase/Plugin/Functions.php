@@ -551,7 +551,7 @@ function dataTableStructureGet(int $showcase_id = 0): array
 {
     global $db;
 
-    $dataTableStructure = [];
+    $dataTableStructure = DATA_TABLE_STRUCTURE['myshowcase_data'];
 
     if ($showcase_id &&
         ($showcase_data = showcaseGet(["showcase_id='{$showcase_id}'"], ['collection_id'], ['limit' => 1]))) {
