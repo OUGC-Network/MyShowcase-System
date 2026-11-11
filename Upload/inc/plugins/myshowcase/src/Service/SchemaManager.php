@@ -669,10 +669,9 @@ final class SchemaManager
             )['duplicate_count'] ?? 0);
 
             if ($duplicates > 0) {
-                self::warn(
-                    "MyShowcase: the unique index {$key} on table {$prefix}{$table} (column " .
-                    implode(', ', $columns) . ") was not created because {$duplicates} value(s) are duplicated. " .
-                    'Remove the duplicates and activate the plugin again to create it.'
+                self::warnKey(
+                    'myshowcase_admin_warning_duplicate_unique_index',
+                    [$key, $prefix . $table, implode(', ', $columns), $duplicates]
                 );
 
                 continue;
@@ -693,6 +692,62 @@ final class SchemaManager
         }
 
         return true;
+    }
+
+    /**
+     * English text of the warnings that have a language key (Upload/inc/languages/english/admin/myshowcase.lang.php),
+     * with {1}, {2}, ... placeholders. It is the text used when the language file cannot be loaded.
+     */
+    private const WARNING_TEXT = [
+        'myshowcase_admin_warning_duplicate_unique_index' => 'MyShowcase: the unique index {1} on table {2} (column {3})'
+            . ' was not created because {4} value(s) are duplicated. Remove the duplicates and activate the plugin'
+            . ' again to create it.',
+        'myshowcase_admin_warning_innodb_version_too_old' => 'The database server is {1} {2}; converting to InnoDB'
+            . ' needs {3} or newer, so the MyShowcase tables were left as they are.',
+        'myshowcase_admin_warning_innodb_version_unreadable' => 'The database server version could not be read ("{1}"),'
+            . ' so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
+        'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left'
+            . ' as it is: {2}',
+    ];
+
+    /** Pure: the English text of a warning that has a language key. */
+    public static function warningText(string $key, array $values): string
+    {
+        $text = self::WARNING_TEXT[$key];
+
+        foreach (array_values($values) as $index => $value) {
+            $text = str_replace('{' . ($index + 1) . '}', (string)$value, $text);
+        }
+
+        return $text;
+    }
+
+    /**
+     * Warning text from the admin language file; the English text when the file cannot be loaded (CLI, scripts).
+     */
+    private static function translatedWarning(string $key, array $values): string
+    {
+        global $lang;
+
+        try {
+            if (is_object($lang) && method_exists($lang, 'load') && method_exists($lang, 'sprintf')) {
+                if (!isset($lang->$key)) {
+                    $lang->load('myshowcase', false, true);
+                }
+
+                if (isset($lang->$key) && is_string($lang->$key) && $lang->$key !== '') {
+                    return $lang->sprintf($lang->$key, ...array_values(array_map('strval', $values)));
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return self::warningText($key, $values);
+    }
+
+    private static function warnKey(string $key, array $values): void
+    {
+        self::warn(self::translatedWarning($key, $values));
     }
 
     private static function warn(string $message): void
@@ -857,33 +912,38 @@ final class SchemaManager
      *
      * @param string $versionString Result of SELECT VERSION().
      * @param array<string, string> $engineByTable Engine of each table, keyed by table name without the prefix.
-     * @return array{status: string, statements: array<string, string>, message: string}
-     *     status is convert, skipped_version, skipped_unreadable or nothing_to_do. The statements are keyed by table name.
+     * @return array{status: string, statements: array<string, string>, warning: array|null, message: string}
+     *     status is convert, skipped_version, skipped_unreadable or nothing_to_do. The statements are keyed by table
+     *     name. warning is the language key and values of the warning to show, and message its English text.
      */
     public static function innoDbConversionPlan(string $versionString, array $engineByTable, string $prefix): array
     {
         $parsed = self::parseServerVersion($versionString);
 
         if ($parsed === null) {
+            $warning = ['myshowcase_admin_warning_innodb_version_unreadable', [$versionString]];
+
             return [
                 'status' => 'skipped_unreadable',
                 'statements' => [],
-                'message' => 'The database server version could not be read ("' . $versionString . '"), so the'
-                    . ' MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
+                'warning' => $warning,
+                'message' => self::warningText(...$warning),
             ];
         }
 
         if (!self::serverSupportsInnoDbConversion($versionString)) {
-            $needed = $parsed['flavor'] === 'mariadb'
-                ? 'MariaDB ' . self::MARIADB_MINIMUM_INNODB_VERSION
-                : 'MySQL 5.6';
+            $warning = [
+                'myshowcase_admin_warning_innodb_version_too_old',
+                $parsed['flavor'] === 'mariadb'
+                    ? ['MariaDB', $parsed['version'], 'MariaDB ' . self::MARIADB_MINIMUM_INNODB_VERSION]
+                    : ['MySQL', $parsed['version'], 'MySQL 5.6'],
+            ];
 
             return [
                 'status' => 'skipped_version',
                 'statements' => [],
-                'message' => 'The database server is ' . ($parsed['flavor'] === 'mariadb' ? 'MariaDB' : 'MySQL')
-                    . ' ' . $parsed['version'] . '; converting to InnoDB needs ' . $needed . ' or newer, so the'
-                    . ' MyShowcase tables were left as they are.',
+                'warning' => $warning,
+                'message' => self::warningText(...$warning),
             ];
         }
 
@@ -898,6 +958,7 @@ final class SchemaManager
         return [
             'status' => $statements ? 'convert' : 'nothing_to_do',
             'statements' => $statements,
+            'warning' => null,
             'message' => '',
         ];
     }
@@ -950,7 +1011,7 @@ final class SchemaManager
         $plan = self::innoDbConversionPlan($versionString, $engineByPluginTable, $prefix);
 
         if ($plan['status'] === 'skipped_version' || $plan['status'] === 'skipped_unreadable') {
-            self::warn($plan['message']);
+            self::warnKey(...$plan['warning']);
 
             return [];
         }
@@ -967,9 +1028,9 @@ final class SchemaManager
 
                 $executed[] = $statement;
             } catch (\Throwable $exception) {
-                self::warn(
-                    'The table ' . $prefix . $table . ' could not be converted to InnoDB and was left as it is: '
-                    . $exception->getMessage()
+                self::warnKey(
+                    'myshowcase_admin_warning_innodb_table_failed',
+                    [$prefix . $table, $exception->getMessage()]
                 );
             }
         }
