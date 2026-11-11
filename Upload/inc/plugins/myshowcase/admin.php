@@ -409,13 +409,12 @@ function cachesRebuild(): void
 
     $cache_manager = new CacheManager($db, $cache);
 
-    // CacheDataTypes::Moderators is not rebuilt: CacheManager selects permission columns that
-    // myshowcase_moderators does not define.
     foreach (
         [
             CacheDataTypes::Config,
             CacheDataTypes::Permissions,
             CacheDataTypes::Collections,
+            CacheDataTypes::Moderators,
             CacheDataTypes::Fields,
             CacheDataTypes::FieldData,
             CacheDataTypes::AttachmentTypes,
