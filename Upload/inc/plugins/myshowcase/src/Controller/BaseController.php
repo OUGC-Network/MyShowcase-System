@@ -83,7 +83,7 @@ abstract class BaseController
      * @throws RuntimeError
      * @throws LoaderError
      */
-    protected function verifyPassword(): void
+    protected function verifyPassword(bool $plain_denial = false): void
     {
         if ($this->context->showcase->password === '') {
             return;
@@ -91,12 +91,24 @@ abstract class BaseController
 
         $repo = new AccessLogsRepository(
             $this->context->database,
-            $this->context->showcase,
-            $this->context->event_dispatcher
+            $this->context->event_dispatcher,
+            $this->context->showcase
         );
 
         if ($this->isPasswordAccessGranted($repo)) {
             return;
+        }
+
+        if ($plain_denial) {
+            // Files cannot show the password form: serve nothing and say why.
+            http_response_code(403);
+
+            header('Content-Type: text/plain; charset=UTF-8');
+
+            echo $this->context->language->myshowcase_password_gate_denied
+                ?? 'Access denied. Enter the showcase password on the showcase page first.';
+
+            exit;
         }
 
         $display_error = false;
@@ -104,6 +116,8 @@ abstract class BaseController
         if ($this->context->mybb->request_method === 'post') {
             if (!hash_equals($this->context->showcase->password, $this->context->mybb->get_input('password'))) {
                 $display_error = true;
+
+                $this->recordPasswordAccess($repo, false);
             } else {
                 $this->recordPasswordAccess($repo);
                 return;
@@ -132,22 +146,25 @@ abstract class BaseController
             "dateline>'" . (TIME_NOW - $this->context->showcase->password_minutes_interval * 60) . "'",
         ];
 
-        if ($this->context->showcase->password_minutes_interval) {
-            $where_clauses[] = "1=1 AND ipaddress={$this->context->database->escape_binary($this->context->mybb->session->packedip)}";
+        if ($this->context->showcase->password_ip_check) {
+            $where_clauses[] = "ipaddress={$this->context->database->escape_binary($this->context->mybb->session->packedip)}";
         }
 
         return (bool)$repo->queryAccessLogsCount($where_clauses);
     }
 
-    private function recordPasswordAccess(AccessLogsRepository $repo): void
+    private function recordPasswordAccess(AccessLogsRepository $repo, bool $is_valid = true): void
     {
         $repo->insertAccessLog([
             'user_id' => $this->context->current_user->uid,
             'dateline' => TIME_NOW,
+            'is_valid' => $is_valid ? self::PASSWORD_IS_VALID : self::PASSWORD_IS_INVALID,
             'ipaddress' => $this->context->mybb->session->packedip,
         ]);
 
-        $this->context->mybb->request_method = 'get';
+        if ($is_valid) {
+            $this->context->mybb->request_method = 'get';
+        }
     }
 
     public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
@@ -323,6 +340,8 @@ abstract class BaseController
     #[NoReturn]
     public function redirect(?string $entry_slug = null, ?string $comment_slug = null): void
     {
+        $this->verifyPassword();
+
         switch ($this->verifyPermission($entry_slug, $comment_slug)) {
             case self::NO_PERMISSION:
                 $this->errorNoPermission();

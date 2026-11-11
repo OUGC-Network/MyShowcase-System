@@ -239,7 +239,7 @@ class AttachmentsController extends BaseController
         string $attachment_hash,
         string $attachment_name,
     ): void {
-        $this->verifyPassword();
+        $this->verifyPassword(true);
 
         global $mybb, $db;
         global $lang;

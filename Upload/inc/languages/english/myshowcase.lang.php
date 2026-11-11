@@ -54,6 +54,7 @@ $l = array_merge($l, [
     'myshowcase_password_enter_password_below' => 'Enter the showcase password',
     'myshowcase_password_note' => "You must enter this showcase's password to gain access",
     'myshowcase_password_verify_password' => 'Verify Showcase Password',
+    'myshowcase_password_gate_denied' => 'Access denied. Enter the showcase password on the showcase page first.',
 
     'myshowcase_redirect_password_cleared' => 'The stored password for this showcase has been cleared.<br />You will now be returned to your previous location.',
 
