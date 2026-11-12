@@ -1593,6 +1593,9 @@ class EntriesController extends BaseController
             ],
             'online_users' => [],
             'comments_count' => 0,
+            // Same moderator test as the main list: not the "view entries" group permission.
+            'entry_moderator' => $this->isEntryModerator(),
+            'comment_moderator' => $this->isCommentModerator(),
             'url' => [
                 'entry' => $this->context->routing->generateUrl(
                     Routes::EntryView,

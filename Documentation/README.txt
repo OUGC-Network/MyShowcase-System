@@ -156,7 +156,10 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Who moderates: the group permissions (Permissions tab of a showcase, or the MyShowcase tab of a
   user group) are about a user's own entries and comments. The entries and comments of other users
   are moderated by the showcase moderators: the super moderator groups, and the users and groups
-  added on the Moderators tab of the showcase with "entries" or "comments" on.
+  added on the Moderators tab of the showcase with "entries" or "comments" on. Waiting content is
+  visible to its author and to those moderators. The entry-page and comment templates use the
+  `entry_moderator` / `comment_moderator` flags for moderator controls (inline moderation, close and
+  sticky options, deleted-post tools), not the "view entries" group permission.
 - Moderation of new entries: when "Moderate new entries" is on for a group and "Bypass moderation"
   is off, its new entries wait for approval; "Moderate entry updates" does the same for edits. A
   waiting entry is shown only to its author and to the moderators, in the list, on its page, in

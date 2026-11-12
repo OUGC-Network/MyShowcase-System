@@ -268,6 +268,10 @@ class RenderManager
 
         hooksRun('render_build_entry_comment_start', $this);
 
+        $entry_moderator = $this->context->entries_manager->isEntryModerator();
+
+        $comment_moderator = $this->context->entries_manager->isCommentModerator();
+
         $templatesContext = [
             'entry_data' => $entry,
             'comment_data' => $comment,
@@ -289,6 +293,9 @@ class RenderManager
             'user_signature' => '',
             'icons_cache' => [],
             'is_preview' => $this->is_preview,
+            // Moderator UI of the entry page and comment bits: not the "view entries" group permission.
+            'entry_moderator' => $entry_moderator,
+            'comment_moderator' => $comment_moderator,
         ];
 
         // todo, add showcase setting to enable/disable post icons
@@ -511,10 +518,6 @@ class RenderManager
             }
         }
 
-        $entries_can_view = $this->context->current_user->hasPermission(UserPermissions::EntriesCanView);
-
-        $comments_can_view = $this->context->current_user->hasPermission(UserPermissions::CommentsCanView);
-
         $userCanUpdateEntries = $this->user_id === $this->context->current_user->uid && $this->context->current_user->hasPermission(
                 UserPermissions::EntriesCanUpdate
             );
@@ -531,7 +534,7 @@ class RenderManager
                 UserPermissions::CommentsCanDelete
             );
 
-        if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entries_can_view || $userCanUpdateEntries)) {
+        if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entry_moderator || $userCanUpdateEntries)) {
             $templatesContext['url']['update'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
@@ -564,7 +567,7 @@ class RenderManager
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
-        } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comments_can_view || $userCanUpdateComments)) {
+        } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comment_moderator || $userCanUpdateComments)) {
             $templatesContext['url']['update'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
@@ -654,7 +657,7 @@ class RenderManager
             );
         }
 
-        if ($entries_can_view && (
+        if (($entry_moderator || $comment_moderator) && (
                 $post_type === ContentTypes::Entry && !empty($entry->edit_user_id) ||
                 $post_type === ContentTypes::Comment && !empty($comment->edit_user_id)
             )) {
@@ -700,8 +703,8 @@ class RenderManager
             $postStatus = $comment->status;
         }
 
-        if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entries_can_view || $userCanSoftDeleteEntries)) {
-            if ($entries_can_view && $postStatus === ContentStatuses::AwaitingApproval) {
+        if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entry_moderator || $userCanSoftDeleteEntries)) {
+            if ($entry_moderator && $postStatus === ContentStatuses::AwaitingApproval) {
                 $approveUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -709,7 +712,7 @@ class RenderManager
                         'action' => 'approve',
                     ]
                 );
-            } elseif ($entries_can_view && $postStatus === ContentStatuses::VisibleApproved) {
+            } elseif ($entry_moderator && $postStatus === ContentStatuses::VisibleApproved) {
                 $unapproveUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -719,7 +722,7 @@ class RenderManager
                 );
             }
 
-            if ($entries_can_view && $postStatus === ContentStatuses::SoftDeleted) {
+            if ($entry_moderator && $postStatus === ContentStatuses::SoftDeleted) {
                 $restoreUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -737,8 +740,8 @@ class RenderManager
                 );
             }
 
-            //only mods, original author (if allowed) or owner (if allowed) can delete comments
-            if ($entries_can_view) {
+            //only mods, original author (if allowed) or owner (if allowed) can delete entries
+            if ($entry_moderator) {
                 $deleteUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
@@ -747,8 +750,8 @@ class RenderManager
                     ]
                 );
             }
-        } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comments_can_view || $userCanSoftDeleteComments)) {
-            if ($comments_can_view && $postStatus === ContentStatuses::AwaitingApproval) {
+        } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comment_moderator || $userCanSoftDeleteComments)) {
+            if ($comment_moderator && $postStatus === ContentStatuses::AwaitingApproval) {
                 $templatesContext['url_comment_approve'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::CommentView,
                         array_merge($this->url_params, [
@@ -758,7 +761,7 @@ class RenderManager
                             'action' => 'approve',
                         ])
                     );
-            } elseif ($comments_can_view && $postStatus === ContentStatuses::VisibleApproved) {
+            } elseif ($comment_moderator && $postStatus === ContentStatuses::VisibleApproved) {
                 $templatesContext['url_comment_unapprove'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
@@ -769,7 +772,7 @@ class RenderManager
                 );
             }
 
-            if ($comments_can_view && $postStatus === ContentStatuses::SoftDeleted) {
+            if ($comment_moderator && $postStatus === ContentStatuses::SoftDeleted) {
                 $templatesContext['url_comment_restore'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
@@ -790,7 +793,7 @@ class RenderManager
             }
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
-            if ($comments_can_view) {
+            if ($comment_moderator) {
                 $templatesContext['url_comment_delete'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
@@ -856,8 +859,8 @@ class RenderManager
                 ) &&
                 $this->user_id === $this->context->current_user->uid &&
                 !(
-                    $post_type === ContentTypes::Entry && $entries_can_view ||
-                    $post_type === ContentTypes::Comment && $comments_can_view
+                    $post_type === ContentTypes::Entry && $entry_moderator ||
+                    $post_type === ContentTypes::Comment && $comment_moderator
                 ))) {
             $templatesContext['is_ignored'] = true;
 
@@ -883,7 +886,7 @@ class RenderManager
 
         if ($entry->status === ContentStatuses::AwaitingApproval) {
             $entry->setExtraData('background_class', 'trow_shaded');
-        } elseif ($entry->status === ContentStatuses::SoftDeleted) {
+        } elseif ($entry->status === ContentStatuses::SoftDeleted && $entry_moderator) {
             $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
         } else {
             $entry->setExtraData('background_class', '');

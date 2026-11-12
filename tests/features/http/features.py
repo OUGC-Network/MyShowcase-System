@@ -306,6 +306,14 @@ def security():
     page = guest.get(view_url(e1))
     r = guest.get(f"{view_url(e1)}?action=subscribe&my_post_key={post_key(page['body'])}")
     ok(no_permission(r) and count('mybb_myshowcase_subscriptions', f"entry_id='{e1['entry_id']}' and user_id='0'") == 0, 'guest subscription refused')
+
+    # D1 templates: moderator controls of the entry page use entry_moderator, not "view entries".
+    member_page = m1.get(view_url(e1))['body']
+    mod_page = mod.get(view_url(e1))['body']
+    ok('moderator_options_selector' not in member_page and 'name="modoptions[closethread]"' not in member_page,
+       'member: entry page has no inline moderation or close/sticky options')
+    ok('moderator_options_selector' in mod_page and 'name="modoptions[closethread]"' in mod_page,
+       'moderator: entry page shows inline moderation and close/sticky options')
     return e1, e2
 
 

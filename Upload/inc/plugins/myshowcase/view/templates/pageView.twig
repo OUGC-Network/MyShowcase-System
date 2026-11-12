@@ -76,7 +76,7 @@
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
-                    {% elseif entry_data.is_closed and permissions.entries_can_view %}
+                    {% elseif entry_data.is_closed and entry_moderator %}
                         <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
@@ -131,7 +131,7 @@
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </a>
-                    {% elseif entry_data.is_closed and permissions.entries_can_view %}
+                    {% elseif entry_data.is_closed and entry_moderator %}
                         <a href="{{ url.showcase }}{{ url.comment }}"
                            class="button button--medium button--danger">
                             {{ include('partials/icon.twig', {icon: 'lock', class: 'button__icon'}, with_context = false) }}
@@ -215,7 +215,7 @@
                         </label>
                         {{ code_buttons|raw }}
                     </div>
-                    {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
+                    {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or entry_moderator %}
                         <label for="show-quick-reply-options"></label>
                         <input type="checkbox" class="compose__checkbox" id="show-quick-reply-options">
                         <div class="quick-reply__options">
@@ -233,14 +233,14 @@
                                            value="1"/> {{ lang.myshowcase_view_entry_comment_form_disable_smilies }}
                                 </label>
                             {% endif %}
-                            {% if permissions.entries_can_view %}
+                            {% if entry_moderator %}
                                 <label class="quick-reply__option">
                                     <input type="checkbox" class="checkbox quick-reply__checkbox"
                                            name="modoptions[closethread]"
                                            value="1"{% if entry_data.is_closed %} checked="checked"{% endif %} /> {{ lang.myshowcase_view_entry_comment_form_close_entry }}
                                 </label>
                             {% endif %}
-                            {% if permissions.entries_can_view %}
+                            {% if entry_moderator %}
                                 <label class="quick-reply__option">
                                     <input type="checkbox" class="checkbox quick-reply__checkbox"
                                            name="modoptions[stickthread]"
@@ -255,7 +255,7 @@
                             {{ include('partials/icon.twig', {icon: 'comment', class: 'button__icon'}, with_context = false) }}
                             <span class="button__text">{{ lang.myshowcase_view_entry_button_create_comment }}</span>
                         </button>
-                        {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or permissions.entries_can_view %}
+                        {% if (mybb.usergroup.canusesig and mybb.user.suspendsignature != 1) or config.parser_allow_smiles_in_entries or entry_moderator %}
                             <label for="show-quick-reply-options" class="button button--basic">
                                 {{ include('partials/icon.twig', {icon: 'cog', class: 'button__icon'}, with_context = false) }}
                                 <span class="button__text">{{ lang.options }}</span>
@@ -307,7 +307,7 @@
                 </div>
             </div>
 
-            {% if permissions.entries_can_view %}
+            {% if entry_moderator %}
                 {% include '@ext.myshowcase/pageViewInlineModeration.twig' %}
             {% endif %}
 

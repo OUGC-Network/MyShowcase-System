@@ -25,7 +25,7 @@
 {% endif %}
 
 {# Deleted post #}
-{% if comment_data.status == 2 and permissions.entries_can_view %}
+{% if comment_data.status == 2 and comment_moderator %}
     <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ comment_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
@@ -98,7 +98,7 @@
         </a>
 
         {# Inline moderation checkbox #}
-        {% if permissions.entries_can_view and  false %}
+        {% if comment_moderator and  false %}
             <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ comment_data.public_id }}"
                    id="inlinemod_{{ comment_data.public_id }}" value="1"
                    {% if comment_data.inlinechecked %}checked="checked"{% endif %}/>
@@ -141,7 +141,7 @@
     <div class="post__foot post__foot--controls">
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
-            {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
+            {% if (permissions.comments_can_delete or comment_moderator) %}
                 <a href="editpost.php?pid={{ comment_data.public_id }}"
                    onclick="Thread.restorePost({{ comment_data.public_id }}); return false;"
                    style="display: none;" id="quick_restore_{{ comment_data.public_id }}"
@@ -183,7 +183,7 @@
             {% endif %}
         </div>
         <div class="post-controls post-controls--secondary post-options">
-            {% if (permissions.entries_can_update or permissions.entries_can_view) or (permissions.entries_can_delete or permissions.entries_can_view) %}
+            {% if (permissions.comments_can_update or comment_moderator) or (permissions.comments_can_delete or comment_moderator) %}
                 <input type="checkbox" class="post-options__checkbox" id="post_options_{{ comment_data.public_id }}">
                 <label for="post_options_{{ comment_data.public_id }}"
                        class="post-control post-control--options post-options__control"
@@ -193,7 +193,7 @@
                 </label>
                 <span class="post-options__list" id="post_options2_{{ comment_data.public_id }}">
                     {# Edit button #}
-                    {% if permissions.entries_can_update or permissions.entries_can_view %}
+                    {% if permissions.comments_can_update or comment_moderator %}
                         <a href="{{ config.showcase_url }}{{ url.update }}"
                            class="post-control post-control--full-edit">
                             {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -202,7 +202,7 @@
                     {% endif %}
 
                     {# Delete button #}
-                    {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
+                    {% if (permissions.comments_can_delete or comment_moderator) %}
                         <a href="editpost.php?pid={{ comment_data.public_id }}"
                            onclick="Thread.deletePost({{ comment_data.public_id }}); return false;"
                            style="display: none;"

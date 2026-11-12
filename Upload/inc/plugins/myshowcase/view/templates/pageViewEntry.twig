@@ -27,7 +27,7 @@
 {% endif %}
 
 {# Deleted post #}
-{% if entry_data.status == 2 and permissions.entries_can_view %}
+{% if entry_data.status == 2 and entry_moderator %}
     <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ entry_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
@@ -135,7 +135,7 @@
         </a>
 
         {# Inline moderation checkbox #}
-        {% if not is_preview and permissions.entries_can_view %}
+        {% if not is_preview and entry_moderator %}
             <label for="inlinemod_{{ entry_data.public_id }}"></label>
             <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ entry_data.public_id }}"
                    id="inlinemod_{{ entry_data.public_id }}" value="1"
@@ -211,7 +211,7 @@
         <div class="post__foot post__foot--controls">
             <div class="post-controls post-controls--primary">
                 {# Restore button (for deleted posts) #}
-                {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
+                {% if (permissions.entries_can_delete or entry_moderator) %}
                     <a href="editpost.php?pid={{ entry_data.public_id }}"
                        onclick="Thread.restorePost({{ entry_data.public_id }}); return false;"
                        style="display: none;" id="quick_restore_{{ entry_data.public_id }}"
