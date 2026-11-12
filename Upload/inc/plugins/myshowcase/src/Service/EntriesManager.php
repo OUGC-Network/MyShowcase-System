@@ -13,6 +13,7 @@ use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
@@ -154,7 +155,32 @@ class EntriesManager
             $entry->setExtraData($field_key, $field_value);
         }
 
+        $this->attachFields($entry, $fields_data);
+
         return $entry;
+    }
+
+    /**
+     * Gives the entry one field object for every enabled field of the collection, in field order, holding the value
+     * the entry has for it (an empty string when it has none).
+     *
+     * @param array<string, mixed> $values Field key => value
+     */
+    public function attachFields(EntryEntity $entry, array $values = []): void
+    {
+        $factory = new FieldFactory();
+
+        foreach ($this->context->collection_fields as $field_definition) {
+            if (!FieldFactory::supports((string)$field_definition['html_type'])) {
+                continue;
+            }
+
+            $value = $values[$field_definition['field_key']] ?? '';
+
+            $entry->addField(
+                $factory->create($field_definition)->valueSet(is_scalar($value) ? (string)$value : '')
+            );
+        }
     }
 
     /**

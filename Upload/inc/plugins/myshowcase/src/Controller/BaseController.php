@@ -486,8 +486,14 @@ abstract class BaseController
 
             $field->fetchSelectableValues($field->field_definition['collection_id'], $is_create_update_page);
 
+            $field_key = $field->field_definition['field_key'];
+
+            // The value set when the entry was built stays unless the entry was given a new one since (a submitted form).
+            if (array_key_exists($field_key, $entry->extra_data) && is_scalar($entry->extra_data[$field_key])) {
+                $field->valueSet($entry->extra_data[$field_key]);
+            }
+
             $field
-                ->valueSet($entry->getExtraData($field->field_definition['field_key']) ?? '')
                 ->valuesBuild(
                     $this->context->attachments_manager,
                     $this->context->attachments_repository,
