@@ -251,7 +251,12 @@ class RenderManager
             if (empty($user_row['uid'])) {
                 $this->user_id = 0;
 
-                $user_row = ['uid' => 0, 'username' => '', 'usergroup' => 1, 'displaygroup' => 1, 'additionalgroups' => ''];
+                $user_row = [
+                    'uid' => 0, 'username' => '', 'usergroup' => 1, 'displaygroup' => 1, 'additionalgroups' => '',
+                    'avatar' => '', 'avatardimensions' => '', 'usertitle' => '', 'postnum' => 0, 'regdate' => 0,
+                    'reputation' => 0, 'warningpoints' => 0, 'signature' => '', 'suspendsignature' => 0,
+                    'suspendsigtime' => 0, 'website' => '',
+                ];
             }
 
             if (!$this->context->users_manager->getUserByID($this->user_id)) {
