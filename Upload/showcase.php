@@ -45,7 +45,7 @@ $currentWorkingDirectoryPath = getcwd();
 
 $change_dir = './';
 
-if (!chdir($forumDirectoryPath) && !empty($forumDirectoryPath)) {
+if (!empty($forumDirectoryPath) && !chdir($forumDirectoryPath)) {
     if (is_dir($forumDirectoryPath)) {
         $change_dir = $forumDirectoryPath;
     } else {
