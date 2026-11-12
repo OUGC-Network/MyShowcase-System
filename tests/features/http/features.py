@@ -338,6 +338,17 @@ def security():
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
     mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
+    # L5: day-threshold filter compares dateline as a date.
+    keep_title = 'Member one photo'
+    old = create_gallery(m1, 'Threshold old photo')['entry']
+    if CTX.engine == 'sqlite':
+        CTX.execute(f"update mybb_myshowcase_data{sid('gallery')} set dateline=datetime('now','-10 days') where entry_id={old['entry_id']}")
+    elif CTX.engine == 'mysql':
+        CTX.execute(f"update mybb_myshowcase_data{sid('gallery')} set dateline=UTC_TIMESTAMP() - INTERVAL 10 DAY where entry_id={old['entry_id']}")
+    else:
+        CTX.execute(f"update mybb_myshowcase_data{sid('gallery')} set dateline=(CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '10 days' where entry_id={old['entry_id']}")
+    body = m1.get(f'{G}/?threshold[days]=1')['body']
+    ok(keep_title in body and 'Threshold old photo' not in body, 'day-threshold filter keeps recent entries and drops older ones')
     # L4: the portal template links entries the same way as the main list (showcase_url + route).
     href = fix('portal-render', 'gallery')['href']
     ok('/showcase.php/gallery/view/' in href, f'portal widget entry link includes showcase.php [{href}]')

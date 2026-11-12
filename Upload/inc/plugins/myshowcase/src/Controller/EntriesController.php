@@ -2054,10 +2054,17 @@ class EntriesController extends BaseController
             $where_clauses[] = "{$alias}.user_id='" . $this->context->mybb->user['uid'] . "'";
         }
 
+        // dateline is DATETIME: compare with a date string, not a unix timestamp.
         if (empty($this->context->render_manager->url_params['threshold']['days']) && !empty($this->context->mybb->user['daysprune'])) {
-            $where_clauses[] = "{$alias}.dateline>='" . (TIME_NOW - ($this->context->mybb->user['daysprune'] * 86400)) . "'";
+            $where_clauses[] = "{$alias}.dateline>='" . gmdate(
+                'Y-m-d H:i:s',
+                TIME_NOW - ((int)$this->context->mybb->user['daysprune'] * 86400)
+            ) . "'";
         } elseif (!empty($this->context->render_manager->url_params['threshold']['days'])) {
-            $where_clauses[] = "{$alias}.dateline>='" . (TIME_NOW - ($this->context->render_manager->url_params['threshold']['days'] * 86400)) . "'";
+            $where_clauses[] = "{$alias}.dateline>='" . gmdate(
+                'Y-m-d H:i:s',
+                TIME_NOW - ((int)$this->context->render_manager->url_params['threshold']['days'] * 86400)
+            ) . "'";
         }
 
         $keywords = array_filter(
