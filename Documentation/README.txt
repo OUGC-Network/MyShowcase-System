@@ -155,6 +155,15 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Subscriptions tab: the settings of this tab are saved like the others.
 
 ============================================================================================
+Further documentation:
+============================================================================================
+- Documentation/schema/gallery-schema-changes.md: the database changes planned for gallery
+  showcases (category option metadata, multi-select tags, folders, image variants, password
+  hardening), with their approval status. None of them is implemented yet.
+- Upload/inc/plugins/myshowcase/imports/README.md: describing collections and showcases in JSON
+  files and keeping them in step with the board (ACP > MyShowcase > JSON sync).
+
+============================================================================================
 Upgrading:
 ============================================================================================
 A note on upgrading: When you upload all the new files, you need to be sure to upload the 
