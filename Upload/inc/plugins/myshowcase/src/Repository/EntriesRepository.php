@@ -11,11 +11,10 @@ use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
-use MyShowcase\Enum\FieldDefaultTypes;
+use MyShowcase\Util\FieldDefaultUtil;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Entity\ShowcaseEntity;
-use MyShowcase\Util\UuidUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use Random\RandomException;
@@ -220,12 +219,7 @@ class EntriesRepository
      */
     private function applyCustomFieldDefault(string $key, array $field_definition): void
     {
-        $this->entry->extra_data[$key] = match ($field_definition['default_type']) {
-            FieldDefaultTypes::AsDefined => $field_definition['default_value'],
-            FieldDefaultTypes::CurrentTimestamp => date('Y-m-d H:i:s', TIME_NOW),
-            FieldDefaultTypes::UUID => (new UuidUtil())->generateUuidV4(),
-            default => null,
-        };
+        $this->entry->extra_data[$key] = FieldDefaultUtil::valueFor($field_definition);
     }
 
     private function castCustomFieldValue(mixed $value, string $field_type): mixed

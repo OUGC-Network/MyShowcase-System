@@ -896,6 +896,16 @@ class EntriesController extends BaseController
             }
         }
 
+        foreach ($this->context->entries_manager->buildFieldValues($this->context->mybb->input) as $field_key => $field_value) {
+            $this->context->mybb->input[$field_key] = $field_value;
+        }
+
+        foreach ($this->context->custom_fields_collection as $field_id => $field) {
+            $entry->getCustomFields()->filter(
+                fn(EntryCustomField $custom_field) => $custom_field->field_key === $field->field_key
+            );
+        }
+
         if ($this->context->mybb->request_method === 'post') {
             verify_post_check($this->context->mybb->get_input('my_post_key'));
 

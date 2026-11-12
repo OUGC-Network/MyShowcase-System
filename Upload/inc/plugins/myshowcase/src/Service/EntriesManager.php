@@ -96,6 +96,31 @@ class EntriesManager
         $this->entries[$entry_data['entry_id']] = $entry;
     }
 
+    /**
+     * The value of every field of the collection, taken from raw input: a form post, or the data of an imported entry.
+     * A value that was given is kept as it is. A field that is missing (or null) takes what $missing_value returns
+     * for it; the form leaves it blank, a caller that wants configured defaults passes
+     * fn($field) => FieldDefaultUtil::valueFor($field) ?? ''.
+     *
+     * @param array<string, mixed> $input
+     * @param null|callable(\MyShowcase\Entity\CustomFieldEntity): mixed $missing_value
+     * @return array<string, mixed> field_key => value
+     */
+    public function buildFieldValues(array $input, ?callable $missing_value = null): array
+    {
+        $values = [];
+
+        foreach ($this->context->custom_fields_collection as $field) {
+            if (isset($input[$field->field_key])) {
+                $values[$field->field_key] = $input[$field->field_key];
+            } else {
+                $values[$field->field_key] = $missing_value === null ? '' : $missing_value($field);
+            }
+        }
+
+        return $values;
+    }
+
     public function generateEntry(array $entry_data): EntryEntity
     {
         $fields_data = $extra_data = [];
