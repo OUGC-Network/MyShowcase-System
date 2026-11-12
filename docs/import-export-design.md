@@ -27,7 +27,7 @@ Revision 2 replaces the ACP-based design with a **forum-side feature** built on 
    single `required_field` error (the last one wins). Validating many entries needs a fresh `EntriesManager` per entry,
    and a useful per-entry error list needs the form path fixed to key errors by message *and* arguments (a small
    improvement that also benefits the form; flagged as a prerequisite, section Implementation outline).
-4. **Moderation queue, flood limits and per-user limits are not enforced by the form today.** `EntriesModerateNew` has
+4. **Moderation queue, flood limits and per-user limits are not enforced by the form today** (moderation and the per-user limit are fixed by the prerequisite refactors, T21; the flood check is not). `EntriesModerateNew` has
    an empty branch in `EntriesController::create()` (the assignment is commented out), and `EntriesFloodTime` /
    `EntriesLimitPost*` exist as permission definitions but nothing reads them. New entries therefore get the column
    default `status = 1` (approved). "Exactly what the form would give this user" means the import gets the same
@@ -652,7 +652,8 @@ Page: `/{showcase}/import`. Each stage reports **all** problems it finds in that
 before stage 7.
 
 1. **Gate:** user holds `EntriesCanImport` and `EntriesCanPost`, is logged in, PluginLibrary present (A.7), group needs no
-   captcha, flood check passes. POST only for the submit; `verify_post_check`.
+   captcha, flood check passes. The per-user entry limit is checked with the number of entries in the file once it is
+   parsed (stage 5): existing count + N must not exceed the limit, otherwise the import fails as a whole (T21). POST only for the submit; `verify_post_check`.
 2. **Upload:** `UPLOAD_ERR_OK`, `is_uploaded_file`, size > 0 and <= cap (design 7); memory estimate (30 x size) fits
    `memory_limit` minus current usage. File is read from the PHP temp path and never stored in the web root.
 3. **File type (XML only):** client extension `.xml` (case-insensitive); MIME by `finfo` is `application/xml`, `text/xml`
@@ -667,11 +668,12 @@ before stage 7.
    * `header.collection.name` differing from the target collection name is a **warning** in the report, not an error.
 6. **Defaulting step, then validation, per entry, in file order**, with a **fresh `EntriesManager` per entry**:
    1. Build the entry data from the file: `subject`, `message`, and the `fields` map. A `null` value is treated as absent.
-   2. **Defaults for absent fields:** for every enabled collection field whose key is absent (or null) in this entry,
-      apply the configured default exactly as `EntriesRepository::applyCustomFieldDefault` does (`AsDefined` value,
-      current timestamp, UUID). If the field is **required** and ends up with no value, set it to `''` so the validator
-      sees it and rejects it (Finding 2). Optional absent fields with no default stay unset (column default, as for
-      the form).
+   2. **Defaults for absent fields (T20):** for every enabled collection field whose key is absent (or null) in this
+      entry, fill in the configured default, the same value the form pre-fills in its input
+      (`AsDefined` value, current timestamp, UUID; the shared field-values code from the prerequisite refactors). **A
+      required field that is absent from the file is therefore filled with its default and passes.** It is rejected
+      only when it has no default: it then gets `''` so the validator sees it and rejects it (Finding 2). Optional absent
+      fields with no default stay unset (column default, as for the form).
    3. `generateEntry()` + `validateSet(…, INSERT)` + `validateEntry()` as the form does. Collect the error list; keep the
       validated `EntryEntity`.
    4. Present-but-empty values are passed as they are (the validator decides; for a required field `''` is rejected,
@@ -766,7 +768,7 @@ distinct error). On COMPLETED the entries are created as the current user and fo
 | `pageExport.twig` | export form + list of the user's exports, errors |
 | `pageExportRules.twig` | partial: the rules block of one export (limit, sort, fields, options) |
 | `pageExportRow.twig` | partial: one export row with download and delete (POST form with `my_post_key`) |
-| `pageImport.twig` | upload form, validate-only button, notes (no duplicate detection, size cap, XML only) |
+| `pageImport.twig` | upload form, validate-only button, notes (no duplicate detection, size cap, XML only, same board only) |
 | `pageImportReport.twig` | partial: the result report |
 | `pageImportExportMissingLibrary.twig` | the "PluginLibrary is required" error shown by both pages |
 | `pageMain.twig` (edit) | "Export" / "Import" buttons, shown by permission |
@@ -779,8 +781,8 @@ distinct error). On COMPLETED the entries are created as the current user and fo
 | Export form | `export_limit`, `export_limit_description`, `export_sort_by`, `export_sort_direction`, `export_fields`, `export_include_awaiting`, `export_include_deleted`, `export_submit` |
 | Export list | `col_created`, `col_entries`, `col_size`, `col_rules`, `download`, `delete`, `delete_confirm`, `none_stored`, `rules_limit`, `rules_sort`, `rules_fields`, `rules_options`, `rules_removed_characters` |
 | Export messages | `export_done`, `export_too_large` ({1} entries fit), `export_empty`, `export_cap_reached` ({1} stored exports), `export_flood` ({1} seconds), `export_deleted` |
-| Import form | `import_file`, `import_validate_only`, `import_submit`, `import_note_xml_only`, `import_note_size` ({1}), `import_note_duplicates` |
-| Import errors | `error_no_file`, `error_upload`, `error_extension`, `error_mime`, `error_too_large` ({1}), `error_memory`, `error_parse` ({1} line, {2} text), `error_doctype`, `error_format`, `error_version`, `error_count_mismatch`, `error_unknown_fields` ({1}), `error_captcha_group`, `error_required_file_field`, `error_flood` |
+| Import form | `import_file`, `import_validate_only`, `import_submit`, `import_note_xml_only`, `import_note_same_board`, `import_note_size` ({1}), `import_note_duplicates` |
+| Import errors | `error_no_file`, `error_upload`, `error_extension`, `error_mime`, `error_too_large` ({1}), `error_memory`, `error_parse` ({1} line, {2} text), `error_doctype`, `error_format`, `error_version`, `error_count_mismatch`, `error_unknown_fields` ({1}), `error_captcha_group`, `error_required_file_field`, `error_flood`, `error_entry_limit` ({1} limit, {2} existing, {3} in file) |
 | Report | `report_title`, `report_completed`, `report_failed`, `report_validated`, `report_total`, `report_imported`, `report_warnings`, `report_failures`, `report_entry_position` ({1} position, {2} subject), `warning_collection_name` ({1} found, {2} expected), `report_hash_seen` ({1} date) |
 | Library / access | `error_library_missing`, `error_library_version`, `error_no_permission`, `error_not_found` |
 | Logs | `log_import` |
@@ -827,9 +829,16 @@ rule exists).
 
 ## Implementation outline (later step, not part of this one)
 
-1. **Prerequisites in existing code:** validator error keying (Finding 3); reset or per-entry `EntriesManager`; extract
-   field construction (`loadEntryFields`) and the "status for a new entry" decision into a shared service; extract the
-   listing's visibility where-clause into a shared method.
+1. **Prerequisites in existing code (T21), implemented first on branch `feature/import-export`:**
+   1. validator error keying (Finding 3): each error reported individually;
+   2. a clean validator instance per entry, no state carried between calls;
+   3. shared code used by both the form and the import: building an entry's field values including defaults, deciding a
+      new entry's status, deciding which entries and fields a user can view and which fields they can fill;
+   4. **moderation:** implement the empty new-entry branch in `EntriesController::create()` (Finding 4) in the shared
+      status decision, so form posts and imports both land in the moderation queue for users who require it;
+   5. **per-user entry limit:** wire up the existing limit (Finding 4) in the shared create path, with a check a caller can
+      ask ("are N more entries allowed?") so an import counts existing entries + N against the limit.
+   The flood check is deliberately not wired up for the form in this step.
 2. `Service/ImportExport/XmlFile` (wrapper), `ExportsRepository`, `EntriesExporter`, `EntriesImporter`, `ImportReport`,
    `ImportTransaction`.
 3. Permissions (3), table `myshowcase_exports`, config columns, `SETTINGS` entries.
@@ -866,6 +875,9 @@ All of the following are final unless you change them.
 | T17 | Wrapper: rejects DOCTYPE; encodes `\r` as a character reference; marks nulls explicitly; suppresses PluginLibrary's warnings. Upstream report noted. |
 | T18 | **O1 resolved (a):** the export offers only fields the user can both view and fill; the structural check also rejects keys the user cannot fill, so exports are re-importable and imports cannot bypass fill permissions. |
 | T19 | **O2 resolved (a):** no admin or super-moderator access to other users' exports; creator only, cleanup by retention. |
+| T20 | **Required fields and defaults:** a required field missing from the file is filled with its default value, as the form does with its pre-filled input. It is rejected only if it has no default. (Flow: design 6, stage 6.2.) |
+| T21 | **Moderation and per-user limit are prerequisite refactors.** Fixing the empty new-entry moderation branch and wiring up the per-user entry limit both live in the shared status/create path, so form posts and imports both go through moderation and count against the limit. For an import the limit check includes the number of entries being imported (existing count + N must not exceed the limit), and an import that would exceed it fails as a whole, consistent with all-or-nothing. |
+| T22 | **Same board only.** Imports are meant for the board that exported them; that is why select values are exported as ids only (old #8). Importing into another board is unsupported, and the import page states this (`import_note_same_board`). |
 
 **From the previous numbered list (accepted unless overridden)**
 
