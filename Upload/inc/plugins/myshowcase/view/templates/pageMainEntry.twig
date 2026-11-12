@@ -137,6 +137,19 @@
         </div>
     {% endif %}
 
+    {# Custom fields shown in the list, in render order; the values are escaped or parsed by the field classes. #}
+    {% set main_fields = entry.getFields()|filter(field_data => field_data.isViewableInMain() and (field_data.getUserValue() is not same as('') or field_data.attachments_rendered is not empty))|sort((a, b) => a.field_definition.render_order <=> b.field_definition.render_order) %}
+    {% if main_fields is not empty %}
+        <div class="thread__fields">
+            {% for field_data in main_fields %}
+                <span class="thread__field thread__field--{{ field_data.field_definition.field_key }}">
+                    <span class="thread__field-label">{{ field_data.getLabel() }}:</span>
+                    <span class="thread__field-value">{% if field_data.hasOptions() %}{{ field_data.getUserValueDisplay()|raw }}{% else %}{{ field_data.getUserValue()|raw }}{{ field_data.attachments_rendered|raw }}{% endif %}</span>
+                </span>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <div class="thread__latest latest-post">
         <span class="latest-post__text">{{ lang.lastpost_by }}</span>
         <span class="latest-post__author">
