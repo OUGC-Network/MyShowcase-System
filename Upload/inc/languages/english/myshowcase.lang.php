@@ -448,6 +448,7 @@ $l = array_merge($l, [
     'myshowcase_comment_updated_status' => 'Your comment has been updated successfully.<br />You will now be returned back to where you came from.',
 
     'myshowcase_entry_entry_created' => 'Your entry has been created successfully.<br />You will now be redirected to the entry.',
+    'myshowcase_entry_limit_reached' => 'You have reached the maximum of {1} entries you can have in this showcase. Delete one of your entries to create a new one.',
     'myshowcase_entry_entry_created_awaiting_approval' => 'Your entry has been created successfully and is awaiting approval by a moderator.<br />It will be visible to others once it is approved. You will now be redirected to the entry.',
     'myshowcase_entry_entry_created_status' => 'Your entry has been created successfully.<br />You will now be returned back to where you came from.',
     'myshowcase_entry_entry_updated' => 'Your entry has been updated successfully.<br />You will now be redirected to the entry.',

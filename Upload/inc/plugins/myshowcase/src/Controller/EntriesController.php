@@ -684,6 +684,17 @@ class EntriesController extends BaseController
         } else {
             $entry = new EntryEntity();
 
+            if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanPost) &&
+                !$this->context->entries_manager->canPostEntries()) {
+                $this->error(
+                    $this->context->language->sprintf(
+                        $this->context->language->myshowcase_entry_limit_reached,
+                        my_number_format($this->context->entries_manager->entryPostLimit())
+                    ),
+                    403
+                );
+            }
+
             $this->context->entries_manager->attachFields($entry);
         }
 

@@ -148,6 +148,43 @@ class EntriesManager
     }
 
     /**
+     * The most entries the current user may have in this showcase: the group permission "Limit Entry Post Amount"
+     * (UserPermissions::EntriesLimitPostAmount, entries_limit_post_amount, set per group in the ACP; with several
+     * groups the highest value counts). 0 means no limit.
+     */
+    public function entryPostLimit(): int
+    {
+        if ($this->context->current_user->uid < 1) {
+            return 0;
+        }
+
+        return max(0, (int)($this->context->current_user->getPermissions()?->entries_limit_post_amount ?? 0));
+    }
+
+    /**
+     * How many entries the current user has in this showcase against the limit: approved ones and the ones awaiting
+     * approval (so the approval queue cannot be used to go past the limit). Soft-deleted entries do not count.
+     */
+    public function userEntriesCount(): int
+    {
+        return $this->context->entries_repository->queryEntryCount([
+            "entry_data.user_id='" . (int)$this->context->current_user->uid . "'",
+            "entry_data.status<>'" . ContentStatuses::SoftDeleted . "'",
+        ]);
+    }
+
+    /**
+     * Whether the current user may create $amount more entries without going past the limit, that is
+     * existing entries + $amount <= limit. Always true when there is no limit.
+     */
+    public function canPostEntries(int $amount = 1): bool
+    {
+        $limit = $this->entryPostLimit();
+
+        return $limit === 0 || $this->userEntriesCount() + $amount <= $limit;
+    }
+
+    /**
      * The fields of the collection the current user may see.
      *
      * @return Collection<\MyShowcase\Entity\CustomFieldEntity>
