@@ -189,6 +189,18 @@ abstract class BaseController
         return $this->isEntryOwner($entry) || $this->isEntryModerator();
     }
 
+    /** Whether the user may run a moderation action, which needs $permission, on the comment. */
+    protected function mayModerateComment(CommentEntity $comment, string $permission): bool
+    {
+        if (!$this->context->current_user->hasPermission($permission)) {
+            return false;
+        }
+
+        $user_id = (int)$this->context->current_user->uid;
+
+        return ($user_id > 0 && (int)$comment->user_id === $user_id) || $this->isCommentModerator();
+    }
+
     protected function isEntryOwner(EntryEntity $entry): bool
     {
         $user_id = (int)$this->context->current_user->uid;

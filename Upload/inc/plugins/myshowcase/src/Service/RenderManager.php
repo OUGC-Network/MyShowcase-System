@@ -582,6 +582,7 @@ class RenderManager
                     'entry_public_id' => $entry->public_id,
                     'comment_public_id' => $comment->public_id,
                     'delete' => 1,
+                    'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
 
@@ -591,6 +592,7 @@ class RenderManager
                     'entry_public_id' => $entry->public_id,
                     'comment_public_id' => $comment->public_id,
                     'delete' => 2,
+                    'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
         }

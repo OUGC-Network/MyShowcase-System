@@ -314,6 +314,18 @@ def security():
        'member: entry page has no inline moderation or close/sticky options')
     ok('moderator_options_selector' in mod_page and 'name="modoptions[closethread]"' in mod_page,
        'moderator: entry page shows inline moderation and close/sticky options')
+    # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
+    cslug = q(f"select comment_slug from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
+    r = mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1")
+    ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1,
+       'comment soft delete without my_post_key is refused')
+    r = m1.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+    ok(no_permission(r) and count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1,
+       "member cannot soft-delete another user's comment")
+    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
+    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
+    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
+    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
     return e1, e2
 
 

@@ -142,8 +142,8 @@
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
             {% if (permissions.comments_can_delete or comment_moderator) %}
-                <a href="editpost.php?pid={{ comment_data.public_id }}"
-                   onclick="Thread.restorePost({{ comment_data.public_id }}); return false;"
+                <a href="{{ config.showcase_url }}{{ url.soft_delete }}"
+                   onclick="data-restore({{ comment_data.public_id }}); return false;"
                    style="display: none;" id="quick_restore_{{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quick_restore_title }}"
                    class="post-control post-control--restore">
@@ -202,10 +202,8 @@
                     {% endif %}
 
                     {# Delete button #}
-                    {% if (permissions.comments_can_delete or comment_moderator) %}
-                        <a href="editpost.php?pid={{ comment_data.public_id }}"
-                           onclick="Thread.deletePost({{ comment_data.public_id }}); return false;"
-                           style="display: none;"
+                    {% if (permissions.comments_can_soft_delete or comment_moderator) %}
+                        <a href="{{ config.showcase_url }}{{ url.soft_delete }}"
                            id="quick_delete_{{ comment_data.public_id }}"
                            title="{{ lang.myshowcase_view_comment_options_quick_delete_title }}"
                            class="post-control post-control--delete">

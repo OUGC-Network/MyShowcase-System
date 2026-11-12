@@ -384,6 +384,88 @@ class CommentsController extends BaseController
     ])]
     public function update(string $entry_public_id, string $comment_public_id): string
     {
+        $this->verifyPassword();
+
+        global $lang;
+
+        switch ($this->verifyPermission($entry_slug, $comment_slug)) {
+            case self::NO_PERMISSION:
+                $this->errorNoPermission();
+                break;
+            case self::INVALID_ENTRY:
+                $this->error($lang->myshowcase_report_error_invalid_entry);
+                break;
+            case self::INVALID_COMMENT:
+                $this->error($lang->myshowcase_report_error_invalid_comment ?? $lang->myshowcase_report_error_invalid_entry);
+        }
+
+        /** @var CommentEntity $comment */
+        $comment = $this->context->comments_manager->getComments()->offsetGet($this->comment_id);
+
+        /** @var EntryEntity $entry */
+        $entry = $this->context->entries_manager->getEntryByID($this->entry_id);
+
+        $this->commentPageModeration($entry, $comment);
+
         return $this->create($entry_public_id, $comment_public_id, true);
+    }
+
+    /**
+     * Soft delete (delete=1) and hard delete (delete=2) of a comment: the group permission for one's own,
+     * plus comment moderator rights for another user's. Hard delete removes the row and its attachments.
+     */
+    private function commentPageModeration(EntryEntity $entry, CommentEntity $comment): void
+    {
+        $delete = $this->context->mybb->get_input('delete', \MyBB::INPUT_INT);
+
+        if (!in_array($delete, [1, 2], true)) {
+            return;
+        }
+
+        verify_post_check($this->context->mybb->get_input('my_post_key'));
+
+        $permission = $delete === 1 ? UserPermissions::CommentsCanSoftDelete : UserPermissions::CommentsCanDelete;
+
+        if (!$this->mayModerateComment($comment, $permission)) {
+            $this->errorNoPermission();
+        }
+
+        $lang = $this->context->language;
+
+        if ($delete === 2) {
+            foreach (
+                $this->context->attachments_repository->queryAttachments(
+                    ["comment_id='{$comment->comment_id}'"],
+                    ['attachment_id']
+                ) as $attachment
+            ) {
+                $this->context->attachments_repository->deleteAttachment((int)$attachment['attachment_id']);
+            }
+
+            $this->context->comments_repository->deleteComment((int)$comment->comment_id);
+            $this->updateEntryCommentsCount((int)$entry->entry_id);
+
+            redirect(
+                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    Routes::EntryView,
+                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ),
+                $lang->myshowcase_main_inline_moderation_redirect_deleted ?? 'The comment was deleted.'
+            );
+        }
+
+        $this->context->comments_repository->updateComment(
+            ['status' => ContentStatuses::SoftDeleted],
+            (int)$comment->comment_id
+        );
+        $this->updateEntryCommentsCount((int)$entry->entry_id);
+
+        redirect(
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                Routes::EntryView,
+                ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+            ),
+            $lang->myshowcase_main_inline_moderation_redirect_soft_deleted ?? 'The comment was soft deleted.'
+        );
     }
 }
