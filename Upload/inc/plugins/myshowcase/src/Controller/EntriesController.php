@@ -926,10 +926,6 @@ class EntriesController extends BaseController
             if ($is_update &&
                 $this->context->current_user->hasPermission(UserPermissions::EntriesModerateUpdates)) {
                 $entry->status = ContentStatuses::AwaitingApproval;
-            } elseif (!$is_update &&
-                $this->context->current_user->hasPermission(UserPermissions::EntriesModerateNew)
-            ) {
-                //$entry->status = \MyShowcase\Enum\ContentStatuses::AwaitingApproval;
             }
 
             // Set up a showcase handler.
@@ -1019,7 +1015,11 @@ class EntriesController extends BaseController
                                 'entry_slug_custom' => $entry->entry_slug_custom
                             ]
                         ),
-                        $is_update ? $this->context->language->myshowcase_entry_entry_updated : $this->context->language->myshowcase_entry_entry_created
+                        match (true) {
+                            $is_update => $this->context->language->myshowcase_entry_entry_updated,
+                            $entry->status === ContentStatuses::AwaitingApproval => $this->context->language->myshowcase_entry_entry_created_awaiting_approval,
+                            default => $this->context->language->myshowcase_entry_entry_created,
+                        }
                     );
                 }
 

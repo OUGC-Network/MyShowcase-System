@@ -172,11 +172,17 @@ class EntriesManager
     }
 
     /**
-     * The status a new entry is created with. The form and any other way of creating entries ask here, so there is one
-     * decision.
+     * The status a new entry is created with for the current user. The form and any other way of creating entries ask
+     * here, so there is one decision.
      */
     public function newEntryStatus(): int
     {
+        // The group permission "Moderate New Entries" (entries_moderate_new) sends the entries of its users to the
+        // approval queue.
+        if ($this->context->current_user->hasPermission(UserPermissions::EntriesModerateNew)) {
+            return ContentStatuses::AwaitingApproval;
+        }
+
         return ContentStatuses::VisibleApproved;
     }
 
