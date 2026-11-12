@@ -22,6 +22,12 @@ Revision 2 replaces the ACP-based design with a **forum-side feature** built on 
    absent is *not* rejected by it. To get "a required field absent from the file is rejected by the validator", the
    import must apply defaults and then present every required field to the validator as an empty value (the
    *defaulting step*, design 6). This is preparation of the input, not an extra check.
+
+   **Update:** the per-field checks (required, regular expression, numeric, length) were not merely skipping absent
+   fields: they never ran on the form at all, because they looped over `$entry->getFields()`, which nothing ever fills,
+   so an entry with a required field left empty was saved. This is **fixed in commit `2c3b800`** (branch
+   `feature/import-export`), which runs the checks over the collection's field entities. The validator-only import design
+   depends on that fix: without it, "the validator rejects a missing required field" would have been false.
 3. **The validator object accumulates state across calls** (`validation_errors` and `validation_data_is_valid` are
    never reset by `validateSet()`), and errors are keyed by message name, so two missing required fields produce a
    single `required_field` error (the last one wins). Validating many entries needs a fresh `EntriesManager` per entry,
@@ -664,7 +670,9 @@ before stage 7.
      count, each entry is an array whose `fields` (if present) is an array;
    * **every field key used in any entry's `fields` must exist in the target collection, matched exactly
      (case-sensitive).** Any unknown key **fails the import**; the error lists each unknown key and the entry numbers that
-     use it. (A key naming a `file` field is also rejected here: attachments are out of scope.)
+     use it. (A key naming a `file` field is also rejected here: attachments are out of scope.) **Fillable fields only
+     (T18, T23):** a key must also name a field the importing user may fill, `CustomFieldEntity::canFill()` (enabled, not
+     read-only, in a group listed in `allowed_groups_fill`); the same rule the form now applies to posted input.
    * `header.collection.name` differing from the target collection name is a **warning** in the report, not an error.
 6. **Defaulting step, then validation, per entry, in file order**, with a **fresh `EntriesManager` per entry**:
    1. Build the entry data from the file: `subject`, `message`, and the `fields` map. A `null` value is treated as absent.
@@ -839,6 +847,13 @@ rule exists).
    5. **per-user entry limit:** wire up the existing limit (Finding 4) in the shared create path, with a check a caller can
       ask ("are N more entries allowed?") so an import counts existing entries + N against the limit.
    The flood check is deliberately not wired up for the form in this step.
+   6. **validator checks custom fields** (Finding 2): fixed in `2c3b800`;
+   7. **posted input is allowlisted** (T23): the form takes only the values it legitimately exposes to the user, through
+      `EntriesManager::allowedEntryInput()`; user, status, views, dates, slug, counters and ip address come only from the
+      server. The import follows the same rule, so its input is limited to the same set (subject, message, fillable
+      collection fields) and nothing else is read from the file;
+   8. **update moderation** takes effect (`EntriesModerateUpdates`), and **0 beats any other value** when group
+      permissions that mean unlimited at 0 are merged, so the entry limit the import checks is the effective one.
 2. `Service/ImportExport/XmlFile` (wrapper), `ExportsRepository`, `EntriesExporter`, `EntriesImporter`, `ImportReport`,
    `ImportTransaction`.
 3. Permissions (3), table `myshowcase_exports`, config columns, `SETTINGS` entries.
@@ -878,6 +893,7 @@ All of the following are final unless you change them.
 | T20 | **Required fields and defaults:** a required field missing from the file is filled with its default value, as the form does with its pre-filled input. It is rejected only if it has no default. (Flow: design 6, stage 6.2.) |
 | T21 | **Moderation and per-user limit are prerequisite refactors.** Fixing the empty new-entry moderation branch and wiring up the per-user entry limit both live in the shared status/create path, so form posts and imports both go through moderation and count against the limit. For an import the limit check includes the number of entries being imported (existing count + N must not exceed the limit), and an import that would exceed it fails as a whole, consistent with all-or-nothing. |
 | T22 | **Same board only.** Imports are meant for the board that exported them; that is why select values are exported as ids only (old #8). Importing into another board is unsupported, and the import page states this (`import_note_same_board`). |
+| T23 | **Posted input is allowlisted** on the create and edit form (commit `570aafb` on `feature/import-export`): subject and message when enabled, post icon, signature and smilies options, close/sticky only with `EntriesCanClose`/`EntriesCanSticky`, and the collection fields the user can fill. Everything server-controlled is never taken from the post. The import's structural check (exact field keys, fillable fields only) follows the same rule. |
 
 **From the previous numbered list (accepted unless overridden)**
 
