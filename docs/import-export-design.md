@@ -863,6 +863,20 @@ rule exists).
 
 ---
 
+## Known issues, deferred
+
+Found while preparing the import and not fixed in this track:
+
+1. **The field-class factory fatals on load.** `FieldFactory::create()` cannot load the field classes
+   (`Fields/*Field.php`), so no field object can be instantiated; `EntryEntity::getFields()` is never filled either. The
+   validator therefore works through the collection's field entities (`CustomFieldEntity`, commit `2c3b800`), and the import
+   does the same. Nothing in this design may rely on `FieldsInterface` objects.
+2. **A user with no permission rows gets 0 on the zero-is-unlimited limits**, which means unlimited (for example
+   `entries_limit_post_amount`). Harmless today because such a user also holds no `entries_can_post` and cannot create
+   entries; it would matter if a future permission lets users without rows create entries.
+
+---
+
 ## Decisions taken
 
 All of the following are final unless you change them.
