@@ -73,7 +73,7 @@ final class JsonStatus
             return self::FILE_MISSING;
         }
 
-        return self::of($row, $file + ['hash' => $entryHash]);
+        return self::of($row, array_merge($file, ['hash' => $entryHash]));
     }
 
     /**

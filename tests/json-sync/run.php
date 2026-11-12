@@ -130,7 +130,8 @@ check(JsonStatus::of($row, ['exists' => false, 'valid' => false]) === 'file_miss
 check(JsonStatus::of($row, ['exists' => true, 'valid' => false]) === 'invalid', 'status invalid');
 check(JsonStatus::of(['json_version' => '1.9.0', 'json_hash' => ''], $file('1.10.0', 'h')) === 'update_available', 'versions compare as numbers');
 check(JsonStatus::ofField(['json_file' => '', 'json_version' => '', 'json_hash' => ''], $file('1.0.0', 'h'), 'h') === 'custom', 'field without file is custom');
-check(JsonStatus::ofField(['json_file' => 'collections/blog.json'] + $row, $file('1.0.0', 'h'), 'h') === 'in_sync', 'field in_sync');
+check(JsonStatus::ofField(['json_file' => 'collections/blog.json'] + $row, $file('1.0.0', 'whole-file-hash'), 'h') === 'in_sync', 'field in_sync (compared with the hash of its own entry, not the whole file)');
+check(JsonStatus::ofField(['json_file' => 'collections/blog.json'] + $row, $file('1.0.0', 'h'), 'other') === 'unversioned_change', 'field changed without a new version');
 check(JsonStatus::ofField(['json_file' => 'collections/blog.json'] + $row, $file('1.0.0', 'h'), null) === 'file_missing', 'field gone from the file');
 check(JsonStatus::managedColumns('collection', []) === ['name'], 'collection manages name');
 check(JsonStatus::managedColumns('field', ['field_key' => 'a', 'html_type' => 'text', 'label' => 'A', 'options' => []]) === ['field_key', 'html_type', 'field_label'], 'field manages the columns of its entry');
