@@ -42,6 +42,7 @@ use MyShowcase\Repository\{AccessLogsRepository,
 };
 use MyShowcase\Service\{CommentsManager, EntriesManager};
 use MyShowcase\Util\{SelectableLists, StringUtil};
+use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\{LoaderError, RuntimeError, SyntaxError};
@@ -347,6 +348,17 @@ class EntriesController extends BaseController
             $templatesContext['url']['create_entry'] = $this->context->routing->generateUrl(
                 Routes::EntryCreate,
             );
+        }
+
+        if ($this->context->current_user->uid > 0 &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanExport)) {
+            $templatesContext['url']['export'] = $this->context->routing->generateUrl(Routes::ExportMain);
+        }
+
+        if ($this->context->current_user->uid > 0 &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanImport) &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
+            $templatesContext['url']['import'] = $this->context->routing->generateUrl(Routes::ImportMain);
         }
 
         $templatesContext['unapproved_entries'] = '';
@@ -886,15 +898,12 @@ class EntriesController extends BaseController
         }
 
         if ($is_update) {
-            $where_clauses = ["entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'"];
-
-            if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
-                $where_clauses[] = $visibility_clause;
-            }
-
             $entry = $this->context->entries_repository->fetchEntry(
                 $this->context->custom_fields_collection,
-                $where_clauses
+                [
+                    "entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'",
+                    $this->entryVisibilityClause(),
+                ]
             );
 
             if (empty($entry)) {
@@ -1006,16 +1015,8 @@ class EntriesController extends BaseController
         }
 
         if (!$is_update && empty($entry->post_hash)) {
-            // The form sends back the hash it was given, which is always a StringUtil::generatePublicId() value
-            // (MyShowcase's own format: MyBB core's posthash is an md5, this plugin's is not). Anything else can only be a
-            // tampered post, and is replaced; the hash goes into queries and into a VARCHAR(slugLength) column.
-            $posted_post_hash = $this->context->mybb->get_input('post_hash');
-
-            if ((new StringUtil())->isValidPublicId($posted_post_hash)) {
-                $entry->post_hash = $posted_post_hash;
-            } else {
-                $entry->post_hash = (new StringUtil())->generatePublicId();
-            }
+            // One validated hash per request, shared with the comments form (BaseController::requestPostHash()).
+            $entry->post_hash = $this->requestPostHash();
         }
 
         foreach ($this->context->custom_fields_collection as $field_id => $field) {
@@ -1079,7 +1080,7 @@ class EntriesController extends BaseController
             'entry' => &$entry,
             'attachment_objects' => $this->context->attachments_repository->queryAttachments(
                 [
-                    "entry_id='{$entry->entry_id}' OR post_hash='{$entry->post_hash}'"
+                    "entry_id='{$entry->entry_id}' OR post_hash='{$this->context->database->escape_string((string)$entry->post_hash)}'"
                 ],// todo, status clause
                 [
                     'attachment_id',
@@ -1118,7 +1119,7 @@ class EntriesController extends BaseController
         if ($entry->entry_id) {
             $where_clauses = ["entry_id='{$entry->entry_id}'"];
         } else {
-            $where_clauses = ["post_hash='{$entry->post_hash}'"];
+            $where_clauses = ["post_hash='{$this->context->database->escape_string((string)$entry->post_hash)}'"];
         }
 
         foreach (
@@ -1139,6 +1140,14 @@ class EntriesController extends BaseController
         if (!$is_update) {
             // The form carries the validated hash, never a posted one that was replaced.
             $this->context->mybb->input['post_hash'] = $entry->post_hash;
+        }
+
+        if (!$is_update && $this->context->mybb->request_method !== 'post' &&
+            $this->context->entries_manager->canUseSignature()) {
+            // First load of the create form: the signature box starts as it will be stored if left alone. That is ticked
+            // when the user has a signature, as MyBB core does for a new post (newthread.php); once the form has been
+            // posted, the box shows what was posted.
+            $this->context->mybb->input['allow_signature'] = !empty($this->context->mybb->user['signature']) ? 1 : 0;
         }
 
         if ($this->context->mybb->request_method === 'post') {
@@ -1200,8 +1209,8 @@ class EntriesController extends BaseController
                 [
                     'entry_id' => $entry->entry_id,
                     'user_id' => $entry->user_id,
-                'status' => $this->submittedEntryStatus($entry, $is_update),
-            ],
+                    'status' => $this->submittedEntryStatus($entry, $is_update),
+                ],
                 $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]
             ));
 
@@ -1269,15 +1278,25 @@ class EntriesController extends BaseController
                     $this->success($data);
                 }
 
-                if (isset($entry->status) && $entry->status === ContentStatuses::SoftDeleted) {
+                // The entry page is only for someone who may see the entry: a soft-deleted one, or one awaiting approval that
+                // the author may not see (no entries_can_view_unapproved), sends them back to the list.
+                if (isset($entry->status) && (
+                        $entry->status === ContentStatuses::SoftDeleted ||
+                        !$this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id)
+                    )) {
                     $mainUrl = $this->context->routing->generateUrl(
                         Routes::Main,
                         $this->context->render_manager->url_params
                     );
 
                     redirect(
-                        $mainUrl,
-                        $is_update ? $this->context->language->myshowcase_entry_entry_updated_status : $this->context->language->myshowcase_entry_entry_created_status
+                        $this->context->showcase->showcase_url . $mainUrl,
+                        match (true) {
+                            $entry->status === ContentStatuses::AwaitingApproval && $is_update => $this->context->language->myshowcase_entry_entry_updated_awaiting_approval_list,
+                            $entry->status === ContentStatuses::AwaitingApproval => $this->context->language->myshowcase_entry_entry_created_awaiting_approval_list,
+                            $is_update => $this->context->language->myshowcase_entry_entry_updated_status,
+                            default => $this->context->language->myshowcase_entry_entry_created_status,
+                        }
                     );
                 } else {
                     redirect(
@@ -1434,12 +1453,6 @@ class EntriesController extends BaseController
     public function view(string $entry_public_id, string $entry_slug_custom = '', ?string $comment_public_id = null): string
     {
         $this->verifyPassword();
-
-        $where_clauses = ["entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'"];
-
-        if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
-            $where_clauses[] = $visibility_clause;
-        }
 
         $entry = $this->context->entries_repository->fetchEntry(
             $this->context->custom_fields_collection,

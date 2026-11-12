@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase;
 
 use MyBB;
+use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\UserEntity;
@@ -339,10 +340,6 @@ class Showcase
 
     private function moderatorMatchesUser(array $moderatorEntry, array $userGroupIDs, int $userID): bool
     {
-        if ($moderatorEntry['group_id']) {
-            return in_array($moderatorEntry['user_id'], $userGroupIDs, strict: true);
-        }
-
-        return (int)$moderatorEntry['user_id'] === $userID;
+        return ModeratorsRepository::matchesUser($moderatorEntry, $userGroupIDs, $userID);
     }
 }

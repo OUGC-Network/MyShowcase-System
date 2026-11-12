@@ -18,6 +18,7 @@ use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
@@ -151,28 +152,134 @@ class EntriesManager
     }
 
     /**
-     * Condition that limits a query to the entries the current user may see: approved ones, plus their own that
-     * await approval. Empty when the user holds $permission (EntriesCanView by default), which lets them see every
-     * status. The listing, the entry page, the update page and comment access all use this one rule.
+     * Whether the current user is a moderator of this showcase. This is the ONE place that decides it. A moderator is a user
+     * who is a super moderator or an administrator of the board (their usergroup, primary or additional, has issupermod or
+     * cancp), or who is in the showcase's moderators (myshowcase_moderators, managed in the ACP showcase form), either by
+     * user id or through one of their usergroups (see ModeratorsRepository::matchesUser()).
      */
-    public function visibilityWhereClause(
-        string $alias = 'entry_data',
-        string $permission = UserPermissions::EntriesCanView
-    ): string {
-        if ($this->context->current_user->hasPermission($permission)) {
-            return '';
+    public function isModerator(): bool
+    {
+        $user = $this->context->current_user;
+
+        if ($user->uid < 1) {
+            return false;
         }
 
-        return $this->statusVisibilityClause($alias);
+        if (isset($this->is_moderator_cache[$user->uid])) {
+            return $this->is_moderator_cache[$user->uid];
+        }
+
+        $usergroup = $this->context->mybb->usergroup ?? [];
+
+        $moderator = !empty($usergroup['issupermod']) || !empty($usergroup['cancp']);
+
+        if (!$moderator) {
+            $group_ids = array_filter(array_map(
+                'intval',
+                explode(
+                    ',',
+                    (int)($this->context->mybb->user['usergroup'] ?? 0) . ',' . ($this->context->mybb->user['additionalgroups'] ?? '')
+                )
+            ));
+
+            foreach (
+                $this->context->moderators_repository->queryModerators([], ['user_id', 'group_id']) as $moderator_row
+            ) {
+                if (ModeratorsRepository::matchesUser($moderator_row, $group_ids, (int)$user->uid)) {
+                    $moderator = true;
+
+                    break;
+                }
+            }
+        }
+
+        return $this->is_moderator_cache[$user->uid] = $moderator;
+    }
+
+    /** @var array<int, bool> */
+    private array $is_moderator_cache = [];
+
+    /**
+     * The permission that lets a user see entries in a status that is not public. The two exist in the permission
+     * definitions as "view your own entries awaiting approval" (default on) and "view your own soft-deleted entries"
+     * (default off); until now nothing read them.
+     */
+    private const STATUS_VIEW_PERMISSIONS = [
+        ContentStatuses::AwaitingApproval => UserPermissions::EntriesCanViewUnapproved,
+        ContentStatuses::SoftDeleted => UserPermissions::EntriesCanViewDeleted,
+    ];
+
+    /**
+     * How many entries of a status the current user may see: 'any' (entries of every user), 'own' (only theirs) or
+     * 'none'. THE visibility rule, applied nowhere else:
+     * - approved entries: everyone ('any');
+     * - awaiting approval / soft-deleted: without entries_can_view_unapproved / entries_can_view_deleted, 'none', not even
+     *   their own; with it, 'own' for a user who is not a moderator of the showcase and 'any' for a moderator.
+     */
+    public function statusViewScope(int $status): string
+    {
+        if ($status === ContentStatuses::VisibleApproved) {
+            return 'any';
+        }
+
+        $permission = self::STATUS_VIEW_PERMISSIONS[$status] ?? null;
+
+        if ($permission === null || $this->context->current_user->uid < 1 ||
+            !$this->context->current_user->hasPermission($permission)) {
+            return 'none';
+        }
+
+        return $this->isModerator() ? 'any' : 'own';
     }
 
     /**
-     * The same condition without the permission test: approved entries and the user's own awaiting approval.
+     * Whether the current user may see an entry of this status that belongs to $owner_id. Without an owner: whether they
+     * may see any entry of that status at all (what the export form asks to decide which options to offer).
      */
-    public function statusVisibilityClause(string $alias = 'entry_data'): string
+    public function canViewStatus(int $status, ?int $owner_id = null): bool
     {
+        return match ($this->statusViewScope($status)) {
+            'any' => true,
+            'own' => $owner_id === null || $owner_id === (int)$this->context->current_user->uid,
+            default => false,
+        };
+    }
+
+    /**
+     * Condition that limits a query on the entries table to the entries the current user may see, built from
+     * statusViewScope(): for each status, nothing, the user's own entries, or all of them. The listing, the entry page, the
+     * update page, comment access and the export all use it.
+     */
+    public function visibilityWhereClause(string $alias = 'entry_data'): string
+    {
+        $uid = (int)$this->context->current_user->uid;
+
+        $conditions = [];
+
+        foreach ([ContentStatuses::VisibleApproved, ContentStatuses::AwaitingApproval, ContentStatuses::SoftDeleted] as $status) {
+            $conditions[] = match ($this->statusViewScope($status)) {
+                'any' => "{$alias}.status='{$status}'",
+                'own' => "({$alias}.status='{$status}' AND {$alias}.user_id='{$uid}')",
+                default => null,
+            };
+        }
+
+        return '(' . implode(' OR ', array_filter($conditions)) . ')';
+    }
+
+    /**
+     * Condition for the comments of an entry, as it was before entries had a rule of their own: approved comments, plus the
+     * user's own that await approval, unless they hold the comments view permission. Comments are not part of the entry
+     * visibility rule (see the design document's known issues).
+     */
+    public function commentVisibilityWhereClause(string $alias = 'comment_data'): string
+    {
+        if ($this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
+            return '';
+        }
+
         return "({$alias}.status='" . ContentStatuses::VisibleApproved . "' OR ("
-            . "{$alias}.user_id='{$this->context->current_user->uid}' AND "
+            . "{$alias}.user_id='" . (int)$this->context->current_user->uid . "' AND "
             . "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'))";
     }
 

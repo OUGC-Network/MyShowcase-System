@@ -33,6 +33,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Util\UuidUtil;
 use MyShowcase\ValueObjects\EntryCustomField;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -63,6 +64,7 @@ abstract class BaseController
 
     protected int $entry_id = 0;
     protected int $comment_id = 0;
+    private ?string $request_post_hash = null;
 
     public function __construct(
         public readonly ShowcaseContext $context,
@@ -363,11 +365,6 @@ abstract class BaseController
         return self::HAS_PERMISSION;
     }
 
-    private function buildEntryStatusFilter(): string
-    {
-        return $this->context->entries_manager->statusVisibilityClause();
-    }
-
     private function resolveEntryByPublicId(string $entry_public_id): ?EntryEntity
     {
         return $this->loadEntryFromClauses([
@@ -665,6 +662,28 @@ abstract class BaseController
         echo json_encode($params);
 
         exit;
+    }
+
+    /**
+     * The post hash of the form being handled: the one the form sent back when it is well formed, else a fresh one.
+     * The form only ever sends back a hash it was given, and MyShowcase's hashes are UUID v4 (MyBB core's posthash is an
+     * md5; this plugin's is not, and the column and the upload route are sized for the UUID), so anything that does not
+     * have that shape can only be a tampered post and is replaced instead of rejected. The same value is returned for
+     * the rest of the request, for the entries and the comments form alike.
+     */
+    protected function requestPostHash(): string
+    {
+        if ($this->request_post_hash === null) {
+            $uuid_util = new UuidUtil();
+
+            $posted_post_hash = $this->context->mybb->get_input('post_hash');
+
+            $this->request_post_hash = $uuid_util->isValidUuidV4($posted_post_hash)
+                ? $posted_post_hash
+                : $uuid_util->generateUuidV4();
+        }
+
+        return $this->request_post_hash;
     }
 
     #[NoReturn]

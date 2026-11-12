@@ -16,6 +16,7 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
+use const MyShowcase\Plugin\Core\MODERATOR_TYPE_GROUP;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class ModeratorsRepository
@@ -38,6 +39,24 @@ class ModeratorsRepository
     public function setShowcase(ShowcaseEntity $showcase): void
     {
         $this->showcase = $showcase;
+    }
+
+    /**
+     * Whether a row of myshowcase_moderators stands for this user. The ACP writes the table so: `group_id` is the TYPE of
+     * the row (MODERATOR_TYPE_USER 0, MODERATOR_TYPE_GROUP 1) and `user_id` holds the id it refers to, a user id or a
+     * usergroup id. This is the one place that reads that convention; it is shared by Showcase::moderatorPermissionsGet()
+     * and EntriesManager::isModerator().
+     *
+     * @param array{user_id: int|string, group_id: int|string} $moderator_row
+     * @param int[] $user_group_ids the user's primary and additional usergroup ids
+     */
+    public static function matchesUser(array $moderator_row, array $user_group_ids, int $user_id): bool
+    {
+        if ((int)$moderator_row['group_id'] === MODERATOR_TYPE_GROUP) {
+            return in_array((int)$moderator_row['user_id'], $user_group_ids, true);
+        }
+
+        return $user_id > 0 && (int)$moderator_row['user_id'] === $user_id;
     }
 
     public function queryModerators(
