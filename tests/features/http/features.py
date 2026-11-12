@@ -326,6 +326,7 @@ def security():
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '1', 'moderator closes the entry from the entry-page form')
     mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'open', 'my_post_key': post_key(mod_page)})
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'moderator opens it again')
+    ok('value="copy"' not in mod.get(f'{G}/')['body'] and 'value="copy"' not in mod_page, 'main list and entry page hide the unimplemented copy action')
     # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
     cslug = q(f"select comment_slug from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
     r = mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1")
