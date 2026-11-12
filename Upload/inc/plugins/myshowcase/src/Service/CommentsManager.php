@@ -300,16 +300,11 @@ class CommentsManager
 
         // Assign any uploaded attachments with the specific post_hash to the newly created comment.
         if (!$isUpdate && !empty($comment->post_hash)) {
-            foreach (
-                $this->context->attachments_repository->queryAttachments(
-                    ["post_hash='{$this->context->database->escape_string($comment->post_hash)}'"]
-                ) as $attachmentID => $attachmentData
-            ) {
-                $this->context->attachments_repository->updateAttachment(
-                    ['comment_id' => $this->comment_id, 'post_hash' => ''],
-                    $attachmentID
-                );
-            }
+            $this->context->attachments_repository->linkAttachmentsByPostHash(
+                $comment->post_hash,
+                (int)$this->context->current_user->uid,
+                ['comment_id' => $this->comment_id, 'post_hash' => '']
+            );
         }
 
         if (isset($comment->status)) {

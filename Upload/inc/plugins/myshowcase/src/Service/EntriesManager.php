@@ -1280,24 +1280,11 @@ class EntriesManager
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
         if (!empty($this->validation_entry->post_hash)) {
-            // queryAttachments() yields rows without keys; read the ids first, then write.
-            $attachment_ids = array_map(
-                static fn(array $attachment_data): int => (int)$attachment_data['attachment_id'],
-                iterator_to_array(
-                    $this->context->attachments_repository->queryAttachments(
-                        ["post_hash='{$this->context->database->escape_string($this->validation_entry->post_hash)}'"],
-                        'attachment_id',
-                    ),
-                    false
-                )
+            $this->context->attachments_repository->linkAttachmentsByPostHash(
+                $this->validation_entry->post_hash,
+                (int)$this->context->current_user->uid,
+                ['entry_id' => $this->validation_entry->entry_id]
             );
-
-            foreach ($attachment_ids as $attachment_id) {
-                $this->context->attachments_repository->updateAttachment(
-                    ['entry_id' => $this->validation_entry->entry_id],
-                    $attachment_id
-                );
-            }
         }
 
         if (!isset($this->validation_entry->public_id)) {

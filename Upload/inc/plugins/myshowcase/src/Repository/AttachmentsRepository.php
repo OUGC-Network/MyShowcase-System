@@ -160,6 +160,40 @@ class AttachmentsRepository
         }
     }
 
+    /**
+     * Attaches the files a user uploaded under a post hash (while the entry or comment did not exist yet) to the entry or
+     * comment that was just created: every attachment of this showcase that carries the hash, belongs to the user and
+     * is not attached to anything yet gets $link_data (for example ['entry_id' => 12]).
+     *
+     * @param array<string, mixed> $link_data
+     * @return int How many attachments were linked.
+     */
+    public function linkAttachmentsByPostHash(string $post_hash, int $user_id, array $link_data): int
+    {
+        if ($post_hash === '') {
+            return 0;
+        }
+
+        $attachment_ids = [];
+
+        foreach (
+            $this->queryAttachments([
+                "post_hash='{$this->database->escape_string($post_hash)}'",
+                "user_id='{$user_id}'",
+                "entry_id='0'",
+                "comment_id='0'",
+            ], ['attachment_id']) as $attachment_data
+        ) {
+            $attachment_ids[] = (int)$attachment_data['attachment_id'];
+        }
+
+        foreach ($attachment_ids as $attachment_id) {
+            $this->updateAttachment($link_data, $attachment_id);
+        }
+
+        return count($attachment_ids);
+    }
+
     public function updateAttachment(array $attachment_data, int $attachment_id): int
     {
         return $this->insertAttachment($attachment_data, true, $attachment_id);

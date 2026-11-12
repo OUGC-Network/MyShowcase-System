@@ -17,17 +17,17 @@ readonly class EntryDeletedAttachmentListener
 
     public function __invoke(EntryDeletedEvent $event): void
     {
-        // queryAttachments() yields rows without keys; read the ids first, then delete.
-        $attachment_ids = array_map(
-            static fn(array $attachment_data): int => (int)$attachment_data['attachment_id'],
-            iterator_to_array(
-                $this->context->attachments_repository->queryAttachments(["entry_id='{$event->getEntryID()}'"], 'attachment_id'),
-                false
-            )
-        );
+        $entry_id = (int)$event->getEntryID();
+
+        // The ids are read first: the attachments are deleted while the list would still be open.
+        $attachment_ids = [];
+
+        foreach ($this->attachments_repository->queryAttachments(["entry_id='{$entry_id}'"]) as $attachment_data) {
+            $attachment_ids[] = (int)$attachment_data['attachment_id'];
+        }
 
         foreach ($attachment_ids as $attachment_id) {
-            $this->context->attachments_repository->deleteAttachment($attachment_id);
+            $this->attachments_repository->deleteAttachment($attachment_id);
         }
     }
 }
