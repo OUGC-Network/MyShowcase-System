@@ -351,7 +351,10 @@ class EntriesController extends BaseController
 
         $templatesContext['unapproved_entries'] = '';
 
-        if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanViewUnapproved) &&
+        // The moderation tools of the list (row checkboxes, inline moderation).
+        $templatesContext['entry_moderator'] = $this->isEntryModerator();
+
+        if ($this->isEntryModerator() &&
             ($unapproved_count = $this->context->entries_repository->queryEntryCount(
                 ["entry_data.status='" . ContentStatuses::AwaitingApproval . "'"]
             ))) {
@@ -604,8 +607,7 @@ class EntriesController extends BaseController
 
                 if ($entry->status === ContentStatuses::AwaitingApproval) {
                     $entry->setExtraData('background_class', 'trow_shaded');
-                } elseif ($entry->status === ContentStatuses::SoftDeleted &&
-                    $this->context->current_user->hasPermission(UserPermissions::EntriesCanViewDeleted)) {
+                } elseif ($entry->status === ContentStatuses::SoftDeleted) {
                     $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
                 } else {
                     $entry->setExtraData('background_class', '');
@@ -1997,11 +1999,7 @@ class EntriesController extends BaseController
         if ($content_type === ContentTypes::Comment) {
             // Comments are filtered by their own moderation permissions. CommentsCanView only means the user may
             // read comments at all, so it must not reveal unapproved or soft-deleted ones.
-            if ($visibility_clause = $this->statusVisibilityClause(
-                $alias,
-                UserPermissions::CommentsCanViewUnapproved,
-                UserPermissions::CommentsCanViewDeleted
-            )) {
+            if ($visibility_clause = $this->commentVisibilityClause($alias)) {
                 $where_clauses[] = $visibility_clause;
             }
         } else {
@@ -2010,8 +2008,7 @@ class EntriesController extends BaseController
             }
 
             // The approval queue: the waiting entries only.
-            if (!empty($this->context->render_manager->url_params['unapproved']) &&
-                $this->context->current_user->hasPermission(UserPermissions::EntriesCanViewUnapproved)) {
+            if (!empty($this->context->render_manager->url_params['unapproved']) && $this->isEntryModerator()) {
                 $where_clauses[] = "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'";
             }
         }

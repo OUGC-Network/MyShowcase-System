@@ -1,7 +1,7 @@
 <div class="row row--thread thread thread--default inline_row
     {% if entry.extra_data.unread_comments %} thread--unread{% endif %}
     {% if entry.is_sticky %} thread--sticky{% endif %}
-    {% if permissions.entries_can_approve %} thread--moderator{% endif %}
+    {% if entry_moderator %} thread--moderator{% endif %}
     {% if entry.status == 2 %} thread--deleted{% endif %}
     {% if entry.status == 0 %} thread--awaiting-approval{% endif %}">
 
@@ -87,7 +87,7 @@
            class="latest-post__date">{{ entry.extra_data.last_comment_date.getTimestamp() }}</a>
     </div>
 
-    {% if permissions.entries_can_approve %}
+    {% if entry_moderator %}
         <div class="thread__checkbox">
             <label for="selected-entry-{{ entry.entry_slug }}"></label>
             <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.entry_slug }}"
