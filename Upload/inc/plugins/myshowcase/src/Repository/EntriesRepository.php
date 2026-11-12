@@ -410,6 +410,12 @@ class EntriesRepository
         return $query_options;
     }
 
+    /** The number of entries fetchEntries() would list: the same tables, so conditions on option values work. */
+    public function countEntries(Collection $collection_fields, array $where_clauses = []): int
+    {
+        return $this->queryEntryCount($where_clauses, $this->buildQueryFieldsAndTables($collection_fields)[1]);
+    }
+
     public function fetchEntry(Collection $collection_fields, array $where_clauses = []): array
     {
         return $this->fetchEntries($collection_fields, $where_clauses, ['limit' => 1, 'single_entry' => true])[0] ?? [];

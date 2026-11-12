@@ -45,6 +45,10 @@ use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\{LoaderError, RuntimeError, SyntaxError};
 
+use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -382,7 +386,10 @@ class EntriesController extends BaseController
             }
         }
 
-        $total_entries = $this->context->entries_repository->queryEntryCount($where_clauses);
+        $total_entries = $this->context->entries_repository->countEntries(
+            $this->context->custom_fields_collection,
+            $where_clauses
+        );
 
         $this->buildQueryLimit($query_options, $total_entries);
 
@@ -752,6 +759,24 @@ class EntriesController extends BaseController
                 unset($this->context->mybb->input[$column]);
             }
         }
+    }
+
+    /**
+     * The search page: the main list with its keywords, for users who may search entries. Searches are not
+     * stored, so a search hash selects nothing more.
+     *
+     * @throws RuntimeError
+     * @throws LoaderError
+     * @throws SyntaxError
+     * @throws RandomException
+     */
+    public function search(?string $search_hash = null): string
+    {
+        if (!$this->context->current_user->hasPermission(UserPermissions::CanSearchEntries)) {
+            $this->errorNoPermission();
+        }
+
+        return $this->main();
     }
 
     /**
@@ -1951,40 +1976,39 @@ class EntriesController extends BaseController
             array_map('trim', explode(' ', $this->context->render_manager->url_params['keywords'] ?? ''))
         );
 
-        if ($keywords) {
+        // Keywords filter the entries for users who may search them only.
+        if ($keywords && $content_type === ContentTypes::Entry &&
+            $this->context->current_user->hasPermission(UserPermissions::CanSearchEntries)) {
             $search_where_clauses = [];
 
+            $exact = !empty($this->context->render_manager->url_params['exact_match']);
+
+            $match = function (string $column, string $keyword) use ($exact): string {
+                $keyword = $this->context->database->escape_string($keyword);
+
+                return $exact ? "{$column}='{$keyword}'" : "{$column} LIKE '%{$keyword}%'";
+            };
+
             foreach ($keywords as $keyword) {
-                if (empty($this->context->render_manager->url_params['exact_match'])) {
-                    //$search_where_clauses[] = "user_data.username LIKE '%{$this->context->database->escape_string($keyword)}%'";
-                } else {
-                    //$search_where_clauses[] = "user_data.username='{$this->context->database->escape_string($keyword)}'";
+                if ($this->context->showcase->entries_enable_subject) {
+                    $search_where_clauses[] = $match("{$alias}.subject", $keyword);
                 }
-            }
 
-            if ($content_type === ContentTypes::Entry) {
-                foreach ($this->context->custom_fields_collection as $field_id => $field) {
-                    foreach ($keywords as $keyword) {
-                        if (!$field->enable_search) {
-                            continue;
-                        }
+                foreach ($this->context->custom_fields_collection as $field) {
+                    if (!$field->enable_search) {
+                        continue;
+                    }
 
-                        if (in_array($field->html_type, [
-                            FieldHtmlTypes::CheckBox,
-                            FieldHtmlTypes::Radio,
-                            FieldHtmlTypes::Select
-                        ])) {
-                            if (empty($this->context->render_manager->url_params['exact_match'])) {
-                                $search_where_clauses[] = "(table_{$field->field_key}.value LIKE '%{$this->context->database->escape_string($keyword)}%' OR table_{$field->field_key}.display_style LIKE '%{$this->context->database->escape_string($keyword)}%')";
-                            } else {
-                                $search_where_clauses[] = "(table_{$field->field_key}.value='{$this->context->database->escape_string($keyword)}' OR table_{$field->field_key}.display_style='{$this->context->database->escape_string($keyword)}')";
-                            }
-                            //$search_where_clauses[] = "table_{$field->field_key}.collection_id='{$this->context->config->collection_id}'";
-                        } elseif (empty($this->context->render_manager->url_params['exact_match'])) {
-                            $search_where_clauses[] = "{$alias}.{$field->field_key} LIKE '%{$this->context->database->escape_string($keyword)}%'";
-                        } else {
-                            $search_where_clauses[] = "{$alias}.{$field->field_key}='{$this->context->database->escape_string($keyword)}'";
-                        }
+                    if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select], true)) {
+                        // The option label, from the option table fetchEntries() joins.
+                        $search_where_clauses[] = '(' . $match("table_{$field->field_key}.value", $keyword) . ' OR ' .
+                            $match("table_{$field->field_key}.display_style", $keyword) . ')';
+                    } elseif (fieldTypeMatchChar($field->field_type) || fieldTypeMatchText($field->field_type)) {
+                        $search_where_clauses[] = $match("{$alias}.{$field->field_key}", $keyword);
+                    } elseif ((fieldTypeMatchInt($field->field_type) || fieldTypeMatchFloat($field->field_type)) &&
+                        is_numeric($keyword)) {
+                        // LIKE on a number column fails on PostgreSQL: numbers are matched exactly.
+                        $search_where_clauses[] = "{$alias}.{$field->field_key}='" . (float)$keyword . "'";
                     }
                 }
             }

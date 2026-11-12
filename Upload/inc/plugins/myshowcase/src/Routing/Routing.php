@@ -364,19 +364,12 @@ class Routing
             new Route(
                 '/{showcase}/search',
                 [
-                    '_controller' => function (array $parameters): string {
+                    '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        return (new Search(
-                            $this->context,
-                            $this,
-                            $this->context->database,
-                            $this->context->mybb,
-                            $this->context->current_user,
-                            $this->context->entries_manager,
-                            $this->context->attachments_manager,
-                            $this->context->render_manager,
-                        ))->mainSearch(...$parameters);
+                        output_page(
+                            (new EntriesController($this->context,))->search(...$parameters)
+                        );
                     },
                 ],
                 [
@@ -390,19 +383,12 @@ class Routing
             new Route(
                 '/{showcase}/search/{search_hash}',
                 [
-                    '_controller' => function (array $parameters): string {
+                    '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        return (new Search(
-                            $this->context,
-                            $this,
-                            $this->context->database,
-                            $this->context->mybb,
-                            $this->context->current_user,
-                            $this->context->entries_manager,
-                            $this->context->attachments_manager,
-                            $this->context->render_manager,
-                        ))->mainSearch(...$parameters);
+                        output_page(
+                            (new EntriesController($this->context,))->search(...$parameters)
+                        );
                     },
                 ],
                 [
