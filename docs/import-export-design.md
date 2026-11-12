@@ -105,7 +105,7 @@ failure, or `['message' => 'XML is valid, but there is no data to import.']` for
 * XXE: not reproducible on this stack (PHP >= 8.0 / libxml >= 2.9 disable external entity loading), but the default
   cannot be assumed on every host, so the wrapper rejects any DOCTYPE (A.5).
 
-### A.5 The wrapper (`Service/ImportExport/XmlFile`)
+### A.5 The wrapper (`Util/XmlFile`)
 
 PluginLibrary's two methods remain the XML engine; they are only called through this thin layer.
 
@@ -278,7 +278,7 @@ structure below. Top level: `header`, `entries`.
 | `collection` | array | `name`. A mismatch with the target collection is **a warning only**. |
 | `entry_count` | int | Must equal the real number of entries (structural). |
 | `fields` | list | Exported fields: `field_key`, `html_type`, `field_type` (informational; matching uses the keys in each entry). |
-| `rules` | array | `limit`, `order_by`, `order_dir`, `fields` (selected keys), `options` (every form option chosen), `removed_characters`. |
+| `rules` | array | `limit`, `limit_cap` (the 5,000 in force), `order_by`, `order_dir`, `fields` (selected keys), `options` (every form option chosen), `removed_characters`. |
 
 `entries`: a list; each item has optional `subject`, optional `message`, and `fields` (`field_key => value`). Nothing else
 is read.
@@ -577,7 +577,8 @@ Second line]]></value>
   page documentation says so because `.htaccess` is ignored by nginx.
 * **Disk name:** `{export_id}-{route_identifier}-{YYYYMMDD-HHMMSS}-{32 random hex}.xml`; unguessable and never taken from
   user input. **Download name** (header only): `myshowcase-{route_identifier}-{YYYYMMDD-HHMMSS}.xml`.
-* **Cap:** 5,000 entries per export, and the generated file must not exceed the **import size cap** of the same server
+* **Cap:** 5,000 entries per export (a limit above it is **clamped** to 5,000 and the user is told; `0` means as many as the
+  cap allows), and the generated file must not exceed the **import size cap** of the same server
   (design 7). The exporter builds the XML, measures it, and if it is larger than the cap it **refuses to save** and tells
   the user how many entries fit (estimated from the average entry size) so they can lower the limit or select fewer
   fields. Every stored export is therefore re-importable on that server.
@@ -603,11 +604,17 @@ requires what the validator requires: `EntriesCanPost` (checked by the validator
 
 An export is generated with the exporting user's own view of the showcase, never more:
 
-* **Entries:** approved entries; plus awaiting-approval and soft-deleted entries **only if the user moderates that
-  showcase** (group permission `EntriesCanView`, the same test the listing uses to show unapproved content, or the user
-  is in `myshowcase_moderators`), and then only if they tick the corresponding form option. Non-moderators do not see
-  those options. The export query reuses the listing's where-clause logic (extracted to a shared method) so the two cannot
-  drift.
+* **Entries:** approved entries; plus awaiting-approval entries **only for a user who holds `entries_can_approve`**, and
+  soft-deleted entries **only for a user who holds `entries_can_restore`**, and then only if they tick the corresponding form
+  option. Other users are not offered the options and a forged POST for them is ignored (`EntriesManager::canViewStatus()`).
+  This replaces the first version of this rule, which took `entries_can_view` (on for ordinary groups) to mean "moderator".
+  The plugin has no *enforced* permission for viewing other users' awaiting or soft-deleted entries:
+  `entries_can_view_unapproved` / `entries_can_view_deleted` exist but nothing reads them, they are described as "your own
+  entries", and the first is on by default; so the permissions that moderate those statuses are used. The `myshowcase_moderators`
+  table is not consulted (its membership is not turned into permissions anywhere). The export query still applies the
+  listing's visibility rule (`visibilityWhereClause()`) as an upper bound. **The listing itself does not follow this rule**: it
+  shows every status to anyone with `entries_can_view` (see Known issues), so export and listing now differ, the listing showing
+  more.
 * **Fields:** only fields the user may view (`is_enabled` and `allowed_groups_view` via `is_member`). `file` fields are never
   exported (out of scope). See Decision O1 for whether the field list is additionally limited to fields the user may fill.
 * Subject and message are included only when enabled for the showcase.
@@ -705,7 +712,11 @@ time of the user's previous import of the same hash (from the log) as a *hint on
 * **Import size cap = `memory_limit / 40`**, but never above **5 MB**, never below a floor of 256 KB (bytes parsed from
   `ini_get('memory_limit')`; `-1` means the 5 MB ceiling). Measured overhead is about 28x file size (A.3), so 40x leaves
   headroom for the validator's own memory. Examples: 128M gives 3.2 MB, 256M and above give 5 MB, 32M gives 0.8 MB.
-* **Export cap:** 5,000 entries and the import cap above (design 2).
+* **Effective cap:** the formula above and no more than PHP lets one request carry (the smaller of `upload_max_filesize` and
+  `post_max_size`; 0 or -1 is no limit): `ImportLimits::effectiveCap()`. On a server whose upload limit is smaller than the
+  formula the export would otherwise produce files that cannot be uploaded again, and an upload over `post_max_size` arrives
+  with no fields at all (the import page recognises that and says "file too large").
+* **Export cap:** 5,000 entries and the effective cap above (design 2).
 * **Time:** validation does several queries per entry (user lookup, slug field data), so the page raises its time limit
   with `set_time_limit` where allowed and processes the entries in one request; this is the reason for the 5,000-entry cap.
 
@@ -717,12 +728,14 @@ time of the user's previous import of the same hash (from the log) as a *hint on
 
   | Route | Method | Path | Purpose |
   |---|---|---|---|
-  | `ExportMain` | GET | `/{showcase}/export` | form, the user's stored exports with their rules |
-  | `ExportCreate` | POST | `/{showcase}/export` | generate |
+  | `ExportMain` | GET and POST | `/{showcase}/export` | GET: form and the user's stored exports with their rules; POST: generate |
+  | `ExportView` | GET | `/{showcase}/export/{export_id}` | detail page of one export, with its rules |
   | `ExportDownload` | GET | `/{showcase}/export/{export_id}/download` | stream the file |
   | `ExportDelete` | POST | `/{showcase}/export/{export_id}/delete` | delete |
-  | `ImportMain` | GET | `/{showcase}/import` | upload form |
-  | `ImportSubmit` | POST | `/{showcase}/import` | validate / import, shows the report |
+  | `ImportMain` | GET and POST | `/{showcase}/import` | GET: upload form; POST: validate / import, shows the report |
+
+  The router (like the existing `EntryCreate` route) does not tell GET from POST, so there is no separate `ExportCreate` or
+  `ImportSubmit` route: the controller decides on the request method, and `ExportDelete` refuses anything but a POST.
 
 * **Download:** looks the row up by `export_id` **and** `user_id = current user` **and** `file_deleted = 0`, requires
   `EntriesCanExport` (so revoking the permission also stops downloads), resolves the path with `realpath` inside the exports
@@ -854,7 +867,7 @@ rule exists).
       collection fields) and nothing else is read from the file;
    8. **update moderation** takes effect (`EntriesModerateUpdates`), and **0 beats any other value** when group
       permissions that mean unlimited at 0 are merged, so the entry limit the import checks is the effective one.
-2. `Service/ImportExport/XmlFile` (wrapper), `ExportsRepository`, `EntriesExporter`, `EntriesImporter`, `ImportReport`,
+2. `Util/XmlFile` (wrapper), `ExportsRepository`, `EntriesExporter`, `EntriesImporter`, `ImportReport`,
    `ImportTransaction`.
 3. Permissions (3), table `myshowcase_exports`, config columns, `SETTINGS` entries.
 4. Controller `ImportExportController`, routes, Twig templates, language strings, scheduled-task purge.
@@ -895,6 +908,16 @@ Found while preparing the import and not fixed in this track:
 11. **Search keywords treat `%` and `_` as wildcards** (they are escaped for SQL but not for `LIKE`).
 12. **The scheduled task's pruning loop fails**: `task_myshowcase()` reads a `prune_time` setting that the showcase table no longer has.
     The exports retention was moved ahead of it so it still runs.
+13. **The listing shows every status to anyone with `entries_can_view`**, which is on for ordinary groups: awaiting-approval and
+    soft-deleted entries of other users appear in the main listing (confirmed on the test board: "Select all 5 entries" for a
+    regular user when 3 are approved), and the same permission shows the inline-moderation menu. `visibilityWhereClause()` returns
+    no restriction for those users. Export no longer follows it (see section 4).
+14. **Inline moderation checks no permission.** `EntriesController::main()` runs `soft_delete`, `delete`, `approve`, `stick` and
+    the other tools for any user who can POST `action=inline_moderation` with entry slugs; the permission is only a template
+    condition. Confirmed on the test board: a regular user without `entries_can_approve` or `entries_can_restore` soft-deleted
+    another user's entry with one POST.
+15. **`myshowcase_moderators` membership is not turned into permissions** (`UsersManager`: "todo, get moderator permissions"),
+    so listing someone there has no effect.
 
 **Note for the import:** its rollback (the compensating delete of section D) must delete the inserted rows **directly by entry id**
 (`EntriesRepository::deleteEntry()`), not through the controller's delete path: that path dispatches `EntryDeletedEvent`, whose
@@ -933,6 +956,10 @@ All of the following are final unless you change them.
 | T21 | **Moderation and per-user limit are prerequisite refactors.** Fixing the empty new-entry moderation branch and wiring up the per-user entry limit both live in the shared status/create path, so form posts and imports both go through moderation and count against the limit. For an import the limit check includes the number of entries being imported (existing count + N must not exceed the limit), and an import that would exceed it fails as a whole, consistent with all-or-nothing. |
 | T22 | **Same board only.** Imports are meant for the board that exported them; that is why select values are exported as ids only (old #8). Importing into another board is unsupported, and the import page states this (`import_note_same_board`). |
 | T23 | **Posted input is allowlisted** on the create and edit form (commit `570aafb` on `feature/import-export`): subject and message when enabled, post icon, signature and smilies options, close/sticky only with `EntriesCanClose`/`EntriesCanSticky`, and the collection fields the user can fill. Everything server-controlled is never taken from the post. The import's structural check (exact field keys, fillable fields only) follows the same rule. |
+| T24 | **Stage A moderator check corrected:** awaiting-approval entries are exportable with `entries_can_approve`, soft-deleted ones with `entries_can_restore` (both off by default), through `EntriesManager::canViewStatus()`; `entries_can_view` no longer matters. |
+| T25 | **Stage B import as built:** pipeline of section 6 with these points settled in code. Both the per-user limit and the validator failures are reported together (the limit is checked after validation, for the whole file); the post-insert steps of the create path are all inside `EntriesManager::validationEntryInsert()` (slug generation, the insert with its defaults and hooks, attachment linking by post hash, slug refetch, the end hook), which the import calls for every entry, so nothing else is shared or missing: there are no counters or caches to update (counts are queries). "Only check the file" is kept. A file that was imported before by the same user is flagged as a hint. |
+| T26 | **Null and empty values:** the form posts an empty optional field as `''`, which is stored as `''` (`0` for an integer column), never as NULL. The import does the same: a null or missing value takes the field's default or `''`. A NULL in the source database therefore arrives as `''`. |
+| T27 | **Rollback by entry id:** the compensating delete removes the inserted rows with a direct `DELETE ... WHERE entry_id IN (...)` (plus the post hashes the import generated, to find the one row whose id was not yet known if the request ends right after its insert), never through the controller delete path; the shutdown guard does the same after an `exit`. |
 
 **From the previous numbered list (accepted unless overridden)**
 
