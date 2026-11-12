@@ -39,20 +39,20 @@ class FieldFactory
         FieldHtmlTypes::Rating => RatingField::class,
     ];
 
-    private array $field_objects_cache = [];
-
+    /** A new object every time: a field object holds the value of one entry. */
     public function create(array $field_definition): FieldsInterface
     {
-        if (!isset($this->field_objects_cache[$field_definition['field_key']])) {
-            if (!isset(self::$field_class_map[$field_definition['html_type']])) {
-                throw new InvalidArgumentException("Unknown field type: {$field_definition['html_type']}");
-            }
-
-            $field_class = self::$field_class_map[$field_definition['html_type']];
-
-            $this->field_objects_cache[$field_definition['field_key']] = new $field_class($field_definition,);
+        if (!isset(self::$field_class_map[$field_definition['html_type']])) {
+            throw new InvalidArgumentException("Unknown field type: {$field_definition['html_type']}");
         }
 
-        return $this->field_objects_cache[$field_definition['field_key']];
+        $field_class = self::$field_class_map[$field_definition['html_type']];
+
+        return new $field_class($field_definition);
+    }
+
+    public static function supports(string $html_type): bool
+    {
+        return isset(self::$field_class_map[$html_type]);
     }
 }

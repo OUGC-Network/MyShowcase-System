@@ -62,46 +62,45 @@ trait FieldTrait
         return $this->extra_data[$name];
     }
 
-    /*
-        public function isViewableInMain(): bool
-        {
-            if (empty($this->field_definition['is_enabled'])) {
-                return false;
-            }
-
-            if (empty($this->field_definition['display_in_main_page'])) {
-                return false;
-            }
-
-            return (bool)is_member($this->field_definition['allowed_groups_view']);
+    public function isViewableInMain(): bool
+    {
+        if (empty($this->field_definition['is_enabled'])) {
+            return false;
         }
 
-        public function isViewableInEntry(): bool
-        {
-            if (empty($this->field_definition['is_enabled'])) {
-                return false;
-            }
-
-            if (empty($this->field_definition['display_in_view_page'])) {
-                return false;
-            }
-
-            return (bool)is_member($this->field_definition['allowed_groups_view']);
+        if (empty($this->field_definition['display_in_main_page'])) {
+            return false;
         }
 
-        public function isViewableInForm(): bool
-        {
-            if (empty($this->field_definition['is_enabled'])) {
-                return false;
-            }
+        return (bool)is_member($this->field_definition['allowed_groups_view'] ?? '');
+    }
 
-            if (empty($this->field_definition['display_in_create_update_page'])) {
-                return false;
-            }
-
-            return (bool)is_member($this->field_definition['allowed_groups_fill']);
+    public function isViewableInEntry(): bool
+    {
+        if (empty($this->field_definition['is_enabled'])) {
+            return false;
         }
-    */
+
+        if (empty($this->field_definition['display_in_view_page'])) {
+            return false;
+        }
+
+        return (bool)is_member($this->field_definition['allowed_groups_view'] ?? '');
+    }
+
+    public function isViewableInForm(): bool
+    {
+        if (empty($this->field_definition['is_enabled'])) {
+            return false;
+        }
+
+        if (empty($this->field_definition['display_in_create_update_page'])) {
+            return false;
+        }
+
+        return (bool)is_member($this->field_definition['allowed_groups_fill'] ?? '');
+    }
+
     public function valueSet(string|int|bool $userValue): self
     {
         $this->field_value = $userValue;
