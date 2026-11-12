@@ -604,17 +604,23 @@ requires what the validator requires: `EntriesCanPost` (checked by the validator
 
 An export is generated with the exporting user's own view of the showcase, never more:
 
-* **Entries:** approved entries; plus awaiting-approval entries **only for a user who holds `entries_can_approve`**, and
-  soft-deleted entries **only for a user who holds `entries_can_restore`**, and then only if they tick the corresponding form
-  option. Other users are not offered the options and a forged POST for them is ignored (`EntriesManager::canViewStatus()`).
-  This replaces the first version of this rule, which took `entries_can_view` (on for ordinary groups) to mean "moderator".
-  The plugin has no *enforced* permission for viewing other users' awaiting or soft-deleted entries:
-  `entries_can_view_unapproved` / `entries_can_view_deleted` exist but nothing reads them, they are described as "your own
-  entries", and the first is on by default; so the permissions that moderate those statuses are used. The `myshowcase_moderators`
-  table is not consulted (its membership is not turned into permissions anywhere). The export query still applies the
-  listing's visibility rule (`visibilityWhereClause()`) as an upper bound. **The listing itself does not follow this rule**: it
-  shows every status to anyone with `entries_can_view` (see Known issues), so export and listing now differ, the listing showing
-  more.
+* **Entries:** one visibility rule, the same for the listing, the detail page, the export and every other place that loads
+  entries (branch `security/moderation-access`). Approved entries are visible to everyone who may view the showcase.
+  Awaiting-approval entries need `entries_can_view_unapproved`, soft-deleted ones `entries_can_view_deleted` (before this change
+  nothing read them). A user without the permission sees none of that status, **not even their own**. With the permission, a
+  non-moderator sees **their own** entries of that status and never other users'; a moderator sees **any** user's entries of
+  that status. The rule lives in `EntriesManager::canViewStatus($status, $owner_id)` and nowhere else;
+  `visibilityWhereClause()` is built from it. The moderation action permissions (`entries_can_approve`, `entries_can_restore`, ...)
+  are not used for viewing.
+  **One moderator notion:** `EntriesManager::isModerator()`, the only place that decides it. A user is a moderator of the
+  showcase when a `myshowcase_moderators` row for it matches them (`group_id` is the type: 0 = row for a user, `user_id` is the
+  uid; 1 = row for a usergroup, `user_id` is the usergroup id, matched against all the user's groups), or when their usergroup has
+  the MyBB super-moderator or administrator flag (`issupermod`, `cancp`). The flags in the moderators row (`entries_can_view`,
+  `can_manage_*`) are not part of this notion.
+  The export form offers the awaiting/deleted options only when the rule lets the user see some entries of that status, the
+  exporter applies `visibilityWhereClause()`, and a forged POST asking for more is ignored, so an export holds exactly what the
+  listing shows that user, per group type. (This replaces both the first version, which used `entries_can_view`, and the
+  Stage A version, which used `entries_can_approve`/`entries_can_restore`.)
 * **Fields:** only fields the user may view (`is_enabled` and `allowed_groups_view` via `is_member`). `file` fields are never
   exported (out of scope). See Decision O1 for whether the field list is additionally limited to fields the user may fill.
 * Subject and message are included only when enabled for the showcase.
@@ -908,16 +914,21 @@ Found while preparing the import and not fixed in this track:
 11. **Search keywords treat `%` and `_` as wildcards** (they are escaped for SQL but not for `LIKE`).
 12. **The scheduled task's pruning loop fails**: `task_myshowcase()` reads a `prune_time` setting that the showcase table no longer has.
     The exports retention was moved ahead of it so it still runs.
-13. **The listing shows every status to anyone with `entries_can_view`**, which is on for ordinary groups: awaiting-approval and
-    soft-deleted entries of other users appear in the main listing (confirmed on the test board: "Select all 5 entries" for a
-    regular user when 3 are approved), and the same permission shows the inline-moderation menu. `visibilityWhereClause()` returns
-    no restriction for those users. Export no longer follows it (see section 4).
-14. **Inline moderation checks no permission.** `EntriesController::main()` runs `soft_delete`, `delete`, `approve`, `stick` and
-    the other tools for any user who can POST `action=inline_moderation` with entry slugs; the permission is only a template
-    condition. Confirmed on the test board: a regular user without `entries_can_approve` or `entries_can_restore` soft-deleted
-    another user's entry with one POST.
-15. **`myshowcase_moderators` membership is not turned into permissions** (`UsersManager`: "todo, get moderator permissions"),
-    so listing someone there has no effect.
+13. **FIXED (`2ac66dd` on `security/moderation-access`): the listing showed every status to anyone with `entries_can_view`.**
+    The listing, detail page and export now use the rule of section 4. Completed in `0db3bfc`: the update page, attachment
+    upload/download, the comment position count and the postbit attachment embeds. **Still open:** the search routes point at a
+    `Search` class that does not exist (nothing to leak, nothing works); comments keep their own rule (`comments_can_view`),
+    unrelated to the entry status, so comments of an entry the viewer cannot see are only protected by the entry check on the
+    way in; the attachment lists on the entry page still carry a "todo, status clause" for the status of the *attachments*
+    (not entries).
+14. **FIXED (`cefc866`): inline moderation checked no permission.** Every tool maps to its existing permission
+    (`EntriesManager::MODERATION_TOOLS`) and is checked per entry (`canModerateEntry()`: permission held, status visible to the
+    user, and own entry or moderator). Entries not allowed are skipped and reported. Still open: the entry view page's moderation
+    forms post to MyBB's core `moderation.php` (no MyShowcase handler), and the per-entry soft-delete/delete/restore links and the
+    comment moderation have no handler at all.
+15. **FIXED (`2ac66dd`): `myshowcase_moderators` membership had no effect.** It is now read by `isModerator()`. Still open: the
+    front-page "moderators" display reads the two columns the wrong way round, and the ACP moderator list builds its edit links
+    from the wrong columns (`group_id`/`showcase_id` instead of `user_id`).
 
 **Note for the import:** its rollback (the compensating delete of section D) must delete the inserted rows **directly by entry id**
 (`EntriesRepository::deleteEntry()`), not through the controller's delete path: that path dispatches `EntryDeletedEvent`, whose
@@ -956,7 +967,8 @@ All of the following are final unless you change them.
 | T21 | **Moderation and per-user limit are prerequisite refactors.** Fixing the empty new-entry moderation branch and wiring up the per-user entry limit both live in the shared status/create path, so form posts and imports both go through moderation and count against the limit. For an import the limit check includes the number of entries being imported (existing count + N must not exceed the limit), and an import that would exceed it fails as a whole, consistent with all-or-nothing. |
 | T22 | **Same board only.** Imports are meant for the board that exported them; that is why select values are exported as ids only (old #8). Importing into another board is unsupported, and the import page states this (`import_note_same_board`). |
 | T23 | **Posted input is allowlisted** on the create and edit form (commit `570aafb` on `feature/import-export`): subject and message when enabled, post icon, signature and smilies options, close/sticky only with `EntriesCanClose`/`EntriesCanSticky`, and the collection fields the user can fill. Everything server-controlled is never taken from the post. The import's structural check (exact field keys, fillable fields only) follows the same rule. |
-| T24 | **Stage A moderator check corrected:** awaiting-approval entries are exportable with `entries_can_approve`, soft-deleted ones with `entries_can_restore` (both off by default), through `EntriesManager::canViewStatus()`; `entries_can_view` no longer matters. |
+| T24 | **Superseded by T26.** (Stage A had used `entries_can_approve`/`entries_can_restore`.) |
+| T26 | **One moderator notion and one visibility rule** (`EntriesManager::isModerator()`, `canViewStatus()`; section 4): awaiting/deleted entries need `entries_can_view_unapproved`/`entries_can_view_deleted`, own entries for a non-moderator, any user's for a moderator; export, listing and detail agree. |
 | T25 | **Stage B import as built:** pipeline of section 6 with these points settled in code. Both the per-user limit and the validator failures are reported together (the limit is checked after validation, for the whole file); the post-insert steps of the create path are all inside `EntriesManager::validationEntryInsert()` (slug generation, the insert with its defaults and hooks, attachment linking by post hash, slug refetch, the end hook), which the import calls for every entry, so nothing else is shared or missing: there are no counters or caches to update (counts are queries). "Only check the file" is kept. A file that was imported before by the same user is flagged as a hint. |
 | T26 | **Null and empty values:** the form posts an empty optional field as `''`, which is stored as `''` (`0` for an integer column), never as NULL. The import does the same: a null or missing value takes the field's default or `''`. A NULL in the source database therefore arrives as `''`. |
 | T27 | **Rollback by entry id:** the compensating delete removes the inserted rows with a direct `DELETE ... WHERE entry_id IN (...)` (plus the post hashes the import generated, to find the one row whose id was not yet known if the request ends right after its insert), never through the controller delete path; the shutdown guard does the same after an `exit`. |
