@@ -1,6 +1,6 @@
 # MyShowcase entries import / export: design (revision 2)
 
-Status: **design, decisions recorded, awaiting go-ahead to implement**. No plugin code has been changed.
+Status: **design complete, all decisions taken, awaiting go-ahead to implement**. No plugin code has been changed.
 Branch: `feature/import-export-design` (from `main` @ `21bc2b0`). Plugin version: `3.0.0` (`VERSION_CODE` 3000;
 `CLAUDE.md` still says 2.5.2).
 
@@ -864,6 +864,8 @@ All of the following are final unless you change them.
 | T15 | PluginLibrary must be installed on the test board for implementation; both pages show a clear error when it is missing. |
 | T16 | Limits: import cap = `memory_limit / 40`, ceiling 5 MB; 5,000 entries per export; export refuses to save a file larger than the import cap. XML only: extension, MIME and successful parse. |
 | T17 | Wrapper: rejects DOCTYPE; encodes `\r` as a character reference; marks nulls explicitly; suppresses PluginLibrary's warnings. Upstream report noted. |
+| T18 | **O1 resolved (a):** the export offers only fields the user can both view and fill; the structural check also rejects keys the user cannot fill, so exports are re-importable and imports cannot bypass fill permissions. |
+| T19 | **O2 resolved (a):** no admin or super-moderator access to other users' exports; creator only, cleanup by retention. |
 
 **From the previous numbered list (accepted unless overridden)**
 
@@ -892,15 +894,4 @@ All of the following are final unless you change them.
 
 ## Decisions needed
 
-Only two questions are genuinely open. Each has a recommendation; if you do not answer, the recommendation applies.
-
-**O1. Fields the user may view but not fill.** The validator silently skips a value for a field the user cannot fill
-(disabled, `read_only`, or outside `allowed_groups_fill`), yet `insertEntry()` would store it, so an import could write
-fields the form would not let this user edit. Options:
-(a) **Recommended:** the export offers only fields the user can both view and fill, and the structural check (T3) also
-rejects keys the user cannot fill, so every export is re-importable and imports cannot bypass the fill permissions;
-(b) export all viewable fields, and the import rejects non-fillable keys, so some exports would not be re-importable as-is;
-(c) no extra rule (import follows the form's actual behaviour and ignores the hole).
-
-**O2. Admin / super-moderator access to other users' exports.** (a) **Recommended:** none (creator only; cleanup by
-retention); (b) board administrators may list and delete (not download) all exports, e.g. from a future ACP screen.
+None. O1 and O2 were answered (T18, T19).
