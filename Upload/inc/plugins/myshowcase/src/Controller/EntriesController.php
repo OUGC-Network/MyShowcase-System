@@ -69,6 +69,8 @@ class EntriesController extends BaseController
         'delete' => UserPermissions::EntriesCanDelete,
     ];
 
+    private const ENTRY_FORM_COLUMNS = ['subject', 'message', 'icon_id', 'post_hash', 'update_note', 'allow_signature', 'disable_smilies'];
+
     private readonly SubscriptionsRepository $subscriptions_repository;
     private readonly CommentsRepository $comments_repository;
     private readonly AttachmentsRepository $attachments_repository;
@@ -655,6 +657,22 @@ class EntriesController extends BaseController
     }
 
     /**
+     * The entry is built from the submitted form merged over the stored entry: only the columns a user fills in may
+     * come from the form, the code sets the others (author, status, counters, slugs, dates). The post hash of an
+     * existing entry is the stored one, as it decides which uploaded files belong to the entry.
+     */
+    private function dropEntryColumnsFromInput(bool $is_update): void
+    {
+        $form_columns = $is_update ? array_diff(self::ENTRY_FORM_COLUMNS, ['post_hash']) : self::ENTRY_FORM_COLUMNS;
+
+        foreach (array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']) as $column) {
+            if (!in_array($column, $form_columns, true)) {
+                unset($this->context->mybb->input[$column]);
+            }
+        }
+    }
+
+    /**
      * Checkboxes post an array. A field holds one value until multiple values are supported: one checked box is
      * that value and none is empty, while several stay an array, which the validation rejects instead of keeping
      * only the last one.
@@ -687,6 +705,10 @@ class EntriesController extends BaseController
     {
         $this->verifyPassword();
 
+        if (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
+            $this->errorNoPermission();
+        }
+
         if ($is_update) {
             $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
 
@@ -699,13 +721,17 @@ class EntriesController extends BaseController
                 $where_clauses
             );
 
+            if (empty($entry)) {
+                $this->error($this->context->language->myshowcase_invalid_id, 404);
+            }
+
             $this->context->entries_manager->addEntry($entry);
 
             $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
 
             // Only the author, or a moderator, may edit an entry.
-            if ($entry->user_id !== $this->context->current_user->uid &&
-                !$this->context->current_user->hasPermission(UserPermissions::EntriesCanApprove)) {
+            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanUpdate) ||
+                (!$this->isEntryOwner($entry) && !$this->isEntryModerator())) {
                 $this->errorNoPermission();
             }
         } else {
@@ -726,6 +752,10 @@ class EntriesController extends BaseController
         }
 
         if ($this->context->mybb->request_method === 'post') {
+            verify_post_check($this->context->mybb->get_input('my_post_key'));
+
+            $this->dropEntryColumnsFromInput($is_update);
+
             $this->normalizeSubmittedFieldValues();
         }
 
@@ -947,8 +977,6 @@ class EntriesController extends BaseController
         }
 
         if ($this->context->mybb->request_method === 'post') {
-            verify_post_check($this->context->mybb->get_input('my_post_key'));
-
             foreach ($this->context->custom_fields_collection as $field_id => $field) {
                 if (isset($this->context->mybb->input[$field->field_key])) {
                     //$entry->setExtraData($field->field_key, $this->context->mybb->input[$field->field_key]);
@@ -1082,12 +1110,6 @@ class EntriesController extends BaseController
 
                 $templatesContext['is_preview_page'] = true;
             }
-        }
-
-        if ($is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanUpdate)) {
-            $this->errorNoPermission();
-        } elseif (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
-            $this->errorNoPermission();
         }
 
         $post_options = $this->context->mybb->get_input('post_options', MyBB::INPUT_ARRAY);
