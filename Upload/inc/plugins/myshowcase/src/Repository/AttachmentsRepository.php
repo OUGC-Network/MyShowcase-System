@@ -13,6 +13,7 @@ use PostgresPdoDbDriver;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
+use function MyShowcase\Plugin\Functions\newRowDefault;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -130,7 +131,7 @@ class AttachmentsRepository
                 );
             } elseif (!$this->is_update) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $field_definition['default'] ?? '',
+                    newRowDefault($field_definition),
                     $field_definition['type']
                 );
             }

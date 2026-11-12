@@ -27,6 +27,7 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\newRowDefault;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
 
 use function MyShowcase\Plugin\Functions\omitEmptyAutoIncrement;
@@ -189,7 +190,7 @@ class EntriesRepository
                 );
             } elseif (!$this->is_update) {
                 $this->insert_data[$field_name] = sanitizeTableFieldValue(
-                    $field_definition['default'] ?? '',
+                    newRowDefault($field_definition),
                     $field_definition['type']
                 );
             }

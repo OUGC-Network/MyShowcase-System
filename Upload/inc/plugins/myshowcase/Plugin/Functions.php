@@ -916,6 +916,19 @@ function sanitizeTableFieldValue(mixed $value, string $fieldType)
     return $value;
 }
 
+/**
+ * The value a new row gets for a column the code does not set: the column default, or the current time for a DATETIME
+ * column without one (MySQL in strict mode, and PostgreSQL, refuse the empty string that only SQLite accepted).
+ */
+function newRowDefault(array $fieldDefinition): mixed
+{
+    if (!isset($fieldDefinition['default']) && fieldTypeMatchDateTime((string)$fieldDefinition['type'])) {
+        return new DateTime('@' . TIME_NOW);
+    }
+
+    return $fieldDefinition['default'] ?? '';
+}
+
 function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID = 0)
 {
     global $db;

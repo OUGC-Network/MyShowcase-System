@@ -361,7 +361,10 @@ class AttachmentsManager
             'mime_type' => my_strtolower($file_upload_result['type']),
             'file_size' => $file_upload_result['size'],
             'attachment_name' => $file_upload_result['original_filename'],
-            'dateline' => TIME_NOW,
+            // DATETIME columns: a DateTime is written as 'Y-m-d H:i:s'; MySQL in strict mode refuses a Unix timestamp
+            // and an empty value, both of which only SQLite accepted.
+            'dateline' => new \DateTime('@' . TIME_NOW),
+            'update_dateline' => new \DateTime('@' . TIME_NOW),
             'status' => ContentStatuses::VisibleApproved,
             'field_id' => $field_id,
             /*'cdn_file' => 0,*/
@@ -380,7 +383,7 @@ class AttachmentsManager
         }
 
         if ($is_update) {
-            $this->insert_data['update_dateline'] = TIME_NOW;
+            unset($this->insert_data['dateline']);
         }
 
         if (!$is_update && $this->context->current_user->hasPermission(UserPermissions::AttachmentsModerateNew)) {
