@@ -1320,6 +1320,16 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
         ],
+        UserPermissions::EntriesCanExport => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        UserPermissions::EntriesCanImport => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
         UserPermissions::EntriesCanViewDeletionNotices => [
             'type' => 'TINYINT',
             'unsigned' => true,

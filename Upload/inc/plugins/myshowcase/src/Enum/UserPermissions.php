@@ -35,6 +35,8 @@ enum UserPermissions
     public const EntriesCanSoftDelete = 'entries_can_soft_delete';
     public const EntriesCanRestore = 'entries_can_restore';
     public const EntriesCanDelete = 'entries_can_delete';
+    public const EntriesCanExport = 'entries_can_export';
+    public const EntriesCanImport = 'entries_can_import';
     public const EntriesCanViewDeletionNotices = 'entries_can_view_deletion_notices';
     public const EntriesModerateNew = 'entries_moderate_new';
     public const EntriesModerateUpdates = 'entries_moderate_updates';

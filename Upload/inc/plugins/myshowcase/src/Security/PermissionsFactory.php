@@ -152,6 +152,20 @@ class PermissionsFactory
             'category' => 'entries',
             'input_type' => FormTypes::PermissionBoolean,
         ],
+        UserPermissions::EntriesCanExport => [
+            'is_group_permission' => true,
+            'is_user_permission' => false,
+            'is_moderator_permission' => false,
+            'category' => 'entries',
+            'input_type' => FormTypes::PermissionBoolean,
+        ],
+        UserPermissions::EntriesCanImport => [
+            'is_group_permission' => true,
+            'is_user_permission' => false,
+            'is_moderator_permission' => false,
+            'category' => 'entries',
+            'input_type' => FormTypes::PermissionBoolean,
+        ],
         UserPermissions::EntriesCanViewDeletionNotices => [
             'is_group_permission' => true,
             'is_user_permission' => true,

@@ -60,6 +60,8 @@ class PermissionEntity
         public ?float $entries_can_soft_delete = null,
         public ?float $entries_can_restore = null,
         public ?float $entries_can_delete = null,
+        public ?float $entries_can_export = null,
+        public ?float $entries_can_import = null,
         public ?float $entries_can_view_deletion_notices = null,
         public ?float $entries_moderate_new = null,
         public ?float $entries_moderate_updates = null,

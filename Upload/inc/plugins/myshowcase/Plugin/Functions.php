@@ -122,6 +122,8 @@ function showcaseDefaultPermissions(): array
     return [
         UserPermissions::EntriesCanPost => false,
         UserPermissions::EntriesCanUpdate => false,
+        UserPermissions::EntriesCanExport => false,
+        UserPermissions::EntriesCanImport => false,
         UserPermissions::AttachmentsCanUpload => false,
         UserPermissions::MainCanView => true,
         UserPermissions::CommentsCanView => true,

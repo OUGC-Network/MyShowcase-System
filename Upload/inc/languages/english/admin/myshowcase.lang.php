@@ -128,6 +128,10 @@ $l = [
     'myshowcase_admin_permissions_entries_can_restore_description' => 'Allows users to restore their own entries.',
     'myshowcase_admin_permissions_entries_can_delete' => 'Can Delete Entries',
     'myshowcase_admin_permissions_entries_can_delete_description' => 'Allows users to permanently delete their own entries.',
+    'myshowcase_admin_permissions_entries_can_export' => 'Can Export Entries',
+    'myshowcase_admin_permissions_entries_can_export_description' => 'Allows users to export the entries and fields they can see to an XML file, and to list, download and delete their own exports.',
+    'myshowcase_admin_permissions_entries_can_import' => 'Can Import Entries',
+    'myshowcase_admin_permissions_entries_can_import_description' => 'Allows users to import entries from an XML file exported from this board. They are created as the user, as if posted with the form.',
     'myshowcase_admin_permissions_entries_can_view_deletion_notices' => 'Can View Entry Deletion Notices',
     'myshowcase_admin_permissions_entries_can_view_deletion_notices_description' => 'Allows users to view notices about deleted entries.',
 
