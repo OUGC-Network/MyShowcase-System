@@ -1604,17 +1604,16 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
                 }
             }
 
-            $totalUsedOn = showcaseGet(
-                ["collection_id='{$collection_id}'"],
-                ['COUNT(showcase_id) AS totalUsedOn'],
-                ['limit' => 1, 'group_by' => 'showcase_id']
-            )['totalUsedOn'] ?? 0;
+            // One COUNT over the whole collection; grouping by the id would count one row per group (always 1).
+            $totalUsedOn = (int)$db->fetch_field(
+                $db->simple_select('myshowcase_config', 'COUNT(showcase_id) AS total', "collection_id='{$collection_id}'"),
+                'total'
+            );
 
-            $totalFields = fieldsGet(
-                ["collection_id='{$collection_id}'"],
-                ['COUNT(field_id) AS totalFields'],
-                ['limit' => 1, 'group_by' => 'field_id']
-            )['totalFields'] ?? 0;
+            $totalFields = (int)$db->fetch_field(
+                $db->simple_select('myshowcase_fields', 'COUNT(field_id) AS total', "collection_id='{$collection_id}'"),
+                'total'
+            );
 
             $totalTablesUsedOn = 0;
 
