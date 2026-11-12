@@ -157,6 +157,38 @@ class AttachmentsManager
     }
 
     /**
+     * The error to give when a file of $file_size bytes would take the user past their upload quota, null when it fits.
+     * The quota is the group permission "Limit Upload Quota Amount" (AttachmentsLimitUploadQuotaAmount) in kilobytes,
+     * 0 meaning unlimited; the numeric value is read with getPermission(), not hasPermission() (which only says whether
+     * the permission is set).
+     */
+    public function uploadQuotaError(int $user_id, int $file_size): ?string
+    {
+        $quota_kilobytes = $this->context->current_user->getPermission(
+            UserPermissions::AttachmentsLimitUploadQuotaAmount
+        );
+
+        if ($quota_kilobytes <= 0) {
+            return null;
+        }
+
+        $quota = $quota_kilobytes * 1024;
+
+        $user_total_usage = $this->context->attachments_repository->queryAttachmentSum(
+            ["user_id='{$user_id}'"]
+        ) + $file_size;
+
+        if ($user_total_usage <= $quota) {
+            return null;
+        }
+
+        return $this->context->language->sprintf(
+            $this->context->language->error_reachedattachquota,
+            get_friendly_size($quota)
+        );
+    }
+
+    /**
      * @throws RandomException
      */
     public function uploadAttachment(
@@ -246,27 +278,8 @@ class AttachmentsManager
             ];
         }
 
-        if ($this->context->current_user->hasPermission(UserPermissions::AttachmentsLimitUploadQuotaAmount) > 0) {
-            $user_total_usage = $this->context->attachments_repository->queryAttachmentSum(
-                ["user_id='{$entry->user_id}'"]
-            );
-
-            $user_total_usage = $user_total_usage + $attachment_data['size'];
-
-            if ($user_total_usage > ($this->context->current_user->hasPermission(
-                        UserPermissions::AttachmentsLimitUploadQuotaAmount
-                    ) * 1024)) {
-                return [
-                    'error' => $this->context->language->sprintf(
-                        $this->context->language->error_reachedattachquota,
-                        get_friendly_size(
-                            $this->context->current_user->hasPermission(
-                                UserPermissions::AttachmentsLimitUploadQuotaAmount
-                            ) * 1024
-                        )
-                    )
-                ];
-            }
+        if (($quota_error = $this->uploadQuotaError((int)$entry->user_id, (int)$attachment_data['size'])) !== null) {
+            return ['error' => $quota_error];
         }
 
         if (!empty($entry->entry_id)) {
