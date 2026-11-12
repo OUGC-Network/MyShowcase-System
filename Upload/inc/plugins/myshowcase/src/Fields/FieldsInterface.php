@@ -14,6 +14,7 @@
 namespace MyShowcase\Fields;
 
 use MyShowcase\Collection\Collection;
+use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
@@ -55,7 +56,7 @@ interface FieldsInterface
 
     public function getAttachments(): Collection;
 
-    public function addAttachment(array $attachment_data): void;
+    public function addAttachment(AttachmentEntity|array $attachment_data): void;
 
     public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry): void;
 

@@ -383,8 +383,15 @@ trait FieldTrait
         return $this->attachments;
     }
 
-    public function addAttachment(array $attachment_data): void
+    public function addAttachment(AttachmentEntity|array $attachment_data): void
     {
+        // The entry's attachments (main list, entry page) are entities already.
+        if ($attachment_data instanceof AttachmentEntity) {
+            $this->attachments[$attachment_data->attachment_id] = $attachment_data;
+
+            return;
+        }
+
         $extra_data = [];
 
         foreach ($attachment_data as $field_key => $field_value) {
