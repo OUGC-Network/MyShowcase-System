@@ -264,13 +264,15 @@ class AttachmentsController extends BaseController
 
         $this->attachment_data = $this->context->attachments_repository->queryAttachment(
             [
+                "showcase_id='{$this->context->showcase->showcase_id}'",
                 "public_id='{$db->escape_string($attachment_public_id)}'",
                 "attachment_name='{$db->escape_string($attachment_name)}'",
             ],
             array_keys(TABLES_DATA['myshowcase_attachments']),
         );
 
-        if (empty($this->attachment_data['attachment_id'])) {
+        // An unknown id gets the same answer as an attachment the user may not see, so the two cannot be told apart.
+        if (empty($this->attachment_data['attachment_id']) || empty($this->attachment_data['attachment_name'])) {
             $this->error($lang->error_invalidattachment, 404);
         }
 
@@ -283,11 +285,14 @@ class AttachmentsController extends BaseController
                 ['entry_id', 'user_id', 'post_hash', 'status']
             );
 
-            if ($entry_data) {
-                $this->context->entries_manager->addEntry($entry_data);
-
-                $entry = $this->context->entries_manager->getEntryByID((int)$entry_data['entry_id']);
+            // The file of an entry that no longer exists is not served to anyone.
+            if (empty($entry_data['entry_id'])) {
+                $this->error($lang->error_invalidattachment, 404);
             }
+
+            $this->context->entries_manager->addEntry($entry_data);
+
+            $entry = $this->context->entries_manager->getEntryByID((int)$entry_data['entry_id']);
         }
 
         hooksRun('controller_attachments_download_start', $this);
@@ -298,19 +303,31 @@ class AttachmentsController extends BaseController
 
         $is_owner = $user_id > 0 && $user_id === (int)$this->attachment_data['user_id'];
 
+        if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {
+            $this->errorNoPermission(403);
+        }
+
+        // A file of an entry the user may not see is not served, whoever uploaded it. A file not attached to an entry
+        // yet (its form was not saved) is served to its uploader only.
+        if ($entry !== null ? !$this->isEntryVisible($entry) : !$is_owner) {
+            $this->error($lang->error_invalidattachment, 404);
+        }
+
         if (!$is_owner) {
             if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
                 !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanView)) {
                 $this->errorNoPermission(403);
             }
 
-            if ($entry === null || !$this->isEntryVisible($entry) ||
-                ((int)$this->attachment_data['status'] !== ContentStatuses::VisibleApproved &&
-                    !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved))) {
+            if ((int)$this->attachment_data['status'] !== ContentStatuses::VisibleApproved &&
+                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved)) {
                 $this->error($lang->error_invalidattachment, 404);
             }
 
-            if (!$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
+            // A thumbnail is a preview: only the file itself needs the download permission. This is checked against
+            // what was requested, before a missing thumbnail falls back to the image below.
+            if (!$this->is_thumbnail &&
+                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
                 $this->errorNoPermission(403);
             }
         }
@@ -370,7 +387,6 @@ class AttachmentsController extends BaseController
         hooksRun('controller_attachments_download_intermediate', $this);
 
         if ($this->is_thumbnail) {
-
             header("Content-disposition: filename=\"{$attachment_file_name}\"");
 
             header(
