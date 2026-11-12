@@ -452,6 +452,8 @@ $l = array_merge($l, [
 
     'myshowcase_entry_entry_created' => 'Your entry has been created successfully.<br />You will now be redirected to the entry.',
     'myshowcase_entry_limit_reached' => 'You have reached the maximum of {1} entries you can have in this showcase. Delete one of your entries to create a new one.',
+    'myshowcase_import_export_error_library_missing' => 'Import and export need the PluginLibrary plugin, which is not installed on this board. Please ask an administrator to upload inc/plugins/pluginlibrary.php.',
+    'myshowcase_import_export_error_library_version' => 'Import and export need a newer PluginLibrary than the one installed on this board (version {1} or later). Please ask an administrator to update it.',
     'myshowcase_import_export_button_export' => 'Export entries',
     'myshowcase_import_export_title_export' => 'Export entries',
     'myshowcase_import_export_title_export_view' => 'Export #{1}',

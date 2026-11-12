@@ -19,6 +19,7 @@ use Form;
 use MyBB;
 use MyLanguage;
 use MyShowcase\Entity\PermissionEntity;
+use MyShowcase\Util\PluginLibraryLoader;
 use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
@@ -67,7 +68,7 @@ function pluginInformation(): array
         'compatibility' => '19*',
         'codename' => 'ougc_myshowcase',
         'pl' => [
-            'version' => 13,
+            'version' => PluginLibraryLoader::MINIMUM_VERSION,
             'url' => 'https://community.mybb.com/mods.php?action=view&pid=573'
         ],
         'myalerts' => [
