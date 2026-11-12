@@ -2192,6 +2192,89 @@ const TABLES_DATA = [
             'default' => '',
         ],
     ],
+    // Entries exports: one row per file stored for its creator (design doc, section 5).
+    'myshowcase_exports' => [
+        'export_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'auto_increment' => true,
+            'primary_key' => true
+        ],
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'collection_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'user_id' => [ // the creator, the only user who can see the export
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'created_at' => [
+            'type' => 'DATETIME',
+        ],
+        'file_name' => [ // name on disk, see ExportsStorage
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'unique_key' => true
+        ],
+        'file_size' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'file_hash' => [ // SHA-256 of the file
+            'type' => 'VARCHAR',
+            'size' => 64,
+            'default' => '',
+        ],
+        'entry_count' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'entry_limit' => [ // rule: the limit asked for, 0 = as many as the cap allows
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'order_by' => [ // rule: sort column or field key
+            'type' => 'VARCHAR',
+            'size' => 30,
+            'default' => '',
+        ],
+        'order_direction' => [ // rule: asc or desc
+            'type' => 'VARCHAR',
+            'size' => 4,
+            'default' => '',
+        ],
+        'selected_fields' => [ // rule: comma separated field keys
+            'type' => 'VARCHAR',
+            'size' => 1000,
+            'default' => '',
+        ],
+        'rules' => [ // rule: the complete rules of the file header as JSON
+            'type' => 'TEXT',
+            'null' => true,
+        ],
+        'plugin_version' => [
+            'type' => 'VARCHAR',
+            'size' => 20,
+            'default' => '',
+        ],
+        'file_deleted' => [ // the file was removed by the retention task; the row stays as history
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 0
+        ],
+        'keys' => ['user_showcase_created' => ['user_id', 'showcase_id', 'created_at']],
+    ],
     'myshowcase_reads' => [
         'showcase_id' => [
             'type' => 'INT',

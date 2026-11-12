@@ -25,6 +25,7 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\ExportsStorage;
 use MyShowcase\Service\SchemaManager;
 use MyShowcase\Showcase;
 use MyShowcase\Util\SelectableLists;
@@ -394,6 +395,8 @@ function pluginUninstallation(): bool
                 showcaseDataTableDrop($showcase_id);
             }
         }
+
+        (new ExportsStorage())->removeAll();
 
         foreach (dbTables() as $tableName => $tableSchema) {
             SchemaManager::dropTable(

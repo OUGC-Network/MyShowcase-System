@@ -14,7 +14,10 @@
 declare(strict_types=1);
 
 use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Repository\ExportsRepository;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\ExportsManager;
+use MyShowcase\Service\ExportsStorage;
 use MyShowcase\Util\BuildShowcase;
 
 use const MyShowcase\Plugin\Core\SHOWCASE_STATUS_ENABLED;
@@ -54,7 +57,16 @@ function task_myshowcase(array $taskData): array
         }
     }
 
-    add_task_log($taskData, 'Showcase Pruning Run');
+    // Stored entry exports: the files older than the retention period are removed (design doc, section 10).
+    $exportsPurged = (new ExportsManager(new ExportsRepository($db), new ExportsStorage()))->purgeExpired(
+        (int)(\MyShowcase\SETTINGS['exportsRetentionDays'] ?? 30),
+        TIME_NOW
+    );
+
+    add_task_log(
+        $taskData,
+        'Showcase Pruning Run, exports removed: ' . $exportsPurged['files'] . ' files, ' . $exportsPurged['rows'] . ' rows'
+    );
 
     return $taskData;
 }
