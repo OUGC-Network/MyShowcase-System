@@ -20,7 +20,7 @@ MyBB's own CLI installer (`bin/cli install`) under an admin account and password
 MyShowcase from this working tree (symlinks; `composer install` runs in the plugin directory if `vendor/` is missing),
 installs the real PluginLibrary (downloaded once from its official repository, `--pluginlibrary stub` uses a minimal
 stand-in), activates the plugin through the ACP, starts PHP's built-in server and drives the ACP over HTTP with a
-cookie jar and real post keys. About 120 checks: regression of the ordinary ACP flows, create from JSON, locked inputs
+cookie jar and real post keys. About 130 checks: regression of the ordinary ACP flows, create from JSON, locked inputs
 and forged requests, updates, every status, link, detach, export. Exit code 1 if any check fails.
 
 * `sqlite` needs nothing else.

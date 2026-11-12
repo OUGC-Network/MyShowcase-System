@@ -441,3 +441,63 @@ def section_e(cid_a, sid_a, cid, sid):
     ok(one(f"select json_file from mybb_myshowcase_collections where collection_id={cid}") != '', 'bad post key: nothing happens')
     r = A.post(ADM + 'myshowcase-json_sync', {'action': 'detach', 'type': 'collection', 'id': str(cid), 'my_post_key': 'bad'}, key=False)
     ok(one(f"select json_file from mybb_myshowcase_collections where collection_id={cid}") != '', 'POST with a bad post key: nothing happens')
+
+
+def list_row_numbers(path, name):
+    """The numeric cells of the row of a list that mentions `name`."""
+    html = page(path)['body']
+    for row in html.split('<tr')[1:]:
+        if f'>{name}<' in row or f'>{name}</a>' in row:
+            return [int(c) for c in re.findall(r'<td[^>]*>\s*(\d+)\s*</td>', row)]
+    return None
+
+
+def section_f():
+    print('--- F. leftover fixes: collection delete, post key on showcase save, counts, option hook')
+    base = {'html_type': 'text', 'field_type': 'varchar', 'maximum_length': '20', 'minimum_length': '0', 'allowed_groups_fill_type': 'all', 'allowed_groups_view_type': 'all'}
+    submit('myshowcase-fields&action=new', 'action=new', {'name': 'Counted'})
+    cid = int(one("select collection_id from mybb_myshowcase_collections where name='Counted'"))
+    for k in ('one', 'two'):
+        submit(f'myshowcase-fields&action=newField&collection_id={cid}', 'action=newField', {**base, 'field_key': k, 'field_label': k})
+    submit(f'myshowcase-fields&action=newField&collection_id={cid}', 'action=newField', {**base, 'field_key': 'pick', 'html_type': 'select', 'field_type': 'int', 'maximum_length': '5'})
+    pid = int(one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='pick'"))
+    r = page(f'myshowcase-fields&action=edit_option&field_id={pid}&collection_id={cid}', {'value': 'A', 'value_id': '1', 'display_order': '1', 'field_key': 'pick', 'create': '0'})
+    ok(errors_in(r) is None and one(f"select count(*) from mybb_myshowcase_field_data where field_id={pid}") == '1', 'creating an option runs the field data hook without a PHP warning')
+    for n in ('Counted A', 'Counted B'):
+        submit('myshowcase-summary&action=create', 'action=create', {'showcase[name]': n, 'showcase[route_identifier]': n.lower().replace(' ', ''), 'showcase[collection_id]': str(cid)})
+    nums = list_row_numbers('myshowcase-fields', 'Counted')
+    ok(nums is not None and 3 in nums and 2 in nums, f'collection list: Field Count 3 and Assigned To 2 (cells {nums})')
+    # a showcase save needs the post key
+    sid = int(one("select showcase_id from mybb_myshowcase_config where name='Counted A'"))
+    r = page(f'myshowcase-summary&action=update&showcase_id={sid}')
+    fm = form(r['body'], 'type=main')
+    data = {k: (v[0] if len(v) == 1 else v) for k, v in fm['fields'].items() if k not in fm['disabled'] and k != 'my_post_key'}
+    data['showcase[main_per_page]'] = '3'
+    r = A.post(ADM + fm['action'].replace('&amp;', '&').split('module=')[1], data, key=False)
+    ok(one(f"select main_per_page from mybb_myshowcase_config where showcase_id={sid}") != '3', 'showcase save without a post key writes nothing')
+    data['my_post_key'] = A.post_key
+    page(fm['action'].replace('&amp;', '&').split('module=')[1], data)
+    ok(one(f"select main_per_page from mybb_myshowcase_config where showcase_id={sid}") == '3', 'showcase save with the post key works')
+    # collection delete: refused while a showcase uses it, then removes the fields and options
+    page(f'myshowcase-fields&action=delete&collection_id={cid}', {})
+    ok(one(f"select count(*) from mybb_myshowcase_collections where collection_id={cid}") == '1', 'a collection used by a showcase is not deleted')
+    submit('myshowcase-fields&action=new', 'action=new', {'name': 'Doomed'})
+    did = int(one("select collection_id from mybb_myshowcase_collections where name='Doomed'"))
+    for k in ('x1', 'x2'):
+        submit(f'myshowcase-fields&action=newField&collection_id={did}', 'action=newField', {**base, 'field_key': k, 'field_label': k})
+    xid = int(one(f"select field_id from mybb_myshowcase_fields where collection_id={did} and field_key='x1'"))
+    page(f'myshowcase-fields&action=edit_option&field_id={xid}&collection_id={did}', {'value': 'Z', 'value_id': '1', 'display_order': '1', 'field_key': 'x1', 'create': '0'})
+    other = one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid}")
+    page(f'myshowcase-fields&action=delete&collection_id={did}', {})
+    ok(one(f"select count(*) from mybb_myshowcase_collections where collection_id={did}") == '0', 'collection deleted')
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={did}") == '0' and one(f"select count(*) from mybb_myshowcase_field_data where collection_id={did}") == '0', 'its fields and options are gone')
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid}") == other, 'other collections keep their fields')
+    # a collection linked to a JSON file can be deleted too: it is detached first
+    r = jsync({'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/plain.json'}) if os.path.exists(f'{IMP}/JSON/collections/plain.json') else None
+    if r is None:
+        board_file('collections/gone.json', {'type': 'collection', 'version': '1.0.0', 'name': 'Gone', 'fields': [{'field_key': 'g1', 'label': 'G1', 'html_type': 'text', 'field_type': 'varchar', 'maximum_length': 10}]})
+        jsync({'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/gone.json'})
+        gid = int(one("select collection_id from mybb_myshowcase_collections where name='Gone'"))
+        ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={gid} and json_file<>''") == '1', 'a JSON-linked collection with a linked field exists')
+        page(f'myshowcase-fields&action=delete&collection_id={gid}', {})
+        ok(one(f"select count(*) from mybb_myshowcase_collections where collection_id={gid}") == '0' and one(f"select count(*) from mybb_myshowcase_fields where collection_id={gid}") == '0', 'deleting a JSON-linked collection removes its fields (detached first)')

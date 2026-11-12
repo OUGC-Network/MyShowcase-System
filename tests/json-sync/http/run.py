@@ -43,6 +43,7 @@ try:
     flows.section_c(cid, sid, fcat)
     flows.section_d(cid, sid)
     flows.section_e(cid_a, sid_a, cid, sid)
+    flows.section_f()
     print(f'\n{flows.PASSES} passed, {len(flows.FAILS)} failed ({a.engine}, PluginLibrary: {a.pluginlibrary})')
     for f in flows.FAILS:
         print('  FAILED:', f)
