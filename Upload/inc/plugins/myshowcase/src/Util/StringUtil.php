@@ -61,7 +61,8 @@ class StringUtil
             $length = getSetting('slugLength');
         }
 
-        return my_strtolower(bin2hex(random_bytes($length)));
+        // Exactly $length characters: the slug columns are VARCHAR(slugLength), and bin2hex() doubles the length.
+        return substr(bin2hex(random_bytes((int)ceil($length / 2))), 0, $length);
     }
 
     /**
