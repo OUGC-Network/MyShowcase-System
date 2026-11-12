@@ -889,6 +889,7 @@ class EntriesController extends BaseController
                     ]
                 ),
             ],
+            'can_use_signature' => $this->context->entries_manager->canUseSignature(),
             'is_update_page' => $is_update,
             'is_preview_page' => false,
             'entry_preview' => '',

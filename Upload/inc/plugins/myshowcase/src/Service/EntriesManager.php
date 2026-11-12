@@ -285,7 +285,7 @@ class EntriesManager
             $allowed_keys[] = 'icon_id';
         }
 
-        if (!empty($this->context->mybb->usergroup['canusesig'])) {
+        if ($this->canUseSignature()) {
             $allowed_keys[] = 'allow_signature';
         }
 
@@ -310,6 +310,18 @@ class EntriesManager
         }
 
         return $allowed + $this->buildFieldValues($posted, fields: $this->fillableFields());
+    }
+
+    /**
+     * Whether the current user may choose to include their signature: the same test MyBB core applies before it shows
+     * the signature option in newthread.php, newreply.php and editpost.php, namely that the group may use signatures
+     * (canusesig == 1) and the user's signature is not suspended. The form shows the checkbox on this, and
+     * allowedEntryInput() accepts allow_signature on this.
+     */
+    public function canUseSignature(): bool
+    {
+        return (int)($this->context->mybb->usergroup['canusesig'] ?? 0) === 1 &&
+            empty($this->context->mybb->user['suspendsignature']);
     }
 
     /**
