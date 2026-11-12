@@ -767,24 +767,6 @@ class EntriesController extends BaseController
     }
 
     /**
-     * A new entry waits for approval when the user's new entries are moderated, an edited one when the user's edits
-     * are; otherwise a new entry is visible and an edited one keeps its status. Bypassing moderation skips both.
-     */
-    private function submittedEntryStatus(EntryEntity $entry, bool $is_update): int
-    {
-        $moderated = !$this->context->current_user->hasPermission(UserPermissions::CanBypassModeration) &&
-            $this->context->current_user->hasPermission(
-                $is_update ? UserPermissions::EntriesModerateUpdates : UserPermissions::EntriesModerateNew
-            );
-
-        if ($moderated) {
-            return ContentStatuses::AwaitingApproval;
-        }
-
-        return $is_update ? (int)$entry->status : ContentStatuses::VisibleApproved;
-    }
-
-    /**
      * The entry is built from the submitted form merged over the stored entry: only the columns a user fills in may
      * come from the form, the code sets the others (author, status, counters, slugs, dates). The post hash of an
      * existing entry is the stored one, as it decides which uploaded files belong to the entry.
@@ -1219,7 +1201,7 @@ class EntriesController extends BaseController
                 [
                     'entry_id' => $entry->entry_id,
                     'user_id' => $entry->user_id,
-                    'status' => $this->submittedEntryStatus($entry, $is_update),
+                    
                 ],
                 $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]
             ));

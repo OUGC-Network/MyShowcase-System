@@ -20,10 +20,8 @@ use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\CacheDataTypes;
-use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\FilterFields;
-use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Fields\FieldFactory;
@@ -41,11 +39,8 @@ use Twig\Error\SyntaxError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\Forms;
 
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
-use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
-
 use const MyShowcase\VERSION_CODE;
 
 abstract class BaseController
@@ -172,66 +167,16 @@ abstract class BaseController
         }
     }
 
-    /**
-     * The showcase moderator flags of the user (ModeratorPermissions): every flag for the super moderator groups, else
-     * the flags of the showcase's moderator rows for the user or one of the user's groups. The group permissions are
-     * about the user's own content; the content of other users needs these flags.
-     *
-     * @return array<string, bool>
-     */
-    protected function moderatorPermissions(): array
-    {
-        static $cache = [];
-
-        $user = $this->context->mybb->user;
-
-        $user_id = (int)($user['uid'] ?? 0);
-
-        $key = $this->context->showcase->showcase_id . '-' . $user_id;
-
-        if (isset($cache[$key])) {
-            return $cache[$key];
-        }
-
-        $permissions = showcaseDefaultModeratorPermissions();
-
-        if ($user_id > 0) {
-            if (is_member(getSetting('superModeratorGroups'), $user)) {
-                $permissions = array_map(static fn(): bool => true, $permissions);
-            }
-
-            $group_ids = array_map('intval', explode(',', ($user['usergroup'] ?? '') . ',' . ($user['additionalgroups'] ?? '')));
-
-            foreach (
-                $this->context->cache_manager->get(CacheDataTypes::Moderators)[$this->context->showcase->showcase_id] ?? []
-                as $moderator
-            ) {
-                $matches = $moderator['group_id'] ? in_array((int)$moderator['group_id'], $group_ids, true) :
-                    (int)$moderator['user_id'] === $user_id;
-
-                if (!$matches) {
-                    continue;
-                }
-
-                foreach ($permissions as $flag => $value) {
-                    $permissions[$flag] = $value || !empty($moderator[$flag]);
-                }
-            }
-        }
-
-        return $cache[$key] = $permissions;
-    }
-
-    /** Whether the user moderates the entries of this showcase (of other users too). */
+    /** Whether the user moderates the entries of this showcase (EntriesManager::moderatorPermissions()). */
     protected function isEntryModerator(): bool
     {
-        return $this->moderatorPermissions()[ModeratorPermissions::EntriesCanView];
+        return $this->context->entries_manager->isEntryModerator();
     }
 
-    /** Whether the user moderates the comments of this showcase (of other users too). */
+    /** Whether the user moderates the comments of this showcase. */
     protected function isCommentModerator(): bool
     {
-        return $this->moderatorPermissions()[ModeratorPermissions::CommentsCanView];
+        return $this->context->entries_manager->isCommentModerator();
     }
 
     /** Whether the user may run a moderation action, which needs $permission, on the entry. */
@@ -251,58 +196,15 @@ abstract class BaseController
         return $user_id > 0 && (int)$entry->user_id === $user_id;
     }
 
-    /**
-     * SQL condition on the status column of $alias: what the user may see. Moderators see every row; others the
-     * visible rows, their own waiting rows, and their own soft-deleted rows with $view_own_deleted.
-     */
-    protected function statusVisibilityClause(string $alias, bool $is_moderator, string $view_own_deleted): string
-    {
-        $statuses = [ContentStatuses::AwaitingApproval, ContentStatuses::VisibleApproved, ContentStatuses::SoftDeleted];
-
-        if ($is_moderator) {
-            return "{$alias}.status IN ('" . implode("','", $statuses) . "')";
-        }
-
-        $user_id = (int)$this->context->current_user->uid;
-
-        $visible = ["{$alias}.status='" . ContentStatuses::VisibleApproved . "'"];
-
-        if ($user_id > 0) {
-            $visible[] = "({$alias}.user_id='{$user_id}' AND {$alias}.status='" . ContentStatuses::AwaitingApproval . "')";
-
-            if ($this->context->current_user->hasPermission($view_own_deleted)) {
-                $visible[] = "({$alias}.user_id='{$user_id}' AND {$alias}.status='" . ContentStatuses::SoftDeleted . "')";
-            }
-        }
-
-        return '(' . implode(' OR ', $visible) . ')';
-    }
-
-    /** The same rule as statusVisibilityClause() for one row. */
-    protected function isStatusVisible(int $status, int $author_id, bool $is_moderator, string $view_own_deleted): bool
-    {
-        $user_id = (int)$this->context->current_user->uid;
-
-        $is_author = $user_id > 0 && $author_id === $user_id;
-
-        return match ($status) {
-            ContentStatuses::VisibleApproved => true,
-            ContentStatuses::AwaitingApproval => $is_moderator || $is_author,
-            ContentStatuses::SoftDeleted => $is_moderator ||
-                ($is_author && $this->context->current_user->hasPermission($view_own_deleted)),
-            default => false,
-        };
-    }
-
     /** SQL condition on entry_data.status: the entries of this showcase the user may see. */
     protected function entryVisibilityClause(string $alias = 'entry_data'): string
     {
-        return $this->statusVisibilityClause($alias, $this->isEntryModerator(), UserPermissions::EntriesCanViewDeleted);
+        return $this->context->entries_manager->visibilityWhereClause($alias);
     }
 
     protected function isEntryVisible(EntryEntity $entry): bool
     {
-        return $this->isStatusVisible(
+        return $this->context->entries_manager->isStatusVisible(
             (int)$entry->status,
             (int)$entry->user_id,
             $this->isEntryModerator(),
@@ -312,7 +214,11 @@ abstract class BaseController
 
     protected function commentVisibilityClause(string $alias = 'comment_data'): string
     {
-        return $this->statusVisibilityClause($alias, $this->isCommentModerator(), UserPermissions::CommentsCanViewDeleted);
+        return $this->context->entries_manager->statusVisibilityClause(
+            $alias,
+            $this->isCommentModerator(),
+            UserPermissions::CommentsCanViewDeleted
+        );
     }
 
     public function verifyPermission(?string $entry_public_id = null, ?string $comment_public_id = null): int
@@ -436,7 +342,7 @@ abstract class BaseController
 
     private function isCommentAccessible(CommentEntity $comment): bool
     {
-        return $this->isStatusVisible(
+        return $this->context->entries_manager->isStatusVisible(
             (int)$comment->status,
             (int)$comment->user_id,
             $this->isCommentModerator(),

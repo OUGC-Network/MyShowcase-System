@@ -51,6 +51,33 @@ class EntriesManager
     public const SMILIES_DISABLED = 0;
     public const SMILIES_ALLOW = 1;
     public const FIRST_PAGE = 1;
+
+    /**
+     * The inline moderation tools and the permission each one needs (the existing permission definitions; none is new).
+     * Every tool goes through canModerateEntry(), so none can skip it.
+     */
+    public const MODERATION_TOOLS = [
+        'open' => UserPermissions::EntriesCanOpen,
+        'close' => UserPermissions::EntriesCanClose,
+        'stick' => UserPermissions::EntriesCanSticky,
+        'unstick' => UserPermissions::EntriesCanUnstick,
+        'approve' => UserPermissions::EntriesCanApprove,
+        'unapprove' => UserPermissions::EntriesCanUnapprove,
+        'copy' => UserPermissions::EntriesCanCopy,
+        'soft_delete' => UserPermissions::EntriesCanSoftDelete,
+        'restore' => UserPermissions::EntriesCanRestore,
+        'delete' => UserPermissions::EntriesCanDelete,
+    ];
+
+    /**
+     * The permission that lets a user see entries of other users in a status that is not public. Awaiting-approval
+     * entries need EntriesCanViewUnapproved, soft-deleted entries need EntriesCanViewDeleted.
+     */
+    private const STATUS_VIEW_PERMISSIONS = [
+        ContentStatuses::AwaitingApproval => UserPermissions::EntriesCanViewUnapproved,
+        ContentStatuses::SoftDeleted => UserPermissions::EntriesCanViewDeleted,
+    ];
+
     private Collection $entries;
     private readonly EntriesRepository $entries_repository;
     private readonly AttachmentsRepository $attachments_repository;
@@ -63,6 +90,10 @@ class EntriesManager
     private bool $validation_data_is_valid = true;
     private string $validation_method = self::VALIDATION_METHOD_INSERT;
     private array $removed_attachment_ids = [];
+    private ?array $stored_entry_row = null;
+
+    /** @var array<int, bool> Moderator answers per user id, see isModerator(). */
+    private array $is_moderator_cache = [];
 
     public function __construct(
         public readonly ShowcaseContext $context,
@@ -100,6 +131,7 @@ class EntriesManager
             EntryDeletedEvent::NAME
         );
 
+        // TODO: verify Collection has offsetUnset(); if not, use unset() on the underlying array.
         $this->entries->offsetUnset($entry_id);
 
         return true;
@@ -152,10 +184,16 @@ class EntriesManager
     }
 
     /**
-     * Whether the current user is a moderator of this showcase. This is the ONE place that decides it. A moderator is a user
-     * who is a super moderator or an administrator of the board (their usergroup, primary or additional, has issupermod or
-     * cancp), or who is in the showcase's moderators (myshowcase_moderators, managed in the ACP showcase form), either by
-     * user id or through one of their usergroups (see ModeratorsRepository::matchesUser()).
+     * Whether the current user is a moderator of this showcase: a super moderator or board administrator (issupermod
+     * or cancp on the usergroup), or listed as a moderator of the showcase by user id or through one of their usergroups.
+     *
+     * TODO(moderator-conflict): this is one of TWO moderator checks and they disagree in design:
+     *   - this method reads the showcase's moderator rows through ModeratorsRepository::matchesUser();
+     *   - BaseController::isEntryModerator() / moderatorPermissions() reads CacheDataTypes::Moderators and the
+     *     per-flag ModeratorPermissions, and is what EntriesController and BaseController currently call.
+     *   Decide which one is the single source of truth, then make the other delegate to it or delete it.
+     * TODO(verify): ModeratorsRepository::matchesUser() is static and exists; $this->context->moderators_repository
+     *   is a property of ShowcaseContext. Neither has been confirmed in the files reviewed so far.
      */
     public function isModerator(): bool
     {
@@ -174,13 +212,15 @@ class EntriesManager
         $moderator = !empty($usergroup['issupermod']) || !empty($usergroup['cancp']);
 
         if (!$moderator) {
-            $group_ids = array_filter(array_map(
-                'intval',
-                explode(
-                    ',',
-                    (int)($this->context->mybb->user['usergroup'] ?? 0) . ',' . ($this->context->mybb->user['additionalgroups'] ?? '')
+            $group_ids = array_filter(
+                array_map(
+                    'intval',
+                    explode(
+                        ',',
+                        (int)($this->context->mybb->user['usergroup'] ?? 0) . ',' . ($this->context->mybb->user['additionalgroups'] ?? '')
+                    )
                 )
-            ));
+            );
 
             foreach (
                 $this->context->moderators_repository->queryModerators([], ['user_id', 'group_id']) as $moderator_row
@@ -196,18 +236,33 @@ class EntriesManager
         return $this->is_moderator_cache[$user->uid] = $moderator;
     }
 
-    /** @var array<int, bool> */
-    private array $is_moderator_cache = [];
-
     /**
-     * The permission that lets a user see entries in a status that is not public. The two exist in the permission
-     * definitions as "view your own entries awaiting approval" (default on) and "view your own soft-deleted entries"
-     * (default off); until now nothing read them.
+     * Condition that limits a query on the entries table to the entries the current user may see, built from
+     * statusViewScope(): for each status, nothing, the user's own entries, or all of them. The listing, the search, the
+     * entry page, the update page, comment access and the export all use it.
      */
-    private const STATUS_VIEW_PERMISSIONS = [
-        ContentStatuses::AwaitingApproval => UserPermissions::EntriesCanViewUnapproved,
-        ContentStatuses::SoftDeleted => UserPermissions::EntriesCanViewDeleted,
-    ];
+    public function visibilityWhereClause(string $alias = 'entry_data'): string
+    {
+        $uid = (int)$this->context->current_user->uid;
+
+        $conditions = [];
+
+        foreach (
+            [
+                ContentStatuses::VisibleApproved,
+                ContentStatuses::AwaitingApproval,
+                ContentStatuses::SoftDeleted
+            ] as $status
+        ) {
+            $conditions[] = match ($this->statusViewScope($status)) {
+                'any' => "{$alias}.status='{$status}'",
+                'own' => "({$alias}.status='{$status}' AND {$alias}.user_id='{$uid}')",
+                default => null,
+            };
+        }
+
+        return '(' . implode(' OR ', array_filter($conditions)) . ')';
+    }
 
     /**
      * How many entries of a status the current user may see: 'any' (entries of every user), 'own' (only theirs) or
@@ -246,25 +301,26 @@ class EntriesManager
     }
 
     /**
-     * The inline moderation tools and the permission each one needs (the existing permission definitions; none is new).
-     * Every tool goes through canModerateEntry(), so none can skip it.
+     * Condition for the comments of an entry, as it was before entries had a rule of their own: approved comments, plus the
+     * user's own that await approval, unless they hold the comments view permission. Comments are not part of the entry
+     * visibility rule.
      */
-    public const MODERATION_TOOLS = [
-        'open' => UserPermissions::EntriesCanOpen,
-        'close' => UserPermissions::EntriesCanClose,
-        'stick' => UserPermissions::EntriesCanSticky,
-        'unstick' => UserPermissions::EntriesCanUnstick,
-        'approve' => UserPermissions::EntriesCanApprove,
-        'unapprove' => UserPermissions::EntriesCanUnapprove,
-        'copy' => UserPermissions::EntriesCanCopy,
-        'soft_delete' => UserPermissions::EntriesCanSoftDelete,
-        'restore' => UserPermissions::EntriesCanRestore,
-        'delete' => UserPermissions::EntriesCanDelete,
-    ];
+    public function commentVisibilityWhereClause(string $alias = 'comment_data'): string
+    {
+        if ($this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
+            return '';
+        }
+
+        $prefix = $alias === '' ? '' : "{$alias}.";
+
+        return "({$prefix}status='" . ContentStatuses::VisibleApproved . "' OR ("
+            . "{$prefix}user_id='" . (int)$this->context->current_user->uid . "' AND "
+            . "{$prefix}status='" . ContentStatuses::AwaitingApproval . "'))";
+    }
 
     /**
-     * The tools the current user holds the permission for (tool => true); empty for a guest. The inline moderation menu shows
-     * these, and a tool that is not in the list is refused.
+     * The inline moderation tools the current user holds the permission for (tool => true); empty for a guest. The
+     * inline moderation menu shows these, and a tool that is not in the list is refused.
      *
      * @return array<string, true>
      */
@@ -301,46 +357,6 @@ class EntriesManager
         }
 
         return (int)$entry->user_id === $uid || $this->isModerator();
-    }
-
-    /**
-     * Condition that limits a query on the entries table to the entries the current user may see, built from
-     * statusViewScope(): for each status, nothing, the user's own entries, or all of them. The listing, the entry page, the
-     * update page, comment access and the export all use it.
-     */
-    public function visibilityWhereClause(string $alias = 'entry_data'): string
-    {
-        $uid = (int)$this->context->current_user->uid;
-
-        $conditions = [];
-
-        foreach ([ContentStatuses::VisibleApproved, ContentStatuses::AwaitingApproval, ContentStatuses::SoftDeleted] as $status) {
-            $conditions[] = match ($this->statusViewScope($status)) {
-                'any' => "{$alias}.status='{$status}'",
-                'own' => "({$alias}.status='{$status}' AND {$alias}.user_id='{$uid}')",
-                default => null,
-            };
-        }
-
-        return '(' . implode(' OR ', array_filter($conditions)) . ')';
-    }
-
-    /**
-     * Condition for the comments of an entry, as it was before entries had a rule of their own: approved comments, plus the
-     * user's own that await approval, unless they hold the comments view permission. Comments are not part of the entry
-     * visibility rule (see the design document's known issues).
-     */
-    public function commentVisibilityWhereClause(string $alias = 'comment_data'): string
-    {
-        if ($this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            return '';
-        }
-
-        $prefix = $alias === '' ? '' : "{$alias}.";
-
-        return "({$prefix}status='" . ContentStatuses::VisibleApproved . "' OR ("
-            . "{$prefix}user_id='" . (int)$this->context->current_user->uid . "' AND "
-            . "{$prefix}status='" . ContentStatuses::AwaitingApproval . "'))";
     }
 
     /**
@@ -523,35 +539,6 @@ class EntriesManager
     }
 
     /**
-     * The moderation permission that lets a user see entries in a status other than approved, where the entries of other
-     * users are concerned (the export uses it). The plugin has no permission that is enforced for viewing awaiting-approval
-     * or soft-deleted entries: entries_can_view_unapproved / entries_can_view_deleted exist but nothing reads them and
-     * they are described as "your own entries" (the first is on by default), while entries_can_view is what the listing
-     * takes to mean "sees every status". So the permission that moderates that status is used: approving for entries
-     * awaiting approval (it is also what the edit page takes for "a moderator may edit anyone's entry"), restoring for
-     * soft-deleted ones.
-     */
-    private const STATUS_VIEW_PERMISSIONS = [
-        ContentStatuses::AwaitingApproval => UserPermissions::EntriesCanApprove,
-        ContentStatuses::SoftDeleted => UserPermissions::EntriesCanRestore,
-    ];
-
-    /**
-     * Whether the current user may see the entries of other users that have this status: approved ones always, the
-     * others only with the moderation permission of STATUS_VIEW_PERMISSIONS.
-     */
-    public function canViewStatus(int $status): bool
-    {
-        if ($status === ContentStatuses::VisibleApproved) {
-            return true;
-        }
-
-        return isset(self::STATUS_VIEW_PERMISSIONS[$status]) &&
-            $this->context->current_user->uid > 0 &&
-            $this->context->current_user->hasPermission(self::STATUS_VIEW_PERMISSIONS[$status]);
-    }
-
-    /**
      * Whether the current user may choose to include their signature: the same test MyBB core applies before it shows
      * the signature option in newthread.php, newreply.php and editpost.php, namely that the group may use signatures
      * (canusesig == 1) and the user's signature is not suspended. The form shows the checkbox on this, and
@@ -565,12 +552,13 @@ class EntriesManager
 
     /**
      * The status an entry has after its author edited it: awaiting approval for a user whose group holds "Moderate
-     * Entry Updates" (UserPermissions::EntriesModerateUpdates), the current status for everyone else (moderators).
-     * A deleted entry stays deleted.
+     * Entry Updates" (UserPermissions::EntriesModerateUpdates) and may not bypass moderation, the current status for
+     * everyone else. A deleted entry stays deleted.
      */
     public function updatedEntryStatus(int $current_status): int
     {
         if ($current_status !== ContentStatuses::SoftDeleted &&
+            !$this->context->current_user->hasPermission(UserPermissions::CanBypassModeration) &&
             $this->context->current_user->hasPermission(UserPermissions::EntriesModerateUpdates)) {
             return ContentStatuses::AwaitingApproval;
         }
@@ -585,8 +573,9 @@ class EntriesManager
     public function newEntryStatus(): int
     {
         // The group permission "Moderate New Entries" (entries_moderate_new) sends the entries of its users to the
-        // approval queue.
-        if ($this->context->current_user->hasPermission(UserPermissions::EntriesModerateNew)) {
+        // approval queue, unless they may bypass moderation (can_bypass_moderation).
+        if (!$this->context->current_user->hasPermission(UserPermissions::CanBypassModeration) &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesModerateNew)) {
             return ContentStatuses::AwaitingApproval;
         }
 
@@ -627,12 +616,14 @@ class EntriesManager
         $entry = new EntryEntity(...stringKeysOnly($entry_data));
 
         foreach ($fields_data as $field_key => $field_value) {
-            $field_definition = current(array_filter(
-                $this->context->collection_fields,
-                function ($field_definition) use ($field_key): bool {
-                    return $field_definition['field_key'] === $field_key;
-                }
-            )) ?: [];
+            $field_definition = current(
+                array_filter(
+                    $this->context->collection_fields,
+                    function ($field_definition) use ($field_key): bool {
+                        return $field_definition['field_key'] === $field_key;
+                    }
+                )
+            ) ?: [];
 
             // Several submitted values stay in the extra data, where the validation rejects them.
             $custom_field = new EntryCustomField(
@@ -752,7 +743,12 @@ class EntriesManager
      */
     private function fileFieldHasAttachments(FieldsInterface $field): bool
     {
-        $remaining = $this->removed_attachment_ids ? ["attachment_id NOT IN ('" . implode("','", $this->removed_attachment_ids) . "')"] : [];
+        $remaining = $this->removed_attachment_ids ? [
+            "attachment_id NOT IN ('" . implode(
+                "','",
+                $this->removed_attachment_ids
+            ) . "')"
+        ] : [];
 
         $owners = [];
 
@@ -761,7 +757,9 @@ class EntriesManager
         }
 
         if (!empty($this->validation_entry->post_hash)) {
-            $owners[] = "post_hash='" . $this->context->database->escape_string($this->validation_entry->post_hash) . "'";
+            $owners[] = "post_hash='" . $this->context->database->escape_string(
+                    $this->validation_entry->post_hash
+                ) . "'";
         }
 
         if (!$owners) {
@@ -769,9 +767,9 @@ class EntriesManager
         }
 
         return $this->context->attachments_repository->queryAttachmentCount(array_merge([
-            "field_id='" . (int)$field->field_definition['field_id'] . "'",
-            '(' . implode(' OR ', $owners) . ')',
-        ], $remaining)) > 0;
+                "field_id='" . (int)$field->field_definition['field_id'] . "'",
+                '(' . implode(' OR ', $owners) . ')',
+            ], $remaining)) > 0;
     }
 
     /** Files the submitted form removes: they do not count as uploaded while the entry is validated. */
@@ -1076,7 +1074,9 @@ class EntriesManager
 
             if ($value === '') {
                 if ($field->field_definition['is_required'] &&
-                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File || !$this->fileFieldHasAttachments($field))) {
+                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File || !$this->fileFieldHasAttachments(
+                            $field
+                        ))) {
                     $this->validateSetFieldError($field, 'myshowcase_datahandler_required_field');
                 }
 
@@ -1291,8 +1291,6 @@ class EntriesManager
         return $this->validationEntryInsert();
     }
 
-    private ?array $stored_entry_row = null;
-
     /**
      * On an update only the values that differ from the stored ones are validated. Everything else was accepted when
      * it was stored (for example the 0 of an entry that was never edited).
@@ -1305,7 +1303,13 @@ class EntriesManager
 
         $this->stored_entry_row ??= $this->context->entries_repository->queryEntry(
             ["entry_data.entry_id='" . (int)$this->validation_entry->entry_id . "'"],
-            ['entry_data.dateline', 'entry_data.update_dateline', 'entry_data.edit_user_id', 'entry_data.last_comment_user_id', 'entry_data.ipaddress'],
+            [
+                'entry_data.dateline',
+                'entry_data.update_dateline',
+                'entry_data.edit_user_id',
+                'entry_data.last_comment_user_id',
+                'entry_data.ipaddress'
+            ],
         );
 
         $value = $this->validation_entry->$column ?? null;
