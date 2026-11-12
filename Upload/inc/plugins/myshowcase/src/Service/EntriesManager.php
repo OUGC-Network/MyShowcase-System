@@ -62,6 +62,7 @@ class EntriesManager
     private EntryEntity $validation_entry;
     private bool $validation_data_is_valid = true;
     private string $validation_method = self::VALIDATION_METHOD_INSERT;
+    private array $removed_attachment_ids = [];
 
     public function __construct(
         public readonly ShowcaseContext $context,
@@ -556,6 +557,8 @@ class EntriesManager
      */
     private function fileFieldHasAttachments(FieldsInterface $field): bool
     {
+        $remaining = $this->removed_attachment_ids ? ["attachment_id NOT IN ('" . implode("','", $this->removed_attachment_ids) . "')"] : [];
+
         $owners = [];
 
         if (!empty($this->validation_entry->entry_id)) {
@@ -570,10 +573,16 @@ class EntriesManager
             return false;
         }
 
-        return $this->context->attachments_repository->queryAttachmentCount([
+        return $this->context->attachments_repository->queryAttachmentCount(array_merge([
             "field_id='" . (int)$field->field_definition['field_id'] . "'",
             '(' . implode(' OR ', $owners) . ')',
-        ]) > 0;
+        ], $remaining)) > 0;
+    }
+
+    /** Files the submitted form removes: they do not count as uploaded while the entry is validated. */
+    public function setRemovedAttachments(array $attachment_ids): void
+    {
+        $this->removed_attachment_ids = array_map('intval', $attachment_ids);
     }
 
     /**

@@ -728,6 +728,41 @@ class EntriesController extends BaseController
     }
 
     /**
+     * The files of the entry's file fields the form asks to remove (remove_attachments[]): of the stored entry when
+     * it is edited, of the form's post hash when it is created. Any other id is ignored.
+     *
+     * @return int[]
+     */
+    private function submittedAttachmentRemovals(EntryEntity $entry, bool $is_update): array
+    {
+        $requested = array_filter(array_map('intval', $this->context->mybb->get_input('remove_attachments', MyBB::INPUT_ARRAY)));
+
+        $file_field_ids = [];
+
+        foreach ($this->context->custom_fields_collection as $field) {
+            if ($field->html_type === FieldHtmlTypes::File) {
+                $file_field_ids[] = (int)$field->field_id;
+            }
+        }
+
+        if (!$requested || !$file_field_ids) {
+            return [];
+        }
+
+        $owner = $is_update ? "entry_id='{$entry->entry_id}'" :
+            "entry_id='0' AND post_hash='{$this->context->database->escape_string((string)$entry->post_hash)}'";
+
+        return array_map('intval', array_column(iterator_to_array($this->context->attachments_repository->queryAttachments(
+            [
+                $owner,
+                "attachment_id IN ('" . implode("','", $requested) . "')",
+                "field_id IN ('" . implode("','", $file_field_ids) . "')",
+            ],
+            'attachment_id'
+        ), false), 'attachment_id'));
+    }
+
+    /**
      * A new entry waits for approval when the user's new entries are moderated, an edited one when the user's edits
      * are; otherwise a new entry is visible and an edited one keeps its status. Bypassing moderation skips both.
      */
@@ -1141,6 +1176,10 @@ class EntriesController extends BaseController
                 $is_update ? EntriesManager::VALIDATION_METHOD_UPDATE : EntriesManager::VALIDATION_METHOD_INSERT
             );
 
+            $removed_attachment_ids = $this->submittedAttachmentRemovals($entry, $is_update);
+
+            $this->context->entries_manager->setRemovedAttachments($removed_attachment_ids);
+
             // todo, slug should load all field data after update/insert to build
 
             if (!$this->context->entries_manager->validateEntry()) {
@@ -1155,6 +1194,10 @@ class EntriesController extends BaseController
                     $entry = $this->context->entries_manager->validationEntryUpdate();
                 } else {
                     $entry = $this->context->entries_manager->validationEntryInsert();
+                }
+
+                foreach ($removed_attachment_ids as $attachment_id) {
+                    $this->context->attachments_repository->deleteAttachment($attachment_id);
                 }
 
                 if ($this->is_api_request) {

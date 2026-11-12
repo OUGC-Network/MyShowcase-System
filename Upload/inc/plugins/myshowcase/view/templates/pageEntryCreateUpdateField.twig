@@ -808,7 +808,7 @@
         {{ field_data.extra_data.code_buttons|raw }}
     {% endif %}
 </div>
-{% if field_data.html_type == 'file' and false and  field_data.getAttachments() is not empty %}
+{% if field_data.html_type == 'file' and field_data.getAttachments() is not empty %}
     <div class="row row--form field smalltext" style="overflow: auto; max-height: 20em;">
         <h2 class="field__name visually-hidden">
             {{ lang.attachments }}
