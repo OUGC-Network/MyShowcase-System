@@ -96,7 +96,7 @@ class AttachmentsController extends BaseController
 
         if ($post_hash === null) {
             $entry = $this->context->entries_repository->queryEntry(
-                ["entry_slug='{$entry_slug}'"],
+                ["entry_slug='{$this->context->database->escape_string((string)$entry_slug)}'"],
                 ['entry_id', 'post_hash', 'status', 'user_id'],
             );
 
@@ -108,8 +108,19 @@ class AttachmentsController extends BaseController
 
             $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
 
+            // Files of an existing entry: whoever may edit the entry.
+            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanUpdate) ||
+                (!$this->isEntryOwner($entry) && !$this->isEntryModerator())) {
+                $this->errorNoPermission();
+            }
+
             $entry_id = $entry->entry_id;
         } else {
+            // Files of an entry being created: whoever may create entries.
+            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
+                $this->errorNoPermission();
+            }
+
             $entry = new EntryEntity(post_hash: $post_hash, user_id: $this->context->current_user->uid);
         }
 
