@@ -495,11 +495,15 @@ function fieldDataInsert(array $field_data, bool $isUpdate = false, int $fieldDa
 
     $insertData = [];
 
+    // The field the option belongs to; $field_id was never defined in this function.
+    $field_id = (int)($field_data['field_id'] ?? 0);
+
     $hookArguments = [
         'insertData' => &$insertData,
         'fieldData' => &$field_data,
         'isUpdate' => $isUpdate,
         'fieldID' => &$field_id,
+        'fieldDataID' => &$fieldDataID,
         'tableData' => &$tablesData,
     ];
 
