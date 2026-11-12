@@ -153,6 +153,27 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
   changed. If you try, the other settings are saved and the page tells you the collection was not
   changed.
 - Subscriptions tab: the settings of this tab are saved like the others.
+- Who moderates: the group permissions (Permissions tab of a showcase, or the MyShowcase tab of a
+  user group) are about a user's own entries and comments. The entries and comments of other users
+  are moderated by the showcase moderators: the super moderator groups, and the users and groups
+  added on the Moderators tab of the showcase with "entries" or "comments" on.
+- Moderation of new entries: when "Moderate new entries" is on for a group and "Bypass moderation"
+  is off, its new entries wait for approval; "Moderate entry updates" does the same for edits. A
+  waiting entry is shown only to its author and to the moderators, in the list, on its page, in
+  the search and in the counts. Moderators find them on the main list through the "unapproved
+  entries" notice (the address ends in ?unapproved=1) and approve them with the inline moderation
+  tools. Comments follow the same rules with the comment permissions.
+- Moderation tools: each inline moderation action (open, close, stick, approve, soft delete,
+  restore, delete, ...) needs its own permission, and on entries of other users the rights of a
+  moderator too. A request with an entry the user may not moderate changes nothing. The entry
+  page links (delete, delete permanently) follow the same rules.
+- Deleting an entry permanently (inline moderation, or "Delete Permanently" on the entry page)
+  also deletes its comments, its files and their thumbnails, and the subscriptions to it. The same
+  happens when the user who posted it is deleted with its content, and when the showcase is
+  deleted. Soft delete hides the entry and restore brings it back, without deleting anything.
+- Search: the search box of the main list, and the address /search of a showcase, search the
+  entry subject (when subjects are on) and the fields marked "searchable", option fields by their
+  label. It needs the "Can search entries" permission and only finds entries the user may see.
 
 ============================================================================================
 Further documentation:

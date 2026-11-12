@@ -658,14 +658,20 @@ Before group C reuses the gate.
 * `RenderManager::templateGet()` renders `<prefix>/<name>.twig` when it exists and the global
   `@ext.myshowcase/<name>.twig` otherwise. Templates included from another template always come from the global set.
 * The column is excluded from JSON files (`JsonSchema::SHOWCASE_EXCLUDED`).
-* Choosing the set through an ACP dropdown of existing folders is planned in track G1. Today the ACP shows a text
-  input.
+* The ACP chooses the set from a dropdown (`FormTypes::SelectTemplateSet`, delivered in track G1), both on the
+  General tab of a showcase and when a showcase is created from a JSON file:
+  * The options are "Global templates (none)" (the empty value) and every folder of `view/templates/` whose name is
+    already a normalized template prefix, lower case letters and digits (`ShowcaseService::templateSets()`).
+  * A stored prefix whose folder was removed stays selected and is listed as "<name> (missing)"
+    (`SelectableLists::templateSetsList()`); the showcase renders with the global templates and saving keeps it.
+  * `ShowcaseService::validate()` refuses a new value that is not one of the folders
+    (`myshowcase_admin_error_invalid_template_set`) and a set another showcase already uses.
 
 ## Implementation order and dependencies
 
 | Order | Work | Track | Needs |
 |---|---|---|---|
-| 1 | Repair the entry-deleted event (dispatch on every delete path, fix the listeners) | prerequisite | — |
+| 1 | Repair the entry-deleted event (dispatch on every delete path, fix the listeners) — **done** (track G2: `EntriesManager::deleteEntry()` dispatches `EntryDeletedEvent` with the showcase, entry and author ids; the listeners are registered by `Showcase`) | prerequisite | — |
 | 2 | Group E — password hardening | PW1 | — |
 | 3 | Scoped password gate (`scope_type` / `scope_id`) | PW2 | E |
 | 4 | Group A — option metadata | T1 | — |
