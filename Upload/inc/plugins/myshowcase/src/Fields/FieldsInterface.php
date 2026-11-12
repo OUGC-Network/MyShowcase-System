@@ -62,4 +62,8 @@ interface FieldsInterface
     public function getSelectableValues(): Collection;
 
     public function fetchSelectableValues(int $collection_id, bool $verify_fill_permission = false): void;
+
+    public function hasOptions(): bool;
+
+    public function getLabel(): string;
 }

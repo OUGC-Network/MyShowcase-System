@@ -183,6 +183,20 @@ class EntriesManager
     }
 
     /**
+     * Adds the error of a custom field, one per field and error, with the field label as the first argument.
+     *
+     * @param string $language_key A datahandler_myshowcase language key
+     */
+    private function validateSetFieldError(FieldsInterface $field, string $language_key, array $data = []): void
+    {
+        $this->validation_errors[$language_key . '_' . $field->field_definition['field_key']] = $this->context->language->sprintf(
+            $this->context->language->$language_key ?? $language_key,
+            htmlspecialchars_uni($field->getLabel()),
+            ...$data
+        );
+    }
+
+    /**
      * @return array
      */
     public function validateGetError(): array
@@ -431,105 +445,86 @@ class EntriesManager
 
         $entry_slug_custom = [];
 
+        $this->context->language->load('datahandler_myshowcase', true, true);
+
         /**
          * @var FieldsInterface $field
          */
-        foreach ($this->validation_entry->getFields() as $field_id => $field) {
+        foreach ($this->validation_entry->getFields() as $field) {
+            $field_key = $field->field_definition['field_key'];
+
             if (!$field->isViewableInForm() ||
                 $field->field_definition['read_only'] ||
-                !isset($this->validation_entry->extra_data[$field->field_definition['field_key']])
+                !array_key_exists($field_key, $this->validation_entry->extra_data)
             ) {
                 // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            if ($field->field_definition['regular_expression'] &&
-                preg_match($field->field_definition['regular_expression'], '') !== false &&
-                preg_match(
-                    $field->field_definition['regular_expression'],
-                    $this->validation_entry->extra_data[$field->field_definition['field_key']]
-                ) !== 1) {
-                $this->validateSetError(
-                    'invalid_value1',
-                    [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
-                );
+            $value = $this->validation_entry->extra_data[$field_key];
+
+            if (is_array($value)) {
+                // Fields hold one value; several values (multiple select, several checkboxes) are not supported yet.
+                $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
+
+                continue;
             }
 
-            if ($field->field_definition['is_required'] && empty($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
-                if ($field->field_definition['html_type'] === FieldHtmlTypes::File) {
-                    if ($this->validation_entry->getAttachmentsByFieldID($field_id)->count() < 1) {
-                        $this->validateSetError(
-                            'required_field',
-                            [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
-                        );
-                    }
-                } else {
-                    $this->validateSetError(
-                        'required_field',
-                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
-                    );
+            $value = (string)$value;
+
+            if ($value === '' && $field->field_definition['default_value'] !== '') {
+                $value = $this->validation_entry->extra_data[$field_key] = (string)$field->field_definition['default_value'];
+            }
+
+            if ($value === '') {
+                if ($field->field_definition['is_required'] &&
+                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File ||
+                        $this->validation_entry->getAttachmentsByFieldID((int)$field->field_definition['field_id'])->count() < 1)) {
+                    $this->validateSetFieldError($field, 'myshowcase_datahandler_required_field');
                 }
+
+                continue;
             }
 
-            if (empty($this->validation_entry->extra_data[$field->field_definition['field_key']]) && $field->field_definition['default_value'] !== '') {
-                $this->validation_entry->extra_data[$field->field_definition['field_key']] = $field->field_definition['default_value'];
+            if ($field->hasOptions()) {
+                $field->fetchSelectableValues((int)$field->field_definition['collection_id'], true);
+
+                if (!ctype_digit($value) || !$field->getSelectableValues()->offsetExists((int)$value)) {
+                    $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
+                }
+
+                continue;
+            }
+
+            if ($field->field_definition['regular_expression'] &&
+                @preg_match($field->field_definition['regular_expression'], '') !== false &&
+                preg_match($field->field_definition['regular_expression'], $value) !== 1) {
+                $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
             }
 
             if (fieldTypeMatchInt($field->field_definition['field_type'])) {
-                if (is_array($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
-                    foreach ($this->validation_entry->extra_data[$field->field_definition['field_key']] as $fieldValue) {
-                        if (!is_numeric($fieldValue)) {
-                            $this->validateSetError(
-                                'invalid_value2',
-                                [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
-                            );
-                        }
-                    }
-                } elseif (!is_numeric($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
-                    $this->validateSetError(
-                        'invalid_value3',
-                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
-                    );
+                if (!is_numeric($value)) {
+                    $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
                 }
-            } elseif (fieldTypeMatchChar($field->field_definition['field_type']) ||
-                fieldTypeMatchText($field->field_definition['field_type'])) {
-                if (!is_scalar($this->validation_entry->extra_data[$field->field_definition['field_key']])) {
-                    $this->validateSetError(
-                        'invalid_value4',
-                        [$this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key']]
+            } elseif ((fieldTypeMatchChar($field->field_definition['field_type']) ||
+                    fieldTypeMatchText($field->field_definition['field_type'])) &&
+                $field->field_definition['html_type'] !== FieldHtmlTypes::Date) {
+                $length = my_strlen($value);
+
+                if ($field->field_definition['minimum_length'] && $length < $field->field_definition['minimum_length']) {
+                    $this->validateSetFieldError(
+                        $field,
+                        'myshowcase_datahandler_invalid_length_minimum',
+                        [my_number_format($field->field_definition['minimum_length'])]
                     );
                 }
 
-                if ($field->field_definition['html_type'] !== FieldHtmlTypes::Date) {
-                    if ($field->field_definition['minimum_length'] &&
-                        my_strlen(
-                            $this->validation_entry->extra_data[$field->field_definition['field_key']]
-                        ) < $field->field_definition['minimum_length']) {
-                        $this->validateSetError(
-                            'invalid_length_minimum',
-                            [
-                                $this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key'],
-                                my_strlen($this->validation_entry->extra_data[$field->field_definition['field_key']]),
-                                my_number_format($field->field_definition['minimum_length']),
-                                my_number_format($field->field_definition['maximum_length']),
-                            ]
-                        );
-                    }
-
-                    if ($field->field_definition['maximum_length'] &&
-                        my_strlen(
-                            $this->validation_entry->extra_data[$field->field_definition['field_key']]
-                        ) > $field->field_definition['maximum_length']) {
-                        $this->validateSetError(
-                            'invalid_length_maximum',
-                            [
-                                $this->context->language->{'myshowcase_collection_field_' . $field->field_definition['field_key']} ?? 'myshowcase_collection_field_' . $field->field_definition['field_key'],
-                                my_strlen($this->validation_entry->extra_data[$field->field_definition['field_key']]),
-                                my_number_format($field->field_definition['minimum_length']),
-                                my_number_format($field->field_definition['maximum_length']),
-                            ]
-                        );
-                    }
+                if ($field->field_definition['maximum_length'] && $length > $field->field_definition['maximum_length']) {
+                    $this->validateSetFieldError(
+                        $field,
+                        'myshowcase_datahandler_invalid_length_maximum',
+                        [my_number_format($field->field_definition['maximum_length'])]
+                    );
                 }
             }
         }
