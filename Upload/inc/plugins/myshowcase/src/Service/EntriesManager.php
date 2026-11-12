@@ -214,6 +214,33 @@ class EntriesManager
     }
 
     /**
+     * Whether a file field has an uploaded file: one already attached to the entry, or uploaded with the form (the
+     * post hash) before the entry is saved. The entry being validated is built from the submitted form and carries
+     * no attachments itself.
+     */
+    private function fileFieldHasAttachments(FieldsInterface $field): bool
+    {
+        $owners = [];
+
+        if (!empty($this->validation_entry->entry_id)) {
+            $owners[] = "entry_id='" . (int)$this->validation_entry->entry_id . "'";
+        }
+
+        if (!empty($this->validation_entry->post_hash)) {
+            $owners[] = "post_hash='" . $this->context->database->escape_string($this->validation_entry->post_hash) . "'";
+        }
+
+        if (!$owners) {
+            return false;
+        }
+
+        return $this->context->attachments_repository->queryAttachmentCount([
+            "field_id='" . (int)$field->field_definition['field_id'] . "'",
+            '(' . implode(' OR ', $owners) . ')',
+        ]) > 0;
+    }
+
+    /**
      * Adds the error of a custom field, one per field and error, with the field label as the first argument.
      *
      * @param string $language_key A datahandler_myshowcase language key
@@ -509,8 +536,7 @@ class EntriesManager
 
             if ($value === '') {
                 if ($field->field_definition['is_required'] &&
-                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File ||
-                        $this->validation_entry->getAttachmentsByFieldID((int)$field->field_definition['field_id'])->count() < 1)) {
+                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File || !$this->fileFieldHasAttachments($field))) {
                     $this->validateSetFieldError($field, 'myshowcase_datahandler_required_field');
                 }
 
