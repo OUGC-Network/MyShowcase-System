@@ -82,7 +82,10 @@ class UsersManager
 
                     break;
                 case FormTypes::Number:
-                    if (empty($permission_definition['highest'])) {
+                    if (!empty($permission_definition['zero_unlimited'])) {
+                        // 0 is the one meaning of unlimited, so it is also the starting point.
+                        $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_UNLIMITED;
+                    } elseif (empty($permission_definition['highest'])) {
                         $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_INFINITY;
                     } else {
                         $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_LOWER;

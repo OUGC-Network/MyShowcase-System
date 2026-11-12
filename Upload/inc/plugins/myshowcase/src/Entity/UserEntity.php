@@ -64,7 +64,12 @@ class UserEntity
             throw new InvalidArgumentException("Permission '{$permission_name}' does not exist.");
         }
 
-        return $this->permissions->$permission_name ?? 0;
+        // Numeric permissions are stored as floats. 0 is the one value that means "unlimited" for the permissions
+        // that have it (zero_unlimited), so it must come back as the int 0. The only infinite value left is the
+        // default of the permissions where lower is stricter and 0 is not unlimited; an int cannot hold it.
+        $value = $this->permissions->$permission_name ?? 0;
+
+        return is_infinite($value) ? PHP_INT_MAX : (int)$value;
     }
 
     public function hasPermission(string $permission_name): bool
