@@ -215,6 +215,37 @@ foreach (['collections/Blog.json', 'collections/../showcases/x.json', '../x.json
 }
 check(JsonFiles::decode('{"a":1')['error'] !== null && JsonFiles::decode('[1]')['error'] !== null && JsonFiles::decode(str_repeat(' ', JsonFiles::MAX_BYTES + 1))['error'] !== null && JsonFiles::decode('{"a":1}')['data'] === ['a' => 1], 'decode: broken, not an object, too large, fine');
 
+// ---- the committed files ---------------------------------------------------------------------------------------
+$committed = [];
+
+foreach (['collection', 'showcase'] as $kind) {
+    $files = new JsonFiles(\MyShowcase\ROOT . '/imports');
+
+    foreach ($files->list($kind) as $relative) {
+        $read = $files->read($relative);
+
+        check($read['error'] === null && $read['data'] !== null, "committed file decodes: {$relative}");
+
+        if ($read['data'] !== null) {
+            $errors = JsonValidator::validate($read['data'], $kind);
+
+            check($errors === [], "committed file validates: {$relative} " . json_encode($errors));
+
+            check(($read['data']['version'] ?? '') === '1.0.0' || str_starts_with($relative, 'x'), "committed example is at 1.0.0: {$relative}");
+        }
+
+        $committed[$relative] = true;
+    }
+}
+
+check(isset($committed['collections/blog.json'], $committed['showcases/blog.json']), 'the blog examples are committed');
+
+foreach (['', 'JSON/', 'JSON/collections/', 'JSON/showcases/', 'PHP/', 'PHP/collections/', 'PHP/showcases/'] as $folder) {
+    check(is_file(\MyShowcase\ROOT . '/imports/' . $folder . 'index.html'), "index.html in imports/{$folder}");
+}
+
+check(is_file(\MyShowcase\ROOT . '/imports/.htaccess') && str_contains((string)file_get_contents(\MyShowcase\ROOT . '/imports/.htaccess'), 'denied'), 'imports/.htaccess denies web access');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);
