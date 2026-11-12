@@ -41,7 +41,6 @@ use MyShowcase\Repository\{AccessLogsRepository,
     SubscriptionsRepository
 };
 use MyShowcase\Service\{CommentsManager, EntriesManager};
-use MyShowcase\ValueObjects\EntryCustomField;
 use MyShowcase\Util\{SelectableLists, StringUtil, UuidUtil};
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
@@ -883,14 +882,18 @@ class EntriesController extends BaseController
 
         $this->context->mybb->input = array_merge((array)$entry, $this->context->mybb->input);
 
-        foreach ($this->context->custom_fields_collection as $field_id => $field) {
-            if (!isset($this->context->mybb->input[$field->field_key])) {
-                $this->context->mybb->input[$field->field_key] = '';
-            }
+        if ($this->context->mybb->request_method === 'post') {
+            foreach ($this->context->custom_fields_collection as $field) {
+                if (!$field->isViewableInForm() || $field->read_only) {
+                    // The form does not have the field: a value posted for it is ignored and the stored one stays.
+                    unset($this->context->mybb->input[$field->field_key]);
 
-            $entry->getCustomFields()->filter(
-                fn(EntryCustomField $custom_field) => $custom_field->field_key === $field->field_key
-            );
+                    continue;
+                }
+
+                // An unchecked checkbox or radio is not posted at all: the user emptied the field.
+                $this->context->mybb->input[$field->field_key] ??= '';
+            }
         }
 
         if ($this->context->mybb->request_method === 'post') {
