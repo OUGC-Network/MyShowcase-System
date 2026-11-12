@@ -8,16 +8,16 @@
             <select name="moderate" id="inlinemoderation_options_selector">
                 <option value="" selected="selected">{{ lang.myshowcase_main_inline_moderation_select_a_tool }}</option>
                 <optgroup label="{{ lang.myshowcase_main_inline_moderation_standard_tool }}">
-                    <option value="open">{{ lang.myshowcase_main_inline_moderation_open }}</option>
-                    <option value="close">{{ lang.myshowcase_main_inline_moderation_close }}</option>
-                    <option value="stick">{{ lang.myshowcase_main_inline_moderation_stick }}</option>
-                    <option value="unstick">{{ lang.myshowcase_main_inline_moderation_unstick }}</option>
-                    <option value="approve">{{ lang.myshowcase_main_inline_moderation_approve }}</option>
-                    <option value="unapprove">{{ lang.myshowcase_main_inline_moderation_unapprove }}</option>
-                    <option value="copy">{{ lang.myshowcase_main_inline_moderation_copy }}</option>
-                    <option value="soft_delete">{{ lang.myshowcase_main_inline_moderation_soft_delete }}</option>
-                    <option value="restore">{{ lang.myshowcase_main_inline_moderation_restore }}</option>
-                    <option value="delete">{{ lang.myshowcase_main_inline_moderation_delete }}</option>
+                    {% if inline_tools.open is defined %}<option value="open">{{ lang.myshowcase_main_inline_moderation_open }}</option>{% endif %}
+                    {% if inline_tools.close is defined %}<option value="close">{{ lang.myshowcase_main_inline_moderation_close }}</option>{% endif %}
+                    {% if inline_tools.stick is defined %}<option value="stick">{{ lang.myshowcase_main_inline_moderation_stick }}</option>{% endif %}
+                    {% if inline_tools.unstick is defined %}<option value="unstick">{{ lang.myshowcase_main_inline_moderation_unstick }}</option>{% endif %}
+                    {% if inline_tools.approve is defined %}<option value="approve">{{ lang.myshowcase_main_inline_moderation_approve }}</option>{% endif %}
+                    {% if inline_tools.unapprove is defined %}<option value="unapprove">{{ lang.myshowcase_main_inline_moderation_unapprove }}</option>{% endif %}
+                    {% if inline_tools.copy is defined %}<option value="copy">{{ lang.myshowcase_main_inline_moderation_copy }}</option>{% endif %}
+                    {% if inline_tools.soft_delete is defined %}<option value="soft_delete">{{ lang.myshowcase_main_inline_moderation_soft_delete }}</option>{% endif %}
+                    {% if inline_tools.restore is defined %}<option value="restore">{{ lang.myshowcase_main_inline_moderation_restore }}</option>{% endif %}
+                    {% if inline_tools.delete is defined %}<option value="delete">{{ lang.myshowcase_main_inline_moderation_delete }}</option>{% endif %}
                 </optgroup>
             </select>
         </div>

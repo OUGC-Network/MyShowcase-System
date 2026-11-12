@@ -200,7 +200,7 @@
                 <a href="{{ config.showcase_url }}{{ url.sort.last_comment }}"
                    class="sort-results__link sort-results__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.order_by is defined and url_params.order_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
             </div>
-            {% if entry_moderator %}
+            {% if inline_tools %}
                 <div class="column-headings__column thread__checkbox">
                     <label>
                         <input type="checkbox" id="select-all-entries"/>
@@ -368,7 +368,7 @@
             </div>
 
             {# Inline moderation #}
-            {% if entry_moderator %}
+            {% if inline_tools %}
                 {% include '@ext.myshowcase/pageMainInlineModeration.twig' %}
             {% endif %}
         </div>

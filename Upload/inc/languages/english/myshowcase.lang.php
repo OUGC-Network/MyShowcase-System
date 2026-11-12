@@ -145,6 +145,8 @@ $l = array_merge($l, [
     'myshowcase_main_sort_days_25' => 'From: 25 Days Ago',
     'myshowcase_main_sort_days_100' => 'From: 100 Days Ago',
 
+    'myshowcase_main_inline_moderation_none_allowed' => 'You may not use this tool on any of the selected entries.',
+    'myshowcase_main_inline_moderation_skipped' => '%1$d selected entries were skipped because you may not do this to them.',
     'myshowcase_main_inline_moderation_redirect_opened' => 'The selected entries have been opened.<br />You will now be returned to your previous location.',
     'myshowcase_main_inline_moderation_redirect_closed' => 'The selected entries have been closed.<br />You will now be returned to your previous location.',
     'myshowcase_main_inline_moderation_redirect_stuck' => 'The selected entries have been stuck.<br />You will now be returned to your previous location.',

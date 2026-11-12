@@ -246,6 +246,64 @@ class EntriesManager
     }
 
     /**
+     * The inline moderation tools and the permission each one needs (the existing permission definitions; none is new).
+     * Every tool goes through canModerateEntry(), so none can skip it.
+     */
+    public const MODERATION_TOOLS = [
+        'open' => UserPermissions::EntriesCanOpen,
+        'close' => UserPermissions::EntriesCanClose,
+        'stick' => UserPermissions::EntriesCanSticky,
+        'unstick' => UserPermissions::EntriesCanUnstick,
+        'approve' => UserPermissions::EntriesCanApprove,
+        'unapprove' => UserPermissions::EntriesCanUnapprove,
+        'copy' => UserPermissions::EntriesCanCopy,
+        'soft_delete' => UserPermissions::EntriesCanSoftDelete,
+        'restore' => UserPermissions::EntriesCanRestore,
+        'delete' => UserPermissions::EntriesCanDelete,
+    ];
+
+    /**
+     * The tools the current user holds the permission for (tool => true); empty for a guest. The inline moderation menu shows
+     * these, and a tool that is not in the list is refused.
+     *
+     * @return array<string, true>
+     */
+    public function moderationTools(): array
+    {
+        if ($this->context->current_user->uid < 1) {
+            return [];
+        }
+
+        $tools = [];
+
+        foreach (self::MODERATION_TOOLS as $tool => $permission) {
+            if ($this->context->current_user->hasPermission($permission)) {
+                $tools[$tool] = true;
+            }
+        }
+
+        return $tools;
+    }
+
+    /**
+     * Whether the current user may use $tool on this entry: they hold the tool's permission, they may see the entry
+     * (canViewStatus()), and it is their own entry or they moderate the showcase. The permissions are described as acting on
+     * 'your own entries', so acting on someone else's also takes being a moderator (isModerator()).
+     */
+    public function canModerateEntry(string $tool, EntryEntity $entry): bool
+    {
+        $uid = (int)$this->context->current_user->uid;
+
+        if ($uid < 1 || !isset(self::MODERATION_TOOLS[$tool]) ||
+            !$this->context->current_user->hasPermission(self::MODERATION_TOOLS[$tool]) ||
+            !$this->canViewStatus((int)$entry->status, (int)$entry->user_id)) {
+            return false;
+        }
+
+        return (int)$entry->user_id === $uid || $this->isModerator();
+    }
+
+    /**
      * Condition that limits a query on the entries table to the entries the current user may see, built from
      * statusViewScope(): for each status, nothing, the user's own entries, or all of them. The listing, the entry page, the
      * update page, comment access and the export all use it.
