@@ -752,7 +752,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
     $collectionFile = $collectionData['json_file'] !== '' ? $jsonSync->load($collectionData['json_file']) : null;
 
     if ($collectionFile !== null) {
-        echo '<p>' . JsonUi::text('json_file') . ': ' . htmlspecialchars($collectionData['json_file'])
+        echo '<p>' . JsonUi::text('json_file') . ':'
             . JsonUi::rowInfo('collection', (int)$collection_id, $collectionData, $jsonSync->statusOf($collectionData, 'collection')) . '</p>';
     }
 
