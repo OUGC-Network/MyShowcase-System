@@ -27,6 +27,7 @@ readonly class ShowcaseEntity
         public int $main_display_moderators = 1,
         public int $main_display_users_browsing = 1,
         public int $main_per_page = 10,
+        public int $main_prune_age = 0,
         public string $main_filter_force_field = '',
         public string $main_sort_default_field = '',
         public int $main_sort_direction = 1,

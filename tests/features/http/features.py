@@ -493,19 +493,30 @@ def deletion(e2):
     mod.get(f"{G}/update/{e['public_id']}?delete=2&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id']) is None and dependents(e['entry_id'])[0] == 0 and exists(names) == [], 'entry page: moderator hard delete removes the row and files')
 
-    # Pruning task: no showcase can have a pruning age (the prune_time column is gone), so the task deletes
-    # nothing; the deletion it does for each old entry is checked outside a forum request.
-    total = count(f"mybb_myshowcase_data{sid('gallery')}")
+    # Pruning: main_prune_age 0 leaves every entry alone; a positive age hard-deletes older rows by dateline.
+    gsid = sid('gallery')
+    total = count(f'mybb_myshowcase_data{gsid}')
     fix('task')
-    ok(count(f"mybb_myshowcase_data{sid('gallery')}") == total, 'pruning task runs and deletes nothing without a pruning age')
+    ok(count(f'mybb_myshowcase_data{gsid}') == total, 'pruning task runs and deletes nothing when main_prune_age is 0')
     e = create_gallery(m1, 'Old photo')['entry']
     comment(m2, e, 'Comment on an old photo')
     names = files(e['entry_id'])
     keep = entry('gallery', 'title', 'Member one photo')
-    fix('delete-entry', 'gallery', e['entry_id'])
+    # Age the entry past a one-day prune window, then run the task.
+    if CTX.engine == 'sqlite':
+        CTX.execute(f"update mybb_myshowcase_data{gsid} set dateline=datetime('now','-2 days') where entry_id={e['entry_id']}")
+    elif CTX.engine == 'mysql':
+        CTX.execute(f"update mybb_myshowcase_data{gsid} set dateline=UTC_TIMESTAMP() - INTERVAL 2 DAY where entry_id={e['entry_id']}")
+    else:
+        CTX.execute(f"update mybb_myshowcase_data{gsid} set dateline=(CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '2 days' where entry_id={e['entry_id']}")
+    CTX.execute(f"update mybb_myshowcase_config set main_prune_age=1 where showcase_id={gsid}")
+    fix('grants')  # rebuild the config cache so the task sees main_prune_age
+    fix('task')
     ok(entry('gallery', 'entry_id', e['entry_id']) is None and dependents(e['entry_id']) == (0, 0, 0) and exists(names) == [],
-       "the task's deletion (outside a forum request) removes the entry and its dependents")
-    ok(entry('gallery', 'entry_id', keep['entry_id']) is not None, 'other entries stay')
+       'entries older than main_prune_age are pruned with files, comments and subscriptions')
+    ok(entry('gallery', 'entry_id', keep['entry_id']) is not None, 'entries inside the prune window stay')
+    CTX.execute(f"update mybb_myshowcase_config set main_prune_age=0 where showcase_id={gsid}")
+    fix('grants')
 
     # User deletion.
     e = create_gallery(leaver, 'Leaver photo')['entry']

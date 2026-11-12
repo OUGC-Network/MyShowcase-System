@@ -28,21 +28,20 @@ function task_myshowcase(array $taskData): array
             CacheDataTypes::Config
         ) as $showcase_id => $showcase_data
     ) {
-        // "<amount>|<unit>", for example "30|days"; the setting has no column at present, so nothing is pruned.
-        $showcasePruneTime = explode('|', (string)($showcase_data['prune_time'] ?? ''));
+        // main_prune_age is days since creation (dateline); 0 leaves the showcase alone.
+        // Soft-deleted and unapproved entries are included so old waiting or deleted rows do not linger.
+        $pruneAge = (int)($showcase_data['main_prune_age'] ?? 0);
 
-        if ((int)$showcasePruneTime[0] > 0 && !empty($showcasePruneTime[1]) &&
-            $showcase_data['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
-            $pruneTime = (int)strtotime('-' . (int)$showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
+        if ($pruneAge > 0 && (int)($showcase_data['is_enabled'] ?? 0) === SHOWCASE_STATUS_ENABLED) {
+            $cutoff = gmdate('Y-m-d H:i:s', TIME_NOW - ($pruneAge * 86400));
 
             $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
-            // dateline is a DATETIME column; queryEntries() yields rows without keys.
             $entry_ids = array_map(
                 static fn(array $entry_data): int => (int)$entry_data['entry_id'],
                 iterator_to_array(
                     $showcase->context->entries_repository->queryEntries(
-                        ["dateline<='" . gmdate('Y-m-d H:i:s', $pruneTime) . "'"],
+                        ["dateline<='" . $cutoff . "'"],
                         ['entry_id']
                     ),
                     false

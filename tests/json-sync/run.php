@@ -37,6 +37,7 @@ use MyShowcase\Service\JsonSync\JsonExporter;
 use MyShowcase\Service\JsonSync\JsonFiles;
 use MyShowcase\Service\JsonSync\JsonHash;
 use MyShowcase\Service\JsonSync\JsonPlanner;
+use MyShowcase\Service\JsonSync\JsonSchema;
 use MyShowcase\Service\JsonSync\JsonStatus;
 use MyShowcase\Service\JsonSync\JsonValidator;
 
@@ -73,6 +74,7 @@ $collection = static fn(?array $fields = null, array $extra = []) => $extra + [
 // ---- validation ----------------------------------------------------------------------------------------------
 check(JsonValidator::validate($collection()) === [], 'a minimal collection is valid');
 check(JsonValidator::validate(['type' => 'showcase', 'version' => '1.0.0', 'collection' => 'blog', 'main_per_page' => 5]) === [], 'a minimal showcase is valid');
+check(isset(JsonSchema::showcaseColumns()['main_prune_age']) && JsonValidator::validate(['type' => 'showcase', 'version' => '1.0.0', 'collection' => 'blog', 'main_prune_age' => 30]) === [], 'main_prune_age is a JSON showcase key');
 check(paths(JsonValidator::validate(['version' => '1.0.0'])) === ['$.type'], 'type is required');
 check(in_array('$.version', paths(JsonValidator::validate(['type' => 'collection', 'version' => '1.0', 'name' => 'x', 'fields' => []]))), 'version must be x.y.z');
 
@@ -202,9 +204,9 @@ check(JsonValidator::validate($export, 'collection') === [], 'exported collectio
 check(!isset($export['fields'][0]['is_enabled']) && $export['fields'][1]['is_enabled'] === 1 && $export['fields'][1]['allowed_groups_fill'] === 'all' && !isset($export['fields'][1]['allowed_groups_view']), 'export: defaults left out, groups only as "all"');
 check($export['fields'][0]['options'] === [['value_id' => 1, 'value' => 'One'], ['value_id' => 2, 'value' => 'Two', 'display_order' => 2]], 'export: options sorted');
 check(!str_contains(json_encode($export), 'collection_id') && !str_contains(json_encode($export), 'json_'), 'export: no ids or json_ columns');
-$se = JsonExporter::showcase(['json_version' => '1.4.0', 'name' => 'Mine', 'route_identifier' => 'mine', 'custom_template_prefix' => 'm', 'showcase_url' => 'x', 'password' => 'secret', 'collection_id' => 3, 'main_per_page' => 5, 'description' => 'd', 'entries_enable_subject' => 1, 'entries_enable_message' => 1, 'comments_enable' => 1, 'custom_theme_id' => '4', 'attachments_uploads_path' => 'p'], 'My Blog');
-check($se['version'] === '1.4.0' && $se['collection'] === 'my-blog' && $se['main_per_page'] === 5 && $se['entries_enable_subject'] === 1, 'export: showcase');
-check(array_diff_key($se, array_flip(['type', 'version', 'collection', 'main_per_page', 'description', 'entries_enable_subject', 'entries_enable_message', 'comments_enable'])) === [], 'export: per-showcase and board-specific values left out');
+$se = JsonExporter::showcase(['json_version' => '1.4.0', 'name' => 'Mine', 'route_identifier' => 'mine', 'custom_template_prefix' => 'm', 'showcase_url' => 'x', 'password' => 'secret', 'collection_id' => 3, 'main_per_page' => 5, 'main_prune_age' => 90, 'description' => 'd', 'entries_enable_subject' => 1, 'entries_enable_message' => 1, 'comments_enable' => 1, 'custom_theme_id' => '4', 'attachments_uploads_path' => 'p'], 'My Blog');
+check($se['version'] === '1.4.0' && $se['collection'] === 'my-blog' && $se['main_per_page'] === 5 && $se['main_prune_age'] === 90 && $se['entries_enable_subject'] === 1, 'export: showcase');
+check(array_diff_key($se, array_flip(['type', 'version', 'collection', 'main_per_page', 'main_prune_age', 'description', 'entries_enable_subject', 'entries_enable_message', 'comments_enable'])) === [], 'export: per-showcase and board-specific values left out');
 check(JsonValidator::validate($se, 'showcase') === [], 'exported showcase validates');
 check(JsonHash::hash(json_decode(JsonExporter::encode($export), true)) === JsonHash::hash($export), 'encoded export decodes to the same content');
 

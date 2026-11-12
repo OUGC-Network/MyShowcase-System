@@ -174,12 +174,14 @@ def section_a():
     for cat in ['general', 'main', 'parser', 'entries', 'comments', 'attachments']:
         f = form(r['body'], f'type={cat}')
         data = {k: (v[0] if len(v) == 1 else v) for k, v in f['fields'].items() if k not in f['disabled']}
-        if cat == 'main': data['showcase[main_per_page]'] = '7'
+        if cat == 'main':
+            data['showcase[main_per_page]'] = '7'
+            data['showcase[main_prune_age]'] = '14'
         if cat == 'general': data['showcase[description]'] = 'cars desc'
         rr = page(f['action'].replace('&amp;', '&').split('module=')[1], data)
         e = errors_in(rr)
         ok(e is None, f'showcase tab {cat} saves' + (f' ({e})' if e else ''))
-    ok(one(f"select main_per_page from mybb_myshowcase_config where showcase_id={sid}") == '7' and one(f"select description from mybb_myshowcase_config where showcase_id={sid}") == 'cars desc', 'showcase values saved')
+    ok(one(f"select main_per_page from mybb_myshowcase_config where showcase_id={sid}") == '7' and one(f"select main_prune_age from mybb_myshowcase_config where showcase_id={sid}") == '14' and one(f"select description from mybb_myshowcase_config where showcase_id={sid}") == 'cars desc', 'showcase values saved, including main_prune_age')
     page(f'myshowcase-summary&action=create_table&showcase_id={sid}')
     ok(len(db("select 1 from mybb_myshowcase_collections")) >= 1 and one(f"select count(*) from information_schema.columns where table_name='mybb_myshowcase_data{sid}' and column_name='model_name'") == '1' if ENGINE != 'sqlite' else 'model_name' in [c[1] for c in db(f"pragma table_info('mybb_myshowcase_data{sid}')")], 'create table has the field columns')
     # rename a field with an existing column
@@ -390,7 +392,7 @@ def section_e(cid_a, sid_a, cid, sid):
         {'field_key': 'kind', 'label': 'Kind', 'html_type': 'select', 'field_type': 'int', 'maximum_length': 5,
          'options': [{'value_id': 1, 'value': 'Coupe'}, {'value_id': 2, 'value': 'Truck'}, {'value_id': 3, 'value': 'Van'}]},
         {'field_key': 'colour', 'label': 'Colour', 'html_type': 'text', 'field_type': 'varchar', 'maximum_length': 20}]})
-    board_file('showcases/cars.json', {'type': 'showcase', 'version': '1.0.0', 'collection': 'plain', 'comments_enable': 0, 'main_per_page': 9})
+    board_file('showcases/cars.json', {'type': 'showcase', 'version': '1.0.0', 'collection': 'plain', 'comments_enable': 0, 'main_per_page': 9, 'main_prune_age': 30})
     r = page(f'myshowcase-json_sync&action=preview&type=showcase&id={sid_a}&mode=link&file=showcases/cars.json&my_post_key={A.post_key}')
     ok('Link the collection' in text(r['body']) or 'link the collection' in text(r['body']).lower(), 'showcase link refused while its collection is not linked')
     ok(one(f"select json_file from mybb_myshowcase_config where showcase_id={sid_a}") == '', 'refused link wrote nothing')
@@ -417,7 +419,7 @@ def section_e(cid_a, sid_a, cid, sid):
     ok('Update the showcase' in text(r['body']) and 'Confirm and apply' in r['body'], 'showcase link: plan shown')
     r = jsync({'action': 'run', 'mode': 'link', 'type': 'showcase', 'id': str(sid_a), 'file': 'showcases/cars.json'})
     ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'link showcase applied')
-    ok(db(f"select json_file, json_version, comments_enable, main_per_page from mybb_myshowcase_config where showcase_id={sid_a}") == [('showcases/cars.json', '1.0.0', '0', '9')], 'showcase linked with the file values')
+    ok(db(f"select json_file, json_version, comments_enable, main_per_page, main_prune_age from mybb_myshowcase_config where showcase_id={sid_a}") == [('showcases/cars.json', '1.0.0', '0', '9', '30')], 'showcase linked with the file values, including main_prune_age')
     ok(sorted(badge_texts('myshowcase-summary')) == ['In sync', 'In sync'], 'both showcases in sync')
     # detach the collection: only json_* change
     snap_c = snapshot('mybb_myshowcase_collections', 'collection_id', cid_a); snap_f = snapshot('mybb_myshowcase_fields', 'collection_id', cid_a)

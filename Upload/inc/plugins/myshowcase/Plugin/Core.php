@@ -629,6 +629,16 @@ const TABLES_DATA = [
             'class' => 'field150',
             'max' => 255,
         ],
+        // Days after creation (dateline) before the task hard-deletes the entry; 0 = off. Soft-deleted and unapproved entries age out too.
+        'main_prune_age' => [
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 0,
+            'category' => 'main',
+            'input_type' => FormTypes::Number,
+            'class' => 'field150',
+            'max' => 3650,
+        ],
         'main_filter_force_field' => [ // force view entries by uid, etc
             'type' => 'VARCHAR',
             'size' => 10,

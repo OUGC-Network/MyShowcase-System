@@ -140,14 +140,13 @@ function pluginActivation(): bool
                 'uid' => 'user_id',
             ],
             'myshowcase_config' => [
-                // todo, drop thumb_width, thumb_height, maximum_text_field_length, prune_time
+                // todo, drop thumb_width, thumb_height, maximum_text_field_length (prune_time replaced by main_prune_age)
                 'id' => 'showcase_id',
                 'fieldsetid' => 'collection_id',
                 'f2gpath' => 'showcase_url',
                 'allowsmilies' => 'parser_allow_smilies',
                 'allowbbcode' => 'parser_allow_mycode_in_entries',
                 'allowhtml' => 'parser_allow_mycode_in_entries',
-                'prunetime' => 'prune_time',
                 'othermaxlength' => 'maximum_text_field_length',
                 'maximum_text_field_lenght' => 'maximum_text_field_length',
                 'comment_dispinit' => 'comments_per_page',

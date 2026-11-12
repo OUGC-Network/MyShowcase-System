@@ -204,6 +204,8 @@ $l = array_merge([
     'myshowcase_admin_summary_create_update_main_per_page' => 'Entries Per Page',
 
     'myshowcase_admin_summary_create_update_main_per_page_description' => 'Number of entries to display per page.',
+    'myshowcase_admin_summary_create_update_main_prune_age' => 'Prune Entries Older Than (Days)',
+    'myshowcase_admin_summary_create_update_main_prune_age_description' => 'Hard-delete entries whose creation date is older than this many days. Set to 0 to disable pruning. Soft-deleted and unapproved entries are included. Maximum 3650 days.',
     'myshowcase_admin_summary_create_update_main_filter_force_field' => 'Force Filter Field',
     'myshowcase_admin_summary_create_update_main_filter_force_field_none' => '(none)',
     'myshowcase_admin_summary_create_update_main_filter_force_field_user_id' => 'User ID (profile showcase)',
