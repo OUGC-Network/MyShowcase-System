@@ -210,7 +210,35 @@ class EntriesManager
      */
     public function validateSetError(string $message, array $data = []): void
     {
-        $this->validation_errors[$message] = $this->context->language->sprintf($message, ...$data);
+        // An error is identified by its message and its values (for example the field it is about), so two fields
+        // failing the same check are two errors instead of the second replacing the first.
+        $this->validation_errors[$message . '|' . json_encode($data)] = $this->context->language->sprintf(
+            $this->validationErrorText($message),
+            ...$data
+        );
+    }
+
+    /**
+     * Some callers pass the finished text, others the short name of a data handler message ('required_field',
+     * 'invalid_value1'). The short names live in datahandler_myshowcase.lang.php, so that is where they are read.
+     */
+    private function validationErrorText(string $message): string
+    {
+        if (!preg_match('/^[a-z_]+\d*$/', $message)) {
+            return $message;
+        }
+
+        static $loaded = false;
+
+        if (!$loaded) {
+            $this->context->language->load('datahandler_myshowcase', false, true);
+
+            $loaded = true;
+        }
+
+        $language_key = 'myshowcase_datahandler_' . preg_replace('/\d+$/', '', $message);
+
+        return $this->context->language->{$language_key} ?? $message;
     }
 
     /**
