@@ -485,6 +485,10 @@ abstract class BaseController
 
         $where_clauses[] = $this->commentVisibilityClause();
 
+        if ($comment_clause = $this->context->entries_manager->commentVisibilityWhereClause('')) {
+            $where_clauses[] = $comment_clause;
+        }
+
         $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase);
         $total_comments = $comments_repository->queryCommentCount($where_clauses);
 

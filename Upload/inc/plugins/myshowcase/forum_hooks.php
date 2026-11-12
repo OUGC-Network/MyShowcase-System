@@ -374,9 +374,16 @@ function postbit(array &$post): array
                     $showcase->context->attachments_manager->getAttachmentsEntryIDs()
                 );
 
+                $entry_where_clauses = ["entry_id IN ('{$attachment_entry_ids}')"];
+
+                // Only entries the viewer may see (EntriesManager::visibilityWhereClause()); the others' attachments are skipped
+                if ($visibility_clause = $showcase->context->entries_manager->visibilityWhereClause('entry_data')) {
+                    $entry_where_clauses[] = $visibility_clause;
+                }
+
                 foreach (
                     $showcase->context->entries_repository->queryEntries(
-                        ["entry_id IN ('{$attachment_entry_ids}')"], // todo, status clause
+                        $entry_where_clauses,
                         [
                             'entry_id',
                             'public_id',
@@ -392,6 +399,10 @@ function postbit(array &$post): array
                  */
                 foreach ($showcase->context->attachments_manager->getAttachments() as $attachment) {
                     $entry = $showcase->context->entries_manager->getEntryByID($attachment->entry_id);
+
+                    if ($entry === null) {
+                        continue;
+                    }
 
                     //$attachment->is_image = str_starts_with($attachment->mime_type, 'image/');
 

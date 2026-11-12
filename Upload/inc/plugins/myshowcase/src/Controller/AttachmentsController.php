@@ -95,8 +95,14 @@ class AttachmentsController extends BaseController
         $entry_id = null;
 
         if ($post_hash === null) {
+            $where_clauses = ["public_id='{$this->context->database->escape_string((string)$entry_public_id)}'"];
+
+            if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause('entry_data')) {
+                $where_clauses[] = $visibility_clause;
+            }
+
             $entry = $this->context->entries_repository->queryEntry(
-                ["public_id='{$this->context->database->escape_string((string)$entry_public_id)}'"],
+                $where_clauses,
                 ['entry_id', 'post_hash', 'status', 'user_id'],
             );
 
@@ -323,6 +329,13 @@ class AttachmentsController extends BaseController
                 !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved)) {
                 $this->error($lang->error_invalidattachment, 404);
             }
+
+        // An attachment is not served for an entry the user may not see, whoever uploaded it or whatever other permission
+        // they hold.
+        if (!empty($entry->entry_id) &&
+            !$this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id)) {
+            $this->error($lang->error_invalidattachment);
+        }
 
             // A thumbnail is a preview: only the file itself needs the download permission. This is checked against
             // what was requested, before a missing thumbnail falls back to the image below.

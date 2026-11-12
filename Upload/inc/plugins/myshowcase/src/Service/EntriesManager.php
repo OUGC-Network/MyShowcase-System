@@ -336,9 +336,11 @@ class EntriesManager
             return '';
         }
 
-        return "({$alias}.status='" . ContentStatuses::VisibleApproved . "' OR ("
-            . "{$alias}.user_id='" . (int)$this->context->current_user->uid . "' AND "
-            . "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'))";
+        $prefix = $alias === '' ? '' : "{$alias}.";
+
+        return "({$prefix}status='" . ContentStatuses::VisibleApproved . "' OR ("
+            . "{$prefix}user_id='" . (int)$this->context->current_user->uid . "' AND "
+            . "{$prefix}status='" . ContentStatuses::AwaitingApproval . "'))";
     }
 
     /**

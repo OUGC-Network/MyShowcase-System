@@ -883,8 +883,7 @@ class RenderManager
 
         if ($entry->status === ContentStatuses::AwaitingApproval) {
             $entry->setExtraData('background_class', 'trow_shaded');
-        } elseif ($entry->status === ContentStatuses::SoftDeleted &&
-            $this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+        } elseif ($entry->status === ContentStatuses::SoftDeleted) {
             $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
         } else {
             $entry->setExtraData('background_class', '');
