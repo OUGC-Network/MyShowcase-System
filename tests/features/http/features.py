@@ -178,6 +178,48 @@ def defaults(acp):
     ok('id="contentForm"' in r['body'], 'granted explicitly: the member gets the create form')
 
 
+def _cols(table):
+    if CTX.engine == 'sqlite':
+        return [c[1] for c in q(f"pragma table_info('{table}')")]
+    return [c[0] for c in q(f"select column_name from information_schema.columns where table_name='{table}'")]
+
+
+def field_deletion(acp):
+    print('--- D3. deleting a field keeps the entries and drops only the column')
+    from flows import form
+    fix('grants')
+    # Seed an entry so the keep-entries check is meaningful, then add a free-text field on the gallery collection.
+    e = create_gallery(user('member1'), 'D3 keep-me photo')['entry']
+    ok(e is not None, 'seed entry for the field-deletion check')
+    cid = one("select collection_id from mybb_myshowcase_config where route_identifier='gallery'")
+    gsid = sid('gallery')
+    before = count(f'mybb_myshowcase_data{gsid}')
+    base = {'html_type': 'text', 'field_type': 'varchar', 'maximum_length': '50', 'minimum_length': '0',
+            'allowed_groups_fill_type': 'all', 'allowed_groups_view_type': 'all', 'my_post_key': acp.post_key}
+    page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=newField&collection_id={cid}')
+    f = form(page['body'], 'action=newField')
+    data = {k: (v[0] if len(v) == 1 else v) for k, v in f['fields'].items() if k not in f['disabled']}
+    data.update({**base, 'field_key': 'g2b_extra', 'field_label': 'Extra'})
+    acp.post('/admin/index.php?module=' + f['action'].replace('&amp;', '&').split('module=')[1], data)
+    fid = one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='g2b_extra'")
+    ok(fid != '', 'extra field of the gallery collection is ready')
+    # Creating a field does not alter an existing data table; add the column the way create_table would.
+    if 'g2b_extra' not in _cols(f'mybb_myshowcase_data{gsid}'):
+        CTX.execute(f"alter table mybb_myshowcase_data{gsid} add column g2b_extra varchar(50) not null default ''")
+    ok('g2b_extra' in _cols(f'mybb_myshowcase_data{gsid}'), 'the showcase data table has the field column')
+    page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={fid}&collection_id={cid}')
+    ok('The values stored in this field are lost' in page['body'] and 'The entries themselves are kept' in page['body']
+       and 'Gallery' in page['body'], 'confirmation lists the showcases and says the entries are kept')
+    f = form(page['body'], 'delete_field')
+    data = {k: (v[0] if len(v) == 1 else v) for k, v in f['fields'].items()}
+    data['my_post_key'] = acp.post_key
+    acp.post('/admin/index.php?module=' + f['action'].replace('&amp;', '&').split('module=')[1], data)
+    ok(one(f"select field_id from mybb_myshowcase_fields where field_id={fid}") == '', 'the field row is gone')
+    ok('g2b_extra' not in _cols(f'mybb_myshowcase_data{gsid}'), 'the column is gone from the showcase data table')
+    ok(count(f'mybb_myshowcase_data{gsid}') == before and entry('gallery', 'title', 'D3 keep-me photo') is not None,
+       'every entry of the showcase is still there')
+
+
 def security():
     print('--- 1. authorization of the write handlers')
     guest, m1, m2, mod = user('guest'), user('member1'), user('member2'), user('mod1')
@@ -504,6 +546,7 @@ def logs():
 def run(acp):
     setup(acp)
     defaults(acp)
+    field_deletion(acp)
     e1, e2 = security()
     moderation(e1)
     search(e1)

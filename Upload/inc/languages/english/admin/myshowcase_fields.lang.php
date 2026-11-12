@@ -235,7 +235,7 @@ $l = array_merge([
 
     'myshowcase_admin_confirm_collection_delete' => 'Are you sure you want to delete the "{1}" collection? ',
     'myshowcase_admin_confirm_field_delete' => 'Are you sure you want to delete the "{1}" field?',
-    'myshowcase_admin_confirm_field_delete_existing' => '<br/>The field is already in use in a table and data could be lost.',
+    'myshowcase_admin_confirm_field_delete_existing' => '<br/>The values stored in this field are lost in every showcase that uses the collection: {1}. The entries themselves are kept.',
 
     'myshowcase_admin_fields_table_header_id' => 'FID',
     'myshowcase_admin_fields_table_header_name' => 'Field key',

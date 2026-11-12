@@ -1482,23 +1482,20 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         admin_redirect($url->build(['action' => 'viewFields', 'collection_id' => $collection_id]));
     }
 
-    $showcaseObjects = showcaseGet(["collection_id='{$collection_id}'"]);
+    $showcaseObjects = showcaseGet(["collection_id='{$collection_id}'"], ['name']);
 
     $field_key = $field_definition['field_key'] ?? $field_definition['field_id'];
 
-    $fieldIsInUse = false;
+    // The showcases of the collection whose data table has the field's column: their values of the field are lost.
+    $showcasesWithColumn = [];
 
     foreach ($showcaseObjects as $showcase_id => $showcase_data) {
-        if (!showcaseDataTableExists($showcase_id)) {
-            break;
-        }
-
-        if (showcaseDataTableFieldExists($showcase_id, $field_key)) {
-            $fieldIsInUse = true;
-
-            break;
+        if (showcaseDataTableExists($showcase_id) && showcaseDataTableFieldExists($showcase_id, $field_key)) {
+            $showcasesWithColumn[$showcase_id] = $showcase_id;
         }
     }
+
+    $fieldIsInUse = $showcasesWithColumn !== [];
 
     hooksRun('admin_field_delete_start');
 
@@ -1521,16 +1518,8 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             ['myshowcase_collection_field_' . $field_key => '']
         );
 
-        if ($fieldIsInUse) {
-            foreach ($showcaseObjects as $showcase_id => $showcase_data) {
-                if (!showcaseDataTableExists($showcase_id)) {
-                    break;
-                }
-
-                if (showcaseDataTableFieldExists($showcase_id, $field_key)) {
-                    showcaseDataTableFieldDrop($showcase_id, $field_key);
-                }
-            }
+        foreach ($showcasesWithColumn as $showcase_id) {
+            showcaseDataTableFieldDrop($showcase_id, $field_key);
         }
 
         fieldsDelete($field_id);
@@ -1559,7 +1548,13 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         $lang->sprintf(
             $lang->myshowcase_admin_confirm_field_delete,
             $field_key
-        ) . ($fieldIsInUse ? $lang->myshowcase_admin_confirm_field_delete_existing : '')
+        ) . ($fieldIsInUse ? $lang->sprintf(
+            $lang->myshowcase_admin_confirm_field_delete_existing,
+            htmlspecialchars_uni(implode(', ', array_map(
+                static fn(int $showcase_id): string => (string)($showcaseObjects[$showcase_id]['name'] ?? $showcase_id),
+                $showcasesWithColumn
+            )))
+        ) : '')
     );
 } else {
     $page->output_header($lang->myshowcase_admin_fields);

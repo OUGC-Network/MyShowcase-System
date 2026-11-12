@@ -312,16 +312,9 @@ function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
         'fieldName' => &$field_name,
     ];
 
-    $showcase = (new BuildShowcase())->getShowcase($showcase_id);
-
     $hookArguments = hooksRun('showcase_data_table_field_drop_start', $hookArguments);
 
-    $entries_repository = $showcase->context->entries_repository;
-
-    foreach ($entries_repository->queryEntries(query_fields: ['entry_id']) as $entryID => $entryData) {
-        $entries_repository->deleteEntry($entryID);
-    }
-
+    // Only the column goes: the entries stay, without the values of this field.
     SchemaManager::dropColumn('myshowcase_data' . $showcase_id, $field_name);
 
     return true;
