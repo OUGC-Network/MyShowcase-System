@@ -921,7 +921,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
     $page->output_footer();
 } elseif ($pageAction === 'delete') {
-    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name'], ['limit' => 1]);
+    $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name', 'json_file'], ['limit' => 1]);
 
     if (!$collectionData) {
         flash_message($lang->myshowcase_admin_error_invalid_collection, 'error');
@@ -954,8 +954,16 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
         hooksRun('admin_collection_delete_post');
 
-        foreach (fieldsGet(["collection_id='{$collection_id}'"]) as $field_id => $field_definition) {
-            fieldsDelete($collection_id);
+        // A collection a JSON file manages is detached first (json_* of the collection and its fields cleared), as part
+        // of this confirmed action: the fields are about to go, and the sync lock would refuse to delete linked fields.
+        if (($collectionData['json_file'] ?? '') !== '' || fieldsGet(["collection_id='{$collection_id}'", "json_file<>''"], ['field_id'])) {
+            $jsonSync->detach('collection', $collection_id);
+        }
+
+        // Delete every field by its own id. No showcase uses this collection (checked above), so there is no entries
+        // table with a column to drop and no entry to delete.
+        foreach (fieldsGet(["collection_id='{$collection_id}'"], ['field_id']) as $deleteFieldId => $fieldToDelete) {
+            fieldsDelete((int)$deleteFieldId);
         }
 
         collectionDelete($collection_id);
