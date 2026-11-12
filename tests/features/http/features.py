@@ -153,6 +153,31 @@ def setup(acp):
     ok(count('mybb_myshowcase_permissions', "showcase_id='0'") == 5, 'explicit permissions for guests, members, moderators, admins, moderated group')
 
 
+WRITE_DEFAULTS_OFF = ['entries_can_post', 'entries_can_update', 'entries_can_copy', 'entries_can_soft_delete', 'comments_can_post',
+                      'comments_can_update', 'comments_can_soft_delete', 'attachments_can_upload', 'attachments_can_update',
+                      'attachments_can_soft_delete']
+
+
+def defaults(acp):
+    print('--- D2. permission defaults grant no write access')
+    from flows import form
+    fix('clear-permissions')
+    path = '/admin/index.php?module=user-groups&action=edit&gid=2'
+    page = acp.get(path)
+    f = form(page['body'], 'action=edit')
+    prefilled = {c: (f['fields'].get(f'showcase[{c}]') or [''])[0] for c in WRITE_DEFAULTS_OFF}
+    ok(set(prefilled.values()) == {'0'}, f'usergroup MyShowcase tab prefills the write permissions with 0 {prefilled}')
+    data = {k: (v[0] if len(v) == 1 else v) for k, v in f['fields'].items() if k not in f['disabled']}
+    acp.post('/admin/index.php?module=' + f['action'].replace('&amp;', '&').split('module=')[1], data)
+    stored = q("select " + ', '.join(WRITE_DEFAULTS_OFF) + " from mybb_myshowcase_permissions where group_id='2' and showcase_id='0'")
+    ok(stored and set(stored[0]) == {'0'}, f'saving the tab unchanged stores 0 for every write permission {stored[:1]}')
+    m1 = user('member1')
+    ok(no_permission(m1.get(f'{G}/create')), 'a member cannot post until the write permission is granted')
+    fix('grants')
+    r = m1.get(f'{G}/create')
+    ok('id="contentForm"' in r['body'], 'granted explicitly: the member gets the create form')
+
+
 def security():
     print('--- 1. authorization of the write handlers')
     guest, m1, m2, mod = user('guest'), user('member1'), user('member2'), user('mod1')
@@ -478,6 +503,7 @@ def logs():
 
 def run(acp):
     setup(acp)
+    defaults(acp)
     e1, e2 = security()
     moderation(e1)
     search(e1)

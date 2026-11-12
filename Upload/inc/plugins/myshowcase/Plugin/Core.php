@@ -1248,12 +1248,12 @@ const TABLES_DATA = [
         UserPermissions::EntriesCanPost => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::EntriesCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::ParserAllowHtmlInEntries => [
             'type' => 'TINYINT',
@@ -1293,12 +1293,12 @@ const TABLES_DATA = [
         UserPermissions::EntriesCanCopy => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::EntriesCanSoftDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::EntriesCanRestore => [
             'type' => 'TINYINT',
@@ -1398,7 +1398,7 @@ const TABLES_DATA = [
         UserPermissions::CommentsCanPost => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::CommentsCanPostInClosedEntries => [
             'type' => 'TINYINT',
@@ -1408,7 +1408,7 @@ const TABLES_DATA = [
         UserPermissions::CommentsCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::ParserAllowHtmlInComments => [
             'type' => 'TINYINT',
@@ -1433,7 +1433,7 @@ const TABLES_DATA = [
         UserPermissions::CommentsCanSoftDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::CommentsCanRestore => [
             'type' => 'TINYINT',
@@ -1518,7 +1518,7 @@ const TABLES_DATA = [
         UserPermissions::AttachmentsCanUpload => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::AttachmentsCanDownload => [
             'type' => 'TINYINT',
@@ -1528,7 +1528,7 @@ const TABLES_DATA = [
         UserPermissions::AttachmentsCanUpdate => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::AttachmentsCanApprove => [
             'type' => 'TINYINT',
@@ -1543,7 +1543,7 @@ const TABLES_DATA = [
         UserPermissions::AttachmentsCanSoftDelete => [
             'type' => 'TINYINT',
             'unsigned' => true,
-            'default' => 1,
+            'default' => 0,
         ],
         UserPermissions::AttachmentsCanRestore => [
             'type' => 'TINYINT',

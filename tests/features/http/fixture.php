@@ -4,6 +4,8 @@
  *
  *   setup <users_file>         users, a moderated group, explicit permissions, attachment types, uploads folder,
  *                              enabled showcases, MyBB error log; writes the generated passwords to <users_file>
+ *   grants                     the explicit permissions of setup again (every other permission row is deleted)
+ *   clear-permissions          delete every permission row
  *   permission <group> <column> <value>   change one global group permission
  *   media <dir>                test images (jpg, png, gif, webp)
  *   task                       run the MyShowcase task (pruning)
@@ -49,7 +51,46 @@ $rebuild = static function () use ($cacheManager): void {
     }
 };
 
+// Every permission set explicitly: the column defaults are not relied on.
+$applyGrants = static function (int $moderatedGroup) use ($db): void {
+    $view = ['main_can_view', 'entries_can_view', 'comments_can_view', 'attachments_can_view', 'attachments_can_download', 'can_search_entries'];
+    $member = array_merge($view, ['entries_can_post', 'entries_can_update', 'comments_can_post', 'comments_can_update', 'attachments_can_upload', 'attachments_can_update']);
+    $moderator = array_merge($member, [
+        'entries_can_view_unapproved', 'entries_can_view_deleted', 'entries_can_open', 'entries_can_close', 'entries_can_sticky',
+        'entries_can_unsticky', 'entries_can_approve', 'entries_can_unapprove', 'entries_can_copy', 'entries_can_soft_delete',
+        'entries_can_restore', 'entries_can_delete', 'comments_can_view_unapproved', 'comments_can_view_deleted',
+        'comments_can_approve', 'comments_can_unapprove', 'comments_can_soft_delete', 'comments_can_restore', 'comments_can_delete',
+        'comments_can_post_in_closed_entries', 'attachments_can_view_unapproved', 'can_bypass_moderation',
+    ]);
+    $grants = [1 => $view, 2 => $member, 3 => $moderator, 4 => $moderator, $moderatedGroup => array_merge($member, ['entries_moderate_new', 'comments_moderate_new'])];
+
+    $db->delete_query('myshowcase_permissions');
+    foreach ($grants as $groupId => $columns) {
+        $row = ['showcase_id' => 0, 'group_id' => $groupId];
+        foreach (TABLES_DATA['myshowcase_permissions'] as $column => $definition) {
+            if (!is_array($definition) || !isset($definition['type']) || !empty($definition['auto_increment']) ||
+                in_array($column, ['showcase_id', 'group_id', 'moderator_id', 'user_id'], true)) {
+                continue;
+            }
+            $row[$column] = in_array($column, $columns, true) ? 1 : 0;
+        }
+        $db->insert_query('myshowcase_permissions', $row);
+    }
+};
+
+$moderatedGroupId = static fn(): int => (int)$db->fetch_field($db->simple_select('usergroups', 'gid', "title='Moderated members'"), 'gid');
+
 switch ($command) {
+    case 'grants':
+        $applyGrants($moderatedGroupId());
+        $rebuild();
+        $out(['grants' => 'applied']);
+        break;
+    case 'clear-permissions':
+        $db->delete_query('myshowcase_permissions');
+        $rebuild();
+        $out(['permissions' => 'cleared']);
+        break;
     case 'setup':
         require_once MYBB_ROOT . 'inc/datahandlers/user.php';
 
@@ -93,29 +134,7 @@ switch ($command) {
         chmod($argv[2], 0600);
 
         // Every permission set explicitly: the column defaults are not relied on.
-        $view = ['main_can_view', 'entries_can_view', 'comments_can_view', 'attachments_can_view', 'attachments_can_download', 'can_search_entries'];
-        $member = array_merge($view, ['entries_can_post', 'entries_can_update', 'comments_can_post', 'comments_can_update', 'attachments_can_upload', 'attachments_can_update']);
-        $moderator = array_merge($member, [
-            'entries_can_view_unapproved', 'entries_can_view_deleted', 'entries_can_open', 'entries_can_close', 'entries_can_sticky',
-            'entries_can_unsticky', 'entries_can_approve', 'entries_can_unapprove', 'entries_can_copy', 'entries_can_soft_delete',
-            'entries_can_restore', 'entries_can_delete', 'comments_can_view_unapproved', 'comments_can_view_deleted',
-            'comments_can_approve', 'comments_can_unapprove', 'comments_can_soft_delete', 'comments_can_restore', 'comments_can_delete',
-            'comments_can_post_in_closed_entries', 'attachments_can_view_unapproved', 'can_bypass_moderation',
-        ]);
-        $grants = [1 => $view, 2 => $member, 3 => $moderator, 4 => $moderator, $moderatedGroup => array_merge($member, ['entries_moderate_new', 'comments_moderate_new'])];
-
-        $db->delete_query('myshowcase_permissions', "showcase_id='0'");
-        foreach ($grants as $groupId => $columns) {
-            $row = ['showcase_id' => 0, 'group_id' => $groupId];
-            foreach (TABLES_DATA['myshowcase_permissions'] as $column => $definition) {
-                if (!is_array($definition) || !isset($definition['type']) || !empty($definition['auto_increment']) ||
-                    in_array($column, ['showcase_id', 'group_id', 'moderator_id', 'user_id'], true)) {
-                    continue;
-                }
-                $row[$column] = in_array($column, $columns, true) ? 1 : 0;
-            }
-            $db->insert_query('myshowcase_permissions', $row);
-        }
+        $applyGrants($moderatedGroup);
 
         // Images for every showcase.
         if (!$db->fetch_field($db->simple_select('attachtypes', 'atid', "extension='webp'"), 'atid')) {
