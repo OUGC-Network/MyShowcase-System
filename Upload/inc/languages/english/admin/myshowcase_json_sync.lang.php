@@ -3,7 +3,7 @@
  * MyShowcase Plugin for MyBB - English admin language file of the JSON sync.
  */
 
-$l['myshowcase_json_sync'] = 'JSON sync';
+$l['myshowcase_json_sync_json_sync'] = 'JSON sync';
 $l['myshowcase_json_sync_json_file'] = 'JSON file';
 $l['myshowcase_json_sync_json_file_description'] = 'Link this row to a file of imports/JSON so that the file manages it. Choose None to detach it.';
 $l['myshowcase_json_sync_none'] = 'None';
