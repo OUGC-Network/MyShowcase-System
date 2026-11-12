@@ -1279,7 +1279,7 @@ class EntriesController extends BaseController
             case 'subscribe':
                 verify_post_check($this->context->mybb->get_input('my_post_key'));
 
-                if (!$this->context->showcase->subscriptions_enable) {
+                if (!$this->context->showcase->subscriptions_enable || !$this->context->current_user->uid) {
                     $this->errorNoPermission();
                 }
 
@@ -1321,7 +1321,7 @@ class EntriesController extends BaseController
             case 'unsubscribe':
                 verify_post_check($this->context->mybb->get_input('my_post_key'));
 
-                if (!$this->context->showcase->subscriptions_enable) {
+                if (!$this->context->showcase->subscriptions_enable || !$this->context->current_user->uid) {
                     $this->errorNoPermission();
                 }
 
