@@ -73,12 +73,16 @@ class EntriesController extends BaseController
         'delete' => UserPermissions::EntriesCanDelete,
     ];
 
-    /** The moderation links of the entry page: the status they set (null deletes) and their redirect message. */
+    /** The moderation links and form of the entry page: the columns they set (null deletes) and their redirect message. */
     private const ENTRY_PAGE_ACTIONS = [
-        'soft_delete' => [ContentStatuses::SoftDeleted, 'myshowcase_main_inline_moderation_redirect_soft_deleted'],
-        'restore' => [ContentStatuses::VisibleApproved, 'myshowcase_main_inline_moderation_redirect_restored'],
-        'approve' => [ContentStatuses::VisibleApproved, 'myshowcase_main_inline_moderation_redirect_approved'],
-        'unapprove' => [ContentStatuses::AwaitingApproval, 'myshowcase_main_inline_moderation_redirect_unapproved'],
+        'open' => [['is_closed' => 0], 'myshowcase_main_inline_moderation_redirect_opened'],
+        'close' => [['is_closed' => 1], 'myshowcase_main_inline_moderation_redirect_closed'],
+        'stick' => [['is_sticky' => 1], 'myshowcase_main_inline_moderation_redirect_stuck'],
+        'unstick' => [['is_sticky' => 0], 'myshowcase_main_inline_moderation_redirect_unstuck'],
+        'soft_delete' => [['status' => ContentStatuses::SoftDeleted], 'myshowcase_main_inline_moderation_redirect_soft_deleted'],
+        'restore' => [['status' => ContentStatuses::VisibleApproved], 'myshowcase_main_inline_moderation_redirect_restored'],
+        'approve' => [['status' => ContentStatuses::VisibleApproved], 'myshowcase_main_inline_moderation_redirect_approved'],
+        'unapprove' => [['status' => ContentStatuses::AwaitingApproval], 'myshowcase_main_inline_moderation_redirect_unapproved'],
         'delete' => [null, 'myshowcase_main_inline_moderation_redirect_deleted'],
     ];
 
@@ -706,7 +710,7 @@ class EntriesController extends BaseController
 
         verify_post_check($this->context->mybb->get_input('my_post_key'));
 
-        [$status, $message] = self::ENTRY_PAGE_ACTIONS[$action];
+        [$columns, $message] = self::ENTRY_PAGE_ACTIONS[$action];
 
         if (!$this->mayModerateEntry($entry, self::INLINE_MODERATION_PERMISSIONS[$action])) {
             $this->errorNoPermission();
@@ -714,13 +718,13 @@ class EntriesController extends BaseController
 
         $lang = $this->context->language;
 
-        if ($status === null) {
+        if ($columns === null) {
             $this->context->entries_manager->deleteEntry($entry->entry_id);
 
             redirect($this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main), $lang->$message);
         }
 
-        $this->performBatchEntryUpdate([$entry], ['status' => $status]);
+        $this->performBatchEntryUpdate([$entry], $columns);
 
         redirect(
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
@@ -1603,6 +1607,10 @@ class EntriesController extends BaseController
                         'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom
                     ]
+                ),
+                'entry_moderation' => $this->context->routing->generateUrl(
+                    Routes::EntryUpdate,
+                    ['entry_slug' => $entry->entry_slug]
                 ),
                 'comment' => $this->context->routing->generateUrl(
                     Routes::CommentCreate,

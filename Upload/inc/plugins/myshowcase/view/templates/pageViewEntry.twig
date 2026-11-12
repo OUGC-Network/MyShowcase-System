@@ -293,8 +293,6 @@
                         {# Delete button #}
                         {% if entry_data.public_id and permissions.entries_can_soft_delete %}
                             <a href="{{ config.showcase_url }}{{ url.soft_delete }}"
-                               onclick="Thread.deletePost({{ entry_data.public_id }}); return false;"
-                               style="display: none;"
                                id="quick_delete_{{ entry_data.public_id }}"
                                title="{{ lang.myshowcase_view_entry_options_quick_delete_title }}"
                                class="post-control post-control--delete">

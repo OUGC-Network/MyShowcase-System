@@ -1,9 +1,7 @@
 <div class="row thread-moderation page-tools">
     <div class="page-tools__item thread-moderation__thread">
-        <form action="moderation.php" method="post" style="margin-top: 0; margin-bottom: 0;"
+        <form action="{{ config.showcase_url }}{{ url.entry_moderation }}" method="post"
               id="moderator_optselect_a_toolions">
-            <input type="hidden" name="modtype" value="thread"/>
-            <input type="hidden" name="tid" value="{{ entry_data.public_id }}"/>
             <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
             <h2 class="title title--legend">{{ lang.myshowcase_view_inline_moderation }}</h2>
             <div class="select-field">
@@ -17,9 +15,9 @@
                             <option value="close">{{ lang.myshowcase_view_inline_moderation_close }}</option>
                         {% endif %}
                         {% if entry_data.is_sticky %}
-                            <option value="stick">{{ lang.myshowcase_view_inline_moderation_stick }}</option>
-                        {% else %}
                             <option value="unstick">{{ lang.myshowcase_view_inline_moderation_unstick }}</option>
+                        {% else %}
+                            <option value="stick">{{ lang.myshowcase_view_inline_moderation_stick }}</option>
                         {% endif %}
                         {% if entry_data.status != 1 %}
                             <option value="approve">{{ lang.myshowcase_view_inline_moderation_approve }}</option>
@@ -29,7 +27,7 @@
                         <option value="copy">{{ lang.myshowcase_view_inline_moderation_copy }}</option>
                         {% if entry_data.status != 2 %}
                             <option value="soft_delete">{{ lang.myshowcase_view_inline_moderation_soft_delete }}</option>
-                        {% elseif entry_data.status == 2 %}
+                        {% else %}
                             <option value="restore">{{ lang.myshowcase_view_inline_moderation_restore }}</option>
                         {% endif %}
                         <option value="delete">{{ lang.myshowcase_view_inline_moderation_delete }}</option>
@@ -41,50 +39,5 @@
                 <span class="button__text">{{ lang.myshowcase_view_inline_moderation_go }}</span>
             </button>
         </form>
-    </div>
-    <div class="page-tools__item thread-moderation__inline">
-        {{ asset('jscripts/inline_moderation.js', static=true) }}
-        <form action="moderation.php" method="post" style="margin-top: 0; margin-bottom: 0;"
-              id="inline_moderation_form">
-            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-            <input type="hidden" name="tid" value="{{ entry_data.public_id }}"/>
-            <input type="hidden" name="modtype" value="inlinepost"/>
-            <h2 class="title title--legend">{{ lang.myshowcase_view_inline_moderation_comments }}</h2>
-            <div class="select-field">
-                {{ include('partials/icon.twig', {icon: 'sort', class: 'select-field__icon'}, with_context = false) }}
-                <label for="inlinemoderation_options_selector"></label>
-                <select name="action" id="inlinemoderation_options_selector">
-                    <optgroup label="{{ lang.myshowcase_view_inline_moderation_comments_standard_tool }}">
-                        <option value="approve">{{ lang.myshowcase_view_inline_moderation_comments_approve }}</option>
-                        <option value="unapprove">{{ lang.myshowcase_view_inline_moderation_comments_unapprove }}</option>
-                        <option value="move">{{ lang.myshowcase_view_inline_moderation_comments_move }}</option>
-                        <option value="soft_delete">{{ lang.myshowcase_view_inline_moderation_comments_soft_delete }}</option>
-                        <option value="restore">{{ lang.myshowcase_view_inline_moderation_comments_restore }}</option>
-                        <option value="delete">{{ lang.myshowcase_view_inline_moderation_comments_delete }}</option>
-                    </optgroup>
-                </select>
-            </div>
-            <button type="submit" name="go" class="button button--inline">
-                {{ include('partials/icon.twig', {icon: 'arrow-right', class: 'button__icon'}, with_context = false) }}
-                <span class="button__text">{{ lang.myshowcase_view_inline_moderation_comments_go }} (<span
-                            id="selected-counter">0</span>)</span>
-            </button>
-
-            <button type="button" class="button button--secondary button--inline selected_entries_clear">
-                {{ include('partials/icon.twig', {icon: 'times', class: 'button__icon'}, with_context = false) }}
-                <span class="button__text">{{ lang.myshowcase_view_inline_moderation_comments_clear }}</span>
-            </button>
-        </form>
-        <script type="text/javascript">
-            <!--
-            const go_text = "{{ lang.myshowcase_view_inline_moderation_comments_go }}";
-            const totalEntries = "{{ comments_count }}";
-            const inlineType = "entry";
-            const inlineId = "{% if entry_data.public_id is defined %}{{ entry_data.public_id }}{% endif %}";
-
-            lang.inline_moderation_no_tool_selected = "{{ lang.myshowcase_view_inline_moderation_comments_no_tool_selected }}";
-            lang.selected_nil = "{{ lang.myshowcase_view_inline_moderation_comments_no_entry_selected }}";
-            // -->
-        </script>
     </div>
 </div>

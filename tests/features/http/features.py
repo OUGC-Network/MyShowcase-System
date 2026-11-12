@@ -314,6 +314,18 @@ def security():
        'member: entry page has no inline moderation or close/sticky options')
     ok('moderator_options_selector' in mod_page and 'name="modoptions[closethread]"' in mod_page,
        'moderator: entry page shows inline moderation and close/sticky options')
+    ok('moderation.php' not in mod_page.split('id="moderator_optselect_a_toolions"')[0][-400:] and 'action="moderation.php"' not in mod_page
+       and f"/update/{e1['entry_slug']}" in mod_page and 'Thread.deletePost' not in mod_page,
+       'entry-page moderation form and soft-delete link use plugin endpoints, not moderation.php or core JS')
+    # L2: the entry-page form closes the entry through the plugin with the post key and D1 checks.
+    r = m2.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close', 'my_post_key': post_key(m2.get(view_url(e1))['body'])})
+    ok(no_permission(r) and entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', "member cannot close another user's entry from the entry page")
+    r = mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close'})
+    ok(bad_post_key(r) and entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'entry-page close without my_post_key refused')
+    mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close', 'my_post_key': post_key(mod_page)})
+    ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '1', 'moderator closes the entry from the entry-page form')
+    mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'open', 'my_post_key': post_key(mod_page)})
+    ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'moderator opens it again')
     # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
     cslug = q(f"select comment_slug from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
     r = mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1")
