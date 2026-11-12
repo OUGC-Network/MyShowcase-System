@@ -31,6 +31,7 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\getSetting;
+use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
@@ -601,7 +602,7 @@ class EntriesManager
                                 ['order_by' => 'display_order']
                             ) as $field_data_id => $field_data_data
                         ) {
-                            if (is_member($field_data_data['allowed_groups_fill'])) {
+                            if (optionGroupsAllow((string)$field_data_data['allowed_groups_fill'])) {
                                 $entry_slug_custom[] = $field_data_data['value'];
                             }
                         }

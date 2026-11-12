@@ -722,6 +722,15 @@ function FilterTypes(): array
     ];
 }
 
+/**
+ * Whether the current user passes an option's group list. An option without one (options created from a JSON file,
+ * which has no group lists, or saved with no group chosen) follows the groups of its field.
+ */
+function optionGroupsAllow(string $groups): bool
+{
+    return $groups === '' || (bool)is_member($groups);
+}
+
 function formatField(int $formatType, mixed &$fieldValue): string
 {
     $fieldValue = match ($formatType) {

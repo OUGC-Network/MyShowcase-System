@@ -7,6 +7,7 @@ namespace MyShowcase\Entity;
 use MyShowcase\Collection\Collection;
 
 use function MyShowcase\Plugin\Functions\fieldDataGet;
+use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 
 final  class CustomFieldEntity
 {
@@ -164,7 +165,7 @@ final  class CustomFieldEntity
                 ['order_by' => 'display_order']
             ) as $field_data_id => $field_data_data
         ) {
-            if ($verify_fill_permission && !is_member($field_data_data['allowed_groups_fill'])) {
+            if ($verify_fill_permission && !optionGroupsAllow((string)$field_data_data['allowed_groups_fill'])) {
                 continue;
             }
 

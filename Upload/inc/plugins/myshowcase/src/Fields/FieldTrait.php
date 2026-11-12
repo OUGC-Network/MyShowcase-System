@@ -31,6 +31,7 @@ use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\formatField;
+use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -263,7 +264,7 @@ trait FieldTrait
     {
         return array_filter(
             $this->optionRows(),
-            static fn(array $option): bool => (bool)is_member((string)$option['allowed_groups_view'])
+            static fn(array $option): bool => optionGroupsAllow((string)$option['allowed_groups_view'])
         );
     }
 
@@ -415,7 +416,7 @@ trait FieldTrait
     public function fetchSelectableValues(int $collection_id, bool $verify_fill_permission = false): void
     {
         foreach ($this->optionRows() as $field_data_id => $field_data_data) {
-            if ($verify_fill_permission && !is_member((string)$field_data_data['allowed_groups_fill'])) {
+            if ($verify_fill_permission && !optionGroupsAllow((string)$field_data_data['allowed_groups_fill'])) {
                 continue;
             }
 
