@@ -1373,31 +1373,42 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 } elseif ($pageAction == 'deleteOption') {
     $fieldDataID = $mybb->get_input('field_data_id', MyBB::INPUT_INT);
 
-    $collectionData = collectionGet(["field_data_id='{$fieldDataID}'"], ['name'], ['limit' => 1]);
-
-    if (!$collectionData) {
-        flash_message($lang->myshowcase_admin_error_invalid_collection, 'error');
-
-        admin_redirect($url->build());
-    }
-
-    $fieldOptionData = fieldDataGet(["field_data_id='{$fieldDataID}'"], ['field_key']);
+    $fieldOptionData = fieldDataGet(
+        ["field_data_id='{$fieldDataID}'"],
+        ['collection_id', 'field_id', 'field_key', 'value'],
+        ['limit' => 1]
+    );
 
     if (!$fieldOptionData) {
         flash_message($lang->myshowcase_field_invalid_opt, 'error');
 
-        admin_redirect(
-            $url->build(['action' => 'edit_option', 'field_data_id' => $fieldDataID]),
-        );
+        admin_redirect($url->build());
     }
 
-    $showcaseObjects = showcaseGet(["field_data_id='{$fieldDataID}'"], [], ['limit' => 1]);
+    $optionsUrl = $url->build([
+        'action' => 'edit_option',
+        'collection_id' => (int)$fieldOptionData['collection_id'],
+        'field_id' => (int)$fieldOptionData['field_id'],
+    ]);
 
-    if (!empty($showcaseObjects)) {
-        flash_message($lang->myshowcase_fields_in_use, 'error');
+    // Entries keep the id of a deleted option in their field column and show the field as empty.
+    $entriesUsingOption = 0;
 
-        admin_redirect(
-            $url->build(['action' => 'edit_option', 'field_data_id' => $fieldDataID]),
+    foreach (
+        showcaseGet(["collection_id='" . (int)$fieldOptionData['collection_id'] . "'"], ['showcase_id']) as $showcaseID => $showcaseData
+    ) {
+        if (!showcaseDataTableExists((int)$showcaseID) ||
+            !showcaseDataTableFieldExists((int)$showcaseID, $fieldOptionData['field_key'])) {
+            continue;
+        }
+
+        $entriesUsingOption += (int)$db->fetch_field(
+            $db->simple_select(
+                'myshowcase_data' . (int)$showcaseID,
+                'COUNT(*) AS entries',
+                "{$db->escape_string($fieldOptionData['field_key'])}='{$fieldDataID}'"
+            ),
+            'entries'
         );
     }
 
@@ -1407,15 +1418,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
             flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');
 
-            admin_redirect(
-                $url->build(['action' => 'edit_option', 'field_data_id' => $fieldDataID]),
-            );
+            admin_redirect($optionsUrl);
         }
 
         if (isset($mybb->input['no'])) {
-            admin_redirect(
-                $url->build(['action' => 'edit_option', 'field_data_id' => $fieldDataID]),
-            );
+            admin_redirect($optionsUrl);
         }
 
         hooksRun('admin_option_delete_post');
@@ -1430,13 +1437,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
         $cache_manager->update(CacheDataTypes::Collections);
 
-        log_admin_action(['field_data_id' => $fieldDataID]);
+        log_admin_action(['field_data_id' => $fieldDataID, 'entries' => $entriesUsingOption]);
 
         flash_message($lang->myshowcase_field_delete_opt_success, 'success');
 
-        admin_redirect(
-            $url->build(['action' => 'edit_option', 'field_data_id' => $fieldDataID]),
-        );
+        admin_redirect($optionsUrl);
     }
 
     $page->output_confirm_action(
@@ -1444,7 +1449,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             'action' => 'deleteOption',
             'field_data_id' => $fieldDataID
         ]),
-        $lang->sprintf($lang->myshowcase_admin_confirm_collection_delete, $collectionData['name'])
+        $lang->sprintf(
+            $lang->myshowcase_field_delete_opt_confirm,
+            htmlspecialchars_uni((string)$fieldOptionData['value']),
+            my_number_format($entriesUsingOption)
+        )
     );
 } elseif ($pageAction == 'delete_field') {
     $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name'], ['limit' => 1]);

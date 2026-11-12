@@ -87,6 +87,7 @@ $l['myshowcase_field_add_opt_success'] = 'The field option was successfully adde
 $l['myshowcase_field_edit_opt_success'] = 'The field option was successfully edited.';
 
 $l['myshowcase_field_delete_opt_success'] = 'The field option was successfully deleted.';
+$l['myshowcase_field_delete_opt_confirm'] = 'Are you sure you want to delete the option "{1}"? {2} entries use it: they keep the stored value and show the field as empty.';
 $l['myshowcase_field_update_opt_success'] = 'The field option was successfully updated or added.';
 
 $l['myshowcase_field_confirm'] = 'Confirm';
