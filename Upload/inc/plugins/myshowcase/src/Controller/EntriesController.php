@@ -1184,12 +1184,6 @@ class EntriesController extends BaseController
             $this->context->mybb->input[$field_key] = $field_value;
         }
 
-        foreach ($this->context->custom_fields_collection as $field_id => $field) {
-            $entry->getCustomFields()->filter(
-                fn(EntryCustomField $custom_field) => $custom_field->field_key === $field->field_key
-            );
-        }
-
         if ($this->context->mybb->request_method === 'post') {
             foreach ($this->context->custom_fields_collection as $field_id => $field) {
                 if (isset($this->context->mybb->input[$field->field_key])) {
