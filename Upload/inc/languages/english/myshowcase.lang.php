@@ -24,6 +24,7 @@ $l['myshowcase_unapproved_count'] = 'The {1} Showcase has {2} unapproved entries
 
 //query results
 $l['myshowcase_invalid_id'] = 'The specified Entry ID is invalid.';
+$l['myshowcase_entry_hidden_no_permission'] = 'You do not have permission to view or edit this entry while it is awaiting approval or has been deleted.';
 
 //view options
 $l['myshowcase_viewing_user'] = 'Viewing entry for &quot;{1}&quot;';

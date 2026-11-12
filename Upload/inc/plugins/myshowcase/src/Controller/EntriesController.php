@@ -910,6 +910,22 @@ class EntriesController extends BaseController
                 $this->error($this->context->language->myshowcase_invalid_id, 404);
             }
 
+            if (empty($entry['entry_id'])) {
+                // Not found with the visibility rule: say so, and tell authors their own hidden entry is the reason.
+                $hidden_entry = $this->context->entries_repository->queryEntry(
+                    ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"],
+                    ['entry_id', 'user_id', 'status']
+                );
+
+                if (!empty($hidden_entry['entry_id']) &&
+                    (int)$hidden_entry['user_id'] === (int)$this->context->current_user->uid &&
+                    (int)$hidden_entry['status'] !== ContentStatuses::VisibleApproved) {
+                    $this->error($this->context->language->myshowcase_entry_hidden_no_permission, 403);
+                }
+
+                $this->error($this->context->language->myshowcase_invalid_id, 404);
+            }
+
             $this->context->entries_manager->addEntry($entry);
 
             $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
