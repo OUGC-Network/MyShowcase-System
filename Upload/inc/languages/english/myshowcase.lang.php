@@ -452,6 +452,7 @@ $l = array_merge($l, [
     'myshowcase_entry_entry_created_awaiting_approval' => 'Your entry has been created successfully and is awaiting approval by a moderator.<br />It will be visible to others once it is approved. You will now be redirected to the entry.',
     'myshowcase_entry_entry_created_status' => 'Your entry has been created successfully.<br />You will now be returned back to where you came from.',
     'myshowcase_entry_entry_updated' => 'Your entry has been updated successfully.<br />You will now be redirected to the entry.',
+    'myshowcase_entry_entry_updated_awaiting_approval' => 'Your changes have been saved and are awaiting approval by a moderator.<br />The entry will be visible to others again once it is approved. You will now be redirected to the entry.',
     'myshowcase_entry_entry_updated_status' => 'Your entry has been updated successfully.<br />You will now be returned back to where you came from.',
     'myshowcase_entry_entry_approved' => 'Your entry has been approved successfully.<br />You will now be returned back to where you came from.',
     'myshowcase_entry_entry_unapproved' => 'The entry has been unapproved successfully.<br />You will now be returned back to where you came from.',

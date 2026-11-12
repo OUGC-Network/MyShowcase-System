@@ -938,9 +938,8 @@ class EntriesController extends BaseController
                 //$entry->dateline = TIME_NOW;
             }
 
-            if ($is_update &&
-                $this->context->current_user->hasPermission(UserPermissions::EntriesModerateUpdates)) {
-                $entry->status = ContentStatuses::AwaitingApproval;
+            if ($is_update) {
+                $entry->status = $this->context->entries_manager->updatedEntryStatus((int)$entry->status);
             }
 
             // Set up a showcase handler.
@@ -1037,6 +1036,8 @@ class EntriesController extends BaseController
                             ]
                         ),
                         match (true) {
+                            $is_update && $entry->status === ContentStatuses::AwaitingApproval &&
+                            $this->context->current_user->hasPermission(UserPermissions::EntriesModerateUpdates) => $this->context->language->myshowcase_entry_entry_updated_awaiting_approval,
                             $is_update => $this->context->language->myshowcase_entry_entry_updated,
                             $entry->status === ContentStatuses::AwaitingApproval => $this->context->language->myshowcase_entry_entry_created_awaiting_approval,
                             default => $this->context->language->myshowcase_entry_entry_created,

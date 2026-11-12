@@ -313,6 +313,21 @@ class EntriesManager
     }
 
     /**
+     * The status an entry has after its author edited it: awaiting approval for a user whose group holds "Moderate
+     * Entry Updates" (UserPermissions::EntriesModerateUpdates), the current status for everyone else (moderators).
+     * A deleted entry stays deleted.
+     */
+    public function updatedEntryStatus(int $current_status): int
+    {
+        if ($current_status !== ContentStatuses::SoftDeleted &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesModerateUpdates)) {
+            return ContentStatuses::AwaitingApproval;
+        }
+
+        return $current_status;
+    }
+
+    /**
      * The status a new entry is created with for the current user. The form and any other way of creating entries ask
      * here, so there is one decision.
      */
