@@ -197,6 +197,13 @@ class EntriesManager
      */
     public function validateSet(EntryEntity $entry, string $method = self::VALIDATION_METHOD_INSERT): void
     {
+        // Every entry is validated from a clean state: nothing found or cached for the previous one carries over.
+        $this->validation_errors = [];
+
+        $this->validation_data_is_valid = true;
+
+        $this->stored_entry_row = null;
+
         $this->validation_entry = $entry;
 
         $this->validation_method = $method;
