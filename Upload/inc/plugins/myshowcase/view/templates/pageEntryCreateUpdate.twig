@@ -94,7 +94,7 @@
                     {% include '@ext.myshowcase/pageEntryCreateUpdatePostIcons.twig' %}
                 {% endif %}
 
-                {% for field_id,field_data in showcase.custom_fields_collection %}
+                {% for field_data in entry.getFields() %}
                     {% if field_data.isViewableInForm() %}
                         {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
                     {% endif %}

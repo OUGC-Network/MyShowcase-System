@@ -629,6 +629,29 @@ class EntriesController extends BaseController
     }
 
     /**
+     * Checkboxes post an array. A field holds one value until multiple values are supported: one checked box is
+     * that value and none is empty, while several stay an array, which the validation rejects instead of keeping
+     * only the last one.
+     */
+    private function normalizeSubmittedFieldValues(): void
+    {
+        foreach ($this->context->custom_fields_collection as $field) {
+            $submitted = $this->context->mybb->input[$field->field_key] ?? null;
+
+            if (!is_array($submitted)) {
+                continue;
+            }
+
+            $values = array_values(array_filter(
+                array_map(static fn(mixed $value): string => is_scalar($value) ? trim((string)$value) : '', $submitted),
+                static fn(string $value): bool => $value !== ''
+            ));
+
+            $this->context->mybb->input[$field->field_key] = count($values) > 1 ? $values : ($values[0] ?? '');
+        }
+    }
+
+    /**
      * @throws SyntaxError
      * @throws RuntimeError
      * @throws LoaderError|RandomException
@@ -663,6 +686,12 @@ class EntriesController extends BaseController
             }
         } else {
             $entry = new EntryEntity();
+
+            $this->context->entries_manager->attachFields($entry);
+        }
+
+        if ($this->context->mybb->request_method === 'post') {
+            $this->normalizeSubmittedFieldValues();
         }
 
         $this->forcedFieldBreadcrumb();
@@ -712,7 +741,10 @@ class EntriesController extends BaseController
 
             switch ($field->field_definition['default_type']) {
                 case FieldDefaultTypes::AsDefined:
-                    //$this->context->mybb->input[$field->field_definition['field_key']] = $field->field_definition['default_value'];
+                    // A new entry's form starts with the field's default value.
+                    if (!$is_update && $field->getValue() === '') {
+                        $field->valueSet((string)$field->field_definition['default_value']);
+                    }
 
                     break;
                 case FieldDefaultTypes::IsNull:
@@ -743,17 +775,10 @@ class EntriesController extends BaseController
                 //$this->context->mybb->input[$field->field_key] = '';
             }
 
-            $entry->setExtraData(
-                $field->field_key,
-                match ($field->html_type) {
-                    /*FieldHtmlTypes::CheckBox,
-                    FieldHtmlTypes::Select => $this->context->mybb->get_input(
-                        $field->field_key'],
-                        MyBB::INPUT_ARRAY
-                    ), */
-                    default => $this->context->mybb->get_input($field->field_key),
-                }
-            );
+            // A submitted form replaces the values in the form; loading the page keeps the stored ones.
+            if ($this->context->mybb->request_method === 'post') {
+                $entry->setExtraData($field->field_key, $this->context->mybb->input[$field->field_key] ?? '');
+            }
 
             $field->setExtraData(
                 'upload_url',

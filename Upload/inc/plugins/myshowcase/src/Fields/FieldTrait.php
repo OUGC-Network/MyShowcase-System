@@ -110,6 +110,29 @@ trait FieldTrait
         return $this;
     }
 
+    /** The raw value: what is stored, or what was submitted (an option id for option fields). */
+    public function getValue(): string
+    {
+        return $this->field_value;
+    }
+
+    /** Whether the option is the value of the field (for checked/selected in the form). */
+    public function isSelected(int|string $field_data_id): bool
+    {
+        return $this->field_value !== '' && in_array((string)$field_data_id, $this->valuesList(), true);
+    }
+
+    /** Templates read the field settings as properties (field_data.field_key), as they do on CustomFieldEntity. */
+    public function __isset(string $name): bool
+    {
+        return array_key_exists($name, $this->field_definition);
+    }
+
+    public function __get(string $name): mixed
+    {
+        return $this->field_definition[$name] ?? null;
+    }
+
     public function valuesBuild(
         AttachmentsManager $attachments_manager,
         AttachmentsRepository $attachments_repository,

@@ -65,5 +65,9 @@ interface FieldsInterface
 
     public function hasOptions(): bool;
 
+    public function getValue(): string;
+
+    public function isSelected(int|string $field_data_id): bool;
+
     public function getLabel(): string;
 }

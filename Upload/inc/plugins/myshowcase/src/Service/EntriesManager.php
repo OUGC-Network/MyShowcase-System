@@ -136,7 +136,11 @@ class EntriesManager
                 }
             );
 
-            $custom_field = new EntryCustomField($field_key, $field_value);
+            // Several submitted values stay in the extra data, where the validation rejects them.
+            $custom_field = new EntryCustomField(
+                $field_key,
+                is_int($field_value) || is_string($field_value) ? $field_value : ''
+            );
 
             $custom_field->setParserOptions([
                 'allow_html' => !empty($field_definition['parser_allow_html']),
