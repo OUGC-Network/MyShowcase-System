@@ -185,6 +185,47 @@ class EntriesManager
     }
 
     /**
+     * The name of a field in messages: its translated label when the language has one, else its label, else its key.
+     */
+    private function fieldLabel(\MyShowcase\Entity\CustomFieldEntity $field): string
+    {
+        return $this->context->language->{'myshowcase_collection_field_' . $field->field_key}
+            ?? ($field->field_label !== '' ? $field->field_label : $field->field_key);
+    }
+
+    /**
+     * Attachments the entry being validated has for a file field: stored against the entry, or, on a new entry,
+     * uploaded under its post hash (they are attached to the entry once it is inserted).
+     */
+    private function countFieldAttachments(int $field_id): int
+    {
+        $where_clauses = ["field_id='{$field_id}'"];
+
+        $owners = [];
+
+        if (!empty($this->validation_entry->entry_id)) {
+            $owners[] = "entry_id='" . (int)$this->validation_entry->entry_id . "'";
+        }
+
+        if (!empty($this->validation_entry->post_hash)) {
+            $owners[] = "post_hash='{$this->context->database->escape_string($this->validation_entry->post_hash)}'";
+        }
+
+        if (!$owners) {
+            return 0;
+        }
+
+        $where_clauses[] = '(' . implode(' OR ', $owners) . ')';
+
+        return count(
+            iterator_to_array(
+                $this->context->attachments_repository->queryAttachments($where_clauses, ['attachment_id']),
+                false
+            )
+        );
+    }
+
+    /**
      * The fields of the collection the current user may see.
      *
      * @return Collection<\MyShowcase\Entity\CustomFieldEntity>
