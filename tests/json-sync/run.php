@@ -240,6 +240,13 @@ foreach (['collection', 'showcase'] as $kind) {
 
 check(isset($committed['collections/blog.json'], $committed['showcases/blog.json']), 'the blog examples are committed');
 
+// The gallery collection: title (subject), image (file), caption, category with six options.
+$gallery = (new JsonFiles(\MyShowcase\ROOT . '/imports'))->read('collections/gallery.json')['data'] ?? [];
+$galleryFields = array_column($gallery['fields'] ?? [], null, 'field_key');
+check(isset($committed['collections/gallery.json']) && array_keys($galleryFields) === ['title', 'image', 'caption', 'category'], 'the gallery collection is committed with title, image, caption and category');
+check(($galleryFields['title']['enable_subject'] ?? 0) === 1 && ($galleryFields['title']['is_required'] ?? 0) === 1 && ($galleryFields['image']['html_type'] ?? '') === 'file' && ($galleryFields['image']['is_required'] ?? 0) === 1, 'gallery: the title is the required subject and the image a required file field');
+check(array_column($galleryFields['category']['options'] ?? [], 'value_id') === [1, 2, 3, 4, 5, 6] && !isset($galleryFields['tags']), 'gallery: six category options with stable value ids, no tags field');
+
 foreach (['', 'JSON/', 'JSON/collections/', 'JSON/showcases/', 'PHP/', 'PHP/collections/', 'PHP/showcases/'] as $folder) {
     check(is_file(\MyShowcase\ROOT . '/imports/' . $folder . 'index.html'), "index.html in imports/{$folder}");
 }

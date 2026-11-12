@@ -501,3 +501,15 @@ def section_f():
         ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={gid} and json_file<>''") == '1', 'a JSON-linked collection with a linked field exists')
         page(f'myshowcase-fields&action=delete&collection_id={gid}', {})
         ok(one(f"select count(*) from mybb_myshowcase_collections where collection_id={gid}") == '0' and one(f"select count(*) from mybb_myshowcase_fields where collection_id={gid}") == '0', 'deleting a JSON-linked collection removes its fields (detached first)')
+
+
+def section_g():
+    print('--- G. gallery example files')
+    r = jsync({'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/gallery.json'})
+    ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'gallery collection created from its file')
+    gid = int(one("select collection_id from mybb_myshowcase_collections where name='Gallery'") or 0)
+    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={gid}") == [('collections/gallery.json', '1.0.0')], 'gallery collection linked at 1.0.0')
+    ok(db(f"select field_key from mybb_myshowcase_fields where collection_id={gid} and json_file='collections/gallery.json' order by display_order") == [('title',), ('image',), ('caption',), ('category',)], 'gallery fields title, image, caption, category linked')
+    ok(db(f"select value_id from mybb_myshowcase_field_data where collection_id={gid} order by display_order") == [(str(i),) for i in range(1, 7)], 'gallery category has six options, value ids 1-6')
+    ok('In sync' in list_text('myshowcase-fields'), 'gallery collection in sync')
+    return gid
