@@ -197,6 +197,11 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
+        'public_id' => [
+            'type' => 'VARCHAR',
+            'size' => SETTINGS['slugLength'],
+            'unique_key' => true
+        ],
         'attachment_id' => [
             'type' => 'INT',
             'unsigned' => true,
@@ -441,6 +446,11 @@ const TABLES_DATA = [
             'unsigned' => true,
             'auto_increment' => true,
             'primary_key' => true
+        ],
+        'public_id' => [
+            'type' => 'VARCHAR',
+            'size' => SETTINGS['slugLength'],
+            'unique_key' => true
         ],
         'comment_id' => [
             'type' => 'INT',
@@ -2382,6 +2392,11 @@ const DATA_TABLE_STRUCTURE = [
             'unsigned' => true,
             'auto_increment' => true,
             'primary_key' => true
+        ],
+        'public_id' => [
+            'type' => 'VARCHAR',
+            'size' => SETTINGS['slugLength'],
+            'unique_key' => true
         ],
         'entry_id' => [
             'type' => 'INT',
