@@ -19,7 +19,7 @@
             "display_order": 1,
             "render_order": 1,
             "display_in_create_update_page": 1,
-            "display_in_view_page": 0,
+            "display_in_view_page": 1,
             "display_in_main_page": 1,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all"
