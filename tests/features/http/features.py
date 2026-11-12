@@ -337,6 +337,15 @@ def security():
        "member cannot soft-delete another user's comment")
     mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
+    page = mod.get(view_url(e1))['body']
+    ok(f"/update/comment/{cslug}?action=restore" in page.replace('&amp;', '&') and 'editpost.php' not in page,
+       'deleted comment shows a plugin restore link to moderators, no editpost.php')
+    r = m1.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?action=restore&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+    # A member does not even see another user's soft-deleted comment: refused as missing or as no permission.
+    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1 and 'restored' not in r['body'].lower(),
+       "member cannot restore another user's comment")
+    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?action=restore&my_post_key={post_key(page)}")
+    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1, 'moderator restores the comment through the plugin')
     mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
     # L5: day-threshold filter compares dateline as a date.

@@ -418,19 +418,41 @@ class CommentsController extends BaseController
     {
         $delete = $this->context->mybb->get_input('delete', \MyBB::INPUT_INT);
 
-        if (!in_array($delete, [1, 2], true)) {
+        $restore = $this->context->mybb->get_input('action') === 'restore';
+
+        if (!$restore && !in_array($delete, [1, 2], true)) {
             return;
         }
 
         verify_post_check($this->context->mybb->get_input('my_post_key'));
 
-        $permission = $delete === 1 ? UserPermissions::CommentsCanSoftDelete : UserPermissions::CommentsCanDelete;
+        $permission = match (true) {
+            $restore => UserPermissions::CommentsCanRestore,
+            $delete === 1 => UserPermissions::CommentsCanSoftDelete,
+            default => UserPermissions::CommentsCanDelete,
+        };
 
         if (!$this->mayModerateComment($comment, $permission)) {
             $this->errorNoPermission();
         }
 
         $lang = $this->context->language;
+
+        if ($restore) {
+            $this->context->comments_repository->updateComment(
+                ['status' => ContentStatuses::VisibleApproved],
+                (int)$comment->comment_id
+            );
+            $this->updateEntryCommentsCount((int)$entry->entry_id);
+
+            redirect(
+                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    Routes::EntryView,
+                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ),
+                $lang->myshowcase_main_inline_moderation_redirect_restored ?? 'The comment was restored.'
+            );
+        }
 
         if ($delete === 2) {
             foreach (

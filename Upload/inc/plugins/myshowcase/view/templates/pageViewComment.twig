@@ -141,9 +141,8 @@
     <div class="post__foot post__foot--controls">
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
-            {% if (permissions.comments_can_delete or comment_moderator) %}
-                <a href="{{ config.showcase_url }}{{ url.soft_delete }}"
-                   onclick="data-restore({{ comment_data.public_id }}); return false;"
+            {% if comment_moderator and permissions.comments_can_restore and url.restore is defined %}
+                <a href="{{ config.showcase_url }}{{ url.restore }}"
                    style="display: none;" id="quick_restore_{{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quick_restore_title }}"
                    class="post-control post-control--restore">

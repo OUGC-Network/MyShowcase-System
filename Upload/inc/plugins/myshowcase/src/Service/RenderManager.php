@@ -595,6 +595,16 @@ class RenderManager
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
+
+            $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
+                Routes::CommentUpdate,
+                [
+                    'entry_slug' => $entry->entry_slug,
+                    'comment_slug' => $comment->comment_slug,
+                    'action' => 'restore',
+                    'my_post_key' => $this->context->mybb->post_code,
+                ]
+            );
         }
 
         if (!empty($this->context->mybb->settings['enablewarningsystem']) &&
