@@ -52,7 +52,7 @@
         <!--
         const go_text = "{{ lang.myshowcase_main_inline_moderation_go }}";
         const inlineType = "showcase";
-        const inlineId = "{% if entry_data.entry_slug is defined %}{{ entry_data.entry_slug }}{% endif %}";
+        const inlineId = "{% if entry_data.public_id is defined %}{{ entry_data.public_id }}{% endif %}";
 
         const showcaseID = "{{ config.showcase_id }}";
         const totalEntries = "{{ total_entries }}";

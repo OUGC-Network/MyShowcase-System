@@ -337,7 +337,7 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'comment_slug' => [
+        'public_id' => [
             'type' => 'VARCHAR',
             'size' => SETTINGS['slugLength'],
             'unique_key' => true
@@ -2237,7 +2237,7 @@ const DATA_TABLE_STRUCTURE = [
             'auto_increment' => true,
             'primary_key' => true,
         ],
-        'entry_slug' => [
+        'public_id' => [
             'type' => 'VARCHAR',
             'size' => SETTINGS['slugLength'],
             'unique_key' => true,

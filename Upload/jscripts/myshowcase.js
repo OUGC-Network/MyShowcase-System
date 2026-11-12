@@ -5,10 +5,10 @@ document.addEventListener('DOMContentLoaded', function () {
         button.classList.toggle('hidden');
 
         button.addEventListener('click', function () {
-            const entry_slug = this.dataset.entrySlug;
+            const entry_public_id = this.dataset.entryPublicId;
             const view_url = this.dataset.viewUrl;
             const update_url = this.dataset.updateUrl;
-            const entry = document.getElementById(`entryBody${entry_slug}`);
+            const entry = document.getElementById(`entryBody${entry_public_id}`);
             const message_div = entry.querySelector('div.post__message');
             const update_note_div = entry.querySelector('.post__edit-reason');
 
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     textarea.rows = 12;
                     textarea.name = 'message';
                     textarea.style.width = '1106px';
-                    textarea.id = `quick_edit_${entry_slug}_message`;
+                    textarea.id = `quick_edit_${entry_public_id}_message`;
 
                     message_div.appendChild(textarea);
 
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         reason_input.className = 'textbox';
                         reason_input.name = 'update_note';
                         reason_input.style.margin = '6px 0';
-                        reason_input.id = `quick_edit_${entry_slug}_reason`;
+                        reason_input.id = `quick_edit_${entry_public_id}_reason`;
                         message_div.appendChild(reason_input);
                     }
 

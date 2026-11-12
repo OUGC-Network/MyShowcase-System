@@ -19,7 +19,7 @@ final class EntryEntity
 
     public function __construct(
         public int $entry_id = 0,
-        public ?string $entry_slug = null,
+        public ?string $public_id = null,
         public ?string $entry_slug_custom = null,
         public ?string $post_hash = null,
         public ?int $user_id = null,

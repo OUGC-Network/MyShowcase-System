@@ -3,7 +3,7 @@
         <form action="moderation.php" method="post" style="margin-top: 0; margin-bottom: 0;"
               id="moderator_optselect_a_toolions">
             <input type="hidden" name="modtype" value="thread"/>
-            <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
+            <input type="hidden" name="tid" value="{{ entry_data.public_id }}"/>
             <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
             <h2 class="title title--legend">{{ lang.myshowcase_view_inline_moderation }}</h2>
             <div class="select-field">
@@ -47,7 +47,7 @@
         <form action="moderation.php" method="post" style="margin-top: 0; margin-bottom: 0;"
               id="inline_moderation_form">
             <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
-            <input type="hidden" name="tid" value="{{ entry_data.entry_slug }}"/>
+            <input type="hidden" name="tid" value="{{ entry_data.public_id }}"/>
             <input type="hidden" name="modtype" value="inlinepost"/>
             <h2 class="title title--legend">{{ lang.myshowcase_view_inline_moderation_comments }}</h2>
             <div class="select-field">
@@ -80,7 +80,7 @@
             const go_text = "{{ lang.myshowcase_view_inline_moderation_comments_go }}";
             const totalEntries = "{{ comments_count }}";
             const inlineType = "entry";
-            const inlineId = "{% if entry_data.entry_slug is defined %}{{ entry_data.entry_slug }}{% endif %}";
+            const inlineId = "{% if entry_data.public_id is defined %}{{ entry_data.public_id }}{% endif %}";
 
             lang.inline_moderation_no_tool_selected = "{{ lang.myshowcase_view_inline_moderation_comments_no_tool_selected }}";
             lang.selected_nil = "{{ lang.myshowcase_view_inline_moderation_comments_no_entry_selected }}";

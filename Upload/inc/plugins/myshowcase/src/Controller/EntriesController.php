@@ -153,14 +153,14 @@ class EntriesController extends BaseController
                 fn(EntryEntity $entry) => (
                         $this->context->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         !in_array(
-                            $entry->entry_slug,
+                            $entry->public_id,
                             (array)json_decode($this->context->mybb->get_input('unselected_entries'), true),
                             true
                         )
                     ) || (
                         !$this->context->mybb->get_input('selected_all_entries', MyBB::INPUT_INT) &&
                         in_array(
-                            $entry->entry_slug,
+                            $entry->public_id,
                             (array)json_decode($this->context->mybb->get_input('selected_entries'), true),
                             true
                         )
@@ -531,7 +531,7 @@ class EntriesController extends BaseController
                 if ($entry->last_comment_id) {
                     $last_comment_data = $this->context->comments_repository->queryComment(
                         ["comment_id='{$entry->last_comment_id}'"],
-                        'comment_slug'
+                        'public_id'
                     );
                 }
 
@@ -541,7 +541,7 @@ class EntriesController extends BaseController
                         $this->context->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry->entry_slug,
+                                'entry_public_id' => $entry->public_id,
                                 'entry_slug_custom' => $entry->entry_slug_custom
                             ],
                         )
@@ -551,7 +551,7 @@ class EntriesController extends BaseController
                         $this->context->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry->entry_slug,
+                                'entry_public_id' => $entry->public_id,
                                 'entry_slug_custom' => $entry->entry_slug_custom,
                                 'action' => 'last_comment',
                             ],
@@ -559,15 +559,15 @@ class EntriesController extends BaseController
                     )
                     ->setExtraData(
                         'entryUrlLastComment',
-                        !empty($last_comment_data['comment_slug']) ? $this->context->routing->generateUrl(
+                        !empty($last_comment_data['public_id']) ? $this->context->routing->generateUrl(
                             Routes::CommentView,
                             [
-                                'comment_slug' => $last_comment_data['comment_slug'],
+                                'comment_public_id' => $last_comment_data['public_id'],
                             ],
                         ) : $this->context->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry->entry_slug,
+                                'entry_public_id' => $entry->public_id,
                                 'entry_slug_custom' => $entry->entry_slug_custom,
                                 'action' => 'last_comment'
                             ],
@@ -617,7 +617,7 @@ class EntriesController extends BaseController
 
                 $comment_data = $this->context->comments_repository->queryComment(
                     ["entry_id={$entry->entry_id}"],
-                    ['comment_slug', 'showcase_id', 'entry_id', 'user_id', 'dateline'],
+                    ['public_id', 'showcase_id', 'entry_id', 'user_id', 'dateline'],
                     [
                         'order_by' => 'dateline',
                         'order_dir' => SortDirections::Descending
@@ -636,7 +636,7 @@ class EntriesController extends BaseController
                             $this->context->routing->generateUrl(
                                 Routes::CommentView,
                                 [
-                                    'comment_slug' => $comment_data['comment_slug'],
+                                    'comment_public_id' => $comment_data['public_id'],
                                 ]
                             )
                         )
@@ -713,7 +713,7 @@ class EntriesController extends BaseController
         redirect(
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
-                ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             ),
             $lang->$message
         );
@@ -877,7 +877,7 @@ class EntriesController extends BaseController
      * @throws LoaderError|RandomException
      */
     #[Route('/create', name: 'entry_create', methods: ['GET', 'POST'])]
-    public function create(string $entry_slug = '', bool $is_update = false): string
+    public function create(string $entry_public_id = '', bool $is_update = false): string
     {
         $this->verifyPassword();
 
@@ -886,7 +886,7 @@ class EntriesController extends BaseController
         }
 
         if ($is_update) {
-            $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
+            $where_clauses = ["entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'"];
 
             if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
                 $where_clauses[] = $visibility_clause;
@@ -952,7 +952,7 @@ class EntriesController extends BaseController
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                     ]
                 )
             );
@@ -1033,7 +1033,7 @@ class EntriesController extends BaseController
                 $is_update ? $this->context->routing->generateUrl(
                     Routes::EntryUpdateUploadApi,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
                 ) : $this->context->routing->generateUrl(
@@ -1052,7 +1052,7 @@ class EntriesController extends BaseController
                 'crate_update' => $is_update ? $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                     ]
                 ) : $this->context->routing->generateUrl(
                     Routes::EntryCreate,
@@ -1060,7 +1060,7 @@ class EntriesController extends BaseController
                 'upload' => $is_update ? $this->context->routing->generateUrl(
                     Routes::EntryUpdateUploadApi,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
                 ) : $this->context->routing->generateUrl(
@@ -1284,7 +1284,7 @@ class EntriesController extends BaseController
                         $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                             Routes::EntryView,
                             [
-                                'entry_slug' => $entry->entry_slug,
+                                'entry_public_id' => $entry->public_id,
                                 'entry_slug_custom' => $entry->entry_slug_custom
                             ]
                         ),
@@ -1417,10 +1417,10 @@ class EntriesController extends BaseController
      * @throws SyntaxError
      * @throws LoaderError|RandomException
      */
-    #[Route('/update/{entry_slug}', name: 'entry_update', methods: ['GET', 'POST'])]
-    public function update(string $entry_slug): string
+    #[Route('/update/{entry_public_id}', name: 'entry_update', methods: ['GET', 'POST'])]
+    public function update(string $entry_public_id): string
     {
-        return $this->create($entry_slug, true);
+        return $this->create($entry_public_id, true);
     }
 
     /**
@@ -1429,13 +1429,13 @@ class EntriesController extends BaseController
      * @throws SyntaxError|RandomException
      */
     #[NoReturn]
-    #[Route('/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
-    #[Route('/api/view/{entry_slug}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
-    public function view(string $entry_slug, string $entry_slug_custom = '', ?string $comment_slug = null): string
+    #[Route('/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
+    #[Route('/api/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
+    public function view(string $entry_public_id, string $entry_slug_custom = '', ?string $comment_public_id = null): string
     {
         $this->verifyPassword();
 
-        $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
+        $where_clauses = ["entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'"];
 
         if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
             $where_clauses[] = $visibility_clause;
@@ -1444,7 +1444,7 @@ class EntriesController extends BaseController
         $entry = $this->context->entries_repository->fetchEntry(
             $this->context->custom_fields_collection,
             [
-                "entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'",
+                "entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'",
                 $this->entryVisibilityClause(),
             ]
         );
@@ -1495,7 +1495,7 @@ class EntriesController extends BaseController
                     $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::EntryView,
                         [
-                            'entry_slug' => $entry->entry_slug,
+                            'entry_public_id' => $entry->public_id,
                             'entry_slug_custom' => $entry->entry_slug_custom
                         ]
                     ),
@@ -1531,7 +1531,7 @@ class EntriesController extends BaseController
                     $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::EntryView,
                         [
-                            'entry_slug' => $entry->entry_slug,
+                            'entry_public_id' => $entry->public_id,
                             'entry_slug_custom' => $entry->entry_slug_custom
                         ]
                     ),
@@ -1543,13 +1543,13 @@ class EntriesController extends BaseController
 
         // we redirect invalid custom slugs to the correct canonical url
         if ($entry->entry_slug_custom !== $entry_slug_custom) {
-            //$this->redirect($entry_slug);
+            //$this->redirect($entry_public_id);
             // todo, check if slug is empty and fix if so
         }
 
         if ($this->is_api_request) {
             $data = [
-                'entry_slug' => $entry->entry_slug,
+                'entry_public_id' => $entry->public_id,
                 'message' => $entry->message,
             ];
 
@@ -1592,20 +1592,20 @@ class EntriesController extends BaseController
                 'entry' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom
                     ]
                 ),
                 'comment' => $this->context->routing->generateUrl(
                     Routes::CommentCreate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                     ]
                 ),
                 'threaded' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                         'threaded' => 1
                     ]
@@ -1613,7 +1613,7 @@ class EntriesController extends BaseController
                 'subscribe' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'subscribe',
                         'my_post_key' => $this->context->mybb->post_code,
@@ -1622,7 +1622,7 @@ class EntriesController extends BaseController
                 'unsubscribe' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'unsubscribe',
                         'my_post_key' => $this->context->mybb->post_code,
@@ -1631,7 +1631,7 @@ class EntriesController extends BaseController
                 'oldest' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'oldest',
                     ]
@@ -1639,7 +1639,7 @@ class EntriesController extends BaseController
                 'newest' => $this->context->routing->generateUrl(
                     Routes::EntryView,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                         'action' => 'newest',
                     ]
@@ -1676,7 +1676,7 @@ class EntriesController extends BaseController
         $templatesContext['meta']['canonical'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'entry_slug_custom' => $entry->entry_slug_custom
                 ],
             );
@@ -1687,7 +1687,7 @@ class EntriesController extends BaseController
                 'content' => $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::EntryView,
                         [
-                            'entry_slug' => $entry->entry_slug,
+                            'entry_public_id' => $entry->public_id,
                             'entry_slug_custom' => $entry->entry_slug_custom
                         ],
                     ),
@@ -1746,7 +1746,7 @@ class EntriesController extends BaseController
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'entry_slug_custom' => $entry->entry_slug_custom
                 ],
             )
@@ -1804,7 +1804,7 @@ class EntriesController extends BaseController
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryView,
                     array_merge($pagination_params, [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                     ])
                 )
@@ -1840,7 +1840,7 @@ class EntriesController extends BaseController
                 $templatesContext['url']['create_comment'] = $this->context->routing->generateUrl(
                     Routes::CommentCreate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                     ]
                 );
 

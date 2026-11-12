@@ -316,7 +316,7 @@ def section_c(cid, sid, fcat):
     print('--- C. update to 1.1.0')
     tbl = f'mybb_myshowcase_data{sid}'
     for i in (1, 2, 3):
-        dbx(f"insert into {tbl} (entry_slug, dateline, update_dateline, category, summary, tags, reading_time, cover_image) values ('e{i}', '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1, 's{i}', 't{i}', {i * 4}, 'http://x/{i}.png')")
+        dbx(f"insert into {tbl} (public_id, dateline, update_dateline, category, summary, tags, reading_time, cover_image) values ('e{i}', '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1, 's{i}', 't{i}', {i * 4}, 'http://x/{i}.png')")
     c = read_board_file('collections/blog.json'); c['version'] = '1.1.0'
     c['fields'].append({'field_key': 'author_note', 'label': 'Author note', 'html_type': 'text', 'field_type': 'varchar', 'maximum_length': 60, 'is_enabled': 1, 'display_order': 6})
     for f in c['fields']:
@@ -337,8 +337,8 @@ def section_c(cid, sid, fcat):
     ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'apply update ran')
     c1 = cols(tbl)
     ok('author_note' in c1 and 'topics' in c1 and 'tags' not in c1 and 'cover_image' in c1, 'columns: added, renamed, removed field keeps its column')
-    ok(one(f"select topics from {tbl} where entry_slug='e2'") == 't2' and one(f"select count(*) from {tbl}") == '3', 'entries preserved through the rename')
-    ok(one("select reading_time from " + tbl + " where entry_slug='e3'") == '12', 'type change int -> varchar: values kept')
+    ok(one(f"select topics from {tbl} where public_id='e2'") == 't2' and one(f"select count(*) from {tbl}") == '3', 'entries preserved through the rename')
+    ok(one("select reading_time from " + tbl + " where public_id='e3'") == '12', 'type change int -> varchar: values kept')
     ct = ([c[0] for c in db(f"select data_type from information_schema.columns where table_name='{tbl}' and column_name='reading_time'")] if ENGINE != 'sqlite' else [c[2] for c in db(f"pragma table_info('{tbl}')") if c[1] == 'reading_time'])
     ok('char' in ct[0].lower(), f'reading_time column type is now {ct[0]}')
     ok(db("select json_file, json_version from mybb_myshowcase_fields where field_key='cover_image'") == [('', '')], 'removed field: json_* cleared (custom)')

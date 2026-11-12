@@ -18,7 +18,7 @@ class CommentEntity
 
     public function __construct(
         public readonly ?int $comment_id = null,
-        public readonly ?string $comment_slug = null,
+        public readonly ?string $public_id = null,
         public readonly ?int $showcase_id = null,
         public readonly ?int $entry_id = null,
         public readonly ?string $post_hash = null,

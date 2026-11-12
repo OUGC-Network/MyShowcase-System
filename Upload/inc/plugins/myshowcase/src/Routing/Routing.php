@@ -113,7 +113,7 @@ class Routing
         $this->routes->add(
             Routes::EntryUpdate,
             new Route(
-                '/{showcase}/update/{entry_slug}',
+                '/{showcase}/update/{entry_public_id}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -125,7 +125,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -153,7 +153,7 @@ class Routing
         $this->routes->add(
             Routes::EntryUpdateApi,
             new Route(
-                '/{showcase}/api/update/{entry_slug}',
+                '/{showcase}/api/update/{entry_public_id}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -165,7 +165,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -173,7 +173,7 @@ class Routing
         $this->routes->add(
             Routes::EntryUpdateUploadApi,
             new Route(
-                '/{showcase}/api/view/{entry_slug}/upload',
+                '/{showcase}/api/view/{entry_public_id}/upload',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -185,7 +185,7 @@ class Routing
                 [
                     '_method' => 'POST',
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -193,7 +193,7 @@ class Routing
         $this->routes->add(
             Routes::EntryView,
             new Route(
-                '/{showcase}/view/{entry_slug}/{entry_slug_custom}',
+                '/{showcase}/view/{entry_public_id}/{entry_slug_custom}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -206,7 +206,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -215,7 +215,7 @@ class Routing
         $this->routes->add(
             Routes::EntryViewApi,
             new Route(
-                '/{showcase}/api/view/{entry_slug}/{entry_slug_custom}',
+                '/{showcase}/api/view/{entry_public_id}/{entry_slug_custom}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -228,7 +228,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -237,7 +237,7 @@ class Routing
         $this->routes->add(
             Routes::CommentCreate,
             new Route(
-                '/{showcase}/view/{entry_slug}/create/comment',
+                '/{showcase}/view/{entry_public_id}/create/comment',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -249,7 +249,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -257,7 +257,7 @@ class Routing
         $this->routes->add(
             Routes::CommentUpdate,
             new Route(
-                '/{showcase}/view/{entry_slug}/update/comment/{comment_slug}',
+                '/{showcase}/view/{entry_public_id}/update/comment/{comment_public_id}',
                 [
                     '_controller' => function (array $parameters): string {
                         unset($parameters['showcase']);
@@ -269,8 +269,8 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
-                    'comment_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
+                    'comment_public_id' => '[a-z0-9-]+',
                 ]
             )
         );
@@ -278,7 +278,7 @@ class Routing
         $this->routes->add(
             Routes::CommentUpdateApi,
             new Route(
-                '/{showcase}/api/view/{entry_slug}/update/comment/{comment_slug}',
+                '/{showcase}/api/view/{entry_public_id}/update/comment/{comment_public_id}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -291,7 +291,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_slug' => '[a-z0-9-]+',
+                    'entry_public_id' => '[a-z0-9-]+',
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -300,7 +300,7 @@ class Routing
         $this->routes->add(
             Routes::CommentView,
             new Route(
-                '/{showcase}/comment/{comment_slug}',
+                '/{showcase}/comment/{comment_public_id}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -311,7 +311,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'comment_slug' => '[a-z0-9-]+',
+                    'comment_public_id' => '[a-z0-9-]+',
                 ]
             )
         );

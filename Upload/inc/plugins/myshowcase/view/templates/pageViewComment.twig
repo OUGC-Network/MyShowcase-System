@@ -1,15 +1,15 @@
-<a name="{{ comment_data.comment_slug }}" id="{{ comment_data.comment_slug }}"></a>
+<a name="{{ comment_data.public_id }}" id="{{ comment_data.public_id }}"></a>
 {# Ignored post #}
 {% if is_ignored %}
-    <div class="post post--message ignored_post" id="ignored_post_{{ comment_data.comment_slug }}">
+    <div class="post post--message ignored_post" id="ignored_post_{{ comment_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">{{ post.profilelink|raw }}</h3>
         </div>
         <div class="post__body post__body--message post_body">
             {{ ignored_message }}
-            <div class="post--message__button" id="show_ignored_link_{{ comment_data.comment_slug }}">
+            <div class="post--message__button" id="show_ignored_link_{{ comment_data.public_id }}">
                 <a href="javascript:void(0)"
-                   onclick="Thread.showIgnoredPost({{ comment_data.comment_slug }}); return false;"
+                   onclick="Thread.showIgnoredPost({{ comment_data.public_id }}); return false;"
                    class="button">
                     {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
                     <span class="button__text">{{ lang.myshowcase_view_entry_button_ignored_deleted_show }}</span>
@@ -17,7 +17,7 @@
             </div>
             <script type="text/javascript">
                 <!--
-                $('#show_ignored_link_{{ comment_data.comment_slug }}').show();
+                $('#show_ignored_link_{{ comment_data.public_id }}').show();
                 // -->
             </script>
         </div>
@@ -26,17 +26,17 @@
 
 {# Deleted post #}
 {% if comment_data.status == 2 and permissions.entries_can_view %}
-    <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ comment_data.comment_slug }}">
+    <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ comment_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
                 <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             </h3>
         </div>
-        <div class="post__body post__body--message post_body" id="deleted_post{{ comment_data.comment_slug }}">
+        <div class="post__body post__body--message post_body" id="deleted_post{{ comment_data.public_id }}">
             {{ trans(lang.myshowcase_view_entry_deleted_user, user_data.username) }}
-            <div class="post--message__button" id="show_deleted_link_{{ comment_data.comment_slug }}">
+            <div class="post--message__button" id="show_deleted_link_{{ comment_data.public_id }}">
                 <a href="javascript:void(0)"
-                   onclick="Thread.showDeletedPost({{ comment_data.comment_slug }}); return false;"
+                   onclick="Thread.showDeletedPost({{ comment_data.public_id }}); return false;"
                    class="button">
                     {{ include('partials/icon.twig', {icon: 'eye', class: 'button__icon'}, with_context = false) }}
                     <span class="button__text">{{ lang.myshowcase_view_comment_button_ignored_deleted_show }}</span>
@@ -44,7 +44,7 @@
             </div>
             <script type="text/javascript">
                 <!--
-                $('#show_deleted_link_{{ comment_data.comment_slug }}').show();
+                $('#show_deleted_link_{{ comment_data.public_id }}').show();
                 // -->
             </script>
         </div>
@@ -52,7 +52,7 @@
 {% endif %}
 
 {# Post bit #}
-<div class="post {{ unapproved_class }}" style="{{ style_visibility }}" id="commentBody{{ comment_data.comment_slug }}">
+<div class="post {{ unapproved_class }}" style="{{ style_visibility }}" id="commentBody{{ comment_data.public_id }}">
     <div class="post__meta">
         {# Author avatar #}
         {% if config.entries_display_avatars and mybb.user.showavatars is defined and mybb.user.showavatars is not empty and user_avatar %}
@@ -99,15 +99,15 @@
 
         {# Inline moderation checkbox #}
         {% if permissions.entries_can_view and  false %}
-            <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ comment_data.comment_slug }}"
-                   id="inlinemod_{{ comment_data.comment_slug }}" value="1"
+            <input type="checkbox" class="checkbox post__inline-mod" name="inlinemod_{{ comment_data.public_id }}"
+                   id="inlinemod_{{ comment_data.public_id }}" value="1"
                    {% if comment_data.inlinechecked %}checked="checked"{% endif %}/>
         {% endif %}
 
         {% if false and edited_by %}
             {# TO DO : CLEAN UP EDITED MESSAGE #}
             <a href="#" class="post__edit-log" title=""
-               id="edited_by_{{ comment_slug }}">{{ include('partials/icon.twig', {icon:
+               id="edited_by_{{ comment_data.public_id }}">{{ include('partials/icon.twig', {icon:
                     'pencil-alt', class: ''}, with_context = false) }}</a>
             <span class="edited_post"
                   style="display: none;">({{ myshowcase_comment_edited_by|raw }} {{ edited_by.editUserProfileLink|raw }}.)</span>
@@ -115,7 +115,7 @@
     </div>
 
     {# Post body #}
-    <div class="post__body post_body scaleimages" id="pid_{{ comment_data.comment_slug }}">
+    <div class="post__body post_body scaleimages" id="pid_{{ comment_data.public_id }}">
         {# Post unapproved or deleted message #}
         {% if false and comment_data.status %}
             <div class="post__status">
@@ -142,9 +142,9 @@
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
             {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
-                <a href="editpost.php?pid={{ comment_data.comment_slug }}"
-                   onclick="Thread.restorePost({{ comment_data.comment_slug }}); return false;"
-                   style="display: none;" id="quick_restore_{{ comment_data.comment_slug }}"
+                <a href="editpost.php?pid={{ comment_data.public_id }}"
+                   onclick="Thread.restorePost({{ comment_data.public_id }}); return false;"
+                   style="display: none;" id="quick_restore_{{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quick_restore_title }}"
                    class="post-control post-control--restore">
                     {{ include('partials/icon.twig', {icon: 'circle', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -152,14 +152,14 @@
                 </a>
                 <script type="text/javascript">
                     // <!--
-                    $('#quick_restore_{{ comment_data.comment_slug }}').css('display', '{% if comment_data.status != 2 %}none{% endif %}');
+                    $('#quick_restore_{{ comment_data.public_id }}').css('display', '{% if comment_data.status != 2 %}none{% endif %}');
                     // -->
                 </script>
             {% endif %}
 
             {# Reply to post button #}
             {% if comment_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                <a href="newreply.php?tid={{ comment_data.comment_slug }}&amp;replyto={{ comment_data.comment_slug }}"
+                <a href="newreply.php?tid={{ comment_data.public_id }}&amp;replyto={{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quote_title }}"
                    class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
                             class="post-control__text">{{ lang.myshowcase_view_comment_action_quote }}</span></a>
@@ -167,31 +167,31 @@
 
             {# Multiquote button #}
             {% if comment_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                <a href="javascript:void(0)" onclick="Thread.multiQuote({{ comment_data.comment_slug }}); return false;"
-                   style="display: none;" id="multiquote_link_{{ comment_data.comment_slug }}"
+                <a href="javascript:void(0)" onclick="Thread.multiQuote({{ comment_data.public_id }}); return false;"
+                   style="display: none;" id="multiquote_link_{{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_multi_quote_title }}"
                    class="postbit_multiquote post-control post-control--quote">
                     {{ include('partials/icon.twig', {icon: 'quote-left', class: 'post-control__icon fa-fw'}, with_context = false) }}
-                    <span id="multiquote_{{ comment_data.comment_slug }}"
+                    <span id="multiquote_{{ comment_data.public_id }}"
                           class="post-control__text">{{ lang.myshowcase_view_comment_action_multi_quote }}</span>
                 </a>
                 <script type="text/javascript">
                     //<!--
-                    $('#multiquote_link_{{ comment_data.comment_slug }}').css("display", "");
+                    $('#multiquote_link_{{ comment_data.public_id }}').css("display", "");
                     // -->
                 </script>
             {% endif %}
         </div>
         <div class="post-controls post-controls--secondary post-options">
             {% if (permissions.entries_can_update or permissions.entries_can_view) or (permissions.entries_can_delete or permissions.entries_can_view) %}
-                <input type="checkbox" class="post-options__checkbox" id="post_options_{{ comment_data.comment_slug }}">
-                <label for="post_options_{{ comment_data.comment_slug }}"
+                <input type="checkbox" class="post-options__checkbox" id="post_options_{{ comment_data.public_id }}">
+                <label for="post_options_{{ comment_data.public_id }}"
                        class="post-control post-control--options post-options__control"
                        title="{{ lang.myshowcase_view_comment_options }}">
                     {{ include('partials/icon.twig', {icon: 'ellipsis-v', class: 'post-control__icon fa-fw'}, with_context = false) }}
                     <span class="visually-hidden">{{ lang.myshowcase_view_comment_options }}</span>
                 </label>
-                <span class="post-options__list" id="post_options2_{{ comment_data.comment_slug }}">
+                <span class="post-options__list" id="post_options2_{{ comment_data.public_id }}">
                     {# Edit button #}
                     {% if permissions.entries_can_update or permissions.entries_can_view %}
                         <a href="{{ config.showcase_url }}{{ url.update }}"
@@ -203,10 +203,10 @@
 
                     {# Delete button #}
                     {% if (permissions.entries_can_delete or permissions.entries_can_view) %}
-                        <a href="editpost.php?pid={{ comment_data.comment_slug }}"
-                           onclick="Thread.deletePost({{ comment_data.comment_slug }}); return false;"
+                        <a href="editpost.php?pid={{ comment_data.public_id }}"
+                           onclick="Thread.deletePost({{ comment_data.public_id }}); return false;"
                            style="display: none;"
-                           id="quick_delete_{{ comment_data.comment_slug }}"
+                           id="quick_delete_{{ comment_data.public_id }}"
                            title="{{ lang.myshowcase_view_comment_options_quick_delete_title }}"
                            class="post-control post-control--delete">
                             {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -214,7 +214,7 @@
                         </a>
                         <script type="text/javascript">
     // <!--
-    $('#quick_delete_{{ comment_data.comment_slug }}').css('display', '{% if comment_data.status ==2 %}none{% endif %}');
+    $('#quick_delete_{{ comment_data.public_id }}').css('display', '{% if comment_data.status ==2 %}none{% endif %}');
     // -->
     </script>
                     {% endif %}
@@ -222,7 +222,7 @@
                     {# Report button #}
                     {% if mybb.user.uid not in comment_data.extra_data.reporters_list and user_permissions.canbereported %}
                         <a href="javascript:void(0)"
-                           onclick="Report.reportPost({{ comment_data.comment_slug }}); return false;"
+                           onclick="Report.reportPost({{ comment_data.public_id }}); return false;"
                            title="{{ lang.myshowcase_view_comment_options_report_title }}"
                            class="post-control post-control--report">
                             {{ include('partials/icon.twig', {icon: 'flag', class: 'post-control__icon fa-fw'}, with_context = false) }}
@@ -232,7 +232,7 @@
 
                     {# Warn user button #}
                     {% if mybb.usergroup.canwarnusers and user_data.uid != mybb.user.uid %}
-                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ comment_data.comment_slug }}"
+                        <a href="{{ mybb.settings.bburl }}/warnings.php?action=warn&amp;uid={{ user_data.uid }}&amp;pid={{ comment_data.public_id }}"
                            title="{{ lang.myshowcase_view_comment_options_warn_title }}"
                            class="post-control post-control--warn">
                             {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'post-control__icon fa-fw'}, with_context = false) }}

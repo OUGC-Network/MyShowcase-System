@@ -42,7 +42,7 @@ class CommentsManager
 
     private array $query_fields = [
         'comment_id',
-        'comment_slug',
+        'public_id',
         'showcase_id',
         'entry_id',
         'user_id',
@@ -229,7 +229,7 @@ class CommentsManager
     }
 
     /**
-     * Stores the validated comment. Returns comment_id, comment_slug and status.
+     * Stores the validated comment. Returns comment_id, public_id and status.
      *
      * @throws RandomException
      */
@@ -264,24 +264,24 @@ class CommentsManager
         ];
 
         if ($isUpdate) {
-            $return_data['comment_slug'] = $this->context->comments_repository->queryComment(
+            $return_data['public_id'] = $this->context->comments_repository->queryComment(
                 ["comment_id='{$this->comment_id}'"],
-                ['comment_slug'],
-            )['comment_slug'] ?? '';
+                ['public_id'],
+            )['public_id'] ?? '';
 
             $insert_data['update_dateline'] = new \DateTime('@' . TIME_NOW);
 
             $insert_data['edit_user_id'] = $this->context->current_user->uid;
         } else {
             do {
-                $generated_slug = (new StringUtil())->generatePublicId();
+                $public_id = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$this->context->comments_repository->queryComment(
-                    ["comment_slug='{$this->context->database->escape_string($generated_slug)}'"]
+                    ["public_id='{$this->context->database->escape_string($public_id)}'"]
                 );
             } while (!$unique_found);
 
-            $return_data['comment_slug'] = $insert_data['comment_slug'] = $generated_slug;
+            $return_data['public_id'] = $insert_data['public_id'] = $public_id;
 
             $insert_data['dateline'] = $comment->dateline ?? new \DateTime('@' . TIME_NOW);
 

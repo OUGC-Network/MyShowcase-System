@@ -945,7 +945,7 @@ class EntriesManager
             }
         }
 
-        // it doesn't matter if this changes, only the entry_slug should remain the same always
+        // it doesn't matter if this changes, only the public_id should remain the same always
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT) {
             $entry_slug_custom = [];
 
@@ -1019,14 +1019,14 @@ class EntriesManager
 
         hooksRun('entry_validate_insert_update_start', $this);
 
-        if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->entry_slug)) {
+        if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->public_id)) {
             $unique_found = false;
 
             while (!$unique_found) {
-                $this->validation_entry->entry_slug = (new StringUtil())->generatePublicId();
+                $this->validation_entry->public_id = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$this->context->entries_repository->queryEntry(
-                    ["entry_slug='{$this->context->database->escape_string($this->validation_entry->entry_slug)}'"],
+                    ["public_id='{$this->context->database->escape_string($this->validation_entry->public_id)}'"],
                     ['entry_id']
                 );
             }
@@ -1066,11 +1066,11 @@ class EntriesManager
             }
         }
 
-        if (!isset($this->validation_entry->entry_slug)) {
-            $this->validation_entry->entry_slug = $this->context->entries_repository->queryEntry(
+        if (!isset($this->validation_entry->public_id)) {
+            $this->validation_entry->public_id = $this->context->entries_repository->queryEntry(
                 ["entry_id='{$this->validation_entry->entry_id}'"],
-                ['entry_slug'],
-            )['entry_slug'];
+                ['public_id'],
+            )['public_id'];
         }
 
         if (!isset($this->validation_entry->entry_slug_custom)) {

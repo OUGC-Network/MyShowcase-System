@@ -89,9 +89,9 @@
 
     {% if entry_moderator %}
         <div class="thread__checkbox">
-            <label for="selected-entry-{{ entry.entry_slug }}"></label>
-            <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.entry_slug }}"
-                   id="selected-entry-{{ entry.entry_slug }}"
+            <label for="selected-entry-{{ entry.public_id }}"></label>
+            <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.public_id }}"
+                   id="selected-entry-{{ entry.public_id }}"
                    {% if entry.extra_data.selected %}checked="checked"{% endif %} />
         </div>
     {% endif %}

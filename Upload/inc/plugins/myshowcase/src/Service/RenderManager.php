@@ -318,11 +318,11 @@ class RenderManager
         }
 
         // todo, will be empty when preview a new entry/comment
-        if (!empty($entry->entry_slug)) {
+        if (!empty($entry->public_id)) {
             $templatesContext['url']['entry'] = $this->context->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'entry_slug_custom' => $entry->entry_slug_custom,
                 ]
             );
@@ -330,7 +330,7 @@ class RenderManager
             $templatesContext['url']['entry_api'] = $this->context->routing->generateUrl(
                 Routes::EntryViewApi,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'entry_slug_custom' => $entry->entry_slug_custom,
                 ]
             );
@@ -440,7 +440,7 @@ class RenderManager
             $templatesContext['url']['comment'] = $this->context->routing->generateUrl(
                 Routes::CommentView,
                 [
-                    'comment_slug' => $comment->comment_slug
+                    'comment_public_id' => $comment->public_id
                 ]
             );
         }
@@ -535,14 +535,14 @@ class RenderManager
             $templatesContext['url']['update'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                 ]
             );
 
             $templatesContext['url']['update_api'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdateApi,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
@@ -550,7 +550,7 @@ class RenderManager
             $templatesContext['url']['soft_delete'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'delete' => 1,
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
@@ -559,7 +559,7 @@ class RenderManager
             $templatesContext['url']['delete'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'delete' => 2,
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
@@ -568,16 +568,16 @@ class RenderManager
             $templatesContext['url']['update'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
-                    'comment_slug' => $comment->comment_slug,
+                    'entry_public_id' => $entry->public_id,
+                    'comment_public_id' => $comment->public_id,
                 ]
             );
 
             $templatesContext['url']['soft_delete'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
-                    'comment_slug' => $comment->comment_slug,
+                    'entry_public_id' => $entry->public_id,
+                    'comment_public_id' => $comment->public_id,
                     'delete' => 1,
                 ]
             );
@@ -585,8 +585,8 @@ class RenderManager
             $templatesContext['url']['delete'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
-                    'comment_slug' => $comment->comment_slug,
+                    'entry_public_id' => $entry->public_id,
+                    'comment_public_id' => $comment->public_id,
                     'delete' => 2,
                 ]
             );
@@ -705,7 +705,7 @@ class RenderManager
                 $approveUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'action' => 'approve',
                     ]
                 );
@@ -713,7 +713,7 @@ class RenderManager
                 $unapproveUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'action' => 'unapprove',
                     ]
                 );
@@ -723,7 +723,7 @@ class RenderManager
                 $restoreUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'action' => 'restore',
                     ]
                 );
@@ -731,7 +731,7 @@ class RenderManager
                 $softDeleteUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'action' => 'soft_delete',
                     ]
                 );
@@ -742,7 +742,7 @@ class RenderManager
                 $deleteUrl = $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'action' => 'delete',
                     ]
                 );
@@ -752,9 +752,9 @@ class RenderManager
                 $templatesContext['url_comment_approve'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                         Routes::CommentView,
                         array_merge($this->url_params, [
-                            'entry_slug' => $entry->entry_slug,
+                            'entry_public_id' => $entry->public_id,
                             'entry_slug_custom' => $entry->entry_slug_custom,
-                            'comment_slug' => $comment->comment_slug,
+                            'comment_public_id' => $comment->public_id,
                             'action' => 'approve',
                         ])
                     );
@@ -762,8 +762,8 @@ class RenderManager
                 $templatesContext['url_comment_unapprove'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
-                        'comment_slug' => $comment->comment_slug,
+                        'entry_public_id' => $entry->public_id,
+                        'comment_public_id' => $comment->public_id,
                         'action' => 'unapprove',
                     ]
                 );
@@ -773,8 +773,8 @@ class RenderManager
                 $templatesContext['url_comment_restore'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
-                        'comment_slug' => $comment->comment_slug,
+                        'entry_public_id' => $entry->public_id,
+                        'comment_public_id' => $comment->public_id,
                         'action' => 'restore',
                     ]
                 );
@@ -782,8 +782,8 @@ class RenderManager
                 $templatesContext['url_comment_soft_delete'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
-                        'comment_slug' => $comment->comment_slug,
+                        'entry_public_id' => $entry->public_id,
+                        'comment_public_id' => $comment->public_id,
                         'action' => 'soft_delete',
                     ]
                 );
@@ -794,8 +794,8 @@ class RenderManager
                 $templatesContext['url_comment_delete'] = $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
                     [
-                        'entry_slug' => $entry->entry_slug,
-                        'comment_slug' => $comment->comment_slug,
+                        'entry_public_id' => $entry->public_id,
+                        'comment_public_id' => $comment->public_id,
                         'action' => 'delete',
                     ]
                 );
@@ -1097,7 +1097,7 @@ class RenderManager
 
             $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
 
-            // todo, maybe all attachments should be accessible from the same route, with entry_slug or post_hash optional
+            // todo, maybe all attachments should be accessible from the same route, with entry_public_id or post_hash optional
             if ($post_type === ContentTypes::Entry ||
                 $post_type === ContentTypes::CustomField) {
                 if ($entry->entry_id) {
@@ -1270,7 +1270,7 @@ class RenderManager
             $createUpdateUrl = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                 ],
                 $this->url_params
             );

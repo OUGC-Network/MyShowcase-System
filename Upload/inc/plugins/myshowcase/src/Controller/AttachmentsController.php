@@ -55,7 +55,7 @@ class AttachmentsController extends BaseController
     #[NoReturn]
     public function uploadAttachment(
         ?string $post_hash = null,
-        ?string $entry_slug = null,
+        ?string $entry_public_id = null,
     ): void {
         $this->verifyPassword();
 
@@ -96,7 +96,7 @@ class AttachmentsController extends BaseController
 
         if ($post_hash === null) {
             $entry = $this->context->entries_repository->queryEntry(
-                ["entry_slug='{$this->context->database->escape_string((string)$entry_slug)}'"],
+                ["public_id='{$this->context->database->escape_string((string)$entry_public_id)}'"],
                 ['entry_id', 'post_hash', 'status', 'user_id'],
             );
 
@@ -173,7 +173,7 @@ class AttachmentsController extends BaseController
     #[NoReturn]
     public function getAttachments(
         ?string $post_hash = null,
-        ?string $entry_slug = null,
+        ?string $entry_public_id = null,
         ?string $entry_slug_custom = null,
     ): void {
         $this->verifyPassword();
@@ -183,7 +183,12 @@ class AttachmentsController extends BaseController
         $where_clauses = ["showcase_id='{$this->context->showcase->showcase_id}'"];
 
         if ($post_hash === null) {
-            $where_clauses[] = "entry_slug='{$db->escape_string($entry_slug ?? '')}'";
+            $entry_id = (int)($this->context->entries_repository->queryEntry(
+                ["public_id='{$db->escape_string($entry_public_id ?? '')}'"],
+                ['entry_id'],
+            )['entry_id'] ?? 0);
+
+            $where_clauses[] = "entry_id='{$entry_id}'";
         } else {
             $where_clauses[] = "post_hash='{$db->escape_string($post_hash)}'";
         }

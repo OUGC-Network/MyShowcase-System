@@ -66,7 +66,7 @@ readonly class QuotesUtil
                     $quote['url'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                             Routes::CommentView,
                             [
-                                'comment_slug' => $slug,
+                                'comment_public_id' => $slug,
                             ],
                         );
 

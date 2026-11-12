@@ -378,7 +378,7 @@ function postbit(array &$post): array
                         ["entry_id IN ('{$attachment_entry_ids}')"], // todo, status clause
                         [
                             'entry_id',
-                            'entry_slug',
+                            'public_id',
                             'entry_slug_custom',
                         ],
                     ) as $entry_id => $entry
@@ -592,7 +592,7 @@ function modcp_reports_report(): void
 
         $entryData = $entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
-            ['user_id', 'entry_slug', 'entry_slug_custom'],
+            ['user_id', 'public_id', 'entry_slug_custom'],
         );
 
         $report_data['content'] = $lang->sprintf(
@@ -600,7 +600,7 @@ function modcp_reports_report(): void
             $showcase->context->routing->generateUrl(
                 Routes::EntryView,
                 [
-                    'entry_slug' => $entryData['entry_slug'],
+                    'entry_public_id' => $entryData['public_id'],
                     'entry_slug_custom' => $entryData['entry_slug_custom']
                 ]
             ) . '#entry_id' . $entryID,
@@ -630,14 +630,14 @@ function modcp_reports_report(): void
 
         $commentData = $comments_repository->queryComment(
             ["comment_id='{$commentID}'"],
-            ['showcase_id', 'entry_id', 'user_id', 'comment_slug'],
+            ['showcase_id', 'entry_id', 'user_id', 'public_id'],
         );
 
         $entryID = (int)$commentData['entry_id'];
 
         $entryData = $entries_repository->queryEntry(
             ["entry_id='{$entryID}'"],
-            ['user_id', 'entry_slug', 'entry_slug_custom'],
+            ['user_id', 'public_id', 'entry_slug_custom'],
         );
 
         $report_data['content'] = $lang->sprintf(
@@ -645,9 +645,9 @@ function modcp_reports_report(): void
             $showcase->context->showcase->showcase_url . $showcase->context->routing->generateUrl(
                 Routes::CommentView,
                 [
-                    'comment_slug' => $commentData['comment_slug'],
+                    'comment_public_id' => $commentData['public_id'],
                 ]
-            ) . '#commentID' . $commentData['comment_slug'],
+            ) . '#commentID' . $commentData['public_id'],
             build_profile_link(
                 htmlspecialchars_uni(get_user($report['id2'])['username'] ?? ''),
                 $report['id2'] ?? 0

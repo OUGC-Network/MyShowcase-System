@@ -68,11 +68,11 @@ def option_id(route, label):
 
 
 def entry(route, column, value):
-    rows = q(f"select entry_id, entry_slug, user_id, status, is_closed, is_sticky, views, entry_slug_custom from mybb_myshowcase_data{sid(route)} "
+    rows = q(f"select entry_id, public_id, user_id, status, is_closed, is_sticky, views, entry_slug_custom from mybb_myshowcase_data{sid(route)} "
              f"where {column}='{value}'")
     if not rows:
         return None
-    k = ['entry_id', 'entry_slug', 'user_id', 'status', 'is_closed', 'is_sticky', 'views', 'entry_slug_custom']
+    k = ['entry_id', 'public_id', 'user_id', 'status', 'is_closed', 'is_sticky', 'views', 'entry_slug_custom']
     return dict(zip(k, rows[0]))
 
 
@@ -88,7 +88,7 @@ def user(name):
 
 
 def view_url(e):
-    return f"{G}/view/{e['entry_slug']}/{e['entry_slug_custom'] or 'x'}"
+    return f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}"
 
 
 def upload(client, route, field, post_hash, key, file):
@@ -121,7 +121,7 @@ def create_blog(client, subject):
 
 def moderate(client, action, entries, key=True, route=G):
     page = client.get(f'{route}/')
-    data = {'action': 'inline_moderation', 'moderate': action, 'selected_entries': json.dumps([e['entry_slug'] for e in entries]),
+    data = {'action': 'inline_moderation', 'moderate': action, 'selected_entries': json.dumps([e['public_id'] for e in entries]),
             'selected_all_entries': 0}
     if key:
         data['my_post_key'] = post_key(page['body'])
@@ -133,7 +133,7 @@ def comment(client, e, message, key=True):
     data = {'message': message, 'post_hash': '', 'submit': 'Post'}
     if key:
         data['my_post_key'] = post_key(page['body'])
-    return client.post(f"{G}/view/{e['entry_slug']}/create/comment", data)
+    return client.post(f"{G}/view/{e['public_id']}/create/comment", data)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -179,14 +179,14 @@ def security():
     r = moderate(m2, 'soft_delete', [e2])
     ok(no_permission(r) and entry('gallery', 'entry_id', e2['entry_id'])['status'] == '1', 'member: inline soft delete of an own entry refused without the permission')
 
-    r = m2.get(f"{G}/update/{e1['entry_slug']}")
+    r = m2.get(f"{G}/update/{e1['public_id']}")
     ok(no_permission(r) and 'id="contentForm"' not in r['body'], "member: another user's edit form refused")
-    r = m2.post(f"{G}/update/{e1['entry_slug']}", {'title': 'Hijacked', 'category': option_id('gallery', 'Nature'),
+    r = m2.post(f"{G}/update/{e1['public_id']}", {'title': 'Hijacked', 'category': option_id('gallery', 'Nature'),
                                                     'my_post_key': post_key(m2.get(f'{G}/')['body']), 'submit': 'Post'})
     ok(no_permission(r) and entry('gallery', 'title', 'Hijacked') is None, "member: another user's entry not changed by a forged POST")
     files_before = count('mybb_myshowcase_attachments', f"entry_id='{e1['entry_id']}'")
     k = post_key(m2.get(f'{G}/')['body'])
-    r = m2.upload(f"{G}/api/view/{e1['entry_slug']}/upload?my_post_key={k}&field_id={field_id('gallery', 'image')}",
+    r = m2.upload(f"{G}/api/view/{e1['public_id']}/upload?my_post_key={k}&field_id={field_id('gallery', 'image')}",
                   {'my_post_key': k, 'field_id': field_id('gallery', 'image')}, 'image', os.path.join(MEDIA, 'static.gif'))
     ok(r['status'] >= 400 and count('mybb_myshowcase_attachments', f"entry_id='{e1['entry_id']}'") == files_before,
        f"member: upload to another user's entry refused [{r['status']}]")
@@ -194,7 +194,7 @@ def security():
     # Missing post key on every write handler.
     r = create_gallery(m1, 'No key entry', key='')
     ok(bad_post_key(r['post']) and r['entry'] is None, 'create without my_post_key refused')
-    r = m1.post(f"{G}/update/{e1['entry_slug']}", {'title': 'No key edit', 'category': option_id('gallery', 'Nature'), 'submit': 'Post'})
+    r = m1.post(f"{G}/update/{e1['public_id']}", {'title': 'No key edit', 'category': option_id('gallery', 'Nature'), 'submit': 'Post'})
     ok(bad_post_key(r) and entry('gallery', 'title', 'No key edit') is None, 'edit without my_post_key refused')
     r = moderate(mod, 'close', [e1], key=False)
     ok(bad_post_key(r) and entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'inline moderation without my_post_key refused')
@@ -205,25 +205,25 @@ def security():
     ok(r['status'] >= 400 and count('mybb_myshowcase_attachments', "post_hash='nokeyhash'") == 0, f'upload without my_post_key refused [{r["status"]}]')
     r = m1.get(f"{view_url(e1)}?action=subscribe")
     ok(bad_post_key(r) and count('mybb_myshowcase_subscriptions', f"entry_id='{e1['entry_id']}'") == 0, 'subscribe without my_post_key refused')
-    r = mod.get(f"{G}/update/{e1['entry_slug']}?delete=2")
+    r = mod.get(f"{G}/update/{e1['public_id']}?delete=2")
     ok(bad_post_key(r) and entry('gallery', 'entry_id', e1['entry_id']) is not None, 'entry page delete without my_post_key refused')
 
     # The form cannot set the columns the code owns.
     r = create_gallery(m1, 'Forged columns', extra={'user_id': USERS['member2']['uid'], 'status': 2, 'views': 999, 'is_sticky': 1,
-                                                     'entry_slug': 'forged'})
+                                                     'public_id': 'forged'})
     e = r['entry']
     ok(e is not None and int(e['user_id']) == USERS['member1']['uid'] and (e['status'], e['views'], e['is_sticky']) == ('1', '0', '0')
-       and e['entry_slug'] != 'forged', 'create: user_id, status, views, is_sticky and entry_slug from the form are ignored')
+       and e['public_id'] != 'forged', 'create: user_id, status, views, is_sticky and public_id from the form are ignored')
 
     # Comments.
     r = comment(m2, e1, 'A visible comment by member two')
     ok(count('mybb_myshowcase_comments', f"entry_id='{e1['entry_id']}' and status='1'") == 1, 'member comments on an entry')
-    c = q(f"select comment_slug from mybb_myshowcase_comments where entry_id='{e1['entry_id']}'")[0][0]
+    c = q(f"select public_id from mybb_myshowcase_comments where entry_id='{e1['entry_id']}'")[0][0]
     page = m1.get(view_url(e1))
-    r = m1.post(f"{G}/view/{e1['entry_slug']}/update/comment/{c}", {'message': 'Edited by someone else', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
+    r = m1.post(f"{G}/view/{e1['public_id']}/update/comment/{c}", {'message': 'Edited by someone else', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
     ok(no_permission(r) and count('mybb_myshowcase_comments', "message='Edited by someone else'") == 0, "member: another user's comment cannot be edited")
-    r = m2.post(f"{G}/view/{e2['entry_slug']}/update/comment/{c}", {'message': 'Moved', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
-    ok(count('mybb_myshowcase_comments', f"comment_slug='{c}' and entry_id='{e1['entry_id']}'") == 1 and count('mybb_myshowcase_comments', "message='Moved'") == 0,
+    r = m2.post(f"{G}/view/{e2['public_id']}/update/comment/{c}", {'message': 'Moved', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
+    ok(count('mybb_myshowcase_comments', f"public_id='{c}' and entry_id='{e1['entry_id']}'") == 1 and count('mybb_myshowcase_comments', "message='Moved'") == 0,
        "a comment cannot be edited (or moved) through another entry's address")
     moderate(mod, 'close', [e1])
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '1', 'moderator: inline close')
@@ -325,23 +325,23 @@ def edit_form(j):
     print('--- 5c. edit form keeps or replaces the image')
     m1 = user('member1')
     old = q(f"select attachment_id, file_name, attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
-    form = m1.get(f"{G}/update/{j['entry_slug']}")
+    form = m1.get(f"{G}/update/{j['public_id']}")
     ok(old[2] in form['body'] and f'name="remove_attachments[]" value="{old[0]}"' in form['body'], 'edit form lists the attached image with a remove control')
     data = {'title': 'Jpeg photo', 'caption': 'kept', 'category': option_id('gallery', 'Nature'), 'my_post_key': post_key(form['body']), 'submit': 'Post'}
-    m1.post(f"{G}/update/{j['entry_slug']}", data)
+    m1.post(f"{G}/update/{j['public_id']}", data)
     ok(count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1, 'saving without removing keeps the image')
-    r = m1.post(f"{G}/update/{j['entry_slug']}", dict(data, **{'remove_attachments[]': old[0]}))
+    r = m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': old[0]}))
     ok('A required field is missing' in r['body'] and count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1,
        'removing the only image of a required field is refused, the image stays')
     k = post_key(form['body'])
-    up = m1.upload(f"{G}/api/view/{j['entry_slug']}/upload?my_post_key={k}&field_id={field_id('gallery', 'image')}",
+    up = m1.upload(f"{G}/api/view/{j['public_id']}/upload?my_post_key={k}&field_id={field_id('gallery', 'image')}",
                    {'my_post_key': k, 'field_id': field_id('gallery', 'image')}, 'image', os.path.join(MEDIA, 'second.jpg'))
     ok(up['status'] == 200, f'owner uploads a new image to the entry [{up["status"]}]')
-    m1.post(f"{G}/update/{j['entry_slug']}", dict(data, **{'remove_attachments[]': old[0]}))
+    m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': old[0]}))
     left = q(f"select attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")
     ok(left == [('second.jpg',)] and not os.path.exists(os.path.join(BOARD, 'uploads', 'myshowcase', old[1])), 'replace: the old image row and file are gone, the new one stays')
     other = one(f"select attachment_id from mybb_myshowcase_attachments where entry_id='{entry('gallery', 'title', 'Member two photo')['entry_id']}'")
-    m1.post(f"{G}/update/{j['entry_slug']}", dict(data, **{'remove_attachments[]': other}))
+    m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': other}))
     ok(count('mybb_myshowcase_attachments', f"attachment_id='{other}'") == 1, "the id of another entry's file in the form removes nothing")
 
 
@@ -351,7 +351,7 @@ def main_list():
     r = m2.get(f'{G}/')
     e = entry('gallery', 'title', 'Member one photo')
     ok(r['status'] == 200 and not php_errors(r), 'gallery main list renders')
-    ok(f"/view/{e['entry_slug']}/" in r['body'] and 'thread__subject' in r['body'], 'row: subject linked to the entry')
+    ok(f"/view/{e['public_id']}/" in r['body'] and 'thread__subject' in r['body'], 'row: subject linked to the entry')
     ok('member1' in r['body'] and 'thread__author' in r['body'], 'row: author')
     ok('thread__date' in r['body'] and 'thread__replies' in r['body'], 'row: date and comment count')
     ok(re.search(r'<a [^>]*href="[^"]*/view/[^"]+"[^>]*class="thread__image"[^>]*>\s*<img [^>]*src="[^"]*/(thumbnail|attachment)/', r['body']) is not None,
@@ -362,7 +362,7 @@ def main_list():
     ok(be is not None and r['status'] == 200 and not php_errors(r) and 'A blog post' in r['body'] and 'thread__image' not in r['body'],
        'blog main list: rows without an image block, no errors')
     r = m2.get(f'{B}/?keywords=blog')
-    ok(r['status'] == 200 and not php_errors(r) and f"/view/{be['entry_slug']}/" in r['body'] and 'highlight' in r['body'],
+    ok(r['status'] == 200 and not php_errors(r) and f"/view/{be['public_id']}/" in r['body'] and 'highlight' in r['body'],
        'blog: keyword search on the entry subject, highlighted')
     return be
 
@@ -409,15 +409,15 @@ def deletion(e2):
     # Entry page delete.
     e = create_gallery(m1, 'Entry page delete')['entry']
     page = m1.get(view_url(e))
-    r = m1.get(f"{G}/update/{e['entry_slug']}?delete=2&my_post_key={post_key(page['body'])}")
+    r = m1.get(f"{G}/update/{e['public_id']}?delete=2&my_post_key={post_key(page['body'])}")
     ok(no_permission(r) and entry('gallery', 'entry_id', e['entry_id']) is not None, 'entry page: owner without the delete permission is refused')
     page = mod.get(view_url(e))
     names = files(e['entry_id'])
-    mod.get(f"{G}/update/{e['entry_slug']}?delete=1&my_post_key={post_key(page['body'])}")
+    mod.get(f"{G}/update/{e['public_id']}?delete=1&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '2', 'entry page: moderator soft delete')
-    mod.get(f"{G}/update/{e['entry_slug']}?action=restore&my_post_key={post_key(page['body'])}")
+    mod.get(f"{G}/update/{e['public_id']}?action=restore&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '1', 'entry page: moderator restore')
-    mod.get(f"{G}/update/{e['entry_slug']}?delete=2&my_post_key={post_key(page['body'])}")
+    mod.get(f"{G}/update/{e['public_id']}?delete=2&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id']) is None and dependents(e['entry_id'])[0] == 0 and exists(names) == [], 'entry page: moderator hard delete removes the row and files')
 
     # Pruning task: no showcase can have a pruning age (the prune_time column is gone), so the task deletes

@@ -90,17 +90,17 @@ class CommentsController extends BaseController
      * @throws LoaderError
      * @throws SyntaxError
      */
-    #[Route('/view/{entry_slug}/{entry_slug_custom}/comment', name: 'comment_create', methods: ['GET', 'POST'])]
+    #[Route('/view/{entry_public_id}/{entry_slug_custom}/comment', name: 'comment_create', methods: ['GET', 'POST'])]
     public function create(
-        string $entry_slug,
-        ?string $comment_slug = null,
+        string $entry_public_id,
+        ?string $comment_public_id = null,
         bool $is_update = false
     ): string {
         $this->verifyPassword();
 
         global $mybb, $lang;
 
-        switch ($this->verifyPermission($entry_slug, $comment_slug)) {
+        switch ($this->verifyPermission($entry_public_id, $comment_public_id)) {
             case self::NO_PERMISSION:
                 $this->errorNoPermission();
                 break;
@@ -136,7 +136,7 @@ class CommentsController extends BaseController
             : $this->context->comments_manager->generateComment();
 
         $this->forcedFieldBreadcrumb($entry->user_id);
-        $this->buildCommentBreadcrumbs($entry, $comment_slug, $is_update, $lang);
+        $this->buildCommentBreadcrumbs($entry, $comment_public_id, $is_update, $lang);
 
         if (!$is_update && empty($comment_data->post_hash)) {
             $entry->post_hash = $mybb->get_input('post_hash') ?: (new UuidUtil())->generateUuidV4();
@@ -148,10 +148,10 @@ class CommentsController extends BaseController
             verify_post_check($mybb->get_input('my_post_key'));
 
             $isPreview = isset($mybb->input['preview']);
-            $commentPreview = $this->handlePostSubmission($entry, $comment_slug, $is_update, $isPreview, $lang);
+            $commentPreview = $this->handlePostSubmission($entry, $comment_public_id, $is_update, $isPreview, $lang);
         }
 
-        $createUpdateUrl = $this->buildFormActionUrl($entry, $comment_slug, $is_update);
+        $createUpdateUrl = $this->buildFormActionUrl($entry, $comment_public_id, $is_update);
 
         $commentMessage = htmlspecialchars_uni($mybb->get_input('message'));
 
@@ -187,7 +187,7 @@ class CommentsController extends BaseController
 
     private function buildCommentBreadcrumbs(
         EntryEntity $entry,
-        ?string $comment_slug,
+        ?string $comment_public_id,
         bool $is_update,
         object $lang
     ): void {
@@ -202,7 +202,7 @@ class CommentsController extends BaseController
             $entry_subject . $entry->subject,
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
-                ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             )
         );
 
@@ -211,7 +211,7 @@ class CommentsController extends BaseController
                 $lang->myshowcase_button_comment_update,
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::CommentUpdate,
-                    ['entry_slug' => $entry->entry_slug, 'comment_slug' => $comment_slug]
+                    ['entry_public_id' => $entry->public_id, 'comment_public_id' => $comment_public_id]
                 )
             );
 
@@ -222,7 +222,7 @@ class CommentsController extends BaseController
             $lang->myshowcase_button_comment_create,
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::CommentCreate,
-                ['entry_slug' => $entry->entry_slug]
+                ['entry_public_id' => $entry->public_id]
             )
         );
     }
@@ -243,7 +243,7 @@ class CommentsController extends BaseController
 
     private function handlePostSubmission(
         EntryEntity $entry,
-        ?string $comment_slug,
+        ?string $comment_public_id,
         bool $is_update,
         bool $isPreview,
         object $lang
@@ -342,7 +342,7 @@ class CommentsController extends BaseController
             redirect(
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryView,
-                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                    ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
                 $is_update ? $lang->myshowcase_comment_updated_status : $lang->myshowcase_comment_created_status
             );
@@ -351,24 +351,24 @@ class CommentsController extends BaseController
         redirect(
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::CommentView,
-                ['comment_slug' => $comment_data->comment_slug]
+                ['comment_public_id' => $comment_data->public_id]
             ),
             $is_update ? $lang->myshowcase_comment_updated : $lang->myshowcase_comment_created
         );
     }
 
-    private function buildFormActionUrl(EntryEntity $entry, ?string $comment_slug, bool $is_update): string
+    private function buildFormActionUrl(EntryEntity $entry, ?string $comment_public_id, bool $is_update): string
     {
         if ($is_update) {
             return $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
-                ['entry_slug' => $entry->entry_slug, 'comment_slug' => $comment_slug]
+                ['entry_public_id' => $entry->public_id, 'comment_public_id' => $comment_public_id]
             );
         }
 
         return $this->context->routing->generateUrl(
             Routes::CommentCreate,
-            ['entry_slug' => $entry->entry_slug]
+            ['entry_public_id' => $entry->public_id]
         );
     }
 
@@ -378,12 +378,12 @@ class CommentsController extends BaseController
      * @throws RuntimeError
      * @throws LoaderError
      */
-    #[Route('/{showcase}/view/{entry_slug}/update/comment/{comment_slug}', name: 'comment_update', methods: [
+    #[Route('/{showcase}/view/{entry_public_id}/update/comment/{comment_public_id}', name: 'comment_update', methods: [
         'GET',
         'POST',
     ])]
-    public function update(string $entry_slug, string $comment_slug): string
+    public function update(string $entry_public_id, string $comment_public_id): string
     {
-        return $this->create($entry_slug, $comment_slug, true);
+        return $this->create($entry_public_id, $comment_public_id, true);
     }
 }

@@ -313,7 +313,7 @@ abstract class BaseController
         return $this->statusVisibilityClause($alias, $this->isCommentModerator(), UserPermissions::CommentsCanViewDeleted);
     }
 
-    public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
+    public function verifyPermission(?string $entry_public_id = null, ?string $comment_public_id = null): int
     {
         if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {
             return self::NO_PERMISSION;
@@ -325,18 +325,18 @@ abstract class BaseController
 
         $entry = null;
 
-        if ($entry_slug !== null) {
-            $entry = $this->resolveEntryBySlug($entry_slug);
+        if ($entry_public_id !== null) {
+            $entry = $this->resolveEntryByPublicId($entry_public_id);
         }
 
-        if ($comment_slug !== null) {
+        if ($comment_public_id !== null) {
             if (!$this->context->showcase->comments_enable ||
                 !$this->context->current_user->hasPermission(UserPermissions::CommentsCanView)
             ) {
                 return self::NO_PERMISSION;
             }
 
-            $comment_result = $this->resolveComment($comment_slug, $entry);
+            $comment_result = $this->resolveComment($comment_public_id, $entry);
 
             if (is_int($comment_result)) {
                 return $comment_result;
@@ -353,7 +353,7 @@ abstract class BaseController
             return self::INVALID_ENTRY;
         }
 
-        if ($comment_slug !== null &&
+        if ($comment_public_id !== null &&
             ((int)$comment_data->entry_id !== (int)$entry->entry_id || !$this->isCommentAccessible($comment_data))) {
             return self::INVALID_COMMENT;
         }
@@ -368,10 +368,10 @@ abstract class BaseController
         return $this->context->entries_manager->statusVisibilityClause();
     }
 
-    private function resolveEntryBySlug(string $entry_slug): ?EntryEntity
+    private function resolveEntryByPublicId(string $entry_public_id): ?EntryEntity
     {
         return $this->loadEntryFromClauses([
-            "entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'",
+            "entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'",
             $this->entryVisibilityClause(),
         ]);
     }
@@ -405,12 +405,12 @@ abstract class BaseController
     /**
      * Returns [EntryEntity, CommentEntity] on success, or an int error code.
      */
-    private function resolveComment(string $comment_slug, ?EntryEntity $entry): array|int
+    private function resolveComment(string $comment_public_id, ?EntryEntity $entry): array|int
     {
         $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase);
 
         $comment_data = $comments_repository->queryComment(
-            ["comment_slug='{$this->context->database->escape_string($comment_slug)}'"],
+            ["public_id='{$this->context->database->escape_string($comment_public_id)}'"],
             ['comment_id', 'entry_id', 'status', 'user_id', 'dateline'],
         );
 
@@ -448,11 +448,11 @@ abstract class BaseController
     }
 
     #[NoReturn]
-    public function redirect(?string $entry_slug = null, ?string $comment_slug = null): void
+    public function redirect(?string $entry_public_id = null, ?string $comment_public_id = null): void
     {
         $this->verifyPassword();
 
-        switch ($this->verifyPermission($entry_slug, $comment_slug)) {
+        switch ($this->verifyPermission($entry_public_id, $comment_public_id)) {
             case self::NO_PERMISSION:
                 $this->errorNoPermission();
                 break;
@@ -466,8 +466,8 @@ abstract class BaseController
         /** @var CommentEntity $comment_data */
         $comment_data = $this->context->comments_manager->getComments()->offsetGet($this->comment_id);
 
-        $redirect_url = $comment_slug
-            ? $this->buildCommentRedirectUrl($entry, $comment_data, $comment_slug)
+        $redirect_url = $comment_public_id
+            ? $this->buildCommentRedirectUrl($entry, $comment_data, $comment_public_id)
             : $this->buildEntryRedirectUrl($entry);
 
         header("Location: {$redirect_url}", response_code: self::HTTP_CODE_PERMANENT_REDIRECT);
@@ -478,7 +478,7 @@ abstract class BaseController
     private function buildCommentRedirectUrl(
         EntryEntity $entry,
         CommentEntity $comment_data,
-        string $comment_slug
+        string $comment_public_id
     ): string {
         $where_clauses = [
             "entry_id='{$entry->entry_id}'",
@@ -492,9 +492,9 @@ abstract class BaseController
         $total_comments = $comments_repository->queryCommentCount($where_clauses);
 
         $url_params = [
-            'entry_slug' => $entry->entry_slug,
+            'entry_public_id' => $entry->public_id,
             'entry_slug_custom' => $entry->entry_slug_custom,
-            'comment_slug' => $comment_slug,
+            'comment_public_id' => $comment_public_id,
         ];
 
         $current_page = $this->calculateCommentPage($total_comments);
@@ -505,7 +505,7 @@ abstract class BaseController
 
         return $this->context->showcase->showcase_url
             . $this->context->routing->generateUrl(Routes::EntryView, $url_params)
-            . '#' . $comment_slug;
+            . '#' . $comment_public_id;
     }
 
     private function buildEntryRedirectUrl(EntryEntity $entry): string
@@ -516,12 +516,12 @@ abstract class BaseController
                 array_merge(
                     $this->context->render_manager->url_params,
                     [
-                        'entry_slug' => $entry->entry_slug,
+                        'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom,
                     ]
                 )
             )
-            . '#' . $entry->entry_slug;
+            . '#' . $entry->public_id;
     }
 
     private function calculateCommentPage(int $total_comments): int
