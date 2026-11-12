@@ -880,6 +880,25 @@ Found while preparing the import and not fixed in this track:
 4. **`buildAttachmentsUpload()` returns `''` on its first line and its caller in `EntriesController` is commented out**, so the
    attachments quota note is unreachable. The earlier "no TypeError" check on `getPermission()` covered only that code
    path (called directly), not a rendered page.
+5. **Deleting an entry leaves its attachments.** The attachment (and comment) cleanup listeners are registered in the constructors of
+   the attachments and comments managers, which are created lazily, so in a delete request they are never registered and the
+   `EntryDeletedEvent` finds no listener. The same applies to comments.
+6. **`AttachmentsRepository::deleteAttachment()` does not delete the files**: it reads `$this->attachments_uploads_path`, a property
+   the repository does not have.
+7. **`AccessLogsRepository::deleteAccessLog()` reads columns the table does not have** (`access_log_name`, `thumbnail_name`, `status`),
+   so it fails after its `attachment_id` typo was fixed.
+8. **Upload error messages can be blank**: `uploadAttachment` never loads `messages.lang.php`, which holds `error_attachtype`,
+   `error_reachedattachquota` and the other texts it returns.
+9. **The per-entry, per-comment and upload/download amount limits are not enforced** anywhere (only the upload quota is).
+10. **The comment form's hidden `post_hash` field is empty**: the controller sets the hash on the entry object, the template reads the
+    comment's.
+11. **Search keywords treat `%` and `_` as wildcards** (they are escaped for SQL but not for `LIKE`).
+12. **The scheduled task's pruning loop fails**: `task_myshowcase()` reads a `prune_time` setting that the showcase table no longer has.
+    The exports retention was moved ahead of it so it still runs.
+
+**Note for the import:** its rollback (the compensating delete of section D) must delete the inserted rows **directly by entry id**
+(`EntriesRepository::deleteEntry()`), not through the controller's delete path: that path dispatches `EntryDeletedEvent`, whose
+listeners are not registered in the request (issue 5) and would leave attachments and comments or fail halfway.
 
 ---
 

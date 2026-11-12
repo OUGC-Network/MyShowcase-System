@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MyShowcase export :: 2026-11-12T07:15:59+00:00 -->
+<array>
+  <element>
+    <key>header</key>
+    <value>
+      <array>
+        <element>
+          <key>format</key>
+          <value>myshowcase-entries</value>
+        </element>
+        <element>
+          <key>format_version</key>
+          <value type="INT">1</value>
+        </element>
+        <element>
+          <key>myshowcase_version</key>
+          <value>3.0.0</value>
+        </element>
+        <element>
+          <key>generated</key>
+          <value>2026-11-12T07:15:59+00:00</value>
+        </element>
+        <element>
+          <key>showcase</key>
+          <value>
+            <array>
+              <element>
+                <key>route_identifier</key>
+                <value>blog</value>
+              </element>
+              <element>
+                <key>name</key>
+                <value>Blog</value>
+              </element>
+            </array>
+          </value>
+        </element>
+        <element>
+          <key>collection</key>
+          <value>
+            <array>
+              <element>
+                <key>name</key>
+                <value>Blog</value>
+              </element>
+            </array>
+          </value>
+        </element>
+        <element>
+          <key>entry_count</key>
+          <value type="INT">3</value>
+        </element>
+        <element>
+          <key>fields</key>
+          <value>
+            <array>
+              <element>
+                <key type="INT">0</key>
+                <value>
+                  <array>
+                    <element>
+                      <key>field_key</key>
+                      <value>summary</value>
+                    </element>
+                    <element>
+                      <key>html_type</key>
+                      <value>textarea</value>
+                    </element>
+                    <element>
+                      <key>field_type</key>
+                      <value>text</value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+            </array>
+          </value>
+        </element>
+        <element>
+          <key>rules</key>
+          <value>
+            <array>
+              <element>
+                <key>limit</key>
+                <value type="INT">4</value>
+              </element>
+              <element>
+                <key>limit_cap</key>
+                <value type="INT">5000</value>
+              </element>
+              <element>
+                <key>order_by</key>
+                <value>subject</value>
+              </element>
+              <element>
+                <key>order_dir</key>
+                <value>asc</value>
+              </element>
+              <element>
+                <key>fields</key>
+                <value>
+                  <array>
+                    <element>
+                      <key type="INT">0</key>
+                      <value>subject</value>
+                    </element>
+                    <element>
+                      <key type="INT">1</key>
+                      <value>message</value>
+                    </element>
+                    <element>
+                      <key type="INT">2</key>
+                      <value>summary</value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+              <element>
+                <key>options</key>
+                <value>
+                  <array>
+                    <element>
+                      <key>include_awaiting_approval</key>
+                      <value type="INT">0</value>
+                    </element>
+                    <element>
+                      <key>include_soft_deleted</key>
+                      <value type="INT">0</value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+              <element>
+                <key>removed_characters</key>
+                <value type="INT">0</value>
+              </element>
+            </array>
+          </value>
+        </element>
+      </array>
+    </value>
+  </element>
+  <element>
+    <key>entries</key>
+    <value>
+      <array>
+        <element>
+          <key type="INT">0</key>
+          <value>
+            <array>
+              <element>
+                <key>subject</key>
+                <value><![CDATA[A special <&> "q"]]></value>
+              </element>
+              <element>
+                <key>message</key>
+                <value><![CDATA[line1]]>&#13;<![CDATA[
+line2 ]]]]><![CDATA[> end 😀 "quoted" 'single' & <b>tag</b>]]></value>
+              </element>
+              <element>
+                <key>fields</key>
+                <value>
+                  <array>
+                    <element>
+                      <key>summary</key>
+                      <value>sum A</value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+            </array>
+          </value>
+        </element>
+        <element>
+          <key type="INT">1</key>
+          <value>
+            <array>
+              <element>
+                <key>subject</key>
+                <value>B approved</value>
+              </element>
+              <element>
+                <key>message</key>
+                <value>plain body</value>
+              </element>
+              <element>
+                <key>fields</key>
+                <value>
+                  <array>
+                    <element>
+                      <key>summary</key>
+                      <value>
+                        <array>
+                          <element>
+                            <key>__null__</key>
+                            <value type="BOOL">1</value>
+                          </element>
+                        </array>
+                      </value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+            </array>
+          </value>
+        </element>
+        <element>
+          <key type="INT">2</key>
+          <value>
+            <array>
+              <element>
+                <key>subject</key>
+                <value>E by mod1</value>
+              </element>
+              <element>
+                <key>message</key>
+                <value>mod body</value>
+              </element>
+              <element>
+                <key>fields</key>
+                <value>
+                  <array>
+                    <element>
+                      <key>summary</key>
+                      <value>sum E</value>
+                    </element>
+                  </array>
+                </value>
+              </element>
+            </array>
+          </value>
+        </element>
+      </array>
+    </value>
+  </element>
+</array>
+<!-- End of MyShowcase export. -->
