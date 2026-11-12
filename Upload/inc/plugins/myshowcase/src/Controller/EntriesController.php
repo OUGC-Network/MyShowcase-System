@@ -889,6 +889,10 @@ class EntriesController extends BaseController
             //$entry->addAttachment($attachment_data);
         }
 
+        // What the user posted, before it is mixed with the entry. Only EntriesManager::allowedEntryInput() reads it
+        // to build the entry; the merged input below is for showing the form again.
+        $posted_input = $this->context->mybb->input;
+
         $this->context->mybb->input = array_merge((array)$entry, $this->context->mybb->input);
 
         if ($this->context->mybb->request_method === 'post') {
@@ -946,10 +950,16 @@ class EntriesController extends BaseController
                 //$entry->dateline = TIME_NOW;
             }
 
-            $preview_entry = $this->context->entries_manager->generateEntry(array_merge($this->context->mybb->input, [
-                'entry_id' => $entry->entry_id,
-                'user_id' => $entry->user_id,
-            ], $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]));
+            // The stored (or new) entry, then the posted values that are allowed, then the values only the server sets.
+            $preview_entry = $this->context->entries_manager->generateEntry(array_merge(
+                (array)$entry,
+                $this->context->entries_manager->allowedEntryInput($posted_input),
+                [
+                    'entry_id' => $entry->entry_id,
+                    'user_id' => $entry->user_id,
+                ],
+                $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]
+            ));
 
             $this->context->entries_manager->validateSet(
                 $preview_entry,

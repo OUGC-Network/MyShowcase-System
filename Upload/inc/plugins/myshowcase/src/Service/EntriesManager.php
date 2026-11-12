@@ -104,13 +104,14 @@ class EntriesManager
      *
      * @param array<string, mixed> $input
      * @param null|callable(\MyShowcase\Entity\CustomFieldEntity): mixed $missing_value
+     * @param null|Collection<\MyShowcase\Entity\CustomFieldEntity> $fields The fields to read; all of them by default.
      * @return array<string, mixed> field_key => value
      */
-    public function buildFieldValues(array $input, ?callable $missing_value = null): array
+    public function buildFieldValues(array $input, ?callable $missing_value = null, ?Collection $fields = null): array
     {
         $values = [];
 
-        foreach ($this->context->custom_fields_collection as $field) {
+        foreach ($fields ?? $this->context->custom_fields_collection as $field) {
             if (isset($input[$field->field_key])) {
                 $values[$field->field_key] = $input[$field->field_key];
             } else {
@@ -247,6 +248,68 @@ class EntriesManager
         return $this->context->custom_fields_collection->filter(
             fn(\MyShowcase\Entity\CustomFieldEntity $field): bool => $field->canFill()
         );
+    }
+
+    /**
+     * What the create and update forms may take from posted input, and nothing else: the posted values are filtered
+     * here, so a user cannot set server-controlled columns (user, status, views, dates, slug, counters, ip address)
+     * by adding them to the post. Keys that are not allowed are dropped without an error.
+     *
+     * - subject, message: when the showcase has them enabled;
+     * - icon_id: when the showcase allows post icons;
+     * - allow_signature: for users whose group may use a signature;
+     * - disable_smilies: when the showcase parses smilies in entries;
+     * - is_closed, is_sticky: only for users who may close (EntriesCanClose) or stick (EntriesCanSticky);
+     * - the fields of the collection the user may fill (CustomFieldEntity::canFill()), blank when not posted.
+     *
+     * @param array<string, mixed> $posted
+     * @return array<string, mixed>
+     */
+    public function allowedEntryInput(array $posted): array
+    {
+        $user = $this->context->current_user;
+
+        $showcase = $this->context->showcase;
+
+        $allowed_keys = [];
+
+        if ($showcase->entries_enable_subject) {
+            $allowed_keys[] = 'subject';
+        }
+
+        if ($showcase->entries_enable_message) {
+            $allowed_keys[] = 'message';
+        }
+
+        if ($showcase->entries_allow_post_icons) {
+            $allowed_keys[] = 'icon_id';
+        }
+
+        if (!empty($this->context->mybb->usergroup['canusesig'])) {
+            $allowed_keys[] = 'allow_signature';
+        }
+
+        if ($showcase->parser_allow_smiles_in_entries) {
+            $allowed_keys[] = 'disable_smilies';
+        }
+
+        if ($user->hasPermission(UserPermissions::EntriesCanClose)) {
+            $allowed_keys[] = 'is_closed';
+        }
+
+        if ($user->hasPermission(UserPermissions::EntriesCanSticky)) {
+            $allowed_keys[] = 'is_sticky';
+        }
+
+        $allowed = [];
+
+        foreach ($allowed_keys as $key) {
+            if (isset($posted[$key]) && is_scalar($posted[$key])) {
+                $allowed[$key] = $posted[$key];
+            }
+        }
+
+        return $allowed + $this->buildFieldValues($posted, fields: $this->fillableFields());
     }
 
     /**
