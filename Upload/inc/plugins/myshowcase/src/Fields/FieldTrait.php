@@ -331,6 +331,13 @@ trait FieldTrait
             ) as $attachment_data
         ) {
             $attachments_manager->addAttachment($attachment_data);
+
+            // The field renders its own files (attachmentsBuild()); the entry page does not load them onto the entry.
+            $attachment = $attachments_manager->getAttachments()[(int)$attachment_data['attachment_id']] ?? null;
+
+            if ($attachment instanceof AttachmentEntity) {
+                $this->addAttachment($attachment);
+            }
         }
     }
 
