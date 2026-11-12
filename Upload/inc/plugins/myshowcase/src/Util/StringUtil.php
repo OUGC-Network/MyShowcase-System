@@ -68,6 +68,18 @@ class StringUtil
     }
 
     /**
+     * Regular expression fragment, without delimiters, that matches a value of generatePublicId().
+     */
+    public function publicIdPattern(?int $length = null): string
+    {
+        if (empty($length)) {
+            $length = getSetting('slugLength');
+        }
+
+        return '[0-9a-f]{' . (int)$length . '}';
+    }
+
+    /**
      * Counts a message's characters removing special code.
      * Based off Zinga Burga's "Thread Tooltip Preview" plugin threadtooltip_getpreview() function.
      *

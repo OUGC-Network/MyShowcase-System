@@ -87,10 +87,9 @@ const TABLES_DATA = [
             'auto_increment' => true,
             'primary_key' => true
         ],
-        'attachment_hash' => [
+        'public_id' => [
             'type' => 'VARCHAR',
-            'size' => 36,
-            'default' => '',
+            'size' => SETTINGS['slugLength'],
             'unique_key' => true
         ],
         'showcase_id' => [

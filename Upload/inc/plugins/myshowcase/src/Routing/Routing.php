@@ -319,7 +319,7 @@ class Routing
         $this->routes->add(
             Routes::AttachmentDownload,
             new Route(
-                '/{showcase}/attachment/{attachment_hash}/{attachment_name}',
+                '/{showcase}/attachment/{attachment_public_id}/{attachment_name}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -332,7 +332,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'attachment_hash' => '[a-z0-9-]+',
+                    'attachment_public_id' => '[a-z0-9-]+',
                     'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
                 ]
             ),
@@ -341,7 +341,7 @@ class Routing
         $this->routes->add(
             Routes::AttachmentThumbnail,
             new Route(
-                '/{showcase}/thumbnail/{attachment_hash}/{attachment_name}',
+                '/{showcase}/thumbnail/{attachment_public_id}/{attachment_name}',
                 [
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
@@ -353,7 +353,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'attachment_hash' => '[a-z0-9-]+',
+                    'attachment_public_id' => '[a-z0-9-]+',
                     'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
                 ],
             )

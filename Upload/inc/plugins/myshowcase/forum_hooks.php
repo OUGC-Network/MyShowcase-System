@@ -29,6 +29,7 @@ use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\QuotesUtil;
+use MyShowcase\Util\StringUtil;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -337,7 +338,7 @@ function postbit(array &$post): array
 
     if (str_contains($post['message'], '[attachment=')) {
         preg_match_all(
-            '#\[attachment=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})]#si',
+            '#\[attachment=(' . (new StringUtil())->publicIdPattern() . ')]#si',
             $post['message'],
             $matches
         );
@@ -345,7 +346,7 @@ function postbit(array &$post): array
         if (!empty($matches[1])) {
             global $db, $mybb, $lang;
 
-            $attachment_hashes = implode("','", array_map([$db, 'escape_string'], $matches[1]));
+            $attachment_public_ids = implode("','", array_map([$db, 'escape_string'], $matches[1]));
 
             foreach (
                 $cache_manager->get(
@@ -361,7 +362,7 @@ function postbit(array &$post): array
                 // todo, cache attachment objects per showcase to reduce queries
                 foreach (
                     $showcase->context->attachments_repository->queryAttachments(
-                        ["attachment_hash IN ('{$attachment_hashes}')"], // todo, status clause
+                        ["public_id IN ('{$attachment_public_ids}')"], // todo, status clause
                         array_keys(TABLES_DATA['myshowcase_attachments']),
                     ) as $attachment_data
                 ) {
@@ -406,7 +407,7 @@ function postbit(array &$post): array
                             $showcase->context->routing->generateUrl(
                                 Routes::AttachmentDownload,
                                 [
-                                    'attachment_hash' => $attachment->attachment_hash,
+                                    'attachment_public_id' => $attachment->public_id,
                                     'attachment_name' => $attachment->attachment_name,
                                 ],
                             )
@@ -418,7 +419,7 @@ function postbit(array &$post): array
                             $showcase->context->routing->generateUrl(
                                 Routes::AttachmentThumbnail,
                                 [
-                                    'attachment_hash' => $attachment->attachment_hash,
+                                    'attachment_public_id' => $attachment->public_id,
                                     'attachment_name' => $attachment->attachment_name,
                                 ],
                             )
@@ -430,8 +431,8 @@ function postbit(array &$post): array
                     $entry->addAttachment($attachment);
                 }
 
-                foreach ($matches[1] as $attachment_hash) {
-                    $attachment = $showcase->context->attachments_manager->getAttachmentByHash($attachment_hash);
+                foreach ($matches[1] as $attachment_public_id) {
+                    $attachment = $showcase->context->attachments_manager->getAttachmentByPublicId($attachment_public_id);
 
                     if (!$attachment ||
                         !$showcase->context->entries_manager->getEntries()->offsetExists($attachment->entry_id)) {
@@ -452,7 +453,7 @@ function postbit(array &$post): array
                     );
 
                     $post['message'] = str_replace(
-                        "[attachment={$attachment->attachment_hash}]",
+                        "[attachment={$attachment->public_id}]",
                         $attachedThumbnail,
                         $post['message']
                     );

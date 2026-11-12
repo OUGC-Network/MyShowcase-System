@@ -18,6 +18,7 @@ use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
@@ -144,10 +145,10 @@ class AttachmentsManager
         return $this->context->cache_manager->get(CacheDataTypes::AttachmentTypes)[$this->context->showcase->showcase_id] ?? [];
     }
 
-    public function getAttachmentByHash(string $attachment_hash): AttachmentEntity|bool
+    public function getAttachmentByPublicId(string $attachment_public_id): AttachmentEntity|bool
     {
         foreach ($this->attachments as $attachment_id => $attachment_data) {
-            if ($attachment_data->attachment_hash === $attachment_hash) {
+            if ($attachment_data->public_id === $attachment_public_id) {
                 return $attachment_data;
             }
         }
@@ -349,7 +350,7 @@ class AttachmentsManager
 
         $this->insert_data = [
             'showcase_id' => $this->context->showcase->showcase_id,
-            'attachment_hash' => (new UuidUtil())->generateUuidV4(),
+            'public_id' => (new StringUtil())->generatePublicId(),
             'user_id' => $entry->user_id,
             'file_name' => $file_name,
             'mime_type' => my_strtolower($file_upload_result['type']),
@@ -364,7 +365,7 @@ class AttachmentsManager
             /*'cdn_file' => 0,*/
         ];
 
-        $this->return_data['attachment_hash'] = $this->insert_data['attachment_hash'];
+        $this->return_data['public_id'] = $this->insert_data['public_id'];
 
         $this->return_data['file_name'] = $this->insert_data['file_name'];
 

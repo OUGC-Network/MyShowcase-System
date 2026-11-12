@@ -144,7 +144,7 @@ class AttachmentsController extends BaseController
                     'url' => $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                             Routes::AttachmentDownload,
                             [
-                                'attachment_hash' => $upload_attachment_result['attachment_hash'],
+                                'attachment_public_id' => $upload_attachment_result['public_id'],
                                 'attachment_name' => $upload_attachment_result['attachment_name'],
                             ],
                         ),
@@ -221,7 +221,7 @@ class AttachmentsController extends BaseController
                 'attachment_name',
                 'mime_type',
                 'file_size',
-                'attachment_hash',
+                'public_id',
             ]
         );
 
@@ -229,7 +229,7 @@ class AttachmentsController extends BaseController
             $attachmentObjects[$attachment_id]['url'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::AttachmentDownload,
                     [
-                        'attachment_hash' => $attachment_data['attachment_hash'],
+                        'attachment_public_id' => $attachment_data['public_id'],
                         'attachment_name' => $attachment_data['attachment_name'],
                     ],
                 );
@@ -238,21 +238,21 @@ class AttachmentsController extends BaseController
         $this->success(array_values($attachmentObjects));
     }
 
-    #[Route('/attachment/{attachment_hash}/{attachment_name}', name: 'attachment_view', methods: ['GET'])]
+    #[Route('/attachment/{attachment_public_id}/{attachment_name}', name: 'attachment_view', methods: ['GET'])]
     #[NoReturn]
     public function downloadAttachment(
-        string $attachment_hash,
+        string $attachment_public_id,
         string $attachment_name,
     ): void {
         $this->is_thumbnail = false;
 
-        $this->viewThumbnail($attachment_hash, $attachment_name);
+        $this->viewThumbnail($attachment_public_id, $attachment_name);
     }
 
-    #[Route('/thumbnail/{attachment_hash}/{attachment_name}', name: 'thumbnail_view', methods: ['GET'])]
+    #[Route('/thumbnail/{attachment_public_id}/{attachment_name}', name: 'thumbnail_view', methods: ['GET'])]
     #[NoReturn]
     public function viewThumbnail(
-        string $attachment_hash,
+        string $attachment_public_id,
         string $attachment_name,
     ): void {
         $this->verifyPassword(true);
@@ -264,7 +264,7 @@ class AttachmentsController extends BaseController
 
         $this->attachment_data = $this->context->attachments_repository->queryAttachment(
             [
-                "attachment_hash='{$db->escape_string($attachment_hash)}'",
+                "public_id='{$db->escape_string($attachment_public_id)}'",
                 "attachment_name='{$db->escape_string($attachment_name)}'",
             ],
             array_keys(TABLES_DATA['myshowcase_attachments']),

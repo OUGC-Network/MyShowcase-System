@@ -313,7 +313,7 @@ trait FieldTrait
                     'comment_id',
                     'field_id',
                     'post_hash',
-                    'attachment_hash',
+                    'public_id',
                     'user_id',
                     'description',
                     'file_name',

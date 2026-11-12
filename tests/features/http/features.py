@@ -290,7 +290,7 @@ def attachments():
     print('--- 5. attachment and thumbnail serving')
     m1, m2, guest = user('member1'), user('member2'), user('guest')
     e = create_gallery(m1, 'Webp photo', 'image.webp')['entry']
-    a = q(f"select attachment_hash, attachment_name, thumbnail_name from mybb_myshowcase_attachments where entry_id='{e['entry_id']}'")[0]
+    a = q(f"select public_id, attachment_name, thumbnail_name from mybb_myshowcase_attachments where entry_id='{e['entry_id']}'")[0]
     ok(a[2] == '', 'the WebP image has no thumbnail')
     thumb, orig = f'{G}/thumbnail/{a[0]}/{a[1]}', f'{G}/attachment/{a[0]}/{a[1]}'
     for who, c in (('guest', guest), ('member2', m2), ('owner', m1)):
@@ -298,7 +298,7 @@ def attachments():
         ok(t['status'] == 200 and t['type'].startswith('image/webp') and o['status'] == 200 and t['raw'] == o['raw'],
            f'{who}: thumbnail without a thumbnail falls back to the original [{t["status"]} {t["type"]}]')
     j = create_gallery(m1, 'Jpeg photo', 'photo.jpg')['entry']
-    b = q(f"select attachment_hash, attachment_name, thumbnail_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
+    b = q(f"select public_id, attachment_name, thumbnail_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
     ok(b[2] != '' and m2.get(f'{G}/thumbnail/{b[0]}/{b[1]}')['status'] == 200, 'a real thumbnail is served')
     fix('permission', 1, 'attachments_can_download', 0)
     fix('permission', 2, 'attachments_can_download', 0)

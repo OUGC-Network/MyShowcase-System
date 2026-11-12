@@ -449,7 +449,7 @@ class EntriesController extends BaseController
                             'comment_id',
                             'field_id',
                             'post_hash',
-                            'attachment_hash',
+                            'public_id',
                             'user_id',
                             'description',
                             'file_name',
@@ -488,7 +488,7 @@ class EntriesController extends BaseController
                     $this->context->routing->generateUrl(
                         Routes::AttachmentDownload,
                         [
-                            'attachment_hash' => $attachment_data->attachment_hash,
+                            'attachment_public_id' => $attachment_data->public_id,
                             'attachment_name' => $attachment_data->attachment_name,
                         ],
                     )
@@ -500,7 +500,7 @@ class EntriesController extends BaseController
                         $this->context->routing->generateUrl(
                             Routes::AttachmentThumbnail,
                             [
-                                'attachment_hash' => $attachment_data->attachment_hash,
+                                'attachment_public_id' => $attachment_data->public_id,
                                 'attachment_name' => $attachment_data->attachment_name,
                             ]
                         )
@@ -824,7 +824,7 @@ class EntriesController extends BaseController
         return [
             'url' => $this->context->routing->generateUrl(
                 Routes::AttachmentThumbnail,
-                ['attachment_hash' => $image->attachment_hash, 'attachment_name' => $image->attachment_name]
+                ['attachment_public_id' => $image->public_id, 'attachment_name' => $image->attachment_name]
             ),
             'name' => $image->attachment_name,
         ];
@@ -1088,7 +1088,7 @@ class EntriesController extends BaseController
                     'comment_id',
                     'field_id',
                     'post_hash',
-                    'attachment_hash',
+                    'public_id',
                     'user_id',
                     'description',
                     'file_name',

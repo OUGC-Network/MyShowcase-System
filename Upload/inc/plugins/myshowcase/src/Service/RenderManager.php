@@ -352,7 +352,7 @@ class RenderManager
                     'comment_id',
                     'field_id',
                     'post_hash',
-                    'attachment_hash',
+                    'public_id',
                     'user_id',
                     'description',
                     'file_name',
@@ -401,7 +401,7 @@ class RenderManager
                 $this->context->routing->generateUrl(
                     Routes::AttachmentDownload,
                     [
-                        'attachment_hash' => $attachment_data->attachment_hash,
+                        'attachment_public_id' => $attachment_data->public_id,
                         'attachment_name' => $attachment_data->attachment_name,
                     ],
                 )
@@ -413,7 +413,7 @@ class RenderManager
                     $this->context->routing->generateUrl(
                         Routes::AttachmentThumbnail,
                         [
-                            'attachment_hash' => $attachment_data->attachment_hash,
+                            'attachment_public_id' => $attachment_data->public_id,
                             'attachment_name' => $attachment_data->attachment_name,
                         ]
                     )
@@ -1106,7 +1106,7 @@ class RenderManager
                         $this->context->routing->generateUrl(
                             Routes::AttachmentDownload,
                             [
-                                'attachment_hash' => $attachment_data->attachment_hash,
+                                'attachment_public_id' => $attachment_data->public_id,
                                 'attachment_name' => $attachment_data->attachment_name,
                             ],
                         )
@@ -1117,7 +1117,7 @@ class RenderManager
                         $this->context->routing->generateUrl(
                             Routes::AttachmentDownload,
                             [
-                                'attachment_hash' => $attachment_data->attachment_hash,
+                                'attachment_public_id' => $attachment_data->public_id,
                                 'attachment_name' => $attachment_data->attachment_name,
                             ],
                         )
@@ -1130,7 +1130,7 @@ class RenderManager
                         $this->context->routing->generateUrl(
                             Routes::AttachmentThumbnail,
                             [
-                                'attachment_hash' => $attachment_data->attachment_hash,
+                                'attachment_public_id' => $attachment_data->public_id,
                                 'attachment_name' => $attachment_data->attachment_name,
                             ]
                         )
@@ -1145,16 +1145,16 @@ class RenderManager
 
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
 
-                // Support for [attachment=attachment_hash] code
+                // Support for [attachment=public_id] code
                 $attachmentInField = false;
 
                 foreach ($entry_fields as $field_header => &$field_definition) {
                     if (str_contains(
                             $field_definition['value'],
-                            '[attachment=' . $attachment_data->attachment_hash . ']'
+                            '[attachment=' . $attachment_data->public_id . ']'
                         ) || str_contains(
                             $field_definition['value_display'],
-                            '[attachment=' . $attachment_data->attachment_hash . ']'
+                            '[attachment=' . $attachment_data->public_id . ']'
                         )) {
                         $attachmentInField = true;
 
@@ -1168,10 +1168,10 @@ class RenderManager
 
                         if (str_contains(
                             $field_definition['value'],
-                            '[attachment=' . $attachment_data->attachment_hash . ']'
+                            '[attachment=' . $attachment_data->public_id . ']'
                         )) {
                             $field_definition['value'] = preg_replace(
-                                '#\[attachment=' . $attachment_data->attachment_hash . ']#si',
+                                '#\[attachment=' . $attachment_data->public_id . ']#si',
                                 $attachmentBit,
                                 $field_definition['value']
                             );
@@ -1179,10 +1179,10 @@ class RenderManager
 
                         if (str_contains(
                             $field_definition['value_display'],
-                            '[attachment=' . $attachment_data->attachment_hash . ']'
+                            '[attachment=' . $attachment_data->public_id . ']'
                         )) {
                             $field_definition['value'] = preg_replace(
-                                '#\[attachment=' . $attachment_data->attachment_hash . ']#si',
+                                '#\[attachment=' . $attachment_data->public_id . ']#si',
                                 $attachmentBit,
                                 $field_definition['value']
                             );

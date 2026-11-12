@@ -16,7 +16,7 @@ class AttachmentEntity
 
     public function __construct(
         public readonly ?int $attachment_id = null,
-        public readonly ?string $attachment_hash = null,
+        public readonly ?string $public_id = null,
         public readonly ?int $showcase_id = null,
         public readonly ?int $entry_id = null,
         public readonly ?int $comment_id = null,
