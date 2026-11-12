@@ -21,6 +21,7 @@ use MyShowcase\Controller\EntriesController;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Showcase;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Util\StringUtil;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -71,6 +72,8 @@ class Routing
     {
         // Create a RouteCollection and add routes
         $this->routes = new RouteCollection();
+
+        $public_id_pattern = (new StringUtil())->publicIdPattern();
 
         $this->routes->add(
             Routes::Main,
@@ -125,7 +128,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -145,7 +148,7 @@ class Routing
                 [
                     '_method' => 'POST',
                     'showcase' => '[a-z0-9]+',
-                    'post_hash' => '[a-z0-9-]+',
+                    'post_hash' => $public_id_pattern,
                 ]
             )
         );
@@ -165,7 +168,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -185,7 +188,7 @@ class Routing
                 [
                     '_method' => 'POST',
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -206,7 +209,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -228,7 +231,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -249,7 +252,7 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -269,8 +272,8 @@ class Routing
                 ],
                 [
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
-                    'comment_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
+                    'comment_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -291,7 +294,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'entry_public_id' => '[a-z0-9-]+',
+                    'entry_public_id' => $public_id_pattern,
                     //'entry_slug_custom' => '[a-z0-9-]*',
                 ]
             )
@@ -311,7 +314,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'comment_public_id' => '[a-z0-9-]+',
+                    'comment_public_id' => $public_id_pattern,
                 ]
             )
         );
@@ -332,7 +335,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'attachment_public_id' => '[a-z0-9-]+',
+                    'attachment_public_id' => $public_id_pattern,
                     'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
                 ]
             ),
@@ -353,7 +356,7 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
-                    'attachment_public_id' => '[a-z0-9-]+',
+                    'attachment_public_id' => $public_id_pattern,
                     'attachment_name' => '[^\/:*?"<>|\x00-\x1F]+',
                 ],
             )

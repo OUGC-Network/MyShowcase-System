@@ -63,8 +63,19 @@ class StringUtil
             $length = getSetting('slugLength');
         }
 
-        // Exactly $length characters: the columns are VARCHAR(slugLength), and bin2hex() doubles the length.
-        return substr(bin2hex(random_bytes((int)ceil($length / 2))), 0, $length);
+        $length = (int)$length;
+
+        $alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+        $max_characters = strlen($alphabet) - 1;
+
+        $generated_id = '';
+
+        for ($i = 0; $i < $length; $i++) {
+            $generated_id .= $alphabet[random_int(0, $max_characters)];
+        }
+
+        return $generated_id;
     }
 
     /**
@@ -76,7 +87,7 @@ class StringUtil
             $length = getSetting('slugLength');
         }
 
-        return '[0-9a-f]{' . (int)$length . '}';
+        return '[0-9a-z]{' . (int)$length . '}';
     }
 
     public function isValidPublicId(string $value): bool
