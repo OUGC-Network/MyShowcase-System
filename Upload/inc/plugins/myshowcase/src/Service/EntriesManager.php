@@ -121,6 +121,15 @@ class EntriesManager
         return $values;
     }
 
+    /**
+     * The status a new entry is created with. The form and any other way of creating entries ask here, so there is one
+     * decision.
+     */
+    public function newEntryStatus(): int
+    {
+        return ContentStatuses::VisibleApproved;
+    }
+
     public function generateEntry(array $entry_data): EntryEntity
     {
         $fields_data = $extra_data = [];

@@ -944,7 +944,7 @@ class EntriesController extends BaseController
             $preview_entry = $this->context->entries_manager->generateEntry(array_merge($this->context->mybb->input, [
                 'entry_id' => $entry->entry_id,
                 'user_id' => $entry->user_id,
-            ]));
+            ], $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]));
 
             $this->context->entries_manager->validateSet(
                 $preview_entry,
