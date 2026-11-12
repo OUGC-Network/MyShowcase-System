@@ -11,7 +11,8 @@ collections and showcases is documented in [`Upload/inc/plugins/myshowcase/impor
 Status values used here:
 
 * **Approved — not implemented**: agreed, waiting for its implementation track.
-* **Proposed — pending approval**: suggested, not agreed yet.
+* **Already satisfied by the existing schema**: agreed, and the current schema already provides it; no change is
+  needed.
 
 ## Contents
 
@@ -45,16 +46,21 @@ Table names below are given without the board prefix (`mybb_` by default).
 
 Conventions in the existing schema that the new columns follow:
 
+* **Primary keys** are one auto-increment `INT UNSIGNED` column named after the row: `attachment_id`,
+  `attachment_history_id`, `attachment_share_id`, `field_data_id`, `entry_history_id` (three log tables use
+  `log_id`). No table has a multi-column primary key. A pivot table gets a surrogate key plus a unique key on its
+  columns, as `myshowcase_attachments_shared` does (`attachment_share_id`, unique
+  `session_attachment_id (session_id, attachment_id)`), like MyBB core tables.
 * **Timestamps** are `dateline` (created) and `update_dateline` (changed), type `DATETIME`, for example in
   `myshowcase_attachments`, `myshowcase_comments` and the entry tables. The JSON sync columns use `json_synced_at INT`.
   There are no `created_at` / `updated_at` columns.
 * **Authors** are stored in `user_id` (`INT UNSIGNED`), never `created_by` or `uid`.
-* **Content status** uses `ContentStatuses` (`src/Enum/ContentStatuses.php`): `0` awaiting approval, `1` visible,
-  `2` soft deleted.
+* **Content status** uses `ContentStatuses` (`src/Enum/ContentStatuses.php`): `0` awaiting approval
+  (`AwaitingApproval`), `1` visible (`VisibleApproved`), `2` soft deleted (`SoftDeleted`; `IsDraft` is also `2`).
 * **Flags** are `TINYINT UNSIGNED` named `is_*` (`is_enabled`, `is_required`), `enable_*` (`enable_search`,
   `enable_slug`) or `display_in_*` (`display_in_main_page`).
-* **Group lists** are `VARCHAR(120)` comma-separated group ids, `-1` meaning all groups (`allowed_groups_fill`,
-  `allowed_groups_view`).
+* **Group lists** are `VARCHAR(120)` comma-separated group ids, default `''`, `-1` meaning all groups
+  (`allowed_groups_fill`, `allowed_groups_view`).
 * **Slugs** carry the name of their row: `entry_slug`, `comment_slug`. Parent references name their table:
   `parent_comment_id`.
 * **Permission columns** are named `<area>_can_<verb>` (`entries_can_post`, `attachments_can_download`) and are
@@ -96,30 +102,36 @@ Conventions in the existing schema that the new columns follow:
   unique ones (`dbVerifyIndexes`). Backfills that must run before a unique index belong in the "RUN UPDATES" block.
 * **Unique indexes are skipped when duplicates exist.** `SchemaManager::verifyIndexes()` counts duplicates first and
   shows a warning instead of creating the index; the index is tried again on the next activation.
-* **Composite primary keys are not supported by `TABLES_DATA` today.** `SchemaManager::schemaOf()` keeps one
-  primary-key column (the last one with `primary_key`), and `createTableSql()` writes `PRIMARY KEY (<one column>)`.
-  The approved tables `myshowcase_field_values`, `myshowcase_folder_entries` and `myshowcase_attachment_variants` use
-  composite primary keys, so their implementing track must either:
-  1. teach `SchemaManager` a table-level composite primary key (the SQLite rebuild path,
-     `sqliteRebuildStatements()`, already preserves composite primary keys it finds), or
-  2. use an auto-increment surrogate key plus a `unique_keys` entry on the composite columns.
-  This document keeps the approved composite keys; the choice is an implementation decision of each track.
+* **No multi-column primary keys.** `SchemaManager::schemaOf()` keeps one primary-key column (the last one with
+  `primary_key`), and `createTableSql()` writes `PRIMARY KEY (<one column>)`. The new tables
+  `myshowcase_field_values`, `myshowcase_folder_entries` and `myshowcase_attachment_variants` therefore each get an
+  auto-increment surrogate key (`INT UNSIGNED`, `auto_increment`, `primary_key`) and declare their composite
+  uniqueness in `unique_keys`, with extra lookups in `keys`. `SchemaManager` needs no change for this.
 * **Entry ids are only unique within one showcase.** Each showcase has its own `myshowcase_data{showcase_id}` table
   with its own `entry_id` sequence, and one collection (and its fields) can be used by several showcases. Any table
   that stores an `entry_id` must also identify the showcase, directly or through a row that belongs to one showcase.
+* **Attachment ids are unique across showcases.** All showcases share one `myshowcase_attachments` table with one
+  auto-increment `attachment_id`; `showcase_id` is an ordinary column of it.
 * **JSON exposure is automatic.** `JsonSchema` (`src/Service/JsonSync/JsonSchema.php`) turns every typed,
   non-auto-increment column of `myshowcase_config`, `myshowcase_fields` and `myshowcase_field_data` into an allowed
   JSON key, except the columns in its exclusion lists. `JsonValidator` accepts integers (TINYINT, SMALLINT,
-  MEDIUMINT, INT, from 0 to the unsigned maximum) and VARCHAR/CHAR (up to `max`, else `size`); any other type is
-  rejected. Group columns (`JsonSchema::GROUP_COLUMNS`) only accept `"all"`. A new column on these three tables is
+  MEDIUMINT, INT, from 0 to the unsigned maximum of the column type, so widening a column widens the accepted range)
+  and VARCHAR/CHAR (up to `max`, else `size`); any other type is rejected. A new column on these three tables is
   therefore a new JSON key unless it is excluded. Other tables are not synced.
+* **Group-list columns in JSON.** `JsonSchema::GROUP_COLUMNS` (today `allowed_groups_fill`, `allowed_groups_view`)
+  holds the field columns that store group lists, because group ids differ between boards:
+  * `JsonValidator` accepts only the string `"all"` for them (error `can only be "all"`);
+  * `JsonPlanner::fieldColumns()` stores `"all"` as `-1`;
+  * `JsonExporter` writes `"all"` when the stored list contains `-1` and omits the key otherwise;
+  * on options (`myshowcase_field_data`) both group columns are excluded from `JsonSchema::optionColumns()`, and an
+    option whose group list is empty follows its field.
 
 ---
 
 ## Group A — Category option metadata
 
 **Status: Approved — not implemented.** Implementing track: **T1** (option metadata), with **T3** (category filter
-bar) using `filter_display`.
+bar) using `display_in_filter_bar`.
 
 ### Purpose
 
@@ -137,48 +149,42 @@ description and an active flag, and let a field show option images and act as a 
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
-| `slug` | VARCHAR(100) | NOT NULL | `''` | URL-safe key of the option, unique per field after the backfill. |
-| `parent_id` | INT UNSIGNED | NOT NULL | `0` | `field_data_id` of the parent option in the same field; `0` = top level. |
+| `value_slug` | VARCHAR(100) | NOT NULL | `''` | URL-safe key of the option, unique per field after the backfill. |
+| `parent_field_data_id` | INT UNSIGNED | NOT NULL | `0` | `field_data_id` of the parent option in the same field; `0` = top level. |
 | `image` | VARCHAR(255) | NOT NULL | `''` | Image path relative to the board root. |
 | `description` | VARCHAR(500) | NOT NULL | `''` | Description of the option. |
-| `is_active` | TINYINT UNSIGNED | NOT NULL | `1` | `0` hides the option from forms and filters; entries that use it keep it. |
+| `is_enabled` | TINYINT UNSIGNED | NOT NULL | `1` | `0` hides the option from forms and filters; entries that use it keep it. |
 
 Existing columns of the table: `field_data_id` (PK), `collection_id`, `field_id`, `field_key`, `value_id`
 (VARCHAR(120), default `0`, marked "todo, drop" in `Core.php`), `value` (VARCHAR(120)), `display_style`
 (VARCHAR(200)), `display_order` (SMALLINT UNSIGNED), `allowed_groups_fill`, `allowed_groups_view`.
 
-> **Naming note — `slug`.** Slugs elsewhere carry their row name (`entry_slug`, `comment_slug`), and this table
-> names its columns after the option value (`value_id`, `value`). Convention-aligned alternative: `value_slug`.
->
-> **Naming note — `parent_id`.** The existing parent column is `parent_comment_id`. Convention-aligned alternative:
-> `parent_field_data_id`.
->
-> **Naming note — `is_active`.** Existing enable flags are named `is_enabled` (fields, showcases).
-> Convention-aligned alternative: `is_enabled`.
+The names follow the existing conventions: the slug carries the name of the option value (`value_id`, `value`,
+`value_slug`), the parent reference names its table (`parent_field_data_id`, like `parent_comment_id`), and the
+enable flag is `is_enabled`, as on fields and showcases.
 
 ### Indexes
 
 | Index | Columns | Kind | Notes |
 |---|---|---|---|
 | (new) | `(field_id, value_id)` | UNIQUE | Created only after the backfill. `Core.php` has a commented-out `set_field_value_id` key on `(collection_id, field_id, value_id)`; `field_id` already implies the collection, so the approved key replaces it. |
-| (new) | `(field_id, slug)` | UNIQUE | Created only after the backfill. |
-| (new) | `(field_id, parent_id)` | INDEX | Children of an option. |
+| (new) | `(field_id, value_slug)` | UNIQUE | Created only after the backfill. |
+| (new) | `(field_id, parent_field_data_id)` | INDEX | Children of an option. |
 
 ### `myshowcase_fields` — new columns
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
-| `option_image_display` | TINYINT UNSIGNED | NOT NULL | `0` | Render option images on cards and chips, and use them as category covers. |
-| `filter_display` | TINYINT UNSIGNED | NOT NULL | `0` | Show the field as a filter bar on the main list. |
+| `display_option_image` | TINYINT UNSIGNED | NOT NULL | `0` | Render option images on cards and chips, and use them as category covers. |
+| `display_in_filter_bar` | TINYINT UNSIGNED | NOT NULL | `0` | Show the field as a filter bar on the main list. |
 
-> **Naming note.** Field flags are named `display_in_*` (`display_in_main_page`) or `enable_*` (`enable_search`).
-> Convention-aligned alternatives: `display_option_image` and `display_in_filter_bar`.
+Both follow the `display_*` / `display_in_*` naming of field flags (`display_in_main_page`).
 
 ### Engine mapping
 
 `VARCHAR(n)` columns are `VARCHAR(n)` everywhere (no length check on SQLite). `INT UNSIGNED` is `INT UNSIGNED` /
 `integer` / `INTEGER`; `TINYINT UNSIGNED` is `TINYINT UNSIGNED` / `smallint` / `INTEGER`. The unique index on
-`(field_id, slug)` is at most 4 + 400 bytes on MySQL utf8mb4, within InnoDB's key limit.
+`(field_id, value_slug)` is at most 4 + 400 bytes on MySQL utf8mb4, within InnoDB's key limit.
 
 ### Migration and backfill
 
@@ -187,10 +193,10 @@ Runs in the "RUN UPDATES" block of activation, before `dbVerifyIndexes`, and cha
 1. **`value_id`**: per field, read the options ordered by `display_order, field_data_id`. Keep every `value_id` that
    is a positive integer and not yet used in that field; give each empty, `0`, non-numeric or duplicate one the next
    free integer (highest used + 1).
-2. **`slug`**: per field, in the same order, set an empty slug to the slug of `value` (lower case, URL-safe, the
-   plugin's `StringUtil` slug rules); if that is empty use `option-{field_data_id}`; if it is already used in the
+2. **`value_slug`**: per field, in the same order, set an empty slug to the slug of `value` (lower case, URL-safe,
+   the plugin's `StringUtil` slug rules); if that is empty use `option-{field_data_id}`; if it is already used in the
    field append `-2`, `-3`, ….
-3. `parent_id`, `image`, `description` and `is_active` start at their defaults.
+3. `parent_field_data_id`, `image`, `description` and `is_enabled` start at their defaults.
 4. `dbVerifyIndexes` then creates the unique indexes. If duplicates remain (for example rows added by hand), the
    index is skipped with a warning and retried on the next activation.
 
@@ -198,12 +204,14 @@ Changing stored `value_id` values is a stored-value change; JSON files reference
 
 ### JSON sync exposure
 
-* Automatic option keys (integer/VARCHAR): `slug`, `image`, `description`, `is_active`.
-* **Exclude `parent_id`** from `JsonSchema::optionColumns()`: it holds a board-local `field_data_id`. A JSON file
-  needs a parent reference by `value_id` instead (for example a `parent` key holding the parent's `value_id`),
-  resolved by the applier in a second pass, with validation that the parent exists in the same field and that there
-  is no cycle. That key is a JSON schema addition of track T1.
-* Automatic field keys: `option_image_display`, `filter_display`.
+* Automatic option keys (integer/VARCHAR): `value_slug`, `image`, `description`, `is_enabled`.
+* **Exclude `parent_field_data_id`** from `JsonSchema::optionColumns()`: it holds a board-local `field_data_id` and is
+  never exported. A JSON option references its parent through a new key **`parent_value_id`**, holding the parent's
+  `value_id` in the same field. The applier resolves it in a second pass, after every option of the field exists,
+  and the validator checks that the parent exists in the same field and that there is no cycle. The exporter writes
+  `parent_value_id` from the parent row's `value_id`. `parent_value_id` is not a column; it is a JSON schema
+  addition of track T1.
+* Automatic field keys: `display_option_image`, `display_in_filter_bar`.
 * `JsonLock` already locks the option columns a file sets; the new keys are locked the same way.
 
 ### Permissions
@@ -218,8 +226,8 @@ None before it. Group B builds on it.
 
 ## Group B — Multi-select and tags
 
-**Status: Approved — not implemented**, except `myshowcase_field_data.created_by`: **Proposed — pending approval**.
-Implementing tracks: **T2** (multi-select storage) and **T2b** (creatable tags with moderation).
+**Status: Approved — not implemented.** Implementing tracks: **T2** (multi-select storage) and **T2b** (creatable
+tags with moderation).
 
 ### Purpose
 
@@ -230,65 +238,61 @@ permitted groups create new options that are moderated before others see them.
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
+| `field_value_id` | INT UNSIGNED, auto-increment | NOT NULL | — | Primary key. |
+| `showcase_id` | INT UNSIGNED | NOT NULL | — | Showcase of the entry. |
 | `entry_id` | INT UNSIGNED | NOT NULL | — | Entry (row of `myshowcase_data{showcase_id}`). |
 | `field_id` | INT UNSIGNED | NOT NULL | — | Field. |
 | `field_data_id` | INT UNSIGNED | NOT NULL | — | Chosen option. |
-| `showcase_id` | INT UNSIGNED | NOT NULL | — | Showcase of the entry. |
 
 | Key | Columns | Kind |
 |---|---|---|
-| primary | `(entry_id, field_id, field_data_id)` | PRIMARY KEY (composite; see [mechanics](#schema-mechanics-that-affect-every-group)) |
-| (new) | `(field_id, field_data_id)` | INDEX |
-| (new) | `(showcase_id, field_data_id)` | INDEX |
+| primary | `field_value_id` | PRIMARY KEY |
+| (new) | `(showcase_id, entry_id, field_id, field_data_id)` | UNIQUE |
+| (new) | `(field_id, field_data_id, showcase_id)` | INDEX |
 
 This table is the source of truth for multi-value fields. The entry column of the field keeps a comma-separated
 copy of the `field_data_id` values for display and search only, written in the same transaction.
 
-> **Implementation note — key collision.** `entry_id` is only unique within one showcase, and a collection's
-> fields can be shared by several showcases. Two showcases that share a collection can therefore produce the same
-> `(entry_id, field_id, field_data_id)` for different entries. Convention-aligned alternative: put `showcase_id` in
-> the primary key, `(showcase_id, entry_id, field_id, field_data_id)`.
+The unique key starts with `showcase_id` because `entry_id` is only unique within one showcase, and a collection's
+fields can serve several showcases: without it, two showcases that share a collection could produce the same
+`(entry_id, field_id, field_data_id)` for different entries. The index serves filtering and counting entries by
+option within a showcase.
 
-Engine mapping: all four columns are `INT UNSIGNED` / `integer` / `INTEGER`.
+Engine mapping: all five columns are `INT UNSIGNED` / `integer` / `INTEGER`; `field_value_id` is `serial` on
+PostgreSQL and `INTEGER PRIMARY KEY` on SQLite.
+
+### `myshowcase_fields` — multiple values reuse `allow_multiple_values`
+
+Multi-select uses the existing column `allow_multiple_values TINYINT UNSIGNED NOT NULL DEFAULT 0`; no new flag is
+added. It is editable in the ACP field form and is already a JSON field key. Today select and checkbox fields
+ignore it: it is only honoured as the HTML `multiple` attribute of email and file inputs,
+`FieldTrait::fieldAcceptsMultipleValues()` returns `false` before reading it, and the entry form rejects several
+values for select and checkbox fields. Track T2 must honour it for select and checkbox fields.
 
 ### `myshowcase_fields` — new columns
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
-| `allow_multiple` | TINYINT UNSIGNED | NOT NULL | `0` | Only if no usable existing flag exists — **see the finding below**. |
-| `creatable` | TINYINT UNSIGNED | NOT NULL | `0` | Permitted groups may create new options from the entry form. |
-| `creatable_groups` | VARCHAR(255) | NOT NULL | `''` | Comma-separated usergroup ids allowed to create options. |
+| `enable_option_create` | TINYINT UNSIGNED | NOT NULL | `0` | Permitted groups may create new options from the entry form. |
+| `allowed_groups_create` | VARCHAR(120) | NOT NULL | `''` | Comma-separated usergroup ids allowed to create options; `-1` = all groups. |
 
-> **Existing flag — `allow_multiple_values`.** `myshowcase_fields` already has
-> `allow_multiple_values TINYINT UNSIGNED NOT NULL DEFAULT 0`. It is editable in the ACP field form and is a JSON
-> field key. Today it is only honoured as the HTML `multiple` attribute of email and file inputs:
-> `FieldTrait::fieldAcceptsMultipleValues()` returns `false` before reading it, and the entry form rejects several
-> values for select and checkbox fields. Since the approval of `allow_multiple` was conditional on there being no
-> usable existing flag, the implementing track should reuse `allow_multiple_values` for select and checkbox fields
-> and not create `allow_multiple`.
->
-> **Naming note — `creatable`.** Field flags are named `enable_*`. Convention-aligned alternative:
-> `enable_option_create`.
->
-> **Naming note — `creatable_groups`.** Group lists are `VARCHAR(120)` named `allowed_groups_*`, with `-1` meaning
-> all groups. Convention-aligned alternative: `allowed_groups_create VARCHAR(120)`.
+Both follow the existing conventions: `enable_*` for field flags, and `VARCHAR(120)` `allowed_groups_*` group lists.
 
 ### `myshowcase_field_data` — new columns
 
-| Column | Type | Null | Default | Status | Meaning |
-|---|---|---|---|---|---|
-| `status` | TINYINT UNSIGNED | NOT NULL | `1` | Approved — not implemented | `1` approved, `0` pending moderation, `2` rejected. |
-| `created_by` | INT UNSIGNED | NOT NULL | `0` | **Proposed — pending approval** | uid of the creator; `0` = admin or JSON file. Needed so creators can see their own pending tags. |
+| Column | Type | Null | Default | Meaning |
+|---|---|---|---|---|
+| `status` | TINYINT UNSIGNED | NOT NULL | `1` | `ContentStatuses` value: `0` awaiting approval, `1` visible (approved), `2` soft deleted. |
+| `user_id` | INT UNSIGNED | NOT NULL | `0` | Creator; `0` = administrator or JSON file. Lets creators see their own pending tags. |
 
-> **Naming note — `status`.** `ContentStatuses` uses `0` awaiting approval and `1` visible, like this column, but
-> `2` means soft deleted there, not rejected. Keep the meanings separate in code, or use `ContentStatuses` values.
->
-> **Naming note — `created_by`.** Authors are stored in `user_id` everywhere else. Convention-aligned alternative:
-> `user_id`.
+`status` uses the entry status constants exactly (`ContentStatuses::AwaitingApproval`, `VisibleApproved`,
+`SoftDeleted`). A rejected user-created tag becomes soft deleted (`2`) and is purged later by a task. No existing
+task does this: the only plugin task, `task_myshowcase()` (`Upload/inc/tasks/myshowcase.php`), prunes entries older
+than a showcase's `prune_time`. Purging soft-deleted options is new work of track T2b.
 
 ### Migration and backfill
 
-* Existing option rows get `status = 1` and `created_by = 0` (column defaults).
+* Existing option rows get `status = 1` and `user_id = 0` (column defaults).
 * Fields switched to multiple values: copy each entry's current single `field_data_id` into `myshowcase_field_values`
   (skip empty and `0`), and keep the entry column as the comma-separated copy.
 * Existing fields keep `allow_multiple_values` as it is, so nothing changes until an administrator enables it on a
@@ -297,18 +301,20 @@ Engine mapping: all four columns are `INT UNSIGNED` / `integer` / `INTEGER`.
 ### JSON sync exposure
 
 * `allow_multiple_values` is already a field key.
-* Automatic field key: `creatable`. **`creatable_groups` must be excluded** or added to
-  `JsonSchema::GROUP_COLUMNS` (group ids differ between boards; group columns only accept `"all"`).
-* **Exclude `status` and `created_by`** from `JsonSchema::optionColumns()`: they are board-local.
-* User-created (board-local) options are never exported or locked; the exporter skips rows with `created_by > 0`
+* Automatic field key: `enable_option_create`.
+* `allowed_groups_create` is added to `JsonSchema::GROUP_COLUMNS` and follows the
+  [group-list rule](#schema-mechanics-that-affect-every-group): only `"all"` is accepted, stored as `-1`, and exported
+  as `"all"` only when the stored list contains `-1`.
+* **Exclude `status` and `user_id`** from `JsonSchema::optionColumns()`: they are board-local.
+* User-created (board-local) options are never exported or locked; the exporter skips rows with `user_id > 0`
   or `status <> 1`.
 * Deleting options that a JSON file manages is refused in the ACP (decision N11a, track **T0c**).
 * `myshowcase_field_values` is not synced.
 
 ### Permissions
 
-Creating options is controlled per field by `creatable` and `creatable_groups`; new options are pending unless the
-user may bypass moderation (`can_bypass_moderation`, an existing permission column).
+Creating options is controlled per field by `enable_option_create` and `allowed_groups_create`; new options are
+pending unless the user may bypass moderation (`can_bypass_moderation`, an existing permission column).
 
 ### Cleanup
 
@@ -351,9 +357,9 @@ Generic albums: users and moderators group entries of one showcase into folders,
 | `folder_id` | INT UNSIGNED, auto-increment | NOT NULL | — | Primary key. |
 | `showcase_id` | INT UNSIGNED | NOT NULL | — | Showcase the folder belongs to. |
 | `user_id` | INT UNSIGNED | NOT NULL | `0` | Owner; `0` = shared folder managed by moderators. |
-| `parent_id` | INT UNSIGNED | NOT NULL | `0` | Parent folder; `0` = top level. |
+| `parent_folder_id` | INT UNSIGNED | NOT NULL | `0` | Parent folder; `0` = top level. |
 | `name` | VARCHAR(120) | NOT NULL | — | Name. |
-| `slug` | VARCHAR(120) | NOT NULL | — | URL key, unique per showcase and owner. |
+| `folder_slug` | VARCHAR(120) | NOT NULL | — | URL key, unique per showcase and owner. |
 | `description` | VARCHAR(500) | NOT NULL | `''` | Description. |
 | `cover_entry_id` | INT UNSIGNED | NOT NULL | `0` | Entry used as cover; `0` = automatic. |
 | `visibility` | TINYINT UNSIGNED | NOT NULL | `0` | `0` public, `1` members, `2` private, `3` password. |
@@ -367,18 +373,17 @@ Generic albums: users and moderators group entries of one showcase into folders,
 |---|---|---|
 | primary | `folder_id` | PRIMARY KEY |
 | (new) | `(showcase_id, user_id)` | INDEX |
-| (new) | `(showcase_id, parent_id, display_order)` | INDEX |
-| (new) | `(showcase_id, user_id, slug)` | UNIQUE |
+| (new) | `(showcase_id, parent_folder_id, display_order)` | INDEX |
+| (new) | `(showcase_id, user_id, folder_slug)` | UNIQUE |
 
-> **Naming note — `slug`, `parent_id`.** Existing names are `entry_slug`, `comment_slug` and `parent_comment_id`.
-> Convention-aligned alternatives: `folder_slug` and `parent_folder_id`.
-
-`name` and `slug` have no default; the code always supplies them.
+The slug and parent names follow `entry_slug`, `comment_slug` and `parent_comment_id`. `name` and `folder_slug` have
+no default; the code always supplies them.
 
 ### New table `myshowcase_folder_entries`
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
+| `folder_entry_id` | INT UNSIGNED, auto-increment | NOT NULL | — | Primary key. |
 | `folder_id` | INT UNSIGNED | NOT NULL | — | Folder. |
 | `entry_id` | INT UNSIGNED | NOT NULL | — | Entry of the folder's showcase. |
 | `display_order` | INT | NOT NULL | `0` | Order inside the folder. |
@@ -386,7 +391,8 @@ Generic albums: users and moderators group entries of one showcase into folders,
 
 | Key | Columns | Kind |
 |---|---|---|
-| primary | `(folder_id, entry_id)` | PRIMARY KEY (composite; see [mechanics](#schema-mechanics-that-affect-every-group)) |
+| primary | `folder_entry_id` | PRIMARY KEY |
+| (new) | `(folder_id, entry_id)` | UNIQUE |
 | (new) | `entry_id` | INDEX |
 
 A folder belongs to one showcase, so `(folder_id, entry_id)` is unique. `entry_id` on its own is not: looking up the
@@ -412,12 +418,11 @@ All `TINYINT UNSIGNED NOT NULL`.
 
 | Column | Default intent | Meaning |
 |---|---|---|
-| `can_create_folders` | registered `1`, guests `0` | Create own folders. |
-| `can_manage_folders` | `0`; moderators and administrators `1` | Manage shared folders and others' folders. |
-| `can_add_others_entries` | `0` | Add entries of other users to one's own folders. |
+| `folders_can_create` | registered `1`, guests `0` | Create own folders. |
+| `folders_can_manage` | `0`; moderators and administrators `1` | Manage shared folders and others' folders. |
+| `folders_can_add_others_entries` | `0` | Add entries of other users to one's own folders. |
 
-> **Naming note.** Permission columns are named `<area>_can_<verb>`. Convention-aligned alternatives:
-> `folders_can_create`, `folders_can_manage`, `folders_can_add_others_entries`.
+The names follow the `<area>_can_<verb>` convention of permission columns.
 
 How the defaults work today: the column default (`TABLES_DATA`) fills existing rows when the column is added. Only
 groups that have a row (global rows have `showcase_id = 0`) get it; a group without a row resolves every permission
@@ -445,13 +450,14 @@ scope_id = 0`.
 ### Engine mapping
 
 `INT` / `INT UNSIGNED` / `TINYINT UNSIGNED` / `SMALLINT UNSIGNED` / `VARCHAR` / `DATETIME` as in the
-[type table](#how-column-types-are-created-on-each-engine). `folder_id` is `serial` on PostgreSQL and
-`INTEGER PRIMARY KEY` on SQLite.
+[type table](#how-column-types-are-created-on-each-engine). `folder_id` and `folder_entry_id` are `serial` on
+PostgreSQL and `INTEGER PRIMARY KEY` on SQLite.
 
 ### JSON sync exposure
 
 * Automatic showcase keys: all six `folders_*` columns (integer or VARCHAR, portable values).
-* Folders, folder entries, permissions and access logs are not synced.
+* Folders, folder entries, permissions and access logs are not synced. Counter and runtime columns such as
+  `myshowcase_folders.entry_count` are never exported.
 
 ### Dependencies
 
@@ -462,8 +468,7 @@ an entry is deleted, and `entry_count` adjusted).
 
 ## Group D — Image pipeline and attachment variants
 
-**Status: Approved — not implemented**, except `myshowcase_config.image_watermark_file`: **Proposed — pending
-approval**. Implementing track: **T6** (image pipeline).
+**Status: Approved — not implemented.** Implementing track: **T6** (image pipeline).
 
 ### Purpose
 
@@ -487,6 +492,7 @@ copy that is stripped of metadata (EXIF, GPS) and optionally watermarked.
 
 | Column | Type | Null | Default | Meaning |
 |---|---|---|---|---|
+| `variant_id` | INT UNSIGNED, auto-increment | NOT NULL | — | Primary key. |
 | `attachment_id` | INT UNSIGNED | NOT NULL | — | Original attachment. |
 | `variant` | VARCHAR(20) | NOT NULL | — | `thumb`, `medium`, `display`. |
 | `file_name` | VARCHAR(255) | NOT NULL | `''` | Stored file of the variant. |
@@ -499,8 +505,13 @@ copy that is stripped of metadata (EXIF, GPS) and optionally watermarked.
 
 | Key | Columns | Kind |
 |---|---|---|
-| primary | `(attachment_id, variant)` | PRIMARY KEY (composite; see [mechanics](#schema-mechanics-that-affect-every-group)) |
+| primary | `variant_id` | PRIMARY KEY |
+| (new) | `(attachment_id, variant)` | UNIQUE |
 | (new) | `status` | INDEX |
+
+The unique key needs no `showcase_id`: attachment ids are unique across showcases (one `myshowcase_attachments`
+table with one auto-increment `attachment_id`). `variant_id` is `serial` on PostgreSQL and `INTEGER PRIMARY KEY` on
+SQLite.
 
 **Nullable `width` / `height`.** A definition with a `null` key and no `default` is created as a nullable column
 defaulting to NULL on MySQL, PostgreSQL and SQLite (`SchemaManager::columnDefinition()`); the column-change planner
@@ -510,64 +521,78 @@ columns must accept NULL (the plugin's cache layer skips NULL values, `CacheMana
 
 ### `myshowcase_config` — new columns
 
-| Column | Type | Null | Default | Status | Meaning |
-|---|---|---|---|---|---|
-| `image_thumb_width` | SMALLINT UNSIGNED | NOT NULL | `320` (suggested) | Approved — not implemented | Thumbnail box width. |
-| `image_thumb_height` | SMALLINT UNSIGNED | NOT NULL | `320` (suggested) | Approved — not implemented | Thumbnail box height. |
-| `image_medium_width` | SMALLINT UNSIGNED | NOT NULL | `1280` (suggested) | Approved — not implemented | Medium box width. |
-| `image_medium_height` | SMALLINT UNSIGNED | NOT NULL | `1280` (suggested) | Approved — not implemented | Medium box height. |
-| `image_strip_metadata` | TINYINT UNSIGNED | NOT NULL | `1` | Approved — not implemented | Strip EXIF/GPS from generated copies. |
-| `image_watermark` | TINYINT UNSIGNED | NOT NULL | `0` | Approved — not implemented | Watermark the display copy. |
-| `image_watermark_position` | VARCHAR(20) | NOT NULL | `'bottom-right'` | Approved — not implemented | Watermark position. |
-| `image_watermark_opacity` | TINYINT UNSIGNED | NOT NULL | `50` | Approved — not implemented | Opacity, 0–100. |
-| `image_watermark_file` | VARCHAR(255) | NOT NULL | `''` | **Proposed — pending approval** | Watermark image path relative to the board root. |
+All in the existing `attachments` category.
 
-Sizes: SMALLINT is signed on PostgreSQL (max 32767) while the JSON validator accepts up to 65535 for SMALLINT; give
-these columns a form maximum well below 32767 (for example 10000). The current thumbnail columns are TINYINT, which
-caps thumbnails at **255 px** on MySQL.
+| Column | Type | Null | Default | Meaning |
+|---|---|---|---|---|
+| `attachments_medium_width` | SMALLINT UNSIGNED | NOT NULL | `1280` (suggested) | Medium box width. |
+| `attachments_medium_height` | SMALLINT UNSIGNED | NOT NULL | `1280` (suggested) | Medium box height. |
+| `attachments_strip_metadata` | TINYINT UNSIGNED | NOT NULL | `1` | Strip EXIF/GPS from generated copies. |
+| `attachments_watermark_enable` | TINYINT UNSIGNED | NOT NULL | `0` | Watermark the display copy. |
+| `attachments_watermark_opacity` | TINYINT UNSIGNED | NOT NULL | `50` | Opacity, 0–100. |
 
-> **Existing columns — thumbnails and watermark.** The `attachments` category already has:
-> * `attachments_thumbnails_width` and `attachments_thumbnails_height`: TINYINT UNSIGNED, default 200, max 255;
->   used for today's single thumbnail.
-> * `attachments_watermark_file`: VARCHAR(50), nullable, default `''`; excluded from JSON as board-specific.
-> * `attachments_watermark_location`: TINYINT UNSIGNED, default 1, values of `WatermarkLocations` (1 lower left,
->   2 lower right, 3 center, 4 upper left, 5 upper right).
->
-> **Naming note.** Showcase settings are prefixed with their category, and these overlap existing columns.
-> Convention-aligned alternatives:
-> * widen `attachments_thumbnails_width/height` to SMALLINT instead of adding `image_thumb_width/height`;
-> * name the new sizes `attachments_medium_width/height`;
-> * keep `attachments_watermark_location` (TINYINT enum) instead of `image_watermark_position` (VARCHAR);
-> * widen `attachments_watermark_file` to VARCHAR(255) instead of adding `image_watermark_file`;
-> * name the remaining flags `attachments_strip_metadata`, `attachments_watermark_enable` and
->   `attachments_watermark_opacity`.
->
-> Widening a column is a type change that `SchemaManager` applies on all three engines (MySQL `MODIFY`, PostgreSQL
-> `ALTER … TYPE`, SQLite table rebuild); TINYINT → SMALLINT is a no-op on PostgreSQL and SQLite.
+### `myshowcase_config` — changed existing columns
+
+| Column | Today | After | Meaning |
+|---|---|---|---|
+| `attachments_thumbnails_width` | TINYINT UNSIGNED, default 200, ACP `max` 255 | SMALLINT UNSIGNED, default 200 | Thumbnail box width; the 255 px cap goes away. |
+| `attachments_thumbnails_height` | TINYINT UNSIGNED, default 200, ACP `max` 255 | SMALLINT UNSIGNED, default 200 | Thumbnail box height. |
+| `attachments_watermark_file` | VARCHAR(50), nullable, default `''` | VARCHAR(255), nullable, default `''` | Watermark image path relative to the board root. |
+
+Kept unchanged: `attachments_watermark_location` (TINYINT UNSIGNED, default 1) is the watermark position. Its values
+are `WatermarkLocations` (`AttachmentsManager::WATERMARK_LOCATION_*`), placed by `AttachmentsManager` with a 5 px
+margin:
+
+| Value | Constant | Position |
+|---|---|---|
+| `1` | `LowerLeft` | Bottom left corner. |
+| `2` | `LowerRight` | Bottom right corner. |
+| `3` | `Center` | Centred horizontally and vertically. |
+| `4` | `UpperLeft` | Top left corner. |
+| `5` | `UpperRight` | Top right corner. |
+
+Activation sets any other stored value to `0` (`admin.php`, "RUN UPDATES"), which matches no position. Today the
+upload code watermarks the stored original itself, when the upload asks for it, the uploader's group has
+`attachments_watermark_images` and the watermark file exists; with this group the watermark moves to the display
+copy.
+
+Sizes: SMALLINT is signed on PostgreSQL (max 32767), while the JSON validator takes its range from the column type
+and accepts up to 65535 for SMALLINT. Give the size columns (the widened thumbnail columns and the medium sizes) an
+ACP form maximum well below 32767, for example 10000; the form `max` does not limit JSON values.
+
+**Migration on each engine.** Widening is a type change that `SchemaManager` applies during activation:
+
+* MySQL / MariaDB: `ALTER TABLE … MODIFY` to `SMALLINT UNSIGNED` and `VARCHAR(255)`.
+* PostgreSQL: TINYINT and SMALLINT are both created as `smallint`, so the thumbnail columns need no change;
+  `attachments_watermark_file` gets `ALTER COLUMN … TYPE VARCHAR(255)`.
+* SQLite: both integer types are `INTEGER`, so the thumbnail columns need no change; the declared `VARCHAR(255)` is
+  applied by the table rebuild (`sqliteRebuildStatements()`), and the length is not enforced either way.
+
+Existing values are kept: thumbnail sizes are at most 255, watermark paths at most 50 characters. The JSON
+validator's accepted range for the thumbnail columns widens from 0–255 to 0–65535 automatically.
 
 ### `myshowcase_permissions` — new column
 
 | Column | Type | Default intent | Meaning |
 |---|---|---|---|
-| `can_download_original` | TINYINT UNSIGNED NOT NULL | `0` for guests and registered, `1` for moderators and administrators | Download the private original instead of the display copy. |
+| `attachments_can_download_original` | TINYINT UNSIGNED NOT NULL | `0` for guests and registered, `1` for moderators and administrators | Download the private original instead of the display copy. |
 
-> **Naming note.** Convention-aligned alternative: `attachments_can_download_original` (next to the existing
-> `attachments_can_download`).
-
-Per-group defaults need the same activation update as the folder permissions (see group C).
+The name follows the existing `attachments_can_download`. Per-group defaults need the same activation update as the
+folder permissions (see group C).
 
 ### Migration and backfill
 
 * No existing data changes. Existing attachments get variant rows when the rebuild tool or the task generates them;
   today's `thumbnail_name` keeps working until then.
-* If the thumbnail columns are widened instead of duplicated, existing values (≤ 255) are kept.
+* The widened thumbnail and watermark-file columns keep their values.
 
 ### JSON sync exposure
 
-* Automatic showcase keys: `image_thumb_width`, `image_thumb_height`, `image_medium_width`, `image_medium_height`,
-  `image_strip_metadata`, `image_watermark`, `image_watermark_position`, `image_watermark_opacity`.
-* **Exclude `image_watermark_file`** (add it to `JsonSchema::SHOWCASE_EXCLUDED`): a board path, like
-  `attachments_watermark_file`, which is already excluded.
+* Automatic showcase keys: `attachments_medium_width`, `attachments_medium_height`, `attachments_strip_metadata`,
+  `attachments_watermark_enable`, `attachments_watermark_opacity`.
+* `attachments_thumbnails_width`, `attachments_thumbnails_height` and `attachments_watermark_location` are already
+  showcase keys.
+* `attachments_watermark_file` stays excluded (`JsonSchema::SHOWCASE_EXCLUDED`): it is a board path.
 * `myshowcase_attachment_variants` is not synced.
 
 ### Dependencies
@@ -579,8 +604,9 @@ attachment.
 
 ## Group E — Password hardening
 
-**Status: Approved — not implemented.** Implementing track: **PW1** (password gate fixes), followed by **PW2** (scoped
-gate used by group C).
+**Status: Approved — not implemented**, except the width of `myshowcase_config.password`: **Already satisfied by the
+existing schema**. Implementing track: **PW1** (password gate fixes), followed by **PW2** (scoped gate used by
+group C).
 
 ### Purpose
 
@@ -589,8 +615,8 @@ own unlocks.
 
 ### `myshowcase_config.password`
 
-* **Already `VARCHAR(255) NOT NULL DEFAULT ''`** (`Core.php`), so the widening is not needed; a `password_hash()`
-  value fits.
+* **Column width: Already satisfied by the existing schema.** The column is already
+  `VARCHAR(255) NOT NULL DEFAULT ''` (`Core.php`), so no widening is done; a `password_hash()` value fits.
 * The ACP shows set / change / clear and never the value. Today it is a plain text box that shows the stored value.
 * Existing plain-text passwords are hashed during activation. **Idempotency:** a value is treated as already hashed
   when `password_get_info($value)['algo']` is not null (bcrypt `$2y$…`, Argon2 `$argon2…`); only other non-empty
@@ -643,7 +669,7 @@ Before group C reuses the gate.
 | 2 | Group E — password hardening | PW1 | — |
 | 3 | Scoped password gate (`scope_type` / `scope_id`) | PW2 | E |
 | 4 | Group A — option metadata | T1 | — |
-| 5 | Category filter bar (`filter_display`) | T3 | A |
+| 5 | Category filter bar (`display_in_filter_bar`) | T3 | A |
 | 6 | Group B — multi-select and tags | T2, T2b | A, entry-deleted repair, T0c guard for JSON-managed options |
 | 7 | Group C — folders | T5 | E, PW2, entry-deleted repair |
 | 8 | Group D — image pipeline | T6 | entry-deleted repair (independent of A, B, C, E) |
@@ -652,19 +678,27 @@ Before group C reuses the gate.
 
 | Date | Group | Change | Status | Approved by |
 |---|---|---|---|---|
-| 2026-11-11 | A | `myshowcase_field_data`: `slug`, `parent_id`, `image`, `description`, `is_active`; unique `(field_id, value_id)` and `(field_id, slug)` after backfill; index `(field_id, parent_id)` | Approved — not implemented | Uriel |
-| 2026-11-11 | A | `myshowcase_fields`: `option_image_display`, `filter_display` | Approved — not implemented | Uriel |
+| 2026-11-11 | A | `myshowcase_field_data`: `value_slug`, `parent_field_data_id`, `image`, `description`, `is_enabled`; unique `(field_id, value_id)` and `(field_id, value_slug)` after backfill; index `(field_id, parent_field_data_id)` | Approved — not implemented | Uriel |
+| 2026-11-11 | A | `myshowcase_fields`: `display_option_image`, `display_in_filter_bar` | Approved — not implemented | Uriel |
 | 2026-11-11 | B | New table `myshowcase_field_values` | Approved — not implemented | Uriel |
-| 2026-11-11 | B | `myshowcase_fields`: `allow_multiple` (only if no usable flag; `allow_multiple_values` exists), `creatable`, `creatable_groups` | Approved — not implemented | Uriel |
+| 2026-11-11 | B | `myshowcase_fields`: `enable_option_create`, `allowed_groups_create`; multiple values reuse the existing `allow_multiple_values` | Approved — not implemented | Uriel |
 | 2026-11-11 | B | `myshowcase_field_data`: `status` | Approved — not implemented | Uriel |
-| 2026-11-11 | B | `myshowcase_field_data`: `created_by` | Proposed — pending approval | — |
+| 2026-11-11 | B | `myshowcase_field_data`: `user_id` | Approved — not implemented | Uriel |
 | 2026-11-11 | C | New tables `myshowcase_folders`, `myshowcase_folder_entries` | Approved — not implemented | Uriel |
 | 2026-11-11 | C | `myshowcase_config`: `folders_enabled`, `folders_label_singular`, `folders_label_plural`, `folders_max_depth`, `folders_multiple_membership`, `folders_max_per_user` | Approved — not implemented | Uriel |
-| 2026-11-11 | C | `myshowcase_permissions`: `can_create_folders`, `can_manage_folders`, `can_add_others_entries` | Approved — not implemented | Uriel |
+| 2026-11-11 | C | `myshowcase_permissions`: `folders_can_create`, `folders_can_manage`, `folders_can_add_others_entries` | Approved — not implemented | Uriel |
 | 2026-11-11 | C | `myshowcase_access_logs`: `scope_type`, `scope_id`, index `(scope_type, scope_id, user_id)` | Approved — not implemented | Uriel |
 | 2026-11-11 | D | New table `myshowcase_attachment_variants` | Approved — not implemented | Uriel |
-| 2026-11-11 | D | `myshowcase_config`: `image_thumb_width`, `image_thumb_height`, `image_medium_width`, `image_medium_height`, `image_strip_metadata`, `image_watermark`, `image_watermark_position`, `image_watermark_opacity` | Approved — not implemented | Uriel |
-| 2026-11-11 | D | `myshowcase_config`: `image_watermark_file` | Proposed — pending approval | — |
-| 2026-11-11 | D | `myshowcase_permissions`: `can_download_original` | Approved — not implemented | Uriel |
-| 2026-11-11 | E | `myshowcase_config.password` stores a `password_hash()` value (column already VARCHAR(255)); hash existing values on activation | Approved — not implemented | Uriel |
+| 2026-11-11 | D | `myshowcase_config`: `attachments_medium_width`, `attachments_medium_height`, `attachments_strip_metadata`, `attachments_watermark_enable`, `attachments_watermark_opacity`; widen `attachments_thumbnails_width` and `attachments_thumbnails_height` to SMALLINT UNSIGNED; position stays `attachments_watermark_location` | Approved — not implemented | Uriel |
+| 2026-11-11 | D | `myshowcase_config`: widen `attachments_watermark_file` to VARCHAR(255) | Approved — not implemented | Uriel |
+| 2026-11-11 | D | `myshowcase_permissions`: `attachments_can_download_original` | Approved — not implemented | Uriel |
+| 2026-11-11 | E | `myshowcase_config.password` is wide enough for a `password_hash()` value (already VARCHAR(255)) | Already satisfied by the existing schema | Uriel |
+| 2026-11-11 | E | Hash existing plain-text `myshowcase_config.password` values on activation | Approved — not implemented | Uriel |
 | 2026-11-11 | E | `myshowcase_access_logs`: `password_fingerprint`, `session_id` | Approved — not implemented | Uriel |
+| 2026-11-11 | A–D | S1 naming: `slug` → `value_slug`, `parent_id` → `parent_field_data_id`, `is_active` → `is_enabled`, `created_by` → `user_id` (field data); `option_image_display` → `display_option_image`, `filter_display` → `display_in_filter_bar`, `creatable` → `enable_option_create`, `creatable_groups` → `allowed_groups_create VARCHAR(120)` (fields); `slug` → `folder_slug`, `parent_id` → `parent_folder_id` (folders); `can_create_folders` → `folders_can_create`, `can_manage_folders` → `folders_can_manage`, `can_add_others_entries` → `folders_can_add_others_entries`, `can_download_original` → `attachments_can_download_original` (permissions); `image_medium_width/height` → `attachments_medium_width/height`, `image_strip_metadata` → `attachments_strip_metadata`, `image_watermark` → `attachments_watermark_enable`, `image_watermark_opacity` → `attachments_watermark_opacity` (config); timestamps are `dateline` / `update_dateline`, authors `user_id` | Approved — not implemented | Uriel |
+| 2026-11-11 | B, D, E | S2 reuse: multi-select uses `allow_multiple_values` (no `allow_multiple`); `password` already VARCHAR(255); widen `attachments_thumbnails_width/height` to SMALLINT UNSIGNED (no `image_thumb_*`); widen `attachments_watermark_file` to VARCHAR(255) (no `image_watermark_file`); keep `attachments_watermark_location` (no `image_watermark_position`) | Approved — not implemented | Uriel |
+| 2026-11-11 | B, C, D | S3 keys: no multi-column primary keys; surrogate keys `field_value_id`, `folder_entry_id`, `variant_id` with unique `(showcase_id, entry_id, field_id, field_data_id)`, `(folder_id, entry_id)`, `(attachment_id, variant)`; indexes `(field_id, field_data_id, showcase_id)`, `entry_id`, `status` | Approved — not implemented | Uriel |
+| 2026-11-11 | B | S4: the `myshowcase_field_values` unique key includes `showcase_id` (entry ids are unique only per showcase) | Approved — not implemented | Uriel |
+| 2026-11-11 | B | S5: `myshowcase_field_data.status` uses `ContentStatuses` (`0` awaiting approval, `1` visible, `2` soft deleted); rejected tags are soft deleted and purged by a new task in T2b | Approved — not implemented | Uriel |
+| 2026-11-11 | A, B, C, D | S6 JSON: options reference their parent through the new key `parent_value_id` (T1), `parent_field_data_id` is never exported; `allowed_groups_create` joins `JsonSchema::GROUP_COLUMNS`; excluded: `myshowcase_field_data.status`, `myshowcase_field_data.user_id`, `attachments_watermark_file`, counter and runtime columns such as `myshowcase_folders.entry_count` | Approved — not implemented | Uriel |
+| 2026-11-11 | B, D | Approvals: `myshowcase_field_data.user_id` (formerly `created_by`); the watermark file, carried out as widening `attachments_watermark_file` (formerly `image_watermark_file`) | Approved — not implemented | Uriel |
