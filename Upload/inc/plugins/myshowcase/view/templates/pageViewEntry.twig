@@ -211,9 +211,8 @@
         <div class="post__foot post__foot--controls">
             <div class="post-controls post-controls--primary">
                 {# Restore button (for deleted posts) #}
-                {% if (permissions.entries_can_delete or entry_moderator) %}
-                    <a href="editpost.php?pid={{ entry_data.public_id }}"
-                       onclick="Thread.restorePost({{ entry_data.public_id }}); return false;"
+                {% if entry_moderator and permissions.entries_can_restore and url.restore is defined %}
+                    <a href="{{ config.showcase_url }}{{ url.restore }}"
                        style="display: none;" id="quick_restore_{{ entry_data.public_id }}"
                        title="{{ lang.myshowcase_view_entry_action_quick_restore_title }}"
                        class="post-control post-control--restore">

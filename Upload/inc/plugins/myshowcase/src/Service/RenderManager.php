@@ -567,6 +567,15 @@ class RenderManager
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
+
+            $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
+                Routes::EntryUpdate,
+                [
+                    'entry_slug' => $entry->entry_slug,
+                    'action' => 'restore',
+                    'my_post_key' => $this->context->mybb->post_code,
+                ]
+            );
         } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comment_moderator || $userCanUpdateComments)) {
             $templatesContext['url']['update'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,

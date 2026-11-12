@@ -544,6 +544,9 @@ def deletion(e2):
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '2', 'entry page: moderator soft delete')
     r = m1.get(f"{G}/update/{e['entry_slug']}")
     ok('id="contentForm"' not in r['body'], "edit form: the author without \"view deleted\" cannot open the own soft-deleted entry")
+    deleted_page = mod.get(view_url(e))['body'].replace('&amp;', '&')
+    ok(f"/update/{e['entry_slug']}?action=restore" in deleted_page and 'editpost.php' not in deleted_page and 'Thread.restorePost' not in deleted_page,
+       'soft-deleted entry shows a plugin restore link to moderators, no editpost.php or core JS')
     mod.get(f"{G}/update/{e['public_id']}?action=restore&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '1', 'entry page: moderator restore')
     mod.get(f"{G}/update/{e['public_id']}?delete=2&my_post_key={post_key(page['body'])}")
