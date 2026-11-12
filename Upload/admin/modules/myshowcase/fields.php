@@ -325,8 +325,6 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             $errorMessages[] = $lang->{$error['key']} ?? $error['message'];
         }
 
-        $fieldDefaultOption = 0;
-
         if (!$newPage && $insertData['field_key'] === $field_definition['field_key']) {
             unset($insertData['field_key']);
         }
@@ -344,17 +342,6 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             );
 
             $fieldOptionID = 0;
-
-            if ($fieldDefaultOption) {
-                $fieldOptionData = [
-                    'collection_id' => $collection_id,
-                    'field_id' => $field_id,
-                    'field_key' => $db->escape_string($mybb->get_input('field_key')),
-                    'value' => 'Not Specified'
-                ];
-
-                $fieldOptionID = fieldDataInsert($fieldOptionData);
-            }
 
             log_admin_action(
                 ['collectionID' => $collection_id, 'fieldID' => $field_id, 'fieldOptionID' => $fieldOptionID]
