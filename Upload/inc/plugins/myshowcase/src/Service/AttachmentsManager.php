@@ -348,9 +348,24 @@ class AttachmentsManager
             return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_detail . $this->context->language->error_uploadfailed_lost];
         }
 
+        do {
+            $public_id = (new StringUtil())->generatePublicId();
+
+            // The unique key covers the attachments of every showcase, so the check does too.
+            $unique_found = !$this->context->database->fetch_field(
+                $this->context->database->simple_select(
+                    'myshowcase_attachments',
+                    'attachment_id',
+                    "public_id='{$this->context->database->escape_string($public_id)}'",
+                    ['limit' => 1]
+                ),
+                'attachment_id'
+            );
+        } while (!$unique_found);
+
         $this->insert_data = [
             'showcase_id' => $this->context->showcase->showcase_id,
-            'public_id' => (new StringUtil())->generatePublicId(),
+            'public_id' => $public_id,
             'user_id' => $entry->user_id,
             'file_name' => $file_name,
             'mime_type' => my_strtolower($file_upload_result['type']),
