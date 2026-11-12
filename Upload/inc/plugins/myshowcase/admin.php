@@ -38,7 +38,6 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\loadLanguage;
 use function MyShowcase\Plugin\Functions\showcaseDataTableDrop;
@@ -315,7 +314,7 @@ function pluginActivation(): bool
             $unique_found = false;
 
             while (!$unique_found) {
-                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+                $generated_slug = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$comments_repository->queryComment(
                     ["comment_slug='{$showcase->context->database->escape_string($generated_slug)}'"]
@@ -347,7 +346,7 @@ function pluginActivation(): bool
             $unique_found = false;
 
             while (!$unique_found) {
-                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+                $generated_slug = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$showcase->context->entries_repository->queryEntry(
                     ["entry_slug='{$showcase->context->database->escape_string($generated_slug)}'"],

@@ -31,7 +31,6 @@ use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
@@ -1024,7 +1023,7 @@ class EntriesManager
             $unique_found = false;
 
             while (!$unique_found) {
-                $this->validation_entry->entry_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+                $this->validation_entry->entry_slug = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$this->context->entries_repository->queryEntry(
                     ["entry_slug='{$this->context->database->escape_string($this->validation_entry->entry_slug)}'"],

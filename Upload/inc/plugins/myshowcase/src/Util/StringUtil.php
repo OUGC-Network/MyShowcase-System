@@ -53,15 +53,17 @@ class StringUtil
     }
 
     /**
+     * Random identifier for the public_id columns, and for post_hash.
+     *
      * @throws RandomException
      */
-    public function generateCommentSlug(?int $length = null): string
+    public function generatePublicId(?int $length = null): string
     {
         if (empty($length)) {
             $length = getSetting('slugLength');
         }
 
-        // Exactly $length characters: the slug columns are VARCHAR(slugLength), and bin2hex() doubles the length.
+        // Exactly $length characters: the columns are VARCHAR(slugLength), and bin2hex() doubles the length.
         return substr(bin2hex(random_bytes((int)ceil($length / 2))), 0, $length);
     }
 

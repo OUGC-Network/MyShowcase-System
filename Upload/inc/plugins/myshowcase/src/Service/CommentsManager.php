@@ -23,7 +23,6 @@ use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\castTableFieldValue;
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 
@@ -275,7 +274,7 @@ class CommentsManager
             $insert_data['edit_user_id'] = $this->context->current_user->uid;
         } else {
             do {
-                $generated_slug = (new StringUtil())->generateCommentSlug(getSetting('slugLength'));
+                $generated_slug = (new StringUtil())->generatePublicId();
 
                 $unique_found = !$this->context->comments_repository->queryComment(
                     ["comment_slug='{$this->context->database->escape_string($generated_slug)}'"]
