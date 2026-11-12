@@ -142,6 +142,8 @@ class EntriesExporter
         // Nothing chosen means everything the user can export, in the showcase's own order.
         $fields = $requested ? array_values(array_intersect($selectable, $requested)) : $selectable;
 
+        $is_moderator = $this->context->entries_manager->moderatesShowcase();
+
         return [
             'limit' => min($limit, $cap),
             'limit_cap' => $cap,

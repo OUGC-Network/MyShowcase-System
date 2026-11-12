@@ -1,0 +1,39 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ trans('myshowcase_import_export_title_export_view', export.export_id) }} - {{ mybb.settings.bbname }}</title>
+    <link rel="manifest" href="/manifest.json">
+{% endblock head %}
+
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            <h1 class="title title--page">{{ trans('myshowcase_import_export_title_export_view', export.export_id) }}</h1>
+        </header>
+
+        <section class="block block--container">
+            <p>
+                {{ export.created }} -
+                {{ trans('myshowcase_import_export_detail_summary', export.entry_count, export.size) }}
+            </p>
+            {% include '@ext.myshowcase/pageExportRules.twig' with {rules: export.rules} only %}
+            <p>
+                {% if export.file_deleted %}
+                    <em>{{ lang.myshowcase_import_export_file_deleted }}</em>
+                {% else %}
+                    <a href="{{ url.showcase }}{{ export.url.download }}" class="button button--medium">
+                        <span class="button__text">{{ lang.myshowcase_import_export_download }}</span>
+                    </a>
+                {% endif %}
+            </p>
+            <form action="{{ url.showcase }}{{ export.url.delete }}" method="post"
+                  onsubmit="return confirm('{{ lang.myshowcase_import_export_delete_confirm|e('js') }}');">
+                <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+                <button type="submit" class="button button--medium button--secondary">
+                    <span class="button__text">{{ lang.myshowcase_import_export_delete }}</span>
+                </button>
+            </form>
+            <p><a href="{{ url.showcase }}{{ url.export_main }}">{{ lang.myshowcase_import_export_back_to_list }}</a></p>
+        </section>
+    </div>
+{% endblock body %}

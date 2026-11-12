@@ -1,0 +1,28 @@
+{# The rules an export was made with: one block, used by the list and by the detail page. Variable: rules. #}
+<dl class="export-rules">
+    <dt>{{ lang.myshowcase_import_export_rules_limit }}</dt>
+    <dd>
+        {% if rules.limit > 0 %}
+            {{ rules.limit }}
+        {% else %}
+            {{ trans('myshowcase_import_export_rules_limit_all', rules.limit_cap) }}
+        {% endif %}
+    </dd>
+    <dt>{{ lang.myshowcase_import_export_rules_sort }}</dt>
+    <dd>
+        {{ rules.order_by }}
+        ({{ rules.order_dir == 'asc' ? lang.myshowcase_import_export_sort_ascending : lang.myshowcase_import_export_sort_descending }})
+    </dd>
+    <dt>{{ lang.myshowcase_import_export_rules_fields }}</dt>
+    <dd>{{ rules.fields|join(', ') }}</dd>
+    <dt>{{ lang.myshowcase_import_export_rules_options }}</dt>
+    <dd>
+        {{ lang.myshowcase_import_export_option_awaiting }}:
+        {{ rules.options.include_awaiting_approval ? lang.myshowcase_import_export_yes : lang.myshowcase_import_export_no }};
+        {{ lang.myshowcase_import_export_option_deleted }}:
+        {{ rules.options.include_soft_deleted ? lang.myshowcase_import_export_yes : lang.myshowcase_import_export_no }}
+        {% if rules.removed_characters > 0 %}
+            ; {{ trans('myshowcase_import_export_rules_removed_characters', rules.removed_characters) }}
+        {% endif %}
+    </dd>
+</dl>

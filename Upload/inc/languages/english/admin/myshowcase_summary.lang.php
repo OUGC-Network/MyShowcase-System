@@ -286,6 +286,10 @@ $l = array_merge([
     'myshowcase_admin_summary_create_update_entries_display_reputations_description' => 'Display users reputation points in entries.',
     'myshowcase_admin_summary_create_update_entries_enable_update_notes' => 'Enable Update Notes',
     'myshowcase_admin_summary_create_update_entries_enable_update_notes_description' => 'Allow users to provide an update reason when editing entries.',
+    'myshowcase_admin_summary_create_update_exports_per_user_maximum' => 'Stored Exports Per User',
+    'myshowcase_admin_summary_create_update_exports_per_user_maximum_description' => 'Maximum number of exports a user can keep stored in this showcase. Zero means no limit.',
+    'myshowcase_admin_summary_create_update_import_export_flood_seconds' => 'Seconds Between Exports and Imports',
+    'myshowcase_admin_summary_create_update_import_export_flood_seconds_description' => 'Minimum number of seconds between two exports (and two imports) of the same user in this showcase. Zero turns the check off.',
 
     'myshowcase_admin_summary_create_update_comments_enable' => 'Enable Comments',
     'myshowcase_admin_summary_create_update_comments_enable_description' => 'Allow comments on entries.',

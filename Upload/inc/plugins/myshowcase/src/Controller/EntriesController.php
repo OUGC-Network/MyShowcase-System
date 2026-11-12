@@ -384,6 +384,11 @@ class EntriesController extends BaseController
             ];
         }
 
+        if ($this->context->current_user->uid > 0 &&
+            $this->context->current_user->hasPermission(UserPermissions::EntriesCanExport)) {
+            $templatesContext['url']['export'] = $this->context->routing->generateUrl(Routes::ExportMain);
+        }
+
         /**
          * @var CustomFieldEntity $field
          */

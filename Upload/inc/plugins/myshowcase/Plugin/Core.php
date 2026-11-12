@@ -878,6 +878,20 @@ const TABLES_DATA = [
             'category' => 'entries',
             'input_type' => FormTypes::YesNo
         ],
+        'exports_per_user_maximum' => [ // stored exports a user may keep in this showcase, 0 = no limit
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 10,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number
+        ],
+        'import_export_flood_seconds' => [ // seconds between two exports (and imports) of a user, 0 = no check
+            'type' => 'SMALLINT',
+            'unsigned' => true,
+            'default' => 60,
+            'category' => 'entries',
+            'input_type' => FormTypes::Number
+        ],
         'comments_enable' => [
             'type' => 'TINYINT',
             'unsigned' => true,

@@ -133,6 +133,15 @@
         {% endset %}
     {% endif %}
 
+    {% if url.export %}
+        <p class="page-controls page-controls--compact">
+            <a href="{{ url.showcase }}{{ url.export }}" class="button button--medium button--secondary">
+                {{ include('partials/icon.twig', {icon: 'download', class: 'button__icon'}, with_context = false) }}
+                <span class="button__text">{{ lang.myshowcase_import_export_button_export }}</span>
+            </a>
+        </p>
+    {% endif %}
+
     <div class="page-controls page-controls--compact">
         <div class="page-buttons">
             <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if mybb.user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"

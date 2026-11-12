@@ -1,0 +1,17 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ config.name }} - {{ mybb.settings.bbname }}</title>
+    <link rel="manifest" href="/manifest.json">
+{% endblock head %}
+
+{% block body %}
+    <div class="page-content page-content--centered">
+        <div class="alert alert--danger" id="library-error">
+            {{ include('partials/icon.twig', {icon: 'exclamation-triangle', class: 'alert__icon'}, with_context = false) }}
+            <div class="alert__message">
+                <p class="alert__description">{{ library_error }}</p>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

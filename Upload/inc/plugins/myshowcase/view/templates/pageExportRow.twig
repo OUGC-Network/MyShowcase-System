@@ -1,0 +1,26 @@
+{# One stored export in the list. Variable: export. #}
+<tr id="export-{{ export.export_id }}">
+    <td>
+        <a href="{{ url.showcase }}{{ export.url.view }}">#{{ export.export_id }}</a><br/>
+        {{ export.created }}
+    </td>
+    <td>{{ export.entry_count }}</td>
+    <td>{{ export.size }}</td>
+    <td>{% include '@ext.myshowcase/pageExportRules.twig' with {rules: export.rules} only %}</td>
+    <td>
+        {% if export.file_deleted %}
+            <em>{{ lang.myshowcase_import_export_file_deleted }}</em>
+        {% else %}
+            <a href="{{ url.showcase }}{{ export.url.download }}" class="button button--medium">
+                <span class="button__text">{{ lang.myshowcase_import_export_download }}</span>
+            </a>
+        {% endif %}
+        <form action="{{ url.showcase }}{{ export.url.delete }}" method="post" class="export-delete"
+              onsubmit="return confirm('{{ lang.myshowcase_import_export_delete_confirm|e('js') }}');">
+            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+            <button type="submit" class="button button--medium button--secondary">
+                <span class="button__text">{{ lang.myshowcase_import_export_delete }}</span>
+            </button>
+        </form>
+    </td>
+</tr>

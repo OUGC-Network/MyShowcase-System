@@ -399,7 +399,7 @@ class EntriesManager
     /**
      * The name of a field in messages: its translated label when the language has one, else its label, else its key.
      */
-    private function fieldLabel(\MyShowcase\Entity\CustomFieldEntity $field): string
+    public function fieldLabel(\MyShowcase\Entity\CustomFieldEntity $field): string
     {
         return $this->context->language->{'myshowcase_collection_field_' . $field->field_key}
             ?? ($field->field_label !== '' ? $field->field_label : $field->field_key);
@@ -535,6 +535,45 @@ class EntriesManager
         }
 
         return $allowed + $this->buildFieldValues($posted, fields: $this->fillableFields());
+    }
+
+    /**
+     * Whether the current user moderates this showcase: their group may view entries in every status (the permission the
+     * listing uses to show awaiting-approval entries), or they, or one of their groups, are in the showcase's moderators.
+     */
+    public function moderatesShowcase(): bool
+    {
+        $user = $this->context->current_user;
+
+        if ($user->uid < 1) {
+            return false;
+        }
+
+        if ($user->hasPermission(UserPermissions::EntriesCanView)) {
+            return true;
+        }
+
+        $group_ids = array_filter(
+            array_map(
+                'intval',
+                explode(
+                    ',',
+                    ($this->context->mybb->user['usergroup'] ?? 0) . ',' . ($this->context->mybb->user['additionalgroups'] ?? '')
+                )
+            )
+        );
+
+        $conditions = ["user_id='" . (int)$user->uid . "'"];
+
+        if ($group_ids) {
+            $conditions[] = "group_id IN ('" . implode("','", $group_ids) . "')";
+        }
+
+        return !empty($this->context->moderators_repository->queryModerators(
+            ['(' . implode(' OR ', $conditions) . ')'],
+            [],
+            ['limit' => 1]
+        )['moderator_id']);
     }
 
     /**

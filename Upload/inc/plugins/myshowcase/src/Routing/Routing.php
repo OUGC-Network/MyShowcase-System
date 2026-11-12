@@ -18,6 +18,7 @@ namespace MyShowcase\Routing;
 use MyShowcase\Controller\AttachmentsController;
 use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
+use MyShowcase\Controller\ExportController;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Showcase;
 use MyShowcase\ShowcaseContext;
@@ -89,6 +90,78 @@ class Routing
                 [
                     '_method' => 'GET',
                     'showcase' => '[a-z0-9]+',
+                ],
+            )
+        );
+
+        // The router does not tell GET from POST (like EntryCreate), so the controller does: a POST generates the export.
+        $this->routes->add(
+            Routes::ExportMain,
+            new Route(
+                '/{showcase}/export',
+                [
+                    '_controller' => function (array $parameters): void {
+                        $controller = new ExportController($this->context,);
+
+                        output_page(
+                            $this->context->mybb->request_method === 'post' ? $controller->create() : $controller->main()
+                        );
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                ],
+            )
+        );
+
+        $this->routes->add(
+            Routes::ExportView,
+            new Route(
+                '/{showcase}/export/{export_id}',
+                [
+                    '_controller' => function (array $parameters): void {
+                        output_page((new ExportController($this->context,))->view((int)$parameters['export_id']));
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'export_id' => '[0-9]+',
+                ],
+            )
+        );
+
+        $this->routes->add(
+            Routes::ExportDownload,
+            new Route(
+                '/{showcase}/export/{export_id}/download',
+                [
+                    '_controller' => function (array $parameters): void {
+                        (new ExportController($this->context,))->download((int)$parameters['export_id']);
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                    'export_id' => '[0-9]+',
+                ],
+            )
+        );
+
+        $this->routes->add(
+            Routes::ExportDelete,
+            new Route(
+                '/{showcase}/export/{export_id}/delete',
+                [
+                    '_controller' => function (array $parameters): void {
+                        (new ExportController($this->context,))->delete((int)$parameters['export_id']);
+                    },
+                ],
+                [
+                    '_method' => 'POST',
+                    'showcase' => '[a-z0-9]+',
+                    'export_id' => '[0-9]+',
                 ],
             )
         );

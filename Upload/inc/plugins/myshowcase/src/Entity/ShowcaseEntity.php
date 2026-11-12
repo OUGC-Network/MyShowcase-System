@@ -62,6 +62,8 @@ readonly class ShowcaseEntity
         public int $entries_display_users_browsing = 1,
         public int $entries_display_reputations = 1,
         public int $entries_enable_update_notes = 1,
+        public int $exports_per_user_maximum = 10,
+        public int $import_export_flood_seconds = 60,
         public int $comments_enable = 1,
         public int $comments_allow_post_icons = 1,
         public int $comments_message_minimum_length = 1,
