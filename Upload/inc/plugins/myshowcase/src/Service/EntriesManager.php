@@ -32,7 +32,6 @@ use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
@@ -187,11 +186,12 @@ class EntriesManager
      * Whether the current user is a moderator of this showcase: a super moderator or board administrator (issupermod
      * or cancp on the usergroup), or listed as a moderator of the showcase by user id or through one of their usergroups.
      *
-     * TODO(moderator-conflict): this is one of TWO moderator checks and they disagree in design:
-     *   - this method reads the showcase's moderator rows through ModeratorsRepository::matchesUser();
+     * TODO(moderator-conflict): this is one of THREE moderator checks, and they disagree in design:
+     *   - isModerator() (here) reads the showcase's moderator rows through ModeratorsRepository::matchesUser();
      *   - BaseController::isEntryModerator() / moderatorPermissions() reads CacheDataTypes::Moderators and the
-     *     per-flag ModeratorPermissions, and is what EntriesController and BaseController currently call.
-     *   Decide which one is the single source of truth, then make the other delegate to it or delete it.
+     *     per-flag ModeratorPermissions, and is what EntriesController and BaseController currently call;
+     *   - moderatesShowcase() below, a third variant.
+     *   Decide which one is the single source of truth, then make the others delegate to it or delete it.
      * TODO(verify): ModeratorsRepository::matchesUser() is static and exists; $this->context->moderators_repository
      *   is a property of ShowcaseContext. Neither has been confirmed in the files reviewed so far.
      */
@@ -251,7 +251,7 @@ class EntriesManager
             [
                 ContentStatuses::VisibleApproved,
                 ContentStatuses::AwaitingApproval,
-                ContentStatuses::SoftDeleted
+                ContentStatuses::SoftDeleted,
             ] as $status
         ) {
             $conditions[] = match ($this->statusViewScope($status)) {
@@ -406,8 +406,8 @@ class EntriesManager
     }
 
     /**
-     * Attachments the entry being validated has for a file field: stored against the entry, or, on a new entry,
-     * uploaded under its post hash (they are attached to the entry once it is inserted).
+     * How many attachments the entry being validated has for a file field, not counting the ones the submitted form
+     * removes: stored against the entry, or, on a new entry, uploaded under its post hash.
      */
     private function countFieldAttachments(int $field_id): int
     {
@@ -428,6 +428,10 @@ class EntriesManager
         }
 
         $where_clauses[] = '(' . implode(' OR ', $owners) . ')';
+
+        if ($this->removed_attachment_ids) {
+            $where_clauses[] = "attachment_id NOT IN ('" . implode("','", $this->removed_attachment_ids) . "')";
+        }
 
         return count(
             iterator_to_array(
@@ -469,8 +473,8 @@ class EntriesManager
      * - subject, message: when the showcase has them enabled;
      * - icon_id: when the showcase allows post icons;
      * - allow_signature (canUseSignature()), disable_smilies (the showcase parses smilies in entries), is_closed
-     *   (EntriesCanClose) and is_sticky (EntriesCanSticky) are checkboxes: for a user who may set one, a missing value
-     *   means off, on an edit and on a new entry; for a user who may not, it is never taken (the stored value, or the
+     *   (EntriesCanClose) and is_sticky (EntriesCanSticky) are checkboxes: a missing value means off, on an edit and on a
+     *   new entry, for a user who may set one; a user who may not is never taken from the post (the stored value, or the
      *   column default on a new entry, stays);
      * - the fields of the collection the user may fill (CustomFieldEntity::canFill()), blank when not posted.
      *
@@ -540,6 +544,10 @@ class EntriesManager
     /**
      * Whether the current user moderates this showcase: their group may view entries in every status (the permission the
      * listing uses to show awaiting-approval entries), or they, or one of their groups, are in the showcase's moderators.
+     *
+     * TODO(moderator-conflict): third moderator check, alongside isModerator() and BaseController::isEntryModerator().
+     *   Keep one and remove the others once the decision is made.
+     * TODO(verify): queryModerators() with a limit returns a row with a 'moderator_id' key; confirm the return shape.
      */
     public function moderatesShowcase(): bool
     {
@@ -774,60 +782,10 @@ class EntriesManager
         return $this->context->language->{$language_key} ?? $message;
     }
 
-    /**
-     * Whether a file field has an uploaded file: one already attached to the entry, or uploaded with the form (the
-     * post hash) before the entry is saved. The entry being validated is built from the submitted form and carries
-     * no attachments itself.
-     */
-    private function fileFieldHasAttachments(FieldsInterface $field): bool
-    {
-        $remaining = $this->removed_attachment_ids ? [
-            "attachment_id NOT IN ('" . implode(
-                "','",
-                $this->removed_attachment_ids
-            ) . "')"
-        ] : [];
-
-        $owners = [];
-
-        if (!empty($this->validation_entry->entry_id)) {
-            $owners[] = "entry_id='" . (int)$this->validation_entry->entry_id . "'";
-        }
-
-        if (!empty($this->validation_entry->post_hash)) {
-            $owners[] = "post_hash='" . $this->context->database->escape_string(
-                    $this->validation_entry->post_hash
-                ) . "'";
-        }
-
-        if (!$owners) {
-            return false;
-        }
-
-        return $this->context->attachments_repository->queryAttachmentCount(array_merge([
-                "field_id='" . (int)$field->field_definition['field_id'] . "'",
-                '(' . implode(' OR ', $owners) . ')',
-            ], $remaining)) > 0;
-    }
-
     /** Files the submitted form removes: they do not count as uploaded while the entry is validated. */
     public function setRemovedAttachments(array $attachment_ids): void
     {
         $this->removed_attachment_ids = array_map('intval', $attachment_ids);
-    }
-
-    /**
-     * Adds the error of a custom field, one per field and error, with the field label as the first argument.
-     *
-     * @param string $language_key A datahandler_myshowcase language key
-     */
-    private function validateSetFieldError(FieldsInterface $field, string $language_key, array $data = []): void
-    {
-        $this->validation_errors[$language_key . '_' . $field->field_definition['field_key']] = $this->context->language->sprintf(
-            $this->context->language->$language_key ?? $language_key,
-            htmlspecialchars_uni($field->getLabel()),
-            ...$data
-        );
     }
 
     /**
@@ -1079,87 +1037,80 @@ class EntriesManager
 
         $entry_slug_custom = [];
 
-        $this->context->language->load('datahandler_myshowcase', true, true);
-
-        /**
-         * @var FieldsInterface $field
-         */
-        foreach ($this->validation_entry->getFields() as $field) {
-            $field_key = $field->field_definition['field_key'];
+        // The custom fields are checked from the collection's field entities. (The validator used to loop over
+        // $entry->getFields(), which nothing ever fills, so none of these checks ran.)
+        foreach ($this->context->custom_fields_collection as $field_id => $field) {
+            $field_key = $field->field_key;
 
             if (!$field->isViewableInForm() ||
-                $field->field_definition['read_only'] ||
-                !array_key_exists($field_key, $this->validation_entry->extra_data)
+                $field->read_only ||
+                !isset($this->validation_entry->extra_data[$field_key])
             ) {
                 // todo, send user to data handler to check instead of current user
                 continue;
             }
 
-            $value = $this->validation_entry->extra_data[$field_key];
+            $field_label = $this->fieldLabel($field);
 
-            if (is_array($value)) {
-                // Fields hold one value; several values (multiple select, several checkboxes) are not supported yet.
-                $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
+            if ($field->regular_expression &&
+                preg_match($field->regular_expression, '') !== false &&
+                preg_match($field->regular_expression, $this->validation_entry->extra_data[$field_key]) !== 1) {
+                $this->validateSetError('invalid_value1', [$field_label]);
+            }
 
+            if ($field->is_required && empty($this->validation_entry->extra_data[$field_key])) {
+                if ($field->html_type === FieldHtmlTypes::File) {
+                    if ($this->countFieldAttachments((int)$field_id) < 1) {
+                        $this->validateSetError('required_field', [$field_label]);
+                    }
+                } else {
+                    $this->validateSetError('required_field', [$field_label]);
+                }
+            }
+
+            if (empty($this->validation_entry->extra_data[$field_key]) && $field->default_value !== '') {
+                $this->validation_entry->extra_data[$field_key] = $field->default_value;
+            }
+
+            // A field left empty has nothing more to check: if it is required it was reported above.
+            if ($this->validation_entry->extra_data[$field_key] === '' ||
+                $this->validation_entry->extra_data[$field_key] === []) {
                 continue;
             }
 
-            $value = (string)$value;
+            if (fieldTypeMatchInt($field->field_type)) {
+                if (is_array($this->validation_entry->extra_data[$field_key])) {
+                    foreach ($this->validation_entry->extra_data[$field_key] as $fieldValue) {
+                        if (!is_numeric($fieldValue)) {
+                            $this->validateSetError('invalid_value2', [$field_label]);
+                        }
+                    }
+                } elseif (!is_numeric($this->validation_entry->extra_data[$field_key])) {
+                    $this->validateSetError('invalid_value3', [$field_label]);
+                }
+            } elseif (fieldTypeMatchChar($field->field_type) || fieldTypeMatchText($field->field_type)) {
+                if (!is_scalar($this->validation_entry->extra_data[$field_key])) {
+                    $this->validateSetError('invalid_value4', [$field_label]);
 
-            if ($value === '' && $field->field_definition['default_value'] !== '') {
-                $value = $this->validation_entry->extra_data[$field_key] = (string)$field->field_definition['default_value'];
-            }
-
-            if ($value === '') {
-                if ($field->field_definition['is_required'] &&
-                    ($field->field_definition['html_type'] !== FieldHtmlTypes::File || !$this->fileFieldHasAttachments(
-                            $field
-                        ))) {
-                    $this->validateSetFieldError($field, 'myshowcase_datahandler_required_field');
+                    continue;
                 }
 
-                continue;
-            }
+                if ($field->html_type !== FieldHtmlTypes::Date) {
+                    $length = my_strlen($this->validation_entry->extra_data[$field_key]);
 
-            if ($field->hasOptions()) {
-                $field->fetchSelectableValues((int)$field->field_definition['collection_id'], true);
+                    if ($field->minimum_length && $length < $field->minimum_length) {
+                        $this->validateSetError(
+                            'invalid_length_minimum',
+                            [$field_label, my_number_format($field->minimum_length)]
+                        );
+                    }
 
-                if (!ctype_digit($value) || !$field->getSelectableValues()->offsetExists((int)$value)) {
-                    $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
-                }
-
-                continue;
-            }
-
-            if ($field->field_definition['regular_expression'] &&
-                @preg_match($field->field_definition['regular_expression'], '') !== false &&
-                preg_match($field->field_definition['regular_expression'], $value) !== 1) {
-                $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
-            }
-
-            if (fieldTypeMatchInt($field->field_definition['field_type'])) {
-                if (!is_numeric($value)) {
-                    $this->validateSetFieldError($field, 'myshowcase_datahandler_invalid_value');
-                }
-            } elseif ((fieldTypeMatchChar($field->field_definition['field_type']) ||
-                    fieldTypeMatchText($field->field_definition['field_type'])) &&
-                $field->field_definition['html_type'] !== FieldHtmlTypes::Date) {
-                $length = my_strlen($value);
-
-                if ($field->field_definition['minimum_length'] && $length < $field->field_definition['minimum_length']) {
-                    $this->validateSetFieldError(
-                        $field,
-                        'myshowcase_datahandler_invalid_length_minimum',
-                        [my_number_format($field->field_definition['minimum_length'])]
-                    );
-                }
-
-                if ($field->field_definition['maximum_length'] && $length > $field->field_definition['maximum_length']) {
-                    $this->validateSetFieldError(
-                        $field,
-                        'myshowcase_datahandler_invalid_length_maximum',
-                        [my_number_format($field->field_definition['maximum_length'])]
-                    );
+                    if ($field->maximum_length && $length > $field->maximum_length) {
+                        $this->validateSetError(
+                            'invalid_length_maximum',
+                            [$field_label, my_number_format($field->maximum_length)]
+                        );
+                    }
                 }
             }
         }
@@ -1179,11 +1130,10 @@ class EntriesManager
             }
         }
 
-        // it doesn't matter if this changes, only the public_id should remain the same always
+        // It doesn't matter if this changes, only the public_id should remain the same always.
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT) {
             $entry_slug_custom = [];
 
-            //$this->context->custom_fields_collection
             foreach ($this->context->custom_fields_collection as $field_id => $field) {
                 if (!$field->enable_slug || $this->validation_entry->getCustomField($field->field_key) === false) {
                     continue;
@@ -1206,7 +1156,7 @@ class EntriesManager
                                 ['order_by' => 'display_order']
                             ) as $field_data_id => $field_data_data
                         ) {
-                            if (optionGroupsAllow((string)$field_data_data['allowed_groups_fill'])) {
+                            if (is_member($field_data_data['allowed_groups_fill'])) {
                                 $entry_slug_custom[] = $field_data_data['value'];
                             }
                         }
@@ -1279,6 +1229,7 @@ class EntriesManager
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
+        // TODO(verify): AttachmentsRepository::linkAttachmentsByPostHash() exists with this signature.
         if (!empty($this->validation_entry->post_hash)) {
             $this->context->attachments_repository->linkAttachmentsByPostHash(
                 $this->validation_entry->post_hash,
@@ -1333,7 +1284,7 @@ class EntriesManager
                 'entry_data.update_dateline',
                 'entry_data.edit_user_id',
                 'entry_data.last_comment_user_id',
-                'entry_data.ipaddress'
+                'entry_data.ipaddress',
             ],
         );
 
