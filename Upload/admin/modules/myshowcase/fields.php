@@ -527,6 +527,11 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
         $newPage ? 'myshowcase_admin_field_sets_new' : 'myshowcase_admin_field_sets_edit'
     );
 
+    if ($newPage) {
+        echo '<p><a class="button" href="' . JsonUi::url(['action' => 'create', 'type' => 'collection']) . '">'
+            . htmlspecialchars(JsonUi::text('create_from_json')) . '</a></p>';
+    }
+
     if ($mybb->request_method === 'post') {
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
             flash_message($lang->myshowcase_admin_error_invalid_post_key, 'error');

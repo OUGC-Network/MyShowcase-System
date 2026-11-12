@@ -14,6 +14,9 @@ declare(strict_types=1);
 namespace MyShowcase\Service\JsonSync;
 
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\CollectionService;
+use MyShowcase\Service\FieldService;
+use MyShowcase\Service\ShowcaseService;
 
 use function MyShowcase\Plugin\Functions\collectionGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
@@ -157,6 +160,36 @@ final class JsonSync
         $result = (new JsonApplier($this->cacheManager))->apply($plan, $file['data'] ?? [], $options);
 
         return $result + ['plan' => $plan];
+    }
+
+    /**
+     * Clears the four json_* columns of a row, and of its fields for a collection. Nothing else is changed.
+     *
+     * @param string $type collection or showcase
+     */
+    public function detach(string $type, int $id): void
+    {
+        $cleared = ['json_file' => '', 'json_version' => '', 'json_synced_at' => 0, 'json_hash' => ''];
+
+        if ($type === 'showcase') {
+            (new ShowcaseService($this->cacheManager))->save($cleared, $id, true);
+
+            return;
+        }
+
+        $fields = new FieldService($this->cacheManager);
+
+        foreach (fieldsGet(["collection_id='{$id}'", "json_file<>''"], ['field_id']) as $fieldId => $field) {
+            $fields->save($cleared, $id, (int)$fieldId, [], true);
+        }
+
+        (new CollectionService($this->cacheManager))->save($cleared, $id, true);
+    }
+
+    /** The name of the file a download is saved as: the name of the row, as [a-z0-9_-], plus ".json". */
+    public static function exportFileName(string $name): string
+    {
+        return JsonExporter::slug($name) . '.json';
     }
 
     public function exportCollection(int $collectionId): ?array

@@ -736,6 +736,9 @@ EOL;
 
         if ($is_create_page) {
             $this->page->output_nav_tabs($this->tabs, 'myShowcaseAdminSummaryNew');
+
+            echo '<p><a class="button" href="' . JsonUi::url(['action' => 'create', 'type' => 'showcase']) . '">'
+                . htmlspecialchars(JsonUi::text('create_from_json')) . '</a></p>';
         } else {
             $this->page->output_nav_tabs($this->tabs, 'myShowcaseAdminSummaryEdit');
         }
