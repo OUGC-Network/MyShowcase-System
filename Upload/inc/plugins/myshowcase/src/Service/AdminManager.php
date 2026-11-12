@@ -413,6 +413,12 @@ EOL;
         //$moderators_repository = new ModeratorsRepository($this->database, $showcase->context->showcase);
 
         if ($this->mybb->request_method === 'post') {
+            if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
+                flash_message($this->language->myshowcase_admin_error_invalid_post_key, 'error');
+
+                admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+            }
+
             switch ($this->mybb->get_input('type')) {
                 case 'general':
                 case 'main':
