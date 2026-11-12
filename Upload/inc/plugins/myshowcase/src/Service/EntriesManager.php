@@ -523,6 +523,35 @@ class EntriesManager
     }
 
     /**
+     * The moderation permission that lets a user see entries in a status other than approved, where the entries of other
+     * users are concerned (the export uses it). The plugin has no permission that is enforced for viewing awaiting-approval
+     * or soft-deleted entries: entries_can_view_unapproved / entries_can_view_deleted exist but nothing reads them and
+     * they are described as "your own entries" (the first is on by default), while entries_can_view is what the listing
+     * takes to mean "sees every status". So the permission that moderates that status is used: approving for entries
+     * awaiting approval (it is also what the edit page takes for "a moderator may edit anyone's entry"), restoring for
+     * soft-deleted ones.
+     */
+    private const STATUS_VIEW_PERMISSIONS = [
+        ContentStatuses::AwaitingApproval => UserPermissions::EntriesCanApprove,
+        ContentStatuses::SoftDeleted => UserPermissions::EntriesCanRestore,
+    ];
+
+    /**
+     * Whether the current user may see the entries of other users that have this status: approved ones always, the
+     * others only with the moderation permission of STATUS_VIEW_PERMISSIONS.
+     */
+    public function canViewStatus(int $status): bool
+    {
+        if ($status === ContentStatuses::VisibleApproved) {
+            return true;
+        }
+
+        return isset(self::STATUS_VIEW_PERMISSIONS[$status]) &&
+            $this->context->current_user->uid > 0 &&
+            $this->context->current_user->hasPermission(self::STATUS_VIEW_PERMISSIONS[$status]);
+    }
+
+    /**
      * Whether the current user may choose to include their signature: the same test MyBB core applies before it shows
      * the signature option in newthread.php, newreply.php and editpost.php, namely that the group may use signatures
      * (canusesig == 1) and the user's signature is not suspended. The form shows the checkbox on this, and

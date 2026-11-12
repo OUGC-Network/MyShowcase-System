@@ -1,0 +1,117 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ trans('myshowcase_import_export_title_export', config.name) }} - {{ mybb.settings.bbname }}</title>
+    <link rel="manifest" href="/manifest.json">
+{% endblock head %}
+
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            <h1 class="title title--page">{{ lang.myshowcase_import_export_title_export }}</h1>
+        </header>
+
+        {{ error_messages|raw }}
+
+        {% if storage_inside_web_root %}
+            <div class="alert alert--info">
+                <div class="alert__message">
+                    <p class="alert__description">{{ lang.myshowcase_import_export_storage_note }}</p>
+                </div>
+            </div>
+        {% endif %}
+
+        <form action="{{ url.showcase }}{{ url.export_main }}" method="post" id="export-form">
+            <section class="block block--form form">
+                <div class="section section--form">
+                    <div class="row row--form field">
+                        <h3 class="field__name"><label for="export-limit">{{ lang.myshowcase_import_export_form_limit }}</label></h3>
+                        <p class="field__description">{{ trans('myshowcase_import_export_form_limit_description', form.limit_cap) }}</p>
+                        <input type="number" class="textbox" name="limit" id="export-limit" min="0" max="{{ form.limit_cap }}"
+                               value="{{ form.limit }}"/>
+                    </div>
+                    <div class="row row--form field">
+                        <h3 class="field__name"><label for="export-order-by">{{ lang.myshowcase_import_export_form_sort }}</label></h3>
+                        <select name="order_by" id="export-order-by" class="select">
+                            {% for key, label in form.sort_choices %}
+                                <option value="{{ key }}"{{ key == form.order_by ? ' selected="selected"' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="order_dir" class="select">
+                            <option value="desc"{{ form.order_dir == 'desc' ? ' selected="selected"' }}>{{ lang.myshowcase_import_export_sort_descending }}</option>
+                            <option value="asc"{{ form.order_dir == 'asc' ? ' selected="selected"' }}>{{ lang.myshowcase_import_export_sort_ascending }}</option>
+                        </select>
+                    </div>
+                    <div class="row row--form field">
+                        <h3 class="field__name">{{ lang.myshowcase_import_export_form_fields }}</h3>
+                        <p class="field__description">{{ lang.myshowcase_import_export_form_fields_description }}</p>
+                        {% for key, label in form.field_choices %}
+                            <p class="option-field option-field--compact">
+                                <label>
+                                    <input type="checkbox" class="checkbox" name="fields[]" value="{{ key }}"{{ key in form.selected ? ' checked="checked"' }}/>
+                                    {{ label }}
+                                </label>
+                            </p>
+                        {% endfor %}
+                    </div>
+                    {% if form.can_include_awaiting or form.can_include_deleted %}
+                        <div class="row row--form field">
+                            <h3 class="field__name">{{ lang.myshowcase_import_export_form_options }}</h3>
+                            {% if form.can_include_awaiting %}
+                                <p class="option-field option-field--compact">
+                                    <label>
+                                        <input type="checkbox" class="checkbox" name="include_awaiting_approval" value="1"{{ form.options.include_awaiting_approval ? ' checked="checked"' }}/>
+                                        {{ lang.myshowcase_import_export_form_include_awaiting }}
+                                    </label>
+                                </p>
+                            {% endif %}
+                            {% if form.can_include_deleted %}
+                                <p class="option-field option-field--compact">
+                                    <label>
+                                        <input type="checkbox" class="checkbox" name="include_soft_deleted" value="1"{{ form.options.include_soft_deleted ? ' checked="checked"' }}/>
+                                        {{ lang.myshowcase_import_export_form_include_deleted }}
+                                    </label>
+                                </p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <p class="field__description">{{ trans('myshowcase_import_export_form_size_note', size_cap) }}</p>
+                </div>
+                <div class="form__submit">
+                    <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+                    <button type="submit" class="button button--medium">
+                        {{ include('partials/icon.twig', {icon: 'download', class: 'button__icon'}, with_context = false) }}
+                        <span class="button__text">{{ lang.myshowcase_import_export_form_submit }}</span>
+                    </button>
+                </div>
+            </section>
+        </form>
+
+        <section class="block block--container">
+            <h2 class="title title--major">{{ lang.myshowcase_import_export_list_title }}</h2>
+            {% if stored_maximum > 0 %}
+                <p>{{ trans('myshowcase_import_export_list_count', stored_count, stored_maximum) }}</p>
+            {% endif %}
+            {% if exports is empty %}
+                <p>{{ lang.myshowcase_import_export_none_stored }}</p>
+            {% else %}
+                <table class="table" id="exports-list">
+                    <thead>
+                    <tr>
+                        <th>{{ lang.myshowcase_import_export_col_created }}</th>
+                        <th>{{ lang.myshowcase_import_export_col_entries }}</th>
+                        <th>{{ lang.myshowcase_import_export_col_size }}</th>
+                        <th>{{ lang.myshowcase_import_export_col_rules }}</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for export in exports %}
+                        {% include '@ext.myshowcase/pageExportRow.twig' %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </section>
+    </div>
+{% endblock body %}
