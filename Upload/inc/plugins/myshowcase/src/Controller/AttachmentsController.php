@@ -62,7 +62,7 @@ class AttachmentsController extends BaseController
         global $mybb, $lang;
 
         if (!verify_post_check($mybb->get_input('my_post_key'), true)) {
-            $this->error($lang->invalid_post_code);
+            $this->errorNoPermission(403);
         }
 
         if (!$this->context->showcase->attachments_allow_in_entries ||

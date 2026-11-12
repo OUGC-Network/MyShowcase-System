@@ -269,7 +269,7 @@ def security():
     r = comment(m1, e1, 'No key comment', key=False)
     ok(bad_post_key(r) and count('mybb_myshowcase_comments') == comments_before, 'comment without my_post_key refused')
     r = upload(m1, G, 'image', 'nokeyhash1', '', 'photo.jpg')
-    ok(r['status'] >= 400 and count('mybb_myshowcase_attachments', "post_hash='nokeyhash1'") == 0, f'upload without my_post_key refused [{r["status"]}]')
+    ok(r['status'] == 403 and count('mybb_myshowcase_attachments', "post_hash='nokeyhash1'") == 0, f'upload without my_post_key refused with 403 [{r["status"]}]')
     r = m1.get(f"{view_url(e1)}?action=subscribe")
     ok(bad_post_key(r) and count('mybb_myshowcase_subscriptions', f"entry_id='{e1['entry_id']}'") == 0, 'subscribe without my_post_key refused')
     r = mod.get(f"{G}/update/{e1['public_id']}?delete=2")
