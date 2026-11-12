@@ -20,7 +20,11 @@ use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\UserEntity;
 use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
+use MyShowcase\Event\Listener\EntryDeletedAttachmentListener;
+use MyShowcase\Event\Listener\EntryDeletedCommentListener;
+use MyShowcase\Event\Listener\EntryDeletedSubscriptionListener;
 use MyShowcase\Routing\Routing;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\CacheManager;
@@ -83,6 +87,7 @@ class Showcase
         $this->configureParserOptions();
         $this->initializeCollection();
         $this->registerBinaryFields();
+        $this->registerEntryDeletedListeners();
 
         hooksRun('system_showcase_construct_end', $this);
 
@@ -187,6 +192,20 @@ class Showcase
 
         $this->context->mybb->binary_fields['myshowcase_data' . $showcase_id]['ipaddress'] = true;
         $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
+    }
+
+    /** What belongs to an entry is removed in one place, whichever path deleted the entry. */
+    private function registerEntryDeletedListeners(): void
+    {
+        foreach (
+            [
+                new EntryDeletedCommentListener($this->context),
+                new EntryDeletedAttachmentListener($this->context),
+                new EntryDeletedSubscriptionListener($this->context),
+            ] as $listener
+        ) {
+            $this->context->event_dispatcher->addListener(EntryDeletedEvent::NAME, $listener);
+        }
     }
 
     public function newInstance(?int $showcase_id = null, ?string $route_identifier = null): self

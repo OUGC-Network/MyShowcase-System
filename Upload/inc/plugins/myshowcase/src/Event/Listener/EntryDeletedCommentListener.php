@@ -5,25 +5,30 @@ declare(strict_types=1);
 namespace MyShowcase\Event\Listener;
 
 use MyShowcase\Event\Event\EntryDeletedEvent;
-use MyShowcase\Repository\CommentsRepository;
+use MyShowcase\ShowcaseContext;
 
-class EntryDeletedCommentListener
+/** Deletes the comments of a deleted entry. */
+readonly class EntryDeletedCommentListener
 {
     public function __construct(
-        private readonly CommentsRepository $comments_repository,
+        private ShowcaseContext $context,
     ) {
     }
 
     public function __invoke(EntryDeletedEvent $event): void
     {
-        $entry_id = $event->getEntryID();
+        $comment_ids = array_map(
+            static fn(array $comment_data): int => (int)$comment_data['comment_id'],
+            iterator_to_array(
+                $this->context->comments_repository->queryComments(
+                    ["comment_data.entry_id='{$event->getEntryID()}'"],
+                    'comment_data.comment_id'
+                ),
+                false
+            )
+        );
 
-        foreach (
-            $this->context->comments_repository->queryComments(
-                ["entry_id='{$entry_id}'"],
-                'comment_id'
-            ) as $comment_id => $comment_data
-        ) {
+        foreach ($comment_ids as $comment_id) {
             $this->context->comments_repository->deleteComment($comment_id);
         }
     }

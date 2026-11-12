@@ -164,6 +164,9 @@ class CommentsRepository
             'myshowcase_comments',
             "showcase_id='{$this->showcase->showcase_id}' AND comment_id='{$comment_id}'"
         );
+
+        // Comment ids are unique across showcases.
+        $this->database->delete_query('myshowcase_comments_history', "comment_id='{$comment_id}'");
     }
 
     public function fetchComments(

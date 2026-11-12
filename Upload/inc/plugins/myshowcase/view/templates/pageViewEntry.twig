@@ -309,7 +309,7 @@
                         {% endif %}
 
                         {# Delete button #}
-                        {% if entry_data.entry_slug and (permissions.entries_can_delete or permissions.entries_can_view) %}
+                        {% if entry_data.entry_slug and permissions.entries_can_delete %}
                             <a href="{{ config.showcase_url }}{{ url.delete }}"
                                title="{{ lang.myshowcase_view_entry_options_quick_delete_permanently_title }}"
                                class="post-control post-control--delete">

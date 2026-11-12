@@ -20,6 +20,14 @@ use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class AttachmentsRepository
 {
+    /** Tables whose rows are about one attachment. */
+    private const DEPENDENT_TABLES = [
+        'myshowcase_attachments_history',
+        'myshowcase_attachments_cdn',
+        'myshowcase_attachments_shared',
+        'myshowcase_attachments_download_logs',
+    ];
+
     private ?int $attachment_id;
 
     private array $insert_data = [];
@@ -164,30 +172,30 @@ class AttachmentsRepository
         hooksRun('attachment_delete', $this);
 
         $attachment_data = $this->queryAttachment(
-            ["attachmen_id='{$this->attachment_id}'"],
-            ['attachment_name', 'thumbnail_name', 'status']
+            ["attachment_id='{$this->attachment_id}'"],
+            ['file_name', 'thumbnail_name']
         );
+
+        if (empty($attachment_data)) {
+            return;
+        }
 
         $this->database->delete_query(
             'myshowcase_attachments',
             "showcase_id='{$this->showcase->showcase_id}' AND attachment_id='{$this->attachment_id}'"
         );
 
-        if (!empty($attachment_data)) {
-            if (file_exists($this->attachments_uploads_path . '/' . $attachment_data['attachment_name'])) {
-                unlink($this->attachments_uploads_path . '/' . $attachment_data['attachment_name']);
-            }
+        // Attachment ids are unique across showcases: the rows below belong to this attachment only.
+        foreach (self::DEPENDENT_TABLES as $table) {
+            $this->database->delete_query($table, "attachment_id='{$this->attachment_id}'");
+        }
 
-            if (!empty($attachment_data['thumbnail_name']) &&
-                file_exists($this->attachments_uploads_path . '/' . $attachment_data['thumbnail_name'])) {
-                unlink($this->attachments_uploads_path . '/' . $attachment_data['thumbnail_name']);
-            }
+        $uploads_path = rtrim(mk_path_abs($this->showcase->attachments_uploads_path), '/');
 
-            $date_directory = explode('/', $attachment_data['attachment_name']);
-
-            if (!empty($date_directory[0]) &&
-                is_dir($this->attachments_uploads_path . '/' . $date_directory[0])) {
-                rmdir($this->attachments_uploads_path . '/' . $date_directory[0]);
+        // The month folder (YYYYMM/) holds the files of other attachments too: it stays.
+        foreach ([$attachment_data['file_name'], $attachment_data['thumbnail_name']] as $file_name) {
+            if ((string)$file_name !== '' && is_file($uploads_path . '/' . $file_name)) {
+                unlink($uploads_path . '/' . $file_name);
             }
         }
     }

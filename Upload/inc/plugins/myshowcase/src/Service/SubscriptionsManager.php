@@ -7,9 +7,7 @@ namespace MyShowcase\Service;
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
-use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Event\Listener\EntryDeletedSubscriptionListener;
 use MyShowcase\Repository\SubscriptionsRepository;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
@@ -25,11 +23,6 @@ readonly class SubscriptionsManager
     ) {
         $this->subscriptions_repository = new SubscriptionsRepository(
             $this->database, $this->config,
-        );
-
-        $this->event_dispatcher->addListener(
-            EntryDeletedEvent::NAME,
-            new EntryDeletedSubscriptionListener($this->subscriptions_repository)
         );
     }
 }

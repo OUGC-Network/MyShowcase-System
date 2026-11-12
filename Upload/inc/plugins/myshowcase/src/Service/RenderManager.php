@@ -536,6 +536,7 @@ class RenderManager
                 [
                     'entry_slug' => $entry->entry_slug,
                     'delete' => 1,
+                    'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
 
@@ -544,6 +545,7 @@ class RenderManager
                 [
                     'entry_slug' => $entry->entry_slug,
                     'delete' => 2,
+                    'my_post_key' => $this->context->mybb->post_code,
                 ]
             );
         } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comments_can_view || $userCanUpdateComments)) {

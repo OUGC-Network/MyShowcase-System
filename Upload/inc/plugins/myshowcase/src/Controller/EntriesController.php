@@ -32,7 +32,6 @@ use MyShowcase\Enum\{AttachmentsDisplayType,
     SortDirections,
     UserPermissions
 };
-use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\{AccessLogsRepository,
     AttachmentsRepository,
@@ -67,6 +66,15 @@ class EntriesController extends BaseController
         'soft_delete' => UserPermissions::EntriesCanSoftDelete,
         'restore' => UserPermissions::EntriesCanRestore,
         'delete' => UserPermissions::EntriesCanDelete,
+    ];
+
+    /** The moderation links of the entry page: the status they set (null deletes) and their redirect message. */
+    private const ENTRY_PAGE_ACTIONS = [
+        'soft_delete' => [ContentStatuses::SoftDeleted, 'myshowcase_main_inline_moderation_redirect_soft_deleted'],
+        'restore' => [ContentStatuses::VisibleApproved, 'myshowcase_main_inline_moderation_redirect_restored'],
+        'approve' => [ContentStatuses::VisibleApproved, 'myshowcase_main_inline_moderation_redirect_approved'],
+        'unapprove' => [ContentStatuses::AwaitingApproval, 'myshowcase_main_inline_moderation_redirect_unapproved'],
+        'delete' => [null, 'myshowcase_main_inline_moderation_redirect_deleted'],
     ];
 
     private const ENTRY_FORM_COLUMNS = ['subject', 'message', 'icon_id', 'post_hash', 'update_note', 'allow_signature', 'disable_smilies'];
@@ -203,13 +211,10 @@ class EntriesController extends BaseController
                     $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_restored);
                     break;
                 case 'delete':
-                    /** @var EntryEntity $entry */
-                    foreach ($selected_entries as $entry) {
-                        $this->context->entries_repository->deleteEntry($entry->entry_id);
-                        $this->context->event_dispatcher->dispatch(
-                            new EntryDeletedEvent($entry->entry_id),
-                            EntryDeletedEvent::NAME
-                        );
+                    $entry_ids = array_map(static fn(EntryEntity $entry): int => $entry->entry_id, iterator_to_array($selected_entries));
+
+                    foreach ($entry_ids as $entry_id) {
+                        $this->context->entries_manager->deleteEntry($entry_id);
                     }
                     $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_deleted);
                     break;
@@ -673,6 +678,49 @@ class EntriesController extends BaseController
     }
 
     /**
+     * The moderation links of the entry page (delete=1 soft deletes, delete=2 deletes, or action=...): the same
+     * permission as the inline action, plus moderator rights for the entries of other users.
+     */
+    private function entryPageModeration(EntryEntity $entry): void
+    {
+        $action = match ($this->context->mybb->get_input('delete', MyBB::INPUT_INT)) {
+            1 => 'soft_delete',
+            2 => 'delete',
+            default => $this->context->mybb->get_input('action'),
+        };
+
+        if (!isset(self::ENTRY_PAGE_ACTIONS[$action])) {
+            return;
+        }
+
+        verify_post_check($this->context->mybb->get_input('my_post_key'));
+
+        [$status, $message] = self::ENTRY_PAGE_ACTIONS[$action];
+
+        if (!$this->mayModerateEntry($entry, self::INLINE_MODERATION_PERMISSIONS[$action])) {
+            $this->errorNoPermission();
+        }
+
+        $lang = $this->context->language;
+
+        if ($status === null) {
+            $this->context->entries_manager->deleteEntry($entry->entry_id);
+
+            redirect($this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main), $lang->$message);
+        }
+
+        $this->performBatchEntryUpdate([$entry], ['status' => $status]);
+
+        redirect(
+            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                Routes::EntryView,
+                ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+            ),
+            $lang->$message
+        );
+    }
+
+    /**
      * A new entry waits for approval when the user's new entries are moderated, an edited one when the user's edits
      * are; otherwise a new entry is visible and an edited one keeps its status. Bypassing moderation skips both.
      */
@@ -762,6 +810,8 @@ class EntriesController extends BaseController
             $this->context->entries_manager->addEntry($entry);
 
             $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
+
+            $this->entryPageModeration($entry);
 
             // Only the author, or a moderator, may edit an entry.
             if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanUpdate) ||

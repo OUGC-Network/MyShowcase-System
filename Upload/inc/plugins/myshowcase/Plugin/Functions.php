@@ -155,8 +155,11 @@ function showcaseDelete(int $showcase_id): bool
 
     $hookArguments = hooksRun('showcase_delete_start', $hookArguments);
 
-    foreach ($showcase->context->permissions_repository->queryPermissions() as $permissionID => $permissionData) {
-        $showcase->context->permissions_repository->deletePermission($permissionID);
+    foreach (
+        array_column(iterator_to_array($showcase->context->permissions_repository->queryPermissions(query_fields: ['permission_id']), false), 'permission_id')
+        as $permission_id
+    ) {
+        $showcase->context->permissions_repository->deletePermission((int)$permission_id);
     }
 
     $moderators_repository = $showcase->context->moderators_repository;
@@ -165,19 +168,33 @@ function showcaseDelete(int $showcase_id): bool
         $moderators_repository->deleteModerator($moderatorID);
     }
 
+    // Each entry with what belongs to it, then what no entry holds any more (files uploaded with an unsaved form).
+    // The repositories yield rows without keys.
+    if (showcaseDataTableExists($showcase_id)) {
+        foreach (
+            array_column(iterator_to_array($showcase->context->entries_repository->queryEntries(query_fields: ['entry_id']), false), 'entry_id')
+            as $entry_id
+        ) {
+            $showcase->context->entries_manager->deleteEntry((int)$entry_id);
+        }
+    }
+
     $comments_repository = $showcase->context->comments_repository;
 
     foreach (
-        $comments_repository->queryComments(query_fields: ['comment_id']) as $commentID => $commentData
+        array_column(iterator_to_array($comments_repository->queryComments(query_fields: ['comment_data.comment_id']), false), 'comment_id')
+        as $comment_id
     ) {
-        $comments_repository->deleteComment($commentID);
+        $comments_repository->deleteComment((int)$comment_id);
     }
 
     $attachments_repository = $showcase->context->attachments_repository;
 
-    foreach ($attachments_repository->queryAttachments() as $attachmentID => $attachmentData) {
-        $attachments_repository->deleteAttachment($attachmentID);
+    foreach (array_column(iterator_to_array($attachments_repository->queryAttachments(), false), 'attachment_id') as $attachment_id) {
+        $attachments_repository->deleteAttachment((int)$attachment_id);
     }
+
+    $db->delete_query('myshowcase_subscriptions', "showcase_id='{$showcase_id}'");
 
     if (showcaseDataTableExists($showcase_id)) {
         showcaseDataTableDrop($showcase_id);

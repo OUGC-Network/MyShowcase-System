@@ -14,10 +14,8 @@ use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Entity\UserEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
-use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Event\Listener\EntryDeletedAttachmentListener;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\UuidUtil;
@@ -68,11 +66,6 @@ class AttachmentsManager
     )
     {
         $this->attachments = new Collection();
-
-        $this->context->event_dispatcher->addListener(
-            EntryDeletedEvent::NAME,
-            new EntryDeletedAttachmentListener($this->context->attachments_repository)
-        );
     }
 
     public function addAttachment(array $attachment_data): void

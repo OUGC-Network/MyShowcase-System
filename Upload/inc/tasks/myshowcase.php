@@ -28,21 +28,29 @@ function task_myshowcase(array $taskData): array
             CacheDataTypes::Config
         ) as $showcase_id => $showcase_data
     ) {
-        $showcasePruneTime = explode('|', $showcase_data['prune_time']);
+        // "<amount>|<unit>", for example "30|days"; the setting has no column at present, so nothing is pruned.
+        $showcasePruneTime = explode('|', (string)($showcase_data['prune_time'] ?? ''));
 
-        if ($showcasePruneTime[0] > 0 && $showcase_data['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
-            $pruneTime = (int)strtotime('-' . $showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
+        if ((int)$showcasePruneTime[0] > 0 && !empty($showcasePruneTime[1]) &&
+            $showcase_data['is_enabled'] === SHOWCASE_STATUS_ENABLED) {
+            $pruneTime = (int)strtotime('-' . (int)$showcasePruneTime[0] . ' ' . $showcasePruneTime[1], TIME_NOW);
 
             $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
-            $entries_repository = $showcase->context->entries_repository;
+            // dateline is a DATETIME column; queryEntries() yields rows without keys.
+            $entry_ids = array_map(
+                static fn(array $entry_data): int => (int)$entry_data['entry_id'],
+                iterator_to_array(
+                    $showcase->context->entries_repository->queryEntries(
+                        ["dateline<='" . gmdate('Y-m-d H:i:s', $pruneTime) . "'"],
+                        ['entry_id']
+                    ),
+                    false
+                )
+            );
 
-            foreach (
-                $entries_repository->queryEntries(
-                    ["dateline<='{$pruneTime}'", ['entry_id']]
-                ) as $entryID => $entryData
-            ) {
-                $entries_repository->deleteEntry($entryID);
+            foreach ($entry_ids as $entry_id) {
+                $showcase->context->entries_manager->deleteEntry($entry_id);
             }
         }
     }

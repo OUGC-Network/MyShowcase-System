@@ -264,6 +264,11 @@ class EntriesRepository
             'myshowcase_data' . $this->showcase->showcase_id,
             "entry_id='{$this->entry_id}'"
         );
+
+        $this->database->delete_query(
+            'myshowcase_reads',
+            "showcase_id='{$this->showcase->showcase_id}' AND entry_id='{$this->entry_id}'"
+        );
     }
 
     public function shutDownQueryIncrementViews(int $entry_id): void

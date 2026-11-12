@@ -34,18 +34,22 @@ function datahandler_user_delete_content(UserDataHandler &$dataHandler): UserDat
         return $dataHandler;
     }
 
+    $userIDs = implode("','", array_map('intval', $userIDs));
+
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
         $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 
-        $entries_repository = $showcase->context->entries_repository;
+        // queryEntries() yields rows without keys.
+        $entry_ids = array_map(
+            static fn(array $entry_data): int => (int)$entry_data['entry_id'],
+            iterator_to_array(
+                $showcase->context->entries_repository->queryEntries(["user_id IN ('{$userIDs}')"], ['entry_id']),
+                false
+            )
+        );
 
-        foreach ($userIDs as $userID) {
-            foreach (
-                $entries_repository->queryEntries(["user_id={$userID}"], ['entry_id']
-                ) as $entryID => $entryData
-            ) {
-                $entries_repository->deleteEntry($entryID);
-            }
+        foreach ($entry_ids as $entry_id) {
+            $showcase->context->entries_manager->deleteEntry($entry_id);
         }
     }
 

@@ -12,9 +12,7 @@ use MyShowcase\Entity\UserEntity;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Enum\UserPermissions;
-use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Event\EventDispatcher;
-use MyShowcase\Event\Listener\EntryDeletedCommentListener;
 use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\ShowcaseContext;
@@ -73,11 +71,6 @@ class CommentsManager
         //private readonly ConfigManager $config,
     )
     {
-        $this->context->event_dispatcher->addListener(
-            EntryDeletedEvent::NAME,
-            new EntryDeletedCommentListener($this->context->comments_repository)
-        );
-
         $this->comments = new Collection();
     }
 

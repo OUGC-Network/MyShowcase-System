@@ -13,6 +13,7 @@ use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\UserPermissions;
+use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\AttachmentsRepository;
@@ -74,6 +75,33 @@ class EntriesManager
     public function getEntries(): Collection
     {
         return $this->entries;
+    }
+
+    /**
+     * Deletes an entry of this showcase and, through the entry-deleted event, everything that belongs to it. Every
+     * path that deletes entries goes through here.
+     */
+    public function deleteEntry(int $entry_id): bool
+    {
+        $entry_data = $this->context->entries_repository->queryEntry(
+            ["entry_id='{$entry_id}'"],
+            ['entry_id', 'user_id']
+        );
+
+        if (empty($entry_data)) {
+            return false;
+        }
+
+        $this->context->entries_repository->deleteEntry($entry_id);
+
+        $this->context->event_dispatcher->dispatch(
+            new EntryDeletedEvent($this->context->showcase->showcase_id, $entry_id, (int)$entry_data['user_id']),
+            EntryDeletedEvent::NAME
+        );
+
+        $this->entries->offsetUnset($entry_id);
+
+        return true;
     }
 
     public function getEntryByID(int $entry_id): ?EntryEntity
