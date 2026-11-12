@@ -305,7 +305,7 @@ function showcaseDataTableFieldDrop(int $showcase_id, string $field_name): bool
         $entries_repository->deleteEntry($entryID);
     }
 
-    $db->drop_column('myshowcase_data' . $showcase_id, $field_name);
+    SchemaManager::dropColumn('myshowcase_data' . $showcase_id, $field_name);
 
     return true;
 }

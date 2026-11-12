@@ -1679,6 +1679,51 @@ final class SchemaManager
         self::run(self::addColumnSql($table, $column, $definition, self::engine(), $db->table_prefix, self::escaper()));
     }
 
+    /**
+     * Drops a column. MyBB's drop_column() on SQLite copies the table and fails with "table is locked" when a
+     * statement is still open, so SQLite is told to drop the column natively, after the indexes that use it.
+     */
+    public static function dropColumn(string $table, string $column): void
+    {
+        global $db;
+
+        $engine = self::engine();
+
+        if ($engine === self::ENGINE_SQLITE) {
+            $names = [];
+
+            $query = $db->write_query("PRAGMA index_list('{$db->table_prefix}{$table}')");
+
+            while ($index = $db->fetch_array($query)) {
+                if (($index['origin'] ?? 'c') === 'c') {
+                    $names[] = (string)$index['name'];
+                }
+            }
+
+            self::free($query);
+
+            foreach ($names as $name) {
+                $usesColumn = false;
+
+                $info = $db->write_query("PRAGMA index_info('{$name}')");
+
+                while ($part = $db->fetch_array($info)) {
+                    $usesColumn = $usesColumn || $part['name'] === $column;
+                }
+
+                self::free($info);
+
+                if ($usesColumn) {
+                    self::run("DROP INDEX {$name}");
+                }
+            }
+        }
+
+        $quoted = self::quoteIdentifier($column, $engine);
+
+        self::run('ALTER TABLE ' . self::quoteIdentifier($db->table_prefix . $table, $engine) . " DROP COLUMN {$quoted}");
+    }
+
     public static function renameColumn(string $table, string $oldColumn, string $newColumn, array $definition): void
     {
         global $db;
