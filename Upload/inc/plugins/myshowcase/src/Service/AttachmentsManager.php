@@ -316,7 +316,8 @@ class AttachmentsManager
         $file_upload_result = $this->uploadFile($attachment_data, $file_name, $directory_month_name);
 
         // Failed to create the attachment in the monthly directory, just throw it in the main directory
-        if ($file_upload_result['error'] && $directory_month_name) {
+        // uploadFile() sets "error" on failure only.
+        if (!empty($file_upload_result['error']) && $directory_month_name) {
             $file_upload_result = $this->uploadFile($attachment_data, $file_name);
         }
 
@@ -324,7 +325,7 @@ class AttachmentsManager
             $file_name = $directory_month_name . '/' . $file_name;
         }
 
-        if ($file_upload_result['error']) {
+        if (!empty($file_upload_result['error'])) {
             $error_message = $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_detail;
 
             switch ($file_upload_result['error']) {
