@@ -114,7 +114,7 @@ const TABLES_DATA = [
         ],
         'post_hash' => [
             'type' => 'VARCHAR',
-            'size' => 36,
+            'size' => SETTINGS['slugLength'],
             'default' => '',
         ],
         'user_id' => [
@@ -353,7 +353,7 @@ const TABLES_DATA = [
         ],
         'post_hash' => [
             'type' => 'VARCHAR',
-            'size' => 36,
+            'size' => SETTINGS['slugLength'],
             'default' => '',
         ],
         'user_id' => [
@@ -2248,7 +2248,7 @@ const DATA_TABLE_STRUCTURE = [
         ],
         'post_hash' => [
             'type' => 'VARCHAR',
-            'size' => 36,
+            'size' => SETTINGS['slugLength'],
             'default' => '',
         ],
         'user_id' => [

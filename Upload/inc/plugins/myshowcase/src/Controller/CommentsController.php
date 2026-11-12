@@ -23,7 +23,7 @@ use MyShowcase\Enum\ContentTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Fields\FieldsInterface;
-use MyShowcase\Util\UuidUtil;
+use MyShowcase\Util\StringUtil;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\LoaderError;
@@ -139,7 +139,7 @@ class CommentsController extends BaseController
         $this->buildCommentBreadcrumbs($entry, $comment_public_id, $is_update, $lang);
 
         if (!$is_update && empty($comment_data->post_hash)) {
-            $entry->post_hash = $mybb->get_input('post_hash') ?: (new UuidUtil())->generateUuidV4();
+            $entry->post_hash = $mybb->get_input('post_hash') ?: (new StringUtil())->generatePublicId();
         }
 
         $commentPreview = '';

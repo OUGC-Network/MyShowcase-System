@@ -79,6 +79,11 @@ class StringUtil
         return '[0-9a-f]{' . (int)$length . '}';
     }
 
+    public function isValidPublicId(string $value): bool
+    {
+        return preg_match('/^' . $this->publicIdPattern() . '$/D', $value) === 1;
+    }
+
     /**
      * Counts a message's characters removing special code.
      * Based off Zinga Burga's "Thread Tooltip Preview" plugin threadtooltip_getpreview() function.

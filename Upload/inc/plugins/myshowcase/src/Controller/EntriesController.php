@@ -41,7 +41,7 @@ use MyShowcase\Repository\{AccessLogsRepository,
     SubscriptionsRepository
 };
 use MyShowcase\Service\{CommentsManager, EntriesManager};
-use MyShowcase\Util\{SelectableLists, StringUtil, UuidUtil};
+use MyShowcase\Util\{SelectableLists, StringUtil};
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
 use Twig\Error\{LoaderError, RuntimeError, SyntaxError};
@@ -1006,15 +1006,15 @@ class EntriesController extends BaseController
         }
 
         if (!$is_update && empty($entry->post_hash)) {
-            // The form sends back the hash it was given, which is always a generated UUID v4 (MyShowcase's own format:
-            // MyBB core's posthash is an md5, this plugin's is not). Anything else can only be a tampered post, and is
-            // replaced; the hash goes into queries and into a VARCHAR(36) column.
+            // The form sends back the hash it was given, which is always a StringUtil::generatePublicId() value
+            // (MyShowcase's own format: MyBB core's posthash is an md5, this plugin's is not). Anything else can only be a
+            // tampered post, and is replaced; the hash goes into queries and into a VARCHAR(slugLength) column.
             $posted_post_hash = $this->context->mybb->get_input('post_hash');
 
-            if ((new UuidUtil())->isValidUuidV4($posted_post_hash)) {
+            if ((new StringUtil())->isValidPublicId($posted_post_hash)) {
                 $entry->post_hash = $posted_post_hash;
             } else {
-                $entry->post_hash = (new UuidUtil())->generateUuidV4();
+                $entry->post_hash = (new StringUtil())->generatePublicId();
             }
         }
 
