@@ -139,7 +139,7 @@ class CommentsController extends BaseController
         $this->buildCommentBreadcrumbs($entry, $comment_public_id, $is_update, $lang);
 
         if (!$is_update && empty($comment_data->post_hash)) {
-            $entry->post_hash = $mybb->get_input('post_hash') ?: (new StringUtil())->generatePublicId();
+            $entry->post_hash = $this->requestPostHash();
         }
 
         $commentPreview = '';
@@ -302,7 +302,7 @@ class CommentsController extends BaseController
 
         return array_merge($insertData, [
             'user_id' => $this->context->current_user->uid,
-            'post_hash' => $mybb->get_input('post_hash'),
+            'post_hash' => $this->requestPostHash(),
             'ipaddress' => $mybb->session->packedip,
             'dateline' => TIME_NOW,
         ]);
