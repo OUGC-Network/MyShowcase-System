@@ -1811,12 +1811,20 @@ class EntriesController extends BaseController
             }
         }
 
-        if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause(
-            $alias,
-            $content_type === ContentTypes::Entry ? UserPermissions::EntriesCanView : UserPermissions::CommentsCanView
-        )) {
+        if ($content_type === ContentTypes::Comment) {
+            // Comments are filtered by their own moderation permissions. CommentsCanView only means the user may
+            // read comments at all, so it must not reveal unapproved or soft-deleted ones.
+            if ($visibility_clause = $this->statusVisibilityClause(
+                $alias,
+                UserPermissions::CommentsCanViewUnapproved,
+                UserPermissions::CommentsCanViewDeleted
+            )) {
+                $where_clauses[] = $visibility_clause;
+            }
+        } elseif ($visibility_clause = $this->context->entries_manager->visibilityWhereClause($alias)) {
             $where_clauses[] = $visibility_clause;
         }
+
         if (empty($this->context->render_manager->url_params['order_dir'])) {
             $sort_ascending = $content_type === ContentTypes::Comment
                 ? $this->context->showcase->comments_sort_direction

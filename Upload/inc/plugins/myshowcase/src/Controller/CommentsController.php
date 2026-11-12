@@ -126,6 +126,11 @@ class CommentsController extends BaseController
         /** @var EntryEntity $entry */
         $entry = $this->context->entries_manager->getEntryByID($this->entry_id);
 
+        if (!$this->context->showcase->comments_enable ||
+            ($entry->is_closed && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanPostInClosedEntries))) {
+            $this->errorNoPermission();
+        }
+
         $comment_data = $is_update
             ? $this->context->comments_manager->getComments()->offsetGet($this->comment_id)
             : $this->context->comments_manager->generateComment();
@@ -303,18 +308,20 @@ class CommentsController extends BaseController
         ]);
     }
 
+    /** A new comment waits for approval when the user's comments are moderated; an edit keeps the stored status. */
     private function determineCommentStatus(bool $is_update): int
     {
-        if ($this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            return ContentStatuses::VisibleApproved;
-        }
+        $moderated = !$this->context->current_user->hasPermission(UserPermissions::CanBypassModeration) &&
+            $this->context->current_user->hasPermission(
+                $is_update ? UserPermissions::CommentsModerateUpdates : UserPermissions::CommentsModerateNew
+            );
 
-        if ($is_update && $this->context->current_user->hasPermission(UserPermissions::CommentsModerateUpdates)) {
+        if ($moderated) {
             return ContentStatuses::AwaitingApproval;
         }
 
-        if (!$is_update && $this->context->current_user->hasPermission(UserPermissions::CommentsModerateNew)) {
-            return ContentStatuses::AwaitingApproval;
+        if ($is_update) {
+            return (int)$this->context->comments_manager->getComments()->offsetGet($this->comment_id)->status;
         }
 
         return ContentStatuses::VisibleApproved;

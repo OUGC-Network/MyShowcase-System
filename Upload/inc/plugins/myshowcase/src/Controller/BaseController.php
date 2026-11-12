@@ -193,16 +193,50 @@ abstract class BaseController
         return $user_id > 0 && (int)$entry->user_id === $user_id;
     }
 
+    /**
+     * SQL condition on the status column of $alias: what the user may see. Visible rows for everyone, waiting rows
+     * for their author and for users with $view_unapproved, soft-deleted rows for users with $view_deleted.
+     */
+    protected function statusVisibilityClause(string $alias, string $view_unapproved, string $view_deleted): string
+    {
+        $user_id = (int)$this->context->current_user->uid;
+
+        $visible = ["{$alias}.status='" . ContentStatuses::VisibleApproved . "'"];
+
+        if ($this->context->current_user->hasPermission($view_unapproved)) {
+            $visible[] = "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'";
+        } elseif ($user_id > 0) {
+            $visible[] = "({$alias}.user_id='{$user_id}' AND {$alias}.status='" . ContentStatuses::AwaitingApproval . "')";
+        }
+
+        if ($this->context->current_user->hasPermission($view_deleted)) {
+            $visible[] = "{$alias}.status='" . ContentStatuses::SoftDeleted . "'";
+        }
+
+        return '(' . implode(' OR ', $visible) . ')';
+    }
+
+    /** The same rule as statusVisibilityClause() for one row. */
+    protected function isStatusVisible(int $status, int $author_id, string $view_unapproved, string $view_deleted): bool
+    {
+        $user_id = (int)$this->context->current_user->uid;
+
+        return match ($status) {
+            ContentStatuses::VisibleApproved => true,
+            ContentStatuses::AwaitingApproval => ($user_id > 0 && $author_id === $user_id) ||
+                $this->context->current_user->hasPermission($view_unapproved),
+            ContentStatuses::SoftDeleted => $this->context->current_user->hasPermission($view_deleted),
+            default => false,
+        };
+    }
+
     public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
     {
         if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {
             return self::NO_PERMISSION;
         }
 
-        if (!(
-            $this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            $this->context->current_user->hasPermission(UserPermissions::EntriesCanModerate)
-        )) {
+        if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) && !$this->isEntryModerator()) {
             return self::NO_PERMISSION;
         }
 
@@ -236,7 +270,8 @@ abstract class BaseController
             return self::INVALID_ENTRY;
         }
 
-        if ($comment_slug !== null && !$this->isCommentAccessible($comment_data)) {
+        if ($comment_slug !== null &&
+            ((int)$comment_data->entry_id !== (int)$entry->entry_id || !$this->isCommentAccessible($comment_data))) {
             return self::INVALID_COMMENT;
         }
 
@@ -342,23 +377,12 @@ abstract class BaseController
 
     private function isCommentAccessible(CommentEntity $comment): bool
     {
-        if ($comment->status === ContentStatuses::VisibleApproved) {
-            return true;
-        }
-
-        if ($comment->status === ContentStatuses::AwaitingApproval &&
-            $this->context->current_user->uid === $comment->user_id
-        ) {
-            return true;
-        }
-
-        if ($comment->status === ContentStatuses::SoftDeleted &&
-            $this->context->current_user->hasPermission(UserPermissions::CommentsCanView)
-        ) {
-            return true;
-        }
-
-        return false;
+        return $this->isStatusVisible(
+            (int)$comment->status,
+            (int)$comment->user_id,
+            UserPermissions::CommentsCanViewUnapproved,
+            UserPermissions::CommentsCanViewDeleted
+        );
     }
 
     #[NoReturn]
@@ -400,12 +424,11 @@ abstract class BaseController
             "dateline<='" . date('Y-m-d H:i:s', $comment_data->dateline->getTimestamp()) . "'",
         ];
 
-        if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) &&
-            !$this->context->current_user->hasPermission(UserPermissions::CommentsCanView)
-        ) {
-            $where_clauses[] = "(status='" . ContentStatuses::VisibleApproved
-                . "' OR (user_id='{$this->context->current_user->uid}' AND status='" . ContentStatuses::AwaitingApproval . "'))";
-        }
+        $where_clauses[] = $this->statusVisibilityClause(
+            'comment_data',
+            UserPermissions::CommentsCanViewUnapproved,
+            UserPermissions::CommentsCanViewDeleted
+        );
 
         $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase);
         $total_comments = $comments_repository->queryCommentCount($where_clauses);
