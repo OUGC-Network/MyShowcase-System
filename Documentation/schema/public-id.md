@@ -24,17 +24,36 @@ table names below are given without the board prefix.
 
 `MyShowcase\Util\StringUtil` (`src/Util/StringUtil.php`):
 
-* `generatePublicId(?int $length = null)` returns `$length` lowercase hexadecimal characters drawn from
-  `random_bytes()`. The default length is the `slugLength` setting (`SETTINGS` in `Upload/inc/plugins/myshowcase.php`,
-  10 by default), which is also the size of every `public_id` and `post_hash` column (`VARCHAR(slugLength)`).
-* `publicIdPattern()` is the matching regular expression fragment (`[0-9a-f]{slugLength}`), used to find
-  `[attachment=...]` codes in forum posts.
+* `generatePublicId(?int $length = null)` returns `$length` characters of the base36 alphabet
+  `0123456789abcdefghijklmnopqrstuvwxyz` (digits and lowercase letters), each drawn with `random_int()`. The default
+  length is the `slugLength` setting (`SETTINGS` in `Upload/inc/plugins/myshowcase.php`, 10 by default, about 51 bits),
+  which is also the size of every `public_id` and `post_hash` column (`VARCHAR(slugLength)`).
+* `publicIdPattern()` is the matching regular expression fragment, `[0-9a-z]{slugLength}`. It is the requirement of
+  every `entry_public_id`, `comment_public_id`, `attachment_public_id` and `post_hash` route parameter
+  (`src/Routing/Routing.php`), so a value of any other shape matches no route, and it finds `[attachment=...]` codes
+  in forum posts.
 * `isValidPublicId()` checks a whole value against that pattern; the entry form uses it to accept a posted
   `post_hash` only when it has the generated shape.
 
 The generator does not guarantee uniqueness. Each insert draws a value and draws again while a row already uses it
 (`EntriesManager::validationEntryInsert()`, `CommentsManager::validationCommentInsert()`,
 `AttachmentsManager::uploadAttachment()`); the unique key is the last guard. No UUIDs are used for these values.
+
+## Attachment file names
+
+`AttachmentsManager::uploadAttachment()` stores an upload under the showcase's `attachments_uploads_path`, in a
+`YYYYMM` folder of the upload month when it can be created:
+
+* file of an existing entry: `YYYYMM/attachment_{user_id}_{uuid}_{public_id}.attach`, where `public_id` is the
+  entry's;
+* file of an entry or comment not saved yet: `YYYYMM/attachment_{user_id}_{uuid}_{post_hash}.attach`;
+* thumbnail: the same name with `.attach` replaced by `_thumb.{extension}`.
+
+`{user_id}` is the entry's author (the uploader, for an entry not saved yet) and `{uuid}` is a `UuidUtil::generateUuidV7()` value (RFC 9562 version 7: the
+upload time in milliseconds followed by random bits, lowercase `8-4-4-4-12`), so names sort by upload time. The full
+relative names are stored in `myshowcase_attachments.file_name` and `thumbnail_name`; serving and deleting a file use
+those columns and never parse the name. A file uploaded before its entry existed keeps its `post_hash` name after
+the entry is saved.
 
 ## Tables with `public_id`
 
