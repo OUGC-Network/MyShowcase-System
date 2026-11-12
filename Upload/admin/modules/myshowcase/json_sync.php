@@ -96,7 +96,7 @@ $renderPlan = static function (array $plan, array $results = []): void {
 
     $table->construct_header('#', ['width' => '2%', 'class' => 'align_center']);
 
-    $table->construct_header(JsonUi::text('plan'));
+    $table->construct_header(JsonUi::text($results ? 'plan_result' : 'plan'));
 
     if ($results) {
         $table->construct_header(JsonUi::text('result'), ['width' => '10%', 'class' => 'align_center']);
@@ -127,7 +127,7 @@ $renderPlan = static function (array $plan, array $results = []): void {
         $table->construct_row();
     }
 
-    $table->output(JsonUi::text('plan'));
+    $table->output(JsonUi::text($results ? 'plan_result' : 'plan'));
 
     foreach ($plan['warnings'] as $warning) {
         echo '<div style="margin:6px 0;padding:4px 8px;background:#fff3cd;color:#664d03;">'

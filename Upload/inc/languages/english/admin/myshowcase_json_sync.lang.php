@@ -30,6 +30,7 @@ $l['myshowcase_json_sync_file'] = 'File';
 $l['myshowcase_json_sync_no_files'] = 'There are no files of this type in imports/JSON.';
 $l['myshowcase_json_sync_preview'] = 'Preview';
 $l['myshowcase_json_sync_plan'] = 'What will happen';
+$l['myshowcase_json_sync_plan_result'] = 'What happened';
 $l['myshowcase_json_sync_plan_nothing'] = 'Nothing to do: the row already matches the file.';
 $l['myshowcase_json_sync_warning'] = 'Warning';
 $l['myshowcase_json_sync_confirm'] = 'Confirm and apply';
