@@ -439,7 +439,8 @@ class AttachmentsController extends BaseController
                     'user_id' => $this->context->current_user->uid,
                     'attachment_id' => $this->attachment_data['attachment_id'],
                     'ipaddress' => $mybb->session->packedip,
-                    'dateline' => TIME_NOW,
+                    // A DATETIME column: MySQL in strict mode refuses a Unix timestamp.
+                    'dateline' => new \DateTime('@' . TIME_NOW),
                 ]);
             }
 
