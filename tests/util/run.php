@@ -1,6 +1,6 @@
 <?php
 /**
- * Unit tests of the identifier generators in src/Util.
+ * Unit tests of the identifier generators in src/Util: public ids and UUID version 7.
  * No database, no MyBB: php tests/util/run.php
  */
 
@@ -27,6 +27,7 @@ require_once \MyShowcase\ROOT . '/Plugin/Core.php';
 require_once \MyShowcase\ROOT . '/Plugin/Functions.php';
 
 use MyShowcase\Util\StringUtil;
+use MyShowcase\Util\UuidUtil;
 
 $failures = 0;
 $passes = 0;
@@ -64,6 +65,49 @@ check(!$stringUtil->isValidPublicId('ABCDEFGHIJ'), 'isValidPublicId refuses uppe
 check(!$stringUtil->isValidPublicId('abc-defghi'), 'isValidPublicId refuses other characters');
 check(!$stringUtil->isValidPublicId('abcdefghi') && !$stringUtil->isValidPublicId('abcdefghijk'), 'isValidPublicId refuses another length');
 check(!$stringUtil->isValidPublicId("abcdefghij\n"), 'isValidPublicId refuses a trailing newline');
+
+// UUID version 7
+$uuidUtil = new UuidUtil();
+
+$before = (int)floor(microtime(true) * 1000);
+$uuid = $uuidUtil->generateUuidV7();
+$after = (int)floor(microtime(true) * 1000);
+
+check(preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $uuid) === 1, 'uuid v7: lowercase 8-4-4-4-12');
+check($uuid[14] === '7', 'uuid v7: version nibble is 7');
+check(in_array($uuid[19], ['8', '9', 'a', 'b'], true), 'uuid v7: variant nibble is 8, 9, a or b');
+
+$embedded = hexdec(substr(str_replace('-', '', $uuid), 0, 12));
+
+check($embedded >= $before && $embedded <= $after, 'uuid v7: the embedded milliseconds are the time of generation');
+check(abs($embedded - (int)floor(microtime(true) * 1000)) < 5000, 'uuid v7: the embedded timestamp is within a few seconds of now');
+
+$batch = [];
+
+for ($i = 0; $i < 200; $i++) {
+    $batch[] = $uuidUtil->generateUuidV7();
+}
+
+check(count(array_filter($batch, static fn(string $id): bool => $id[14] === '7' && in_array($id[19], ['8', '9', 'a', 'b'], true))) === 200,
+    'uuid v7: version and variant in every value of a batch');
+check(count(array_unique($batch)) === 200, 'uuid v7: 200 values are distinct');
+
+$ordered = [];
+
+for ($i = 0; $i < 20; $i++) {
+    $ordered[] = $uuidUtil->generateUuidV7();
+
+    usleep(2000);
+}
+
+$sorted = $ordered;
+
+sort($sorted, SORT_STRING);
+
+check($sorted === $ordered, 'uuid v7: values generated in different milliseconds sort in creation order');
+
+check(preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $uuidUtil->generateUuidV4()) === 1,
+    'uuid v4 is unchanged');
 
 echo "{$passes} passed, {$failures} failed\n";
 
