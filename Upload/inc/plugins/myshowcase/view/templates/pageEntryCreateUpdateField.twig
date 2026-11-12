@@ -630,6 +630,8 @@
                         {% if field_data.is_required %}required="required"{% endif %}
                         {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
                 >
+                    {# Without an empty choice the browser submits the first option for an unset (or deleted) value. #}
+                    <option value="">{{ field_data.placeholder }}</option>
                     {% for field_data_id, field_data_data in field_data.getSelectableValues() %}
                         <option value="{{ field_data_id }}"
                                 {% if field_data.isSelected(field_data_id) %}selected="selected"{% endif %}>{{ field_data_data.value }}</option>
