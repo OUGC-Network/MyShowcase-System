@@ -103,6 +103,11 @@
         </p>
     {% endif %}
 
+    {# Approval queue #}
+    {% if unapproved_entries %}
+        {% include '@ext.myshowcase/globalMessageUnapprovedEntries.twig' with {unapprovedEntriesUrl: url.showcase ~ unapproved_entries.url, unapprovedText: unapproved_entries.text} %}
+    {% endif %}
+
     {# Forum rules #}
     {% if config.rules_type > 0 and config.rules_content %}
         <section class="container container--forum-rules forum-rules">

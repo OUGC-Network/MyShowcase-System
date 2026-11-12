@@ -230,6 +230,26 @@ abstract class BaseController
         };
     }
 
+    /** SQL condition on entry_data.status: the entries of this showcase the user may see. */
+    protected function entryVisibilityClause(string $alias = 'entry_data'): string
+    {
+        return $this->statusVisibilityClause(
+            $alias,
+            UserPermissions::EntriesCanViewUnapproved,
+            UserPermissions::EntriesCanViewDeleted
+        );
+    }
+
+    protected function isEntryVisible(EntryEntity $entry): bool
+    {
+        return $this->isStatusVisible(
+            (int)$entry->status,
+            (int)$entry->user_id,
+            UserPermissions::EntriesCanViewUnapproved,
+            UserPermissions::EntriesCanViewDeleted
+        );
+    }
+
     public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
     {
         if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {
@@ -287,24 +307,15 @@ abstract class BaseController
 
     private function resolveEntryBySlug(string $entry_slug): ?EntryEntity
     {
-        $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
-
-        if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-            $where_clauses[] = $this->buildEntryStatusFilter();
-        }
-
-        return $this->loadEntryFromClauses($where_clauses);
+        return $this->loadEntryFromClauses([
+            "entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'",
+            $this->entryVisibilityClause(),
+        ]);
     }
 
     private function resolveEntryById(int $entry_id): ?EntryEntity
     {
-        $where_clauses = ["entry_data.entry_id='{$entry_id}'"];
-
-        if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-            $where_clauses[] = $this->buildEntryStatusFilter();
-        }
-
-        return $this->loadEntryFromClauses($where_clauses);
+        return $this->loadEntryFromClauses(["entry_data.entry_id='{$entry_id}'", $this->entryVisibilityClause()]);
     }
 
     private function loadEntryFromClauses(array $where_clauses): ?EntryEntity
@@ -313,6 +324,10 @@ abstract class BaseController
             $this->context->custom_fields_collection,
             $where_clauses
         );
+
+        if (empty($raw)) {
+            return null;
+        }
 
         $this->context->entries_manager->addEntry($raw);
 
@@ -356,23 +371,7 @@ abstract class BaseController
 
     private function isEntryAccessible(EntryEntity $entry): bool
     {
-        if ((int)$entry->status === ContentStatuses::VisibleApproved) {
-            return true;
-        }
-
-        if ((int)$entry->status === ContentStatuses::AwaitingApproval &&
-            $this->context->current_user->uid === (int)$entry->user_id
-        ) {
-            return true;
-        }
-
-        if ((int)$entry->status === ContentStatuses::SoftDeleted &&
-            $this->context->current_user->hasPermission(UserPermissions::EntriesCanView)
-        ) {
-            return true;
-        }
-
-        return false;
+        return $this->isEntryVisible($entry);
     }
 
     private function isCommentAccessible(CommentEntity $comment): bool

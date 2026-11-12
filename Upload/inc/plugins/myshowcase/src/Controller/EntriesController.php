@@ -340,6 +340,22 @@ class EntriesController extends BaseController
             );
         }
 
+        $templatesContext['unapproved_entries'] = '';
+
+        if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanViewUnapproved) &&
+            ($unapproved_count = $this->context->entries_repository->queryEntryCount(
+                ["entry_data.status='" . ContentStatuses::AwaitingApproval . "'"]
+            ))) {
+            $templatesContext['unapproved_entries'] = [
+                'url' => $this->context->routing->generateUrl(Routes::Main, ['unapproved' => 1]),
+                'text' => $this->context->language->sprintf(
+                    $this->context->language->myshowcase_unapproved_count,
+                    htmlspecialchars_uni($this->context->showcase->name),
+                    my_number_format($unapproved_count)
+                ),
+            ];
+        }
+
         /**
          * @var CustomFieldEntity $field
          */
@@ -481,7 +497,7 @@ class EntriesController extends BaseController
                     ->setExtraData('modChecked', false)
                     ->setExtraData('dateline_timestamp', $entry->dateline->getTimestamp());
 
-                if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+                if ($this->isEntryModerator()) {
                     $entry->setExtraData('modChecked', true);
 
                     if (!$entry->getExtraData('username')) {
@@ -580,14 +596,14 @@ class EntriesController extends BaseController
                     );
                 }
 
-                if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+                if ($this->isEntryModerator()) {
                     $entry->setExtraData('selected', true);
                 }
 
                 if ($entry->status === ContentStatuses::AwaitingApproval) {
                     $entry->setExtraData('background_class', 'trow_shaded');
                 } elseif ($entry->status === ContentStatuses::SoftDeleted &&
-                    $this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
+                    $this->context->current_user->hasPermission(UserPermissions::EntriesCanViewDeleted)) {
                     $entry->setExtraData('background_class', 'trow_shaded trow_deleted');
                 } else {
                     $entry->setExtraData('background_class', '');
@@ -654,6 +670,24 @@ class EntriesController extends BaseController
             'pageMain',
             $templatesContext
         );
+    }
+
+    /**
+     * A new entry waits for approval when the user's new entries are moderated, an edited one when the user's edits
+     * are; otherwise a new entry is visible and an edited one keeps its status. Bypassing moderation skips both.
+     */
+    private function submittedEntryStatus(EntryEntity $entry, bool $is_update): int
+    {
+        $moderated = !$this->context->current_user->hasPermission(UserPermissions::CanBypassModeration) &&
+            $this->context->current_user->hasPermission(
+                $is_update ? UserPermissions::EntriesModerateUpdates : UserPermissions::EntriesModerateNew
+            );
+
+        if ($moderated) {
+            return ContentStatuses::AwaitingApproval;
+        }
+
+        return $is_update ? (int)$entry->status : ContentStatuses::VisibleApproved;
     }
 
     /**
@@ -1022,7 +1056,8 @@ class EntriesController extends BaseController
                 [
                     'entry_id' => $entry->entry_id,
                     'user_id' => $entry->user_id,
-                ],
+                'status' => $this->submittedEntryStatus($entry, $is_update),
+            ],
                 $is_update ? [] : ['status' => $this->context->entries_manager->newEntryStatus()]
             ));
 
@@ -1256,8 +1291,15 @@ class EntriesController extends BaseController
 
         $entry = $this->context->entries_repository->fetchEntry(
             $this->context->custom_fields_collection,
-            $where_clauses
+            [
+                "entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'",
+                $this->entryVisibilityClause(),
+            ]
         );
+
+        if (empty($entry)) {
+            $this->error($this->context->language->myshowcase_invalid_id, 404);
+        }
 
         $this->context->entries_manager->addEntry($entry);
 
@@ -1265,15 +1307,6 @@ class EntriesController extends BaseController
          * @var EntryEntity $entry
          */
         $entry = $this->context->entries_manager->getEntryByID((int)$entry['entry_id']);
-
-        if (empty($entry->entry_id) ||
-            (
-                $this->context->mybb->user['uid'] !== $entry->user_id &&
-                !$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) &&
-                $entry->status !== ContentStatuses::VisibleApproved
-            )) {
-            $this->error($this->context->language->myshowcase_invalid_id);
-        }
 
         switch ($this->context->mybb->get_input('action')) {
             case 'subscribe':
@@ -1821,8 +1854,16 @@ class EntriesController extends BaseController
             )) {
                 $where_clauses[] = $visibility_clause;
             }
-        } elseif ($visibility_clause = $this->context->entries_manager->visibilityWhereClause($alias)) {
-            $where_clauses[] = $visibility_clause;
+        } else {
+            if ($visibility_clause = $this->entryVisibilityClause($alias)) {
+                $where_clauses[] = $visibility_clause;
+            }
+
+            // The approval queue: the waiting entries only.
+            if (!empty($this->context->render_manager->url_params['unapproved']) &&
+                $this->context->current_user->hasPermission(UserPermissions::EntriesCanViewUnapproved)) {
+                $where_clauses[] = "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'";
+            }
         }
 
         if (empty($this->context->render_manager->url_params['order_dir'])) {
