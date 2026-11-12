@@ -22,14 +22,11 @@ use MyShowcase\Entity\PermissionEntity;
 use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FormTypes;
-use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\SchemaManager;
 use MyShowcase\Showcase;
-use MyShowcase\Util\BuildShowcase;
 use MyShowcase\Util\SelectableLists;
-use MyShowcase\Util\StringUtil;
 use Random\RandomException;
 use ReflectionClass;
 
@@ -230,7 +227,6 @@ function pluginActivation(): bool
                 'gid' => 'entry_id',
                 'uid' => 'user_id',
                 'posthash' => 'post_hash',
-                'entry_slug' => 'entry_slug_custom',
             ],
         ] as $tableName => $tableData
     ) {
@@ -282,12 +278,11 @@ function pluginActivation(): bool
 
     $hookArguments = hooksRun('admin_activate_intermediate', $hookArguments);
 
-    // Unique indexes are created at the end, once empty slugs have been filled in.
+    // Unique indexes are created at the end.
     dbVerifyTables($tablesData, false);
 
     dbVerifyColumns();
 
-    // The slug updates below read the showcase configuration from the cache.
     cachesRebuild();
 
     dbConvertTablesToInnoDb();
@@ -300,69 +295,12 @@ function pluginActivation(): bool
         'attachments_watermark_location NOT IN (1,2,3,4,5)'
     );
 
-    global $lang;
-
-    foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
-
-        $comments_repository = new CommentsRepository($showcase->context->database, $showcase->context->showcase);
-
-        foreach (
-            $comments_repository->queryComments(["comment_slug=''"],
-                'comment_id') as $commentID => $commentData
-        ) {
-            $unique_found = false;
-
-            while (!$unique_found) {
-                $generated_slug = (new StringUtil())->generatePublicId();
-
-                $unique_found = !$comments_repository->queryComment(
-                    ["comment_slug='{$showcase->context->database->escape_string($generated_slug)}'"]
-                );
-
-                if ($unique_found) {
-                    $comments_repository->updateComment(
-                        ['comment_slug' => $generated_slug],
-                        $commentID
-                    );
-                }
-            }
-        }
-    }
-
     /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
-        $showcase = (new BuildShowcase())->getShowcase($showcase_id);
-
         $dataTableStructure = dataTableStructureGet($showcase_id);
 
         dbVerifyTables(["myshowcase_data{$showcase_id}" => $dataTableStructure], false);
-
-        foreach (
-            $showcase->context->entries_repository->queryEntries(["entry_slug=''"], ['entry_id']
-            ) as $entryID => $entryData
-        ) {
-            $unique_found = false;
-
-            while (!$unique_found) {
-                $generated_slug = (new StringUtil())->generatePublicId();
-
-                $unique_found = !$showcase->context->entries_repository->queryEntry(
-                    ["entry_slug='{$showcase->context->database->escape_string($generated_slug)}'"],
-                    ['entry_id']
-                );
-
-                if ($unique_found) {
-                    $showcase->context->entries_repository->updateEntry(
-                        $showcase->context->entries_manager->generateEntry([
-                            'entry_id' => $entryID,
-                            'entry_slug' => $generated_slug
-                        ]),
-                    );
-                }
-            }
-        }
     }
 
     dbVerifyIndexes($tablesData);
@@ -616,7 +554,7 @@ function dbTables(array $tableObjects = TABLES_DATA): array
  * Creates missing tables and adds missing columns, then creates the regular, fulltext and unique indexes.
  *
  * @param bool $verifyUniqueKeys Create unique indexes too. Activation turns this off for its first pass and creates
- *                               them once existing empty slugs have been filled in.
+ *                               them at its end.
  */
 function dbVerifyTables(array $tableObjects = TABLES_DATA, bool $verifyUniqueKeys = true): bool
 {
