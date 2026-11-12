@@ -123,6 +123,8 @@ class UsersManager
 
         $group_permissions_cache = [];
 
+        $unlimited_permissions = [];
+
         static $global_permissions_repository = null;
 
         if ($global_permissions_repository === null) {
@@ -181,9 +183,14 @@ class UsersManager
                         break;
                     case FormTypes::Number:
                     case FormTypes::SelectTimeInterval:
+                        // Database drivers may return numbers as strings: compare integers.
+                        $permission_value = (int)$permission_data[$permission_name];
+
+                        // Like MyBB core for its "0 is unlimited" group permissions: a group that gives 0 makes the
+                        // permission unlimited, and no other group's value takes that back.
                         if (!empty($permission_definition['zero_unlimited']) &&
-                            $permission_data[$permission_name] === PermissionEntity::NUMERIC_TYPE_UNLIMITED) {
-                            $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_UNLIMITED;
+                            $permission_value === PermissionEntity::NUMERIC_TYPE_UNLIMITED) {
+                            $unlimited_permissions[$permission_name] = true;
 
                             break;
                         }
@@ -191,16 +198,20 @@ class UsersManager
                         if (empty($permission_definition['highest'])) {
                             $permissions_cache[$user->uid][$permission_name] = min(
                                 (float)$permissions_cache[$user->uid][$permission_name],
-                                (float)$permission_data[$permission_name]
+                                (float)$permission_value
                             );
                         } else {
                             $permissions_cache[$user->uid][$permission_name] = max(
                                 (float)$permissions_cache[$user->uid][$permission_name],
-                                (float)$permission_data[$permission_name]
+                                (float)$permission_value
                             );
                         }
                 }
             }
+        }
+
+        foreach (array_keys($unlimited_permissions) as $permission_name) {
+            $permissions_cache[$user->uid][$permission_name] = PermissionEntity::NUMERIC_TYPE_UNLIMITED;
         }
 
         // todo, get user specific permissions
