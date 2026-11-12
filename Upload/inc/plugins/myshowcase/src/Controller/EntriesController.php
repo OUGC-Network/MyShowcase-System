@@ -1008,7 +1008,7 @@ class EntriesController extends BaseController
             // The stored (or new) entry, then the posted values that are allowed, then the values only the server sets.
             $preview_entry = $this->context->entries_manager->generateEntry(array_merge(
                 (array)$entry,
-                $this->context->entries_manager->allowedEntryInput($posted_input),
+                $this->context->entries_manager->allowedEntryInput($posted_input, $is_update),
                 [
                     'entry_id' => $entry->entry_id,
                     'user_id' => $entry->user_id,

@@ -257,15 +257,15 @@ class EntriesManager
      *
      * - subject, message: when the showcase has them enabled;
      * - icon_id: when the showcase allows post icons;
-     * - allow_signature: for users whose group may use a signature;
-     * - disable_smilies: when the showcase parses smilies in entries;
-     * - is_closed, is_sticky: only for users who may close (EntriesCanClose) or stick (EntriesCanSticky);
+     * - allow_signature (canUseSignature()), disable_smilies (the showcase parses smilies in entries), is_closed
+     *   (EntriesCanClose) and is_sticky (EntriesCanSticky) are checkboxes: for a user who may set one, a missing value
+     *   means off on an edit and the column default on a new entry; for a user who may not, it is never taken;
      * - the fields of the collection the user may fill (CustomFieldEntity::canFill()), blank when not posted.
      *
      * @param array<string, mixed> $posted
      * @return array<string, mixed>
      */
-    public function allowedEntryInput(array $posted): array
+    public function allowedEntryInput(array $posted, bool $is_update = false): array
     {
         $user = $this->context->current_user;
 
@@ -285,20 +285,24 @@ class EntriesManager
             $allowed_keys[] = 'icon_id';
         }
 
+        // Checkboxes the user may set. An unchecked checkbox is not posted at all, so for these a missing value means
+        // "off" (below). The ones the user may not set are not listed and keep their stored value.
+        $allowed_checkboxes = [];
+
         if ($this->canUseSignature()) {
-            $allowed_keys[] = 'allow_signature';
+            $allowed_checkboxes[] = 'allow_signature';
         }
 
         if ($showcase->parser_allow_smiles_in_entries) {
-            $allowed_keys[] = 'disable_smilies';
+            $allowed_checkboxes[] = 'disable_smilies';
         }
 
         if ($user->hasPermission(UserPermissions::EntriesCanClose)) {
-            $allowed_keys[] = 'is_closed';
+            $allowed_checkboxes[] = 'is_closed';
         }
 
         if ($user->hasPermission(UserPermissions::EntriesCanSticky)) {
-            $allowed_keys[] = 'is_sticky';
+            $allowed_checkboxes[] = 'is_sticky';
         }
 
         $allowed = [];
@@ -306,6 +310,17 @@ class EntriesManager
         foreach ($allowed_keys as $key) {
             if (isset($posted[$key]) && is_scalar($posted[$key])) {
                 $allowed[$key] = $posted[$key];
+            }
+        }
+
+        foreach ($allowed_checkboxes as $key) {
+            if (isset($posted[$key]) && is_scalar($posted[$key])) {
+                $allowed[$key] = $posted[$key];
+            } elseif ($is_update) {
+                $allowed[$key] = 0;
+            } else {
+                // A new entry takes the column default when the box is not ticked (allow_signature defaults to 1).
+                $allowed[$key] = DATA_TABLE_STRUCTURE['myshowcase_data'][$key]['default'] ?? 0;
             }
         }
 
