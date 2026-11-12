@@ -9,6 +9,15 @@ use Random\RandomException;
 class UuidUtil
 {
     /**
+     * Whether $value has exactly the shape generateUuidV4() produces: 36 characters, lowercase hex in the 8-4-4-4-12
+     * groups, version 4 and variant 10. Used to accept a post hash that comes back from a form.
+     */
+    public function isValidUuidV4(string $value): bool
+    {
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $value) === 1;
+    }
+
+    /**
      * @throws RandomException
      */
     //https://stackoverflow.com/a/15875555

@@ -828,8 +828,13 @@ class EntriesController extends BaseController
         }
 
         if (!$is_update && empty($entry->post_hash)) {
-            if ($this->context->mybb->get_input('post_hash')) {
-                $entry->post_hash = $this->context->mybb->get_input('post_hash');
+            // The form sends back the hash it was given, which is always a generated UUID v4 (MyShowcase's own format:
+            // MyBB core's posthash is an md5, this plugin's is not). Anything else can only be a tampered post, and is
+            // replaced; the hash goes into queries and into a VARCHAR(36) column.
+            $posted_post_hash = $this->context->mybb->get_input('post_hash');
+
+            if ((new UuidUtil())->isValidUuidV4($posted_post_hash)) {
+                $entry->post_hash = $posted_post_hash;
             } else {
                 $entry->post_hash = (new UuidUtil())->generateUuidV4();
             }
@@ -952,6 +957,11 @@ class EntriesController extends BaseController
         $posted_input = $this->context->mybb->input;
 
         $this->context->mybb->input = array_merge((array)$entry, $this->context->mybb->input);
+
+        if (!$is_update) {
+            // The form carries the validated hash, never a posted one that was replaced.
+            $this->context->mybb->input['post_hash'] = $entry->post_hash;
+        }
 
         if ($this->context->mybb->request_method === 'post') {
             foreach ($this->context->custom_fields_collection as $field) {
