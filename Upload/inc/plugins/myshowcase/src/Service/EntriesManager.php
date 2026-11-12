@@ -470,13 +470,14 @@ class EntriesManager
      * - icon_id: when the showcase allows post icons;
      * - allow_signature (canUseSignature()), disable_smilies (the showcase parses smilies in entries), is_closed
      *   (EntriesCanClose) and is_sticky (EntriesCanSticky) are checkboxes: for a user who may set one, a missing value
-     *   means off on an edit and the column default on a new entry; for a user who may not, it is never taken;
+     *   means off, on an edit and on a new entry; for a user who may not, it is never taken (the stored value, or the
+     *   column default on a new entry, stays);
      * - the fields of the collection the user may fill (CustomFieldEntity::canFill()), blank when not posted.
      *
      * @param array<string, mixed> $posted
      * @return array<string, mixed>
      */
-    public function allowedEntryInput(array $posted, bool $is_update = false): array
+    public function allowedEntryInput(array $posted): array
     {
         $user = $this->context->current_user;
 
@@ -527,11 +528,9 @@ class EntriesManager
         foreach ($allowed_checkboxes as $key) {
             if (isset($posted[$key]) && is_scalar($posted[$key])) {
                 $allowed[$key] = $posted[$key];
-            } elseif ($is_update) {
-                $allowed[$key] = 0;
             } else {
-                // A new entry takes the column default when the box is not ticked (allow_signature defaults to 1).
-                $allowed[$key] = DATA_TABLE_STRUCTURE['myshowcase_data'][$key]['default'] ?? 0;
+                // The form was submitted without the box ticked, on an edit and on a new entry alike.
+                $allowed[$key] = 0;
             }
         }
 

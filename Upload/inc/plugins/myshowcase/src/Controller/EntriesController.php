@@ -1166,6 +1166,14 @@ class EntriesController extends BaseController
             }
         }
 
+        if (!$is_update && $this->context->mybb->request_method !== 'post' &&
+            $this->context->entries_manager->canUseSignature()) {
+            // First load of the create form: the signature box starts as it will be stored if left alone. That is ticked
+            // when the user has a signature, as MyBB core does for a new post (newthread.php); once the form has been
+            // posted, the box shows what was posted.
+            $this->context->mybb->input['allow_signature'] = !empty($this->context->mybb->user['signature']) ? 1 : 0;
+        }
+
         foreach ($this->context->entries_manager->buildFieldValues($this->context->mybb->input) as $field_key => $field_value) {
             $this->context->mybb->input[$field_key] = $field_value;
         }
@@ -1201,7 +1209,7 @@ class EntriesController extends BaseController
             // The stored (or new) entry, then the posted values that are allowed, then the values only the server sets.
             $preview_entry = $this->context->entries_manager->generateEntry(array_merge(
                 (array)$entry,
-                $this->context->entries_manager->allowedEntryInput($posted_input, $is_update),
+                $this->context->entries_manager->allowedEntryInput($posted_input),
                 [
                     'entry_id' => $entry->entry_id,
                     'user_id' => $entry->user_id,
