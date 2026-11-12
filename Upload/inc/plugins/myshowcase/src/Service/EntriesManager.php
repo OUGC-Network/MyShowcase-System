@@ -122,6 +122,56 @@ class EntriesManager
     }
 
     /**
+     * Condition that limits a query to the entries the current user may see: approved ones, plus their own that
+     * await approval. Empty when the user holds $permission (EntriesCanView by default), which lets them see every
+     * status. The listing, the entry page, the update page and comment access all use this one rule.
+     */
+    public function visibilityWhereClause(
+        string $alias = 'entry_data',
+        string $permission = UserPermissions::EntriesCanView
+    ): string {
+        if ($this->context->current_user->hasPermission($permission)) {
+            return '';
+        }
+
+        return $this->statusVisibilityClause($alias);
+    }
+
+    /**
+     * The same condition without the permission test: approved entries and the user's own awaiting approval.
+     */
+    public function statusVisibilityClause(string $alias = 'entry_data'): string
+    {
+        return "({$alias}.status='" . ContentStatuses::VisibleApproved . "' OR ("
+            . "{$alias}.user_id='{$this->context->current_user->uid}' AND "
+            . "{$alias}.status='" . ContentStatuses::AwaitingApproval . "'))";
+    }
+
+    /**
+     * The fields of the collection the current user may see.
+     *
+     * @return Collection<\MyShowcase\Entity\CustomFieldEntity>
+     */
+    public function viewableFields(): Collection
+    {
+        return $this->context->custom_fields_collection->filter(
+            fn(\MyShowcase\Entity\CustomFieldEntity $field): bool => $field->canView()
+        );
+    }
+
+    /**
+     * The fields of the collection the current user may give a value.
+     *
+     * @return Collection<\MyShowcase\Entity\CustomFieldEntity>
+     */
+    public function fillableFields(): Collection
+    {
+        return $this->context->custom_fields_collection->filter(
+            fn(\MyShowcase\Entity\CustomFieldEntity $field): bool => $field->canFill()
+        );
+    }
+
+    /**
      * The status a new entry is created with. The form and any other way of creating entries ask here, so there is one
      * decision.
      */

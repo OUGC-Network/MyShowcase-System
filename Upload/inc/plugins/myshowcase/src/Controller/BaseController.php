@@ -221,9 +221,7 @@ abstract class BaseController
 
     private function buildEntryStatusFilter(): string
     {
-        return "(entry_data.status='" . ContentStatuses::VisibleApproved . "' OR ("
-            . "entry_data.user_id='{$this->context->current_user->uid}' AND "
-            . "entry_data.status='" . ContentStatuses::AwaitingApproval . "'))";
+        return $this->context->entries_manager->statusVisibilityClause();
     }
 
     private function resolveEntryBySlug(string $entry_slug): ?EntryEntity

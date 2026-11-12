@@ -663,10 +663,8 @@ class EntriesController extends BaseController
         if ($is_update) {
             $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
 
-            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-                $where_clauses[] = "(entry_data.status='" . ContentStatuses::VisibleApproved . "' OR (
-            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::AwaitingApproval . "'
-            ))";
+            if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
+                $where_clauses[] = $visibility_clause;
             }
 
             $entry = $this->context->entries_repository->fetchEntry(
@@ -1170,10 +1168,8 @@ class EntriesController extends BaseController
 
         $where_clauses = ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"];
 
-        if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) {
-            $where_clauses[] = "(entry_data.status='" . ContentStatuses::VisibleApproved . "' OR (
-            entry_data.user_id='{$this->context->current_user->uid}' AND entry_data.status='" . ContentStatuses::AwaitingApproval . "'
-            ))";
+        if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause()) {
+            $where_clauses[] = $visibility_clause;
         }
 
         $entry = $this->context->entries_repository->fetchEntry(
@@ -1733,13 +1729,11 @@ class EntriesController extends BaseController
             }
         }
 
-        if (($content_type === ContentTypes::Entry &&
-                !$this->context->current_user->hasPermission(UserPermissions::EntriesCanView)) ||
-            ($content_type === ContentTypes::Comment &&
-                !$this->context->current_user->hasPermission(UserPermissions::CommentsCanView))) {
-            $where_clauses[] = "({$alias}.status='" . ContentStatuses::VisibleApproved . "' OR (
-            {$alias}.user_id='{$this->context->current_user->uid}' AND {$alias}.status='" . ContentStatuses::AwaitingApproval . "'
-            ))";
+        if ($visibility_clause = $this->context->entries_manager->visibilityWhereClause(
+            $alias,
+            $content_type === ContentTypes::Entry ? UserPermissions::EntriesCanView : UserPermissions::CommentsCanView
+        )) {
+            $where_clauses[] = $visibility_clause;
         }
         if (empty($this->context->render_manager->url_params['order_dir'])) {
             $sort_ascending = $content_type === ContentTypes::Comment

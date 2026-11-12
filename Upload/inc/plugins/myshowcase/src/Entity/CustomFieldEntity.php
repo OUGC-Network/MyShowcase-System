@@ -82,18 +82,31 @@ final  class CustomFieldEntity
         return false;
     }
 
+    /**
+     * Whether the current user may see the value of this field at all: the field is enabled and the user belongs to
+     * a group that may view it. The page flags below only add where it is shown.
+     */
+    public function canView(): bool
+    {
+        return !empty($this->is_enabled) && is_member($this->allowed_groups_view);
+    }
+
+    /**
+     * Whether the current user may give this field a value: enabled, writable, and in a group that may fill it.
+     */
+    public function canFill(): bool
+    {
+        return !empty($this->is_enabled) && empty($this->read_only) && is_member($this->allowed_groups_fill);
+    }
+
     public function isViewableInMain(): bool
     {
-        return !empty($this->is_enabled) &&
-            !empty($this->display_in_main_page) &&
-            is_member($this->allowed_groups_view);
+        return $this->canView() && !empty($this->display_in_main_page);
     }
 
     public function isViewableInEntry(): bool
     {
-        return !empty($this->is_enabled) &&
-            !empty($this->display_in_view_page) &&
-            is_member($this->allowed_groups_view);
+        return $this->canView() && !empty($this->display_in_view_page);
     }
 
     public function isViewableInForm(): bool
