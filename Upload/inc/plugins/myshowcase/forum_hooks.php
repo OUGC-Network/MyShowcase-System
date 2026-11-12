@@ -200,7 +200,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
             if (array_key_exists('entry_id', $plugin_array['user_activity'])) {
                 $showcase_id = (int)$plugin_array['user_activity']['myshowcase_id'];
 
-                $entryID = $plugin_array['user_activity']['entry_id'];
+                $entryID = (int)$plugin_array['user_activity']['entry_id'];
 
                 $showcase = (new BuildShowcase())->getShowcase($showcase_id);
 

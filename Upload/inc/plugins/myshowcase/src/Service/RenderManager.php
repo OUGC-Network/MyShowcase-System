@@ -346,7 +346,7 @@ class RenderManager
         if ($entry->entry_id) {
             $where_clauses = ["entry_id='{$entry->entry_id}'"];
         } else {
-            $where_clauses = ["post_hash='{$entry->post_hash}'"];
+            $where_clauses = ["post_hash='{$this->context->database->escape_string((string)$entry->post_hash)}'"];
         }
 
         foreach (
