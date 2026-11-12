@@ -1,6 +1,6 @@
-<a href="{{ thumbnail.extra_data.url }}" target="_blank">
+<a href="{{ config.showcase_url }}{{ thumbnail.extra_data.url }}" target="_blank">
     <img
-            src="{{ thumbnail.extra_data.url_thumbnail }}"
+            src="{{ config.showcase_url }}{{ thumbnail.extra_data.url_thumbnail }}"
             class="attachment"
             alt=""
             title="{{ lang.postbit_attachment_filename }} {{ thumbnail.attachment_name }} {{ lang.postbit_attachment_size }} {{ thumbnail.extra_data.file_size }} {{ thumbnail.dateline.getTimestamp()|striptags }}"

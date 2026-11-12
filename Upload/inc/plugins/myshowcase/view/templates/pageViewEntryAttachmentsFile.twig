@@ -1,5 +1,5 @@
 <div>{{ attachment.extra_data.icon|raw }}&nbsp;&nbsp;
-    <a href="{{ attachment.extra_data.url }}" target="_blank"
+    <a href="{{ config.showcase_url }}{{ attachment.extra_data.url }}" target="_blank"
        title="{{ attachment.dateline.getTimestamp()|striptags }}">
         {{ attachment.attachment_name }}
     </a>

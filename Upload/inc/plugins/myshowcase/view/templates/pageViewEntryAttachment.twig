@@ -1,7 +1,7 @@
 {% if attachment_data.has_thumbnail and config.attachments_display_type == 1 %}
-    <a href="{{ attachment_data.extra_data.url }}" target="_blank">
+    <a href="{{ config.showcase_url }}{{ attachment_data.extra_data.url }}" target="_blank">
         <img
-                src="{{ attachment_data.extra_data.url_thumbnail }}"
+                src="{{ config.showcase_url }}{{ attachment_data.extra_data.url_thumbnail }}"
                 class="attachment"
                 alt=""
                 title="{{ lang.myshowcase_main_table_row_attachment_file_name }} {{ attachment_data.attachment_name }} {{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }} {{ attachment_data.dateline|my_date|striptags }}"
@@ -9,7 +9,7 @@
     </a>&nbsp;&nbsp;&nbsp;
 {% elseif attachment_data.extra_data.is_image and config.attachments_display_type == 2 and permissions.attachments_can_download %}
     <img
-            src="{{ attachment_data.extra_data.url }}"
+            src="{{ config.showcase_url }}{{ attachment_data.extra_data.url }}"
             class="attachment"
             alt=""
             title="{{ lang.myshowcase_main_table_row_attachment_file_name }} {{ attachment_data.attachment_name }} {{ lang.myshowcase_main_table_row_attachment_size }} {{ attachment_data.file_size }} {{ attachment_data.dateline|my_date|striptags }}"
@@ -17,7 +17,7 @@
 {% else %}
     <div>
         {{ attachment_data.icon|raw }}&nbsp;&nbsp;
-        <a href="{{ attachment_data.extra_data.url }}" target="_blank"
+        <a href="{{ config.showcase_url }}{{ attachment_data.extra_data.url }}" target="_blank"
            title="{{ attachment_data.dateline|my_date|striptags }}">
             {{ attachment_data.attachment_name }}
         </a>

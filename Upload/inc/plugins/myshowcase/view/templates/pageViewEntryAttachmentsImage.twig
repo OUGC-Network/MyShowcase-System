@@ -1,5 +1,5 @@
 <img
-        src="{{ image.extra_data.url }}"
+        src="{{ config.showcase_url }}{{ image.extra_data.url }}"
         class="attachment"
         alt=""
         title="{{ lang.postbit_attachment_filename }} {{ image.attachment_name }} {{ lang.postbit_attachment_size }} {{ image.extra_data.file_size }} {{ image.dateline|my_date|striptags }}"
