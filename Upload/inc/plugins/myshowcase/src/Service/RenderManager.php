@@ -245,7 +245,18 @@ class RenderManager
         }
 
         if (!$this->context->users_manager->getUserByID($this->user_id)) {
-            $this->context->users_manager->addUser((array)get_user($this->user_id));
+            $user_row = get_user($this->user_id);
+
+            // An author who was deleted shows as a guest.
+            if (empty($user_row['uid'])) {
+                $this->user_id = 0;
+
+                $user_row = ['uid' => 0, 'username' => '', 'usergroup' => 1, 'displaygroup' => 1, 'additionalgroups' => ''];
+            }
+
+            if (!$this->context->users_manager->getUserByID($this->user_id)) {
+                $this->context->users_manager->addUser($user_row);
+            }
         }
 
         $this->user_data = $this->context->users_manager->getUserByID($this->user_id);
