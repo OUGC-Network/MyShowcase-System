@@ -1,8 +1,9 @@
 # Gallery schema changes
 
 This document describes the database changes planned for gallery-type showcases: category option metadata,
-multi-select tags, folders (albums), image variants and password hardening. Nothing here is implemented yet; the
-status of every item is given in its group and in the [change log](#change-log).
+multi-select tags, folders (albums), image variants and password hardening. Only the items under
+[Other approved changes](#other-approved-changes) are implemented; the status of every item is given in its group and
+in the [change log](#change-log).
 
 The tables are defined in `Upload/inc/plugins/myshowcase/Plugin/Core.php` (`TABLES_DATA`) and created or altered by
 `Upload/inc/plugins/myshowcase/src/Service/SchemaManager.php` when the plugin is activated. How JSON files describe
@@ -13,6 +14,7 @@ Status values used here:
 * **Approved — not implemented**: agreed, waiting for its implementation track.
 * **Already satisfied by the existing schema**: agreed, and the current schema already provides it; no change is
   needed.
+* **Implemented**: agreed and in `TABLES_DATA`.
 
 ## Contents
 
@@ -25,6 +27,7 @@ Status values used here:
 * [Group D — Image pipeline and attachment variants](#group-d--image-pipeline-and-attachment-variants)
 * [Group E — Password hardening](#group-e--password-hardening)
 * [Template sets](#template-sets)
+* [Other approved changes](#other-approved-changes)
 * [Implementation order and dependencies](#implementation-order-and-dependencies)
 * [Change log](#change-log)
 
@@ -289,7 +292,8 @@ Both follow the existing conventions: `enable_*` for field flags, and `VARCHAR(1
 `status` uses the entry status constants exactly (`ContentStatuses::AwaitingApproval`, `VisibleApproved`,
 `SoftDeleted`). A rejected user-created tag becomes soft deleted (`2`) and is purged later by a task. No existing
 task does this: the only plugin task, `task_myshowcase()` (`Upload/inc/tasks/myshowcase.php`), prunes entries older
-than a showcase's `prune_time`. Purging soft-deleted options is new work of track T2b.
+than a showcase's `main_prune_age` ([Other approved changes](#other-approved-changes)). Purging soft-deleted options is
+new work of track T2b.
 
 ### Migration and backfill
 
@@ -668,6 +672,24 @@ Before group C reuses the gate.
   * `ShowcaseService::validate()` refuses a new value that is not one of the folders
     (`myshowcase_admin_error_invalid_template_set`) and a set another showcase already uses.
 
+## Other approved changes
+
+**Status: Implemented.**
+
+### `myshowcase_config` — `main_prune_age`
+
+| Column | Type | Null | Default | Meaning |
+|---|---|---|---|---|
+| `main_prune_age` | SMALLINT UNSIGNED | NOT NULL | `0` | Days after an entry's creation (`dateline`) before the task deletes it; `0` turns pruning off. |
+
+* Category `main`: a number on the Main tab of the ACP showcase form, maximum 3650.
+* `task_myshowcase()` deletes, for every enabled showcase with a positive age, each entry whose `dateline` is older
+  than the age, through `EntriesManager::deleteEntry()`, so the entry-deleted event removes its comments, files and
+  subscriptions. Soft-deleted and unapproved entries are included.
+* JSON sync: a showcase key like the other `myshowcase_config` columns (`JsonSchema::showcaseColumns()`); exported when
+  it is not `0`.
+* It replaces the `prune_time` setting of older versions, which had no column.
+
 ## Implementation order and dependencies
 
 | Order | Work | Track | Needs |
@@ -709,3 +731,4 @@ Before group C reuses the gate.
 | 2026-11-11 | B | S5: `myshowcase_field_data.status` uses `ContentStatuses` (`0` awaiting approval, `1` visible, `2` soft deleted); rejected tags are soft deleted and purged by a new task in T2b | Approved — not implemented | Uriel |
 | 2026-11-11 | A, B, C, D | S6 JSON: options reference their parent through the new key `parent_value_id` (T1), `parent_field_data_id` is never exported; `allowed_groups_create` joins `JsonSchema::GROUP_COLUMNS`; excluded: `myshowcase_field_data.status`, `myshowcase_field_data.user_id`, `attachments_watermark_file`, counter and runtime columns such as `myshowcase_folders.entry_count` | Approved — not implemented | Uriel |
 | 2026-11-11 | B, D | Approvals: `myshowcase_field_data.user_id` (formerly `created_by`); the watermark file, carried out as widening `attachments_watermark_file` (formerly `image_watermark_file`) | Approved — not implemented | Uriel |
+| 2026-11-12 | Other | `myshowcase_config`: `main_prune_age` SMALLINT UNSIGNED NOT NULL DEFAULT 0 (days since `dateline`; `0` = off), Main tab, used by the pruning task | Implemented | Uriel |

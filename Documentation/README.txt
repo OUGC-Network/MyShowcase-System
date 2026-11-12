@@ -132,6 +132,15 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Entries per page (Main tab): 0 shows 10 entries per page. An empty or unknown "default sort
   field" sorts by the date an entry was posted. The sort option "last comment" sorts by the id of
   the last comment, so the entry with the newest comment comes last (or first, in descending order).
+- Prune entries older than (Main tab): a number of days, 0 (the default) turns it off, at most
+  3650. The MyShowcase task (ACP > Tools & Maintenance > Task Manager) then deletes permanently
+  every entry of the showcase created (posted) more than that many days ago, including
+  soft-deleted entries and entries waiting for approval, with their comments, files and
+  subscriptions, as "Delete Permanently" does. It only runs for enabled showcases.
+- Permissions of a new showcase: no group may post, edit, copy or soft delete entries, post, edit
+  or soft delete comments, or upload, update or soft delete attachments until an administrator
+  turns these permissions on (Permissions tab of the showcase, or the MyShowcase tab of a user
+  group). Viewing permissions keep their defaults.
 - Raw HTML in entries and comments needs two things at the same time: the showcase option
   (Parser tab: "Allow HTML in entries" or "Allow HTML in comments") and the permission of the
   author's user group (ACP > MyShowcase > Showcases > edit > Permissions, "Allow HTML in
@@ -169,7 +178,12 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Moderation tools: each inline moderation action (open, close, stick, approve, soft delete,
   restore, delete, ...) needs its own permission, and on entries of other users the rights of a
   moderator too. A request with an entry the user may not moderate changes nothing. The entry
-  page links (delete, delete permanently) follow the same rules.
+  page links (delete, delete permanently, restore) and the moderation box of the entry page follow
+  the same rules; they are handled by the plugin, not by MyBB's moderation.php.
+- Comments: "Delete" soft deletes a comment (permission "Can soft delete comments"), and
+  moderators can restore it ("Can restore comments") or delete it permanently ("Can delete
+  comments"), which also deletes its files. On comments of other users the rights of a comment
+  moderator are needed too. Every link carries the post key.
 - Deleting an entry permanently (inline moderation, or "Delete Permanently" on the entry page)
   also deletes its comments, its files and their thumbnails, and the subscriptions to it. The same
   happens when the user who posted it is deleted with its content, and when the showcase is
@@ -177,13 +191,22 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Search: the search box of the main list, and the address /search of a showcase, search the
   entry subject (when subjects are on) and the fields marked "searchable", option fields by their
   label. It needs the "Can search entries" permission and only finds entries the user may see.
+- Deleting a field of a collection (ACP > MyShowcase > Collections > fields) removes the field
+  and its column from the data table of every showcase that uses the collection. The values stored
+  in that field are lost; the entries themselves are kept.
+- Not implemented yet: copying entries (the "Can copy entries" permission exists but nothing uses
+  it, and the copy action is not offered) and stored searches (an address /search/<hash> runs the
+  same search again; nothing is saved).
 
 ============================================================================================
 Further documentation:
 ============================================================================================
 - Documentation/schema/gallery-schema-changes.md: the database changes planned for gallery
   showcases (category option metadata, multi-select tags, folders, image variants, password
-  hardening), with their approval status. None of them is implemented yet.
+  hardening), with their approval status. Only the pruning age (main_prune_age) is implemented.
+- Documentation/templates/template-reference.md: every forum template, the variables it receives,
+  the forms it posts and the permission and moderator flags it uses, and how a template set of a
+  showcase overrides templates.
 - Upload/inc/plugins/myshowcase/imports/README.md: describing collections and showcases in JSON
   files and keeping them in step with the board (ACP > MyShowcase > JSON sync).
 
