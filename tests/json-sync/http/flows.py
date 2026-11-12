@@ -512,4 +512,10 @@ def section_g():
     ok(db(f"select field_key from mybb_myshowcase_fields where collection_id={gid} and json_file='collections/gallery.json' order by display_order") == [('title',), ('image',), ('caption',), ('category',)], 'gallery fields title, image, caption, category linked')
     ok(db(f"select value_id from mybb_myshowcase_field_data where collection_id={gid} order by display_order") == [(str(i),) for i in range(1, 7)], 'gallery category has six options, value ids 1-6')
     ok('In sync' in list_text('myshowcase-fields'), 'gallery collection in sync')
+    r = jsync({'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/gallery.json', 'name': 'Gallery', 'route_identifier': 'gallery'})
+    ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'gallery showcase created from its file')
+    gsid = int(one("select showcase_id from mybb_myshowcase_config where name='Gallery'") or 0)
+    ok(db(f"select collection_id, json_file, json_version from mybb_myshowcase_config where showcase_id={gsid}") == [(str(gid), 'showcases/gallery.json', '1.0.0')], 'gallery showcase uses the linked gallery collection, linked at 1.0.0')
+    ok(db(f"select main_per_page, entries_enable_subject, entries_display_empty_fields, attachments_display_type, comments_enable from mybb_myshowcase_config where showcase_id={gsid}") == [('24', '0', '0', '2', '1')], 'gallery showcase settings applied')
+    ok(one(f"select count(*) from mybb_myshowcase_collections where name='Gallery'") == '1', 'no second gallery collection')
     return gid

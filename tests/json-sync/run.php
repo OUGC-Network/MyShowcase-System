@@ -247,6 +247,12 @@ check(isset($committed['collections/gallery.json']) && array_keys($galleryFields
 check(($galleryFields['title']['enable_subject'] ?? 0) === 1 && ($galleryFields['title']['is_required'] ?? 0) === 1 && ($galleryFields['image']['html_type'] ?? '') === 'file' && ($galleryFields['image']['is_required'] ?? 0) === 1, 'gallery: the title is the required subject and the image a required file field');
 check(array_column($galleryFields['category']['options'] ?? [], 'value_id') === [1, 2, 3, 4, 5, 6] && !isset($galleryFields['tags']), 'gallery: six category options with stable value ids, no tags field');
 
+// The gallery showcase: uses the gallery collection, images in the list and the entry, comments on, no empty fields.
+$galleryShowcase = (new JsonFiles(\MyShowcase\ROOT . '/imports'))->read('showcases/gallery.json')['data'] ?? [];
+check(isset($committed['showcases/gallery.json']) && ($galleryShowcase['collection'] ?? '') === 'gallery', 'the gallery showcase is committed and uses the gallery collection');
+check(($galleryShowcase['attachments_allow_in_entries'] ?? 0) === 1 && ($galleryShowcase['comments_enable'] ?? 0) === 1 && ($galleryShowcase['entries_display_empty_fields'] ?? 1) === 0 && ($galleryShowcase['main_per_page'] ?? 0) === 24, 'gallery showcase: attachments and comments on, empty fields hidden, 24 per page');
+check(!array_key_exists('custom_template_prefix', $galleryShowcase), 'gallery showcase: no template prefix (excluded from files)');
+
 foreach (['', 'JSON/', 'JSON/collections/', 'JSON/showcases/', 'PHP/', 'PHP/collections/', 'PHP/showcases/'] as $folder) {
     check(is_file(\MyShowcase\ROOT . '/imports/' . $folder . 'index.html'), "index.html in imports/{$folder}");
 }
