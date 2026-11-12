@@ -39,7 +39,7 @@ Table names below are given without the board prefix (`mybb_` by default).
 | `myshowcase_fields` | `field_id` | Fields of a collection; unique `(collection_id, field_key)`. |
 | `myshowcase_field_data` | `field_data_id` | Options of select, radio and checkbox fields. |
 | `myshowcase_data{showcase_id}` | `entry_id` | Entries of one showcase, one column per field. |
-| `myshowcase_attachments` | `attachment_id` | Uploaded files; `attachment_hash` unique. |
+| `myshowcase_attachments` | `attachment_id` | Uploaded files; `public_id` unique. |
 | `myshowcase_permissions` | `permission_id` | Group permissions; `showcase_id = 0` holds the global group defaults. |
 | `myshowcase_moderators` | `moderator_id` | Showcase moderators and their five flags. |
 | `myshowcase_access_logs` | `access_log_id` | Password unlocks and failed attempts. |
@@ -61,7 +61,8 @@ Conventions in the existing schema that the new columns follow:
   `enable_slug`) or `display_in_*` (`display_in_main_page`).
 * **Group lists** are `VARCHAR(120)` comma-separated group ids, default `''`, `-1` meaning all groups
   (`allowed_groups_fill`, `allowed_groups_view`).
-* **Slugs** carry the name of their row: `entry_slug`, `comment_slug`. Parent references name their table:
+* **Public identifiers** are a `public_id` column, under that name in every table ([public-id.md](public-id.md)).
+  Readable slugs carry the name of their row: `entry_slug_custom`. Parent references name their table:
   `parent_comment_id`.
 * **Permission columns** are named `<area>_can_<verb>` (`entries_can_post`, `attachments_can_download`) and are
   declared in three places: the column in `TABLES_DATA['myshowcase_permissions']`, the constant in
@@ -376,7 +377,7 @@ Generic albums: users and moderators group entries of one showcase into folders,
 | (new) | `(showcase_id, parent_folder_id, display_order)` | INDEX |
 | (new) | `(showcase_id, user_id, folder_slug)` | UNIQUE |
 
-The slug and parent names follow `entry_slug`, `comment_slug` and `parent_comment_id`. `name` and `folder_slug` have
+The slug and parent names follow `entry_slug_custom` and `parent_comment_id`. `name` and `folder_slug` have
 no default; the code always supplies them.
 
 ### New table `myshowcase_folder_entries`
