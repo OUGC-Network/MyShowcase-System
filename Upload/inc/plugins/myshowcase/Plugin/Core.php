@@ -558,7 +558,7 @@ const TABLES_DATA = [
             'size' => 50,
             'default' => '',
             'category' => 'general',
-            'input_type' => FormTypes::Text,
+            'input_type' => FormTypes::SelectTemplateSet,
         ],
         'rules_type' => [
             'type' => 'TINYINT',

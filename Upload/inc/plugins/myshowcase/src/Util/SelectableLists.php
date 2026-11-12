@@ -19,6 +19,7 @@ use MyShowcase\Enum\FilterFields;
 use MyShowcase\Enum\SortFields;
 use MyShowcase\Enum\WatermarkLocations;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\ShowcaseService;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -109,6 +110,28 @@ readonly class SelectableLists
             WatermarkLocations::UpperLeft => $this->language->myshowcase_admin_summary_create_update_attachments_watermark_location_upper_left,
             WatermarkLocations::UpperRight => $this->language->myshowcase_admin_summary_create_update_attachments_watermark_location_upper_right,
         ];
+    }
+
+    /**
+     * The global templates and every template set (folder of view/templates). A stored prefix whose folder no longer
+     * exists is listed as missing so that the form keeps it until another choice is saved.
+     */
+    public function templateSetsList(string $current = ''): array
+    {
+        $list = ['' => $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_global ?? 'Global templates (none)'];
+
+        foreach (ShowcaseService::templateSets() as $set) {
+            $list[$set] = $set;
+        }
+
+        if ($current !== '' && !isset($list[$current])) {
+            $list[$current] = $this->language->sprintf(
+                $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_missing ?? '{1} (missing)',
+                $current
+            );
+        }
+
+        return $list;
     }
 
     public function attachmentsDisplayTypeList(): array

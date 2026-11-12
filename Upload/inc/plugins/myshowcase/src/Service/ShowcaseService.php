@@ -35,7 +35,31 @@ final class ShowcaseService
     }
 
     /**
-     * Checks the values that must be unique among showcases. Only the keys present in $data are checked.
+     * The template sets a showcase can use: the folders of view/templates whose name is a normalized template prefix
+     * (lower case letters and digits), sorted. A set holds the templates that replace the global ones.
+     *
+     * @return string[]
+     */
+    public static function templateSets(): array
+    {
+        $sets = [];
+
+        foreach ((array)glob(\MyShowcase\ROOT . '/view/templates/*', GLOB_ONLYDIR) as $directory) {
+            $name = basename((string)$directory);
+
+            if ($name !== '' && $name === self::normalizeTemplatePrefix($name)) {
+                $sets[] = $name;
+            }
+        }
+
+        sort($sets, SORT_STRING);
+
+        return $sets;
+    }
+
+    /**
+     * Checks the values that must be unique among showcases, and that a template prefix names an existing template
+     * set. Only the keys present in $data are checked.
      *
      * @return array<int, array{key: string, message: string}> Language key (of the admin language file) and English
      *         text of every problem.
@@ -67,6 +91,17 @@ final class ShowcaseService
             $errors[] = [
                 'key' => 'myShowcaseAdminErrorDuplicatedScriptFile',
                 'message' => 'The route identifier is already in use.'
+            ];
+        }
+
+        // A showcase may keep a prefix whose folder was removed (it renders with the global templates); a new value has
+        // to be one of the template sets.
+        if (!empty($data['custom_template_prefix']) &&
+            !in_array($data['custom_template_prefix'], self::templateSets(), true) &&
+            ($showcases[$showcaseId]['custom_template_prefix'] ?? null) !== $data['custom_template_prefix']) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_invalid_template_set',
+                'message' => 'The template set does not exist: choose the global templates or a folder of view/templates.'
             ];
         }
 

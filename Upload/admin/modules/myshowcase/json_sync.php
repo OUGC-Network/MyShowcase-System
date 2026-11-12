@@ -166,13 +166,26 @@ $renderCreateForm = static function (string $createType, array $errors, array $v
     );
 
     if ($createType === 'showcase') {
-        foreach (['name', 'route_identifier', 'custom_template_prefix'] as $input) {
+        foreach (['name', 'route_identifier'] as $input) {
             $container->output_row(
                 JsonUi::text($input),
                 '',
                 $form->generate_text_box($input, (string)($values[$input] ?? ''), ['id' => $input])
             );
         }
+
+        $templateSets = ShowcaseService::templateSets();
+
+        $container->output_row(
+            JsonUi::text('custom_template_prefix'),
+            '',
+            $form->generate_select_box(
+                'custom_template_prefix',
+                ['' => JsonUi::text('template_set_global')] + array_combine($templateSets, $templateSets),
+                (string)($values['custom_template_prefix'] ?? ''),
+                ['id' => 'custom_template_prefix']
+            )
+        );
     }
 
     $container->end();

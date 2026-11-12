@@ -31,6 +31,7 @@ enum FormTypes
     public const SelectAttachmentsMainRender = 'select_attachments_render_type';
     public const SelectWatermarkLocation = 'select_watermark_location';
     public const SelectAttachmentsDisplayType = 'select_attachments_display_type';
+    public const SelectTemplateSet = 'select_template_set';
     public const Text = 'text';
     public const TextArea = 'textarea';
     public const YesNo = 'yes_no';
