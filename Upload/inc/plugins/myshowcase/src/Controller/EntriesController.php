@@ -19,6 +19,7 @@ use captcha;
 use DateTime;
 use JetBrains\PhpStorm\NoReturn;
 use MyBB;
+use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\{AttachmentsDisplayType,
@@ -49,7 +50,6 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
-use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -420,8 +420,16 @@ class EntriesController extends BaseController
                 ),
             );
 
-            // get first attachment for each showcase on this page
-            if ($this->context->showcase->attachments_main_render) {
+            $file_field_ids = [];
+
+            foreach ($this->context->custom_fields_collection as $field) {
+                if ($field->html_type === FieldHtmlTypes::File) {
+                    $file_field_ids[] = (int)$field->field_id;
+                }
+            }
+
+            // get first attachment for each showcase on this page; the files of file fields give the row its image
+            if ($this->context->showcase->attachments_main_render || $file_field_ids) {
                 foreach (
                     $this->context->attachments_repository->queryAttachments(
                         [
@@ -563,50 +571,32 @@ class EntriesController extends BaseController
                         )
                     );
 
-                $fieldCache = [];
+                $entry->setExtraData('selected', false);
 
-                foreach ($this->context->custom_fields_collection as $field_id => $field) {
-                    $parser_options = [
-                        'allow_html' => !empty($field->parser_allow_html_in_entries),
-                        'allow_mycode' => !empty($field->parser_allow_mycode_in_entries),
-                        'allow_smilies' => !empty($field->parser_allow_smiles_in_entries),
-                        'allow_imgcode' => !empty($field->parser_allow_image_code_in_entries),
-                        'allow_videocode' => !empty($field->parser_allow_video_code_in_entries),
-                        'me_username' => $entry->username,
-                        'filter_badwords' => true,
-                        'shorten_urls' => false,
-                        'highlight' => false,
-                    ];
+                // The subject of the row, as on the entry page: the subject fields (escaped or parsed by their
+                // field classes), then the subject of the entry.
+                $subject_parts = [];
 
-                    if ($field->enable_search && isset($this->context->mybb->input['highlight'])) {
-                        $parser_options['highlight'] = $this->context->mybb->input['highlight'];
+                /** @var FieldsInterface $field */
+                foreach ($entry->getFields() as $field) {
+                    if ($field->field_definition['enable_subject'] && $field->getUserValue() !== '') {
+                        $subject_parts[] = $field->getUserValue();
                     }
-
-                    $entryFieldText = $entry->getExtraData($field->field_key) ?? '';
-
-                    if (!$field->parser_enable && $entryFieldText !== false) {
-                        // todo, remove this legacy updating the database and updating the format field to TINYINT
-                        formatField((int)$field->format, $entryFieldText);
-                    } elseif ($entryFieldText !== false) {
-                        $entryFieldText = postParser()->parse_message((string)$entryFieldText, $parser_options);
-                    }
-
-                    $fieldCache[$field_id] = $entryFieldText;
                 }
 
-                // todo, subject should be main, additional fields concatenated
-                $entry
-                    ->setExtraData('fields_cache', $fieldCache)
-                    ->setExtraData('selected', false);
-
-                $entry->subject = postParser()->parse_badwords($entry->subject);
-
-                if (isset($this->context->mybb->input['keywords'])) {
-                    $entry->subject = postParser()->highlight_message(
-                        $entry->subject,
-                        $this->context->mybb->input['keywords']
-                    );
+                if ($this->context->showcase->entries_enable_subject && (string)$entry->subject !== '') {
+                    $subject_parts[] = htmlspecialchars_uni(postParser()->parse_badwords((string)$entry->subject));
                 }
+
+                $subject_html = implode(' ', $subject_parts);
+
+                if (isset($this->context->mybb->input['keywords']) && is_string($this->context->mybb->input['keywords'])) {
+                    $subject_html = postParser()->highlight_message($subject_html, $this->context->mybb->input['keywords']);
+                }
+
+                $entry->setExtraData('subject_html', $subject_html);
+
+                $entry->setExtraData('main_image', $this->mainImage($entry, $file_field_ids));
 
                 if ($this->isEntryModerator()) {
                     $entry->setExtraData('selected', true);
@@ -794,6 +784,48 @@ class EntriesController extends BaseController
                 unset($this->context->mybb->input[$column]);
             }
         }
+    }
+
+    /**
+     * The image of a main list row: the first image uploaded to one of the entry's file fields, through the
+     * thumbnail route (which shows the image itself when it has no thumbnail), for users who may load it.
+     *
+     * @param int[] $file_field_ids
+     * @return array{url: string, name: string}|false
+     */
+    private function mainImage(EntryEntity $entry, array $file_field_ids): array|false
+    {
+        $images = $entry->getAttachments()->filter(
+            static fn(AttachmentEntity $attachment): bool => in_array((int)$attachment->field_id, $file_field_ids, true) &&
+                str_starts_with((string)$attachment->mime_type, 'image/')
+        );
+
+        if (!$images->count()) {
+            return false;
+        }
+
+        $attachments = iterator_to_array($images);
+
+        ksort($attachments);
+
+        /** @var AttachmentEntity $image */
+        $image = reset($attachments);
+
+        $user_id = (int)$this->context->current_user->uid;
+
+        if (!($user_id > 0 && $user_id === (int)$image->user_id) && (
+                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanView) ||
+                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanDownload))) {
+            return false;
+        }
+
+        return [
+            'url' => $this->context->routing->generateUrl(
+                Routes::AttachmentThumbnail,
+                ['attachment_hash' => $image->attachment_hash, 'attachment_name' => $image->attachment_name]
+            ),
+            'name' => $image->attachment_name,
+        ];
     }
 
     /**

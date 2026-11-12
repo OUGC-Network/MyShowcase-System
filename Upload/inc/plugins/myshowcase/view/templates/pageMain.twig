@@ -245,7 +245,7 @@
                 </div>
                 {% for entry in stuck_entries %}
 
-                    {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
+                    {% if entry.status == 2 and not permissions.entries_can_view_deleted %}
                         {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                     {% else %}
                         {% include '@ext.myshowcase/pageMainEntry.twig' %}
@@ -260,7 +260,7 @@
                 </div>
                 {% for entry in normal_entries %}
 
-                    {% if permissions.entries_can_view and entry.status == 2 and permissions.entries_can_view %}
+                    {% if entry.status == 2 and not permissions.entries_can_view_deleted %}
                         {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
                     {% else %}
                         {% include '@ext.myshowcase/pageMainEntry.twig' %}
