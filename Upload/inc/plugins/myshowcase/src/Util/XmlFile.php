@@ -39,7 +39,7 @@ class XmlFile
      */
     public function write(
         array $data,
-        string $comment = 'MyShowcase export :: {time}',
+        string $comment = 'MyShowcase entries export :: {time}',
         string $end_comment = 'End of MyShowcase export.',
         int &$removed_characters = 0
     ): string {
