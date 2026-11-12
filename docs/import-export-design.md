@@ -930,6 +930,28 @@ Found while preparing the import and not fixed in this track:
     front-page "moderators" display reads the two columns the wrong way round, and the ACP moderator list builds its edit links
     from the wrong columns (`group_id`/`showcase_id` instead of `user_id`).
 
+Found while fixing 13–15 (branch `security/moderation-access`), not fixed there:
+
+16. **Search is not implemented**: the search routes point at a `Search` class that does not exist, so every search request errors.
+    Affects: search by keyword/user; nothing leaks because nothing runs.
+17. **Comments follow `comments_can_view`, not the entry rule**: comment lists use `commentVisibilityWhereClause()` (approved, plus
+    the user's own awaiting comments). Affects: comment status visibility is independent of the entry visibility rule.
+18. **The entry view page's moderation forms post to MyBB's core `moderation.php`**, which has no MyShowcase handler. Affects: the
+    inline moderation tools shown on a single entry page do nothing useful.
+19. **The per-entry delete/restore links and comment moderation have no handler** (the `delete=`/`action=` links on the entry update
+    route; no comment moderation action exists). Affects: those links and any comment moderation UI.
+20. **The front-page moderator display and the ACP moderator list links read the moderators columns the wrong way round**
+    (`group_id` is the type and `user_id` the user or usergroup id). Affects: who is shown as moderator on the front page; the user
+    and group links in the ACP moderator list point at the wrong ids.
+21. **`BaseController::verifyPermission()` names `UserPermissions::EntriesCanModerate`, which does not exist.** It is only evaluated
+    when the user lacks `entries_can_view` but has `main_can_view` (the `||` short-circuits otherwise), and then ends in a fatal
+    error. Callers: `BaseController::redirect()` (comment redirect routes) and `CommentsController` (comment create/update). Not
+    a plain typo (the intent, "moderators may enter", now belongs to `EntriesManager::isModerator()`), so left for a decision.
+22. **The ACP moderator delete link is a GET** while the handler only runs for POST requests; it works through MyBB's delete
+    confirmation (which posts it) but a plain GET of the link does nothing.
+23. **Attachment download compares `$current_user->user_id`** (the permission-check block) where the rest of the code uses `uid`; if
+    that property is not set, the owner shortcut for `attachments_can_download` never applies. Not verified further.
+
 **Note for the import:** its rollback (the compensating delete of section D) must delete the inserted rows **directly by entry id**
 (`EntriesRepository::deleteEntry()`), not through the controller's delete path: that path dispatches `EntryDeletedEvent`, whose
 listeners are not registered in the request (issue 5) and would leave attachments and comments or fail halfway.
