@@ -874,6 +874,12 @@ Found while preparing the import and not fixed in this track:
 2. **A user with no permission rows gets 0 on the zero-is-unlimited limits**, which means unlimited (for example
    `entries_limit_post_amount`). Harmless today because such a user also holds no `entries_can_post` and cannot create
    entries; it would matter if a future permission lets users without rows create entries.
+3. **`STATUS_CLOSED` is 0 and `STATUS_OPEN` is 1** (`EntriesManager`) while the `is_closed` column means 1 = closed. The import
+   must go through the existing status methods only (`newEntryStatus()`, the form's `allowedEntryInput()`) and never use
+   these constants.
+4. **`buildAttachmentsUpload()` returns `''` on its first line and its caller in `EntriesController` is commented out**, so the
+   attachments quota note is unreachable. The earlier "no TypeError" check on `getPermission()` covered only that code
+   path (called directly), not a rendered page.
 
 ---
 
