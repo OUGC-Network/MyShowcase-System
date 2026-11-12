@@ -338,6 +338,9 @@ def security():
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
     mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
     ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
+    # L4: the portal template links entries the same way as the main list (showcase_url + route).
+    href = fix('portal-render', 'gallery')['href']
+    ok('/showcase.php/gallery/view/' in href, f'portal widget entry link includes showcase.php [{href}]')
     return e1, e2
 
 

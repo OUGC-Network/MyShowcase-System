@@ -13,6 +13,7 @@
  *   delete-user <username>     delete the user and its content, as the ACP does with "delete content"
  *   delete-showcase <route>    delete the showcase as the ACP does
  *   template-set <route> <prefix>  set the template set of the showcase
+ *   portal-render <route>      render portal_rand_showcase with an entry URL from the main list's helper
  */
 
 declare(strict_types=1);
@@ -212,6 +213,22 @@ switch ($command) {
         showcaseDelete($sid);
         $rebuild();
         $out(['deleted_showcase' => $sid]);
+        break;
+    case 'portal-render':
+        // The portal template has no caller in the plugin: render it with the main list's entry URL helper.
+        $showcase = (new BuildShowcase())->getShowcase($showcaseId($argv[2]));
+        $row = $db->fetch_array($db->simple_select('myshowcase_data' . $showcase->context->showcase->showcase_id, 'entry_slug, entry_slug_custom', '', ['limit' => 1]));
+        $url = $showcase->context->routing->generateUrl(
+            \MyShowcase\Enum\Routes::EntryView,
+            ['entry_slug' => $row['entry_slug'], 'entry_slug_custom' => $row['entry_slug_custom'] ?: 'x']
+        );
+        $html = $showcase->context->render_manager->templateGet('portal_rand_showcase', [
+            'theme' => ['borderwidth' => 1, 'tablespace' => 4],
+            'entry_data' => ['extra_data' => ['url' => $url]],
+            'entryDescription' => 'x', 'userName' => 'x', 'entryViews' => 0, 'entryComments' => 0, 'entryImage' => '',
+        ]);
+        preg_match('/href="([^"]+)"/', $html, $m);
+        $out(['href' => $m[1] ?? '']);
         break;
     case 'template-set':
         $db->update_query('myshowcase_config', ['custom_template_prefix' => $db->escape_string($argv[3])], "showcase_id='" . $showcaseId($argv[2]) . "'");
