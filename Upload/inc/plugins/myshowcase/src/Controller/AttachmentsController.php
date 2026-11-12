@@ -257,46 +257,57 @@ class AttachmentsController extends BaseController
 
         $lang->load('messages');
 
-        $where_clauses = [
-            "showcase_id='{$this->context->showcase->showcase_id}'",
-            "attachment_hash='{$db->escape_string($attachment_hash)}'",
-            "attachment_name='{$db->escape_string($attachment_name)}'",
-        ];
-
-        if ($this->is_thumbnail) {
-            $where_clauses[] = "thumbnail_name!=''";
-        }
-
         $this->attachment_data = $this->context->attachments_repository->queryAttachment(
-            $where_clauses,
+            [
+                "attachment_hash='{$db->escape_string($attachment_hash)}'",
+                "attachment_name='{$db->escape_string($attachment_name)}'",
+            ],
             array_keys(TABLES_DATA['myshowcase_attachments']),
         );
 
-        $entry = $this->context->entries_repository->queryEntry(
-            ["entry_id='{$this->attachment_data['entry_id']}'"],
-            ['entry_id', 'user_id', 'post_hash', 'status']
-        );
+        if (empty($this->attachment_data['attachment_id'])) {
+            $this->error($lang->error_invalidattachment, 404);
+        }
 
-        $this->context->entries_manager->addEntry($entry);
+        // Files uploaded with a form that was not saved yet have no entry.
+        $entry = null;
 
-        $entry = $this->context->entries_manager->getEntryByID($entry['entry_id']);
+        if ((int)$this->attachment_data['entry_id']) {
+            $entry_data = $this->context->entries_repository->queryEntry(
+                ["entry_id='" . (int)$this->attachment_data['entry_id'] . "'"],
+                ['entry_id', 'user_id', 'post_hash', 'status']
+            );
+
+            if ($entry_data) {
+                $this->context->entries_manager->addEntry($entry_data);
+
+                $entry = $this->context->entries_manager->getEntryByID((int)$entry_data['entry_id']);
+            }
+        }
 
         hooksRun('controller_attachments_download_start', $this);
 
+        // The file and its thumbnail answer the same: the uploader always, anyone else with the permissions to see
+        // the entry, the file and to download it.
+        $user_id = (int)$this->context->current_user->uid;
 
-        if (empty($this->attachment_data['attachment_name'])) {
-            $this->error($lang->error_invalidattachment);
-        }
+        $is_owner = $user_id > 0 && $user_id === (int)$this->attachment_data['user_id'];
 
-        if (
-            !$this->context->current_user->hasPermission(UserPermissions::MainCanView) ||
-            !$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-            (
-                $this->context->current_user->uid !== (int)$this->attachment_data['user_id'] &&
-                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanView)
-            )
-        ) {
-            $this->error($lang->error_invalidattachment);
+        if (!$is_owner) {
+            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
+                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanView)) {
+                $this->errorNoPermission(403);
+            }
+
+            if ($entry === null || !$this->isEntryVisible($entry) ||
+                ((int)$this->attachment_data['status'] !== ContentStatuses::VisibleApproved &&
+                    !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved))) {
+                $this->error($lang->error_invalidattachment, 404);
+            }
+
+            if (!$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
+                $this->errorNoPermission(403);
+            }
         }
 
         $attachment_file_extension = my_strtolower(get_extension($this->attachment_data['attachment_name']));
@@ -316,34 +327,32 @@ class AttachmentsController extends BaseController
         }
 
         if (empty($attachment_type_data)) {
-            $this->error($lang->error_invalidattachment);
+            $this->error($lang->error_invalidattachment, 404);
         }
 
-        // Don't check the permissions on preview
-        if ((int)$this->context->current_user->user_id !== (int)$this->attachment_data['user_id']) {
-            if (!$this->context->current_user->hasPermission(
-                    UserPermissions::AttachmentsCanDownload
-                ) && !$this->is_thumbnail) {
-                $this->errorNoPermission();
+        if (!$is_owner && !is_member($attachment_type_data['allowed_groups'])) {
+            $this->errorNoPermission(403);
+        }
+
+        $absolute_uploads_path = mk_path_abs($this->context->showcase->attachments_uploads_path);
+
+        // An image without a thumbnail (WebP, smaller than the thumbnail box) shows its file instead; other files show
+        // the icon of their type.
+        if ($this->is_thumbnail && ((string)$this->attachment_data['thumbnail_name'] === '' ||
+                !is_file($absolute_uploads_path . '/' . $this->attachment_data['thumbnail_name']))) {
+            if (!str_starts_with($attachment_mime_type, 'image/')) {
+                header('Location: ' . $mybb->settings['bburl'] . '/' . str_replace('{theme}', 'images', (string)$attachment_type_data['type_icon']));
+
+                exit;
             }
 
-            // Error if attachment is invalid or not visible
-            if (!$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved) &&
-                (
-                    (int)$this->attachment_data['status'] !== ContentStatuses::VisibleApproved ||
-                    $entry->status !== ContentStatuses::VisibleApproved
-                )
-            ) {
-                $this->error($lang->error_invalidattachment);
-            }
+            $this->is_thumbnail = false;
+
+            $this->download_count_increase = 0;
         }
 
         // Only increment the download count if this is not a thumbnail
-        if ($this->download_count_increase && !$this->is_thumbnail && (int)$this->context->current_user->user_id !== (int)$this->attachment_data['user_id']) {
-            if (!is_member($attachment_type_data['allowed_groups'])) {
-                $this->errorNoPermission();
-            }
-
+        if ($this->download_count_increase && !$this->is_thumbnail && !$is_owner) {
             $this->context->attachments_repository->updateAttachment(
                 ['downloads' => $this->attachment_data['downloads'] + $this->download_count_increase],
                 (int)$this->attachment_data['attachment_id']
@@ -353,14 +362,9 @@ class AttachmentsController extends BaseController
         // basename isn't UTF-8 safe. This is a workaround.
         $attachment_file_name = ltrim(basename(' ' . $this->attachment_data['attachment_name']));
 
-        $absolute_uploads_path = mk_path_abs($this->context->showcase->attachments_uploads_path);
-
         hooksRun('controller_attachments_download_intermediate', $this);
 
         if ($this->is_thumbnail) {
-            if (!file_exists($absolute_uploads_path . '/' . $this->attachment_data['thumbnail_name'])) {
-                $this->error($lang->error_invalidattachment);
-            }
 
             header("Content-disposition: filename=\"{$attachment_file_name}\"");
 
@@ -389,7 +393,7 @@ class AttachmentsController extends BaseController
             exit;
         } else {
             if (!file_exists($absolute_uploads_path . '/' . $this->attachment_data['file_name'])) {
-                $this->error($lang->error_invalidattachment);
+                $this->error($lang->error_invalidattachment, 404);
             }
 
             $file_type = $attachment_mime_type;
@@ -401,6 +405,7 @@ class AttachmentsController extends BaseController
                 case 'image/jpeg':
                 case 'image/pjpeg':
                 case 'image/png':
+                case 'image/webp':
                 case 'text/plain':
                     if (!empty($attachment_type_data['force_download'])) {
                         $disposition = 'attachment';
@@ -446,13 +451,16 @@ class AttachmentsController extends BaseController
             } catch (ExceptionUnreadableFile $e) {
                 header('HTTP/1.1 500 Internal Server Error');
             } finally {
-                attachmentLogInsert([
-                    'user_id' => $this->context->current_user->uid,
-                    'attachment_id' => $this->attachment_data['attachment_id'],
-                    'ipaddress' => $mybb->session->packedip,
-                    // A DATETIME column: MySQL in strict mode refuses a Unix timestamp.
-                    'dateline' => new \DateTime('@' . TIME_NOW),
-                ]);
+                // A file shown in place of its missing thumbnail is not a download.
+                if ($this->download_count_increase) {
+                    attachmentLogInsert([
+                        'user_id' => $this->context->current_user->uid,
+                        'attachment_id' => $this->attachment_data['attachment_id'],
+                        'ipaddress' => $mybb->session->packedip,
+                        // A DATETIME column: MySQL in strict mode refuses a Unix timestamp.
+                        'dateline' => new \DateTime('@' . TIME_NOW),
+                    ]);
+                }
             }
 
             exit;
