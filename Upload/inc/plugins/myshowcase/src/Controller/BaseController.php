@@ -167,6 +167,32 @@ abstract class BaseController
         }
     }
 
+    /**
+     * Whether the user moderates the entries of this showcase: moderation actions on entries of other users need it
+     * on top of the permission of the action, as editing the entries of other users does.
+     */
+    protected function isEntryModerator(): bool
+    {
+        return $this->context->current_user->hasPermission(UserPermissions::EntriesCanApprove);
+    }
+
+    /** Whether the user may run a moderation action, which needs $permission, on the entry. */
+    protected function mayModerateEntry(EntryEntity $entry, string $permission): bool
+    {
+        if (!$this->context->current_user->hasPermission($permission)) {
+            return false;
+        }
+
+        return $this->isEntryOwner($entry) || $this->isEntryModerator();
+    }
+
+    protected function isEntryOwner(EntryEntity $entry): bool
+    {
+        $user_id = (int)$this->context->current_user->uid;
+
+        return $user_id > 0 && (int)$entry->user_id === $user_id;
+    }
+
     public function verifyPermission(?string $entry_slug = null, ?string $comment_slug = null): int
     {
         if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {

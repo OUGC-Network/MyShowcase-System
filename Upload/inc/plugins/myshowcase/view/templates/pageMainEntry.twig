@@ -163,7 +163,7 @@
            class="latest-post__date">{{ entry.extra_data.last_comment_date.getTimestamp() }}</a>
     </div>
 
-    {% if permissions.entries_can_view %}
+    {% if permissions.entries_can_approve %}
         <div class="thread__checkbox">
             <label for="selected-entry-{{ entry.entry_slug }}"></label>
             <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.entry_slug }}"

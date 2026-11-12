@@ -55,6 +55,20 @@ use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
 class EntriesController extends BaseController
 {
+    /** The permission each inline moderation action of the main list needs. */
+    private const INLINE_MODERATION_PERMISSIONS = [
+        'open' => UserPermissions::EntriesCanOpen,
+        'close' => UserPermissions::EntriesCanClose,
+        'stick' => UserPermissions::EntriesCanSticky,
+        'unstick' => UserPermissions::EntriesCanUnstick,
+        'approve' => UserPermissions::EntriesCanApprove,
+        'unapprove' => UserPermissions::EntriesCanUnapprove,
+        'copy' => UserPermissions::EntriesCanCopy,
+        'soft_delete' => UserPermissions::EntriesCanSoftDelete,
+        'restore' => UserPermissions::EntriesCanRestore,
+        'delete' => UserPermissions::EntriesCanDelete,
+    ];
+
     private readonly SubscriptionsRepository $subscriptions_repository;
     private readonly CommentsRepository $comments_repository;
     private readonly AttachmentsRepository $attachments_repository;
@@ -105,6 +119,12 @@ class EntriesController extends BaseController
         if ($this->context->mybb->get_input('action') === 'inline_moderation') {
             verify_post_check($this->context->mybb->get_input('my_post_key'));
 
+            $permission = self::INLINE_MODERATION_PERMISSIONS[$this->context->mybb->get_input('moderate')] ?? null;
+
+            if ($permission === null || !$this->context->current_user->hasPermission($permission)) {
+                $this->errorNoPermission();
+            }
+
             foreach (
                 $this->context->entries_repository->fetchEntries(
                     $this->context->custom_fields_collection,
@@ -132,6 +152,13 @@ class EntriesController extends BaseController
                         )
                     )
             );
+
+            // One entry the user may not moderate refuses the whole request, before anything changes.
+            foreach ($selected_entries as $entry) {
+                if (!$this->mayModerateEntry($entry, $permission)) {
+                    $this->errorNoPermission();
+                }
+            }
 
             $lang = $this->context->language;
 
