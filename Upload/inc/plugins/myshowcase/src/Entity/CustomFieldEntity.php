@@ -102,9 +102,47 @@ final  class CustomFieldEntity
             is_member($this->allowed_groups_fill);
     }
 
+    /**
+     * The options of a select, radio or checkbox field the user may fill. Custom template sets with an older
+     * pageEntryCreateUpdate.twig pass this entity to the global field template, which lists these.
+     */
     public function getSelectableValues(): Collection
     {
+        if ($this->selectable_values->count() === 0 && $this->hasOptions()) {
+            $this->fetchSelectableValues(true);
+        }
+
         return $this->selectable_values;
+    }
+
+    public function hasOptions(): bool
+    {
+        return in_array($this->html_type, ['checkbox', 'radio', 'select'], true);
+    }
+
+    /** Same label as the field classes: the collection language entry, else the stored label, else the key. */
+    public function getLabel(): string
+    {
+        global $lang;
+
+        $language_key = 'myshowcase_collection_field_' . $this->field_key;
+
+        if (isset($lang->$language_key) && $lang->$language_key !== '' && $lang->$language_key !== $language_key) {
+            return (string)$lang->$language_key;
+        }
+
+        return $this->field_label !== '' ? $this->field_label : $this->field_key;
+    }
+
+    /** A definition has no entry value; the entry's field objects carry it. */
+    public function getValue(): string
+    {
+        return '';
+    }
+
+    public function isSelected(int|string $field_data_id): bool
+    {
+        return false;
     }
 
     public function fetchSelectableValues(bool $verify_fill_permission = false): void
