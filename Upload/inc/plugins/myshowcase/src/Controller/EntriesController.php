@@ -1454,14 +1454,19 @@ class EntriesController extends BaseController
                 return implode(' ', $subject_extra);
             })() . $entry->subject;
 
-        $this->context->entries_repository->updateEntry(
-            $this->context->entries_manager->generateEntry(
-                [
-                    'entry_id' => $entry->entry_id,
-                    'entry_slug_custom' => (new StringUtil())->generateSlug($subject)->lower()->toString()
-                ]
-            ),
-        );
+        $entry_slug_custom = (new StringUtil())->generateSlug($subject)->lower()->toString();
+
+        // The subject is built from what this visitor may see; an empty slug would make the entry's links fail.
+        if ($entry_slug_custom !== '' && $entry_slug_custom !== $entry->entry_slug_custom) {
+            $this->context->entries_repository->updateEntry(
+                $this->context->entries_manager->generateEntry(
+                    [
+                        'entry_id' => $entry->entry_id,
+                        'entry_slug_custom' => $entry_slug_custom
+                    ]
+                ),
+            );
+        }
 
         add_breadcrumb(
             $subject,
