@@ -307,11 +307,9 @@ class AttachmentsManager
         // All seems to be good, lets move the attachment!
 
         if (!empty($entry->entry_id)) {
-            $file_name = "attachment_{$entry->user_id}_{$entry->entry_id}_" . TIME_NOW . '_' . (new UuidUtil(
-                ))->generateUuidV4() . '.attach';
+            $file_name = "attachment_{$entry->user_id}_" . (new UuidUtil())->generateUuidV7() . "_{$entry->public_id}.attach";
         } else {
-            $file_name = "attachment_{$entry->user_id}_{$entry->post_hash}_" . TIME_NOW . '_' . (new UuidUtil(
-                ))->generateUuidV4() . '.attach';
+            $file_name = "attachment_{$entry->user_id}_" . (new UuidUtil())->generateUuidV7() . "_{$entry->post_hash}.attach";
         }
 
         $file_upload_result = $this->uploadFile($attachment_data, $file_name, $directory_month_name);

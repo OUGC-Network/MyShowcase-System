@@ -103,7 +103,7 @@ class AttachmentsController extends BaseController
 
             $entry = $this->context->entries_repository->queryEntry(
                 $where_clauses,
-                ['entry_id', 'post_hash', 'status', 'user_id'],
+                ['entry_id', 'public_id', 'post_hash', 'status', 'user_id'],
             );
 
             if (!$entry) {
