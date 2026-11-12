@@ -172,7 +172,7 @@
 
         {# Entry fields #}
         {% for field_data in entry_data.getFields() %}
-            {% if field_data.field_definition.is_enabled %}
+            {% if field_data.isViewableInEntry() and (config.entries_display_empty_fields or field_data.getUserValue() is not same as('') or field_data.attachments_rendered is not empty) %}
                 {% include '@ext.myshowcase/pageViewEntryField.twig' %}
             {% endif %}
         {% endfor %}

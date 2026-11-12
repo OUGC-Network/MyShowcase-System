@@ -19,6 +19,7 @@ use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\ContentTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\FormatTypes;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\RenderManager;
@@ -29,6 +30,7 @@ use Twig\Error\SyntaxError;
 use function MyShowcase\Plugin\Functions\stringKeysOnly;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\formatField;
 use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -103,7 +105,7 @@ trait FieldTrait
 
     public function valueSet(string|int|bool $userValue): self
     {
-        $this->field_value = $userValue;
+        $this->field_value = (string)$userValue;
 
         return $this;
     }
@@ -115,114 +117,151 @@ trait FieldTrait
         int $collection_id,
         array $input = []
     ): void {
-        if (!$this->field_definition['display_in_view_page'] ||
-            !is_member($this->field_definition['allowed_groups_view'])) {
-            //return;
-        }
+        $this->user_value = $this->user_value_display = '';
 
-        $user_value_display = [];
+        if ($this->field_value !== '') {
+            $user_values = $user_values_display = [];
 
-        if ($this->field_value) {
-            if ($this->fieldAcceptsMultipleValues()) {
-                $userValues = explode($this->multipleSeparator, $this->field_value);
-            } else {
-                $userValues = [$this->field_value];
-            }
+            $highlight = !empty($this->field_definition['enable_search']) && isset($input['highlight']) &&
+            is_string($input['highlight']) ? $input['highlight'] : null;
 
-            foreach ($userValues as $userValueKey => $userValueValue) {
-                switch ($this->field_definition['html_type']) {
-                    case FieldHtmlTypes::CheckBox:
-                    case FieldHtmlTypes::Radio:
-                    case FieldHtmlTypes::Select:
+            foreach ($this->valuesList() as $value) {
+                if ($this->hasOptions()) {
+                    // An option that no longer exists (or that the user may not see) shows nothing.
+                    $option = $this->viewableOptions()[(int)$value] ?? null;
 
-                        $value_id = (int)$userValueValue;
-
-                        foreach (
-                            fieldDataGet(
-                                [
-                                    "field_data_id='{$value_id}'",
-                                    "collection_id='{$collection_id}'",
-                                    "field_id='{$this->field_definition['field_id']}'"
-                                ],
-                                [
-                                    'value',
-                                    'display_style',
-                                    'allowed_groups_view'
-                                ],
-                                ['order_by' => 'display_order']
-                            ) as $field_data_id => $field_data_data
-                        ) {
-                            if (!is_member($field_data_data['allowed_groups_view'])) {
-                                continue;
-                            }
-
-                            $userValues[$userValueKey] = $field_data_data['value'];
-
-                            $user_value_display[$userValueKey] = $field_data_data['display_style'] ?? $field_data_data['value'];
-                        }
-
-                        break;
-                }
-
-                if (!$this->field_definition['parser_enable'] && $this->field_definition['enable_search'] && isset($input['highlight'])) {
-                    $userValues[$userValueKey] = postParser()->highlight_message(
-                        $userValues[$userValueKey],
-                        $input['highlight']
-                    );
-
-                    $user_value_display[$userValueKey] = postParser()->highlight_message(
-                        $user_value_display[$userValueKey],
-                        $input['highlight']
-                    );
-                } elseif ($this->field_definition['parser_enable']) {
-                    static $parser_options = null;
-
-                    if ($parser_options === null) {
-                        $parser_options = [
-                            'allow_html' => !empty($this->field_definition['parser_allow_html_in_entries']),
-                            'allow_mycode' => !empty($this->field_definition['parser_allow_mycode_in_entries']),
-                            'allow_smilies' => !empty($this->field_definition['parser_allow_smiles_in_entries']),
-                            'allow_imgcode' => !empty($this->field_definition['parser_allow_image_code_in_entries']),
-                            'allow_videocode' => !empty($this->field_definition['parser_allow_video_code_in_entries']),
-                            'me_username' => $entry->username,
-                            'filter_badwords' => true,
-                            'shorten_urls' => false,
-                            'highlight' => false,
-                        ];
+                    if ($option === null) {
+                        continue;
                     }
 
-                    if ($this->field_definition['enable_search'] && isset($input['highlight'])) {
-                        $parser_options['highlight'] = $input['highlight'];
+                    $label = htmlspecialchars_uni((string)$option['value']);
+
+                    $user_values[] = $label;
+
+                    $user_values_display[] = (string)$option['display_style'] !== '' ? (string)$option['display_style'] : $label;
+
+                    continue;
+                }
+
+                if (!empty($this->field_definition['parser_enable'])) {
+                    $text = postParser()->parse_message($value, [
+                        'allow_html' => !empty($this->field_definition['parser_allow_html']),
+                        'allow_mycode' => !empty($this->field_definition['parser_allow_mycode']),
+                        'allow_smilies' => !empty($this->field_definition['parser_allow_smiles']),
+                        'allow_imgcode' => !empty($this->field_definition['parser_allow_image_code']),
+                        'allow_videocode' => !empty($this->field_definition['parser_allow_video_code']),
+                        'me_username' => (string)$entry->username,
+                        'filter_badwords' => true,
+                        'shorten_urls' => false,
+                        'highlight' => $highlight ?? false,
+                    ]);
+                } else {
+                    $format = (int)($this->field_definition['format'] ?? FormatTypes::noFormat);
+
+                    $text = formatField($format, $value);
+
+                    if ($format !== FormatTypes::htmlSpecialCharactersUni) {
+                        $text = htmlspecialchars_uni($text);
                     }
 
-                    $userValues[$userValueKey] = postParser()->parse_message(
-                        $userValues[$userValueKey] ?? '',
-                        $parser_options
-                    );
-
-                    $user_value_display[$userValueKey] = postParser()->parse_message(
-                        $user_value_display[$userValueKey] ?? '',
-                        $parser_options
-                    );
+                    if ($highlight !== null) {
+                        $text = postParser()->highlight_message($text, $highlight);
+                    }
                 }
+
+                $user_values[] = $text;
+
+                $user_values_display[] = $text;
             }
 
-            $this->user_value = implode($this->multipleConcatenator, $userValues);
+            $this->user_value = implode($this->multipleConcatenator, $user_values);
 
-            $this->user_value_display = implode($this->multipleConcatenator, $user_value_display);
+            $this->user_value_display = implode($this->multipleConcatenator, $user_values_display);
         }
 
-        if (!$this->user_value) {
-            global $lang;
-            //$this->user_value = $lang->myshowcase_entry_field_value_empty;
+        if ($this->field_definition['html_type'] === FieldHtmlTypes::File) {
+            $this->attachmentsFetch($attachments_manager, $attachments_repository, $entry);
+        }
+    }
+
+    /** @return string[] The stored value split into its values (one value unless the field accepts several). */
+    private function valuesList(): array
+    {
+        if ($this->fieldAcceptsMultipleValues()) {
+            return array_values(array_filter(
+                array_map('trim', explode($this->multipleSeparator, $this->field_value)),
+                static fn(string $value): bool => $value !== ''
+            ));
         }
 
-        if (!$this->user_value_display) {
-            global $lang;
-            //$this->user_value_display = $lang->myshowcase_entry_field_value_empty;
+        return [$this->field_value];
+    }
+
+    /** Whether the values of the field are ids of its options (myshowcase_field_data rows). */
+    public function hasOptions(): bool
+    {
+        return in_array(
+            $this->field_definition['html_type'],
+            [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select],
+            true
+        );
+    }
+
+    /**
+     * Every option of the field, by field_data_id in display order, read once per request.
+     *
+     * @return array<int, array>
+     */
+    private function optionRows(): array
+    {
+        static $options_cache = [];
+
+        $field_id = (int)$this->field_definition['field_id'];
+
+        if (!isset($options_cache[$field_id])) {
+            $options_cache[$field_id] = [];
+
+            foreach (
+                fieldDataGet(
+                    ["field_id='{$field_id}'"],
+                    ['field_data_id', 'value_id', 'value', 'display_style', 'allowed_groups_fill', 'allowed_groups_view'],
+                    ['order_by' => 'display_order, field_data_id']
+                ) as $field_data_id => $field_data_data
+            ) {
+                $options_cache[$field_id][(int)$field_data_id] = $field_data_data;
+            }
         }
 
-        $this->attachmentsFetch($attachments_manager, $attachments_repository, $entry);
+        return $options_cache[$field_id];
+    }
+
+    /** @return array<int, array> The options the current user may see. */
+    private function viewableOptions(): array
+    {
+        return array_filter(
+            $this->optionRows(),
+            static fn(array $option): bool => (bool)is_member((string)$option['allowed_groups_view'])
+        );
+    }
+
+    /** The label of the field: the collection language entry when there is one, else the stored label, else its key. */
+    public function getLabel(): string
+    {
+        global $lang;
+
+        $field_key = (string)$this->field_definition['field_key'];
+
+        $language_key = 'myshowcase_collection_field_' . $field_key;
+
+        if (isset($lang->$language_key) && $lang->$language_key !== '' && $lang->$language_key !== $language_key) {
+            return (string)$lang->$language_key;
+        }
+
+        if (($this->field_definition['field_label'] ?? '') !== '') {
+            return (string)$this->field_definition['field_label'];
+        }
+
+        return $field_key;
     }
 
     public function attachmentsFetch(
@@ -352,34 +391,12 @@ trait FieldTrait
 
     public function fetchSelectableValues(int $collection_id, bool $verify_fill_permission = false): void
     {
-        foreach (
-            fieldDataGet(
-                [
-                    "collection_id='{$collection_id}'",
-                    "field_id='{$this->field_definition['field_id']}'"
-                ],
-                [
-                    'field_data_id',
-                    'value_id',
-                    'value',
-                    'display_style',
-                    'allowed_groups_fill',
-                    'allowed_groups_view',
-                ],
-                ['order_by' => 'display_order']
-            ) as $field_data_id => $field_data_data
-        ) {
-            if ($verify_fill_permission && !is_member($field_data_data['allowed_groups_fill'])) {
+        foreach ($this->optionRows() as $field_data_id => $field_data_data) {
+            if ($verify_fill_permission && !is_member((string)$field_data_data['allowed_groups_fill'])) {
                 continue;
             }
 
-            if (!$this->selectable_values->contains($field_data_data)) {
-                if ($field_data_id) {
-                    $this->selectable_values[$field_data_id] = $field_data_data;
-                } else {
-                    $this->selectable_values[] = $field_data_data;
-                }
-            }
+            $this->selectable_values[$field_data_id] = $field_data_data;
         }
     }
 

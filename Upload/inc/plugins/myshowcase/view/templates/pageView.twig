@@ -3,8 +3,8 @@
 {% block head %}
     <title>
         {% for field_data in entry_data.getFields() %}
-            {% if field_data.field_definition.enable_subject %}
-                {{ field_data.getUserValue() }}
+            {% if field_data.field_definition.enable_subject and field_data.isViewableInEntry() %}
+                {{ field_data.getUserValue()|striptags|raw }}
             {% endif %}
         {% endfor %}
         {{ entry_data.subject }} - {{ mybb.settings.bbname }}</title>
@@ -35,16 +35,16 @@
             #}
             <h1 class="title title--page">
                 {% for field_data in entry_data.getFields() %}
-                    {% if field_data.field_definition.enable_subject %}
+                    {% if field_data.field_definition.enable_subject and field_data.isViewableInEntry() %}
                         {{ field_data.getUserValueDisplay()|raw }}
                     {% endif %}
                 {% endfor %}
                 {{ entry_data.subject }}
             </h1>
-            <p class="page-description"
+            <p class="page-description">
             {% for field_data in entry_data.getFields() %}
-                {% if field_data.field_definition.enable_description %}
-                    {{ field_data.getUserValue() }}
+                {% if field_data.field_definition.enable_description and field_data.isViewableInEntry() %}
+                    {{ field_data.getUserValue()|raw }}
                 {% endif %}
             {% endfor %}
             </p>

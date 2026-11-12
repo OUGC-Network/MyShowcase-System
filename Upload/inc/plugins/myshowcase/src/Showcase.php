@@ -175,6 +175,9 @@ class Showcase
             }
         }
 
+        // The field labels of the collection (myshowcase_collection_field_{key}), when its language file exists.
+        $this->context->language->load('myshowcase_fs' . $this->context->showcase->collection_id, true, true);
+
         $this->buildCustomFields();
     }
 

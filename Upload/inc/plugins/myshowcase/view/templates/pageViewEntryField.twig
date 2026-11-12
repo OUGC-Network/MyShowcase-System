@@ -1,52 +1,17 @@
-<h5><u>{{ field_data.field_definition.field_label }}:</u></h5>
-<p>
-    {% if field_data.field_definition.html_type == 'checkbox' %}
-        {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.field_definition.html_type == 'color' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'date' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'datetime-local' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'email' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'file' %}
-        {{ field_data.getUserValue()|raw }}
-        {# Attachments #}
-        {{ field_data.attachments_rendered|raw }}
-    {% elseif field_data.field_definition.html_type == 'month' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'number' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'password' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'radio' %}
-        {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.field_definition.html_type == 'range' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'search' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'tel' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'text' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'time' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'url' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'week' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'textarea' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'select' %}
-        {{ field_data.getUserValueDisplay()|raw }}
-    {% elseif field_data.field_definition.html_type == 'select2_users' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'select2_entries' %}
-        {{ field_data.getUserValue()|raw }}
-    {% elseif field_data.field_definition.html_type == 'select2_threads' %}
-        {{ field_data.getUserValue()|raw }}
-    {% else %}
-        {{ field_data.getUserValue()|raw }}
-    {% endif %}
-</p>
+{# Values from the field classes are already escaped, or parsed by the MyBB parser when the field enables it. #}
+<div class="post__field field field--{{ field_data.field_definition.html_type }} field--{{ field_data.field_definition.field_key }}">
+    <h5 class="field__label"><u>{{ field_data.getLabel() }}:</u></h5>
+    <p class="field__value">
+        {% if field_data.getUserValue() is same as('') and field_data.attachments_rendered is empty %}
+            {{ lang.myshowcase_entry_field_value_empty }}
+        {% elseif field_data.field_definition.html_type in ['checkbox', 'radio', 'select'] %}
+            {{ field_data.getUserValueDisplay()|raw }}
+        {% else %}
+            {{ field_data.getUserValue()|raw }}
+        {% endif %}
+        {% if field_data.field_definition.html_type == 'file' %}
+            {# Attachments #}
+            {{ field_data.attachments_rendered|raw }}
+        {% endif %}
+    </p>
+</div>
