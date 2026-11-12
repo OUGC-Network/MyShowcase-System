@@ -129,12 +129,12 @@ class EntriesManager
         $entry = new EntryEntity(...stringKeysOnly($entry_data));
 
         foreach ($fields_data as $field_key => $field_value) {
-            $field_definition = array_filter(
+            $field_definition = current(array_filter(
                 $this->context->collection_fields,
                 function ($field_definition) use ($field_key): bool {
                     return $field_definition['field_key'] === $field_key;
                 }
-            );
+            )) ?: [];
 
             // Several submitted values stay in the extra data, where the validation rejects them.
             $custom_field = new EntryCustomField(
