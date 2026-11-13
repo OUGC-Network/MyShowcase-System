@@ -263,6 +263,109 @@ foreach (glob($directory . '/*') ?: [] as $leftover) {
 }
 @rmdir($directory);
 
+// --- The files of an import (decision D59): removed by rollback and by the shutdown guard, kept after COMMIT -------------
+
+/** A database stand-in that records the statements: the transaction only sends them. */
+$fake_database = new class () {
+    public array $statements = [];
+
+    public function write_query(string $sql): bool
+    {
+        $this->statements[] = $sql;
+
+        return true;
+    }
+
+    public function delete_query(string $table, string $where): bool
+    {
+        $this->statements[] = "DELETE {$table} WHERE {$where}";
+
+        return true;
+    }
+
+    public function escape_string(string $value): string
+    {
+        return addslashes($value);
+    }
+};
+
+$stored_root = sys_get_temp_dir() . '/msc-files-' . bin2hex(random_bytes(4));
+$uploads_dir = $stored_root . '/uploads';
+$outside_dir = $stored_root . '/elsewhere';
+mkdir($uploads_dir, 0777, true);
+mkdir($outside_dir, 0777, true);
+
+$new_transaction = static fn(object $database, string $uploads): MyShowcase\Service\ImportTransaction
+    => new MyShowcase\Service\ImportTransaction($database, 1, 'batchhash', MyShowcase\Service\SchemaManager::ENGINE_SQLITE, $uploads);
+
+$stored_file = static function (string $folder, string $name): string {
+    file_put_contents($folder . '/' . $name, 'bytes');
+
+    return $folder . '/' . $name;
+};
+
+$transaction_file = $stored_file($uploads_dir, 'a.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($transaction_file);
+$transaction->abandonIfOpen();
+check(!is_file($transaction_file), 'the shutdown guard removes a stored file when the transaction was never committed');
+
+$transaction_file = $stored_file($uploads_dir, 'b.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($transaction_file);
+$transaction->commit();
+$transaction->abandonIfOpen();
+check(is_file($transaction_file), 'a committed import keeps its stored files, also after the guard runs');
+@unlink($transaction_file);
+
+$transaction_file = $stored_file($uploads_dir, 'c.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($transaction_file);
+$transaction->rollback();
+check(!is_file($transaction_file), 'rollback removes a stored file');
+
+$outside_file = $stored_file($outside_dir, 'keep.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($outside_file);
+$transaction->rollback();
+check(is_file($outside_file), 'a recorded path outside the upload folder is never deleted');
+
+$link_target = $stored_file($outside_dir, 'target.png');
+$link_path = $uploads_dir . '/link.png';
+symlink($link_target, $link_path);
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($link_path);
+$transaction->rollback();
+check(is_file($link_target) && is_link($link_path), 'a link in the upload folder is not followed or removed');
+@unlink($link_path);
+
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($uploads_dir . '/missing.png');
+$transaction->rollback();
+check(true, 'a recorded file that is missing is ignored');
+
+$transaction_file = $stored_file($uploads_dir, 'd.png');
+$transaction = $new_transaction($fake_database, '');
+$transaction->begin();
+$transaction->recordFile($transaction_file);
+$transaction->rollback();
+check(is_file($transaction_file), 'without an upload folder no file is removed');
+@unlink($transaction_file);
+
+foreach ([$uploads_dir, $outside_dir] as $folder) {
+    foreach (glob($folder . '/*') ?: [] as $leftover) {
+        @unlink($leftover);
+    }
+    @rmdir($folder);
+}
+@rmdir($stored_root);
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

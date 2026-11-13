@@ -241,15 +241,15 @@ class EntriesImporter
 
         $uploads = rtrim((string)$this->context->showcase->attachments_uploads_path, '/');
 
+        // The transaction keeps the files this import stores (a file and its thumbnail): rollback() and the shutdown guard
+        // remove them, also when the request ends before COMMIT (decision D59).
         $transaction = new ImportTransaction(
             $this->context->database,
             (int)$this->context->showcase->showcase_id,
             $batch_hash,
-            SchemaManager::engine()
+            SchemaManager::engine(),
+            $uploads,
         );
-
-        // The paths of the files this import stored (a file and its thumbnail), removed if the import fails.
-        $stored = [];
 
         $external = 0;
 
@@ -289,10 +289,10 @@ class EntriesImporter
                         throw new RuntimeException('attachment');
                     }
 
-                    $stored[] = $uploads . '/' . (string)$result['file_name'];
+                    $transaction->recordFile($uploads . '/' . (string)$result['file_name']);
 
                     if (!empty($result['thumbnail_name'])) {
-                        $stored[] = $uploads . '/' . (string)$result['thumbnail_name'];
+                        $transaction->recordFile($uploads . '/' . (string)$result['thumbnail_name']);
                     }
 
                     $transaction->recordAttachment((int)$result['attachment_id']);
@@ -306,12 +306,6 @@ class EntriesImporter
             $transaction->commit();
         } catch (Throwable $exception) {
             $transaction->rollback();
-
-            foreach ($stored as $path) {
-                if (is_file($path)) {
-                    @unlink($path);
-                }
-            }
 
             self::logWriteFailure($exception);
 
