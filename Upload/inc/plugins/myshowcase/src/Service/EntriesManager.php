@@ -77,6 +77,12 @@ class EntriesManager
         ContentStatuses::SoftDeleted => UserPermissions::EntriesCanViewDeleted,
     ];
 
+    /** The comment counterpart of STATUS_VIEW_PERMISSIONS (see commentStatusViewScope()). */
+    private const COMMENT_STATUS_VIEW_PERMISSIONS = [
+        ContentStatuses::AwaitingApproval => UserPermissions::CommentsCanViewUnapproved,
+        ContentStatuses::SoftDeleted => UserPermissions::CommentsCanViewDeleted,
+    ];
+
     private Collection $entries;
     private readonly EntriesRepository $entries_repository;
     private readonly AttachmentsRepository $attachments_repository;
@@ -301,21 +307,71 @@ class EntriesManager
     }
 
     /**
-     * Condition for the comments of an entry, as it was before entries had a rule of their own: approved comments, plus the
-     * user's own that await approval, unless they hold the comments view permission. Comments are not part of the entry
-     * visibility rule.
+     * How many comments of a status the current user may see: 'any', 'own' or 'none'. The comment side of the entry rule
+     * in statusViewScope(), with the permissions of comments (decision D30):
+     * - approved comments: everyone with comments_can_view;
+     * - awaiting approval / soft-deleted: without comments_can_view_unapproved / comments_can_view_deleted, 'none';
+     *   with it, 'own' for a user who is not a moderator and 'any' for a moderator.
+     */
+    private function commentStatusViewScope(int $status): string
+    {
+        $user = $this->context->current_user;
+
+        if ($status === ContentStatuses::VisibleApproved) {
+            return $user->hasPermission(UserPermissions::CommentsCanView) ? 'any' : 'none';
+        }
+
+        $permission = self::COMMENT_STATUS_VIEW_PERMISSIONS[$status] ?? null;
+
+        if ($permission === null || $user->uid < 1 || !$user->hasPermission($permission)) {
+            return 'none';
+        }
+
+        return $this->isModerator() ? 'any' : 'own';
+    }
+
+    /**
+     * Whether the current user may see a comment of this status that belongs to $owner_id (the comment side of
+     * canViewStatus()). Without an owner: whether they may see any comment of that status at all.
+     */
+    public function canViewCommentStatus(int $status, ?int $owner_id = null): bool
+    {
+        return match ($this->commentStatusViewScope($status)) {
+            'any' => true,
+            'own' => $owner_id === null || $owner_id === (int)$this->context->current_user->uid,
+            default => false,
+        };
+    }
+
+    /**
+     * Condition on the comments table that limits a query to the comments the current user may see, built from
+     * commentStatusViewScope(), so it means the same as canViewCommentStatus(). $alias is the table alias ('' for none).
      */
     public function commentVisibilityWhereClause(string $alias = 'comment_data'): string
     {
-        if ($this->context->current_user->hasPermission(UserPermissions::CommentsCanView)) {
-            return '';
-        }
-
         $prefix = $alias === '' ? '' : "{$alias}.";
 
-        return "({$prefix}status='" . ContentStatuses::VisibleApproved . "' OR ("
-            . "{$prefix}user_id='" . (int)$this->context->current_user->uid . "' AND "
-            . "{$prefix}status='" . ContentStatuses::AwaitingApproval . "'))";
+        $uid = (int)$this->context->current_user->uid;
+
+        $conditions = [];
+
+        foreach (
+            [
+                ContentStatuses::VisibleApproved,
+                ContentStatuses::AwaitingApproval,
+                ContentStatuses::SoftDeleted,
+            ] as $status
+        ) {
+            $conditions[] = match ($this->commentStatusViewScope($status)) {
+                'any' => "{$prefix}status='{$status}'",
+                'own' => "({$prefix}status='{$status}' AND {$prefix}user_id='{$uid}')",
+                default => null,
+            };
+        }
+
+        $conditions = array_values(array_filter($conditions));
+
+        return $conditions === [] ? '1=0' : '(' . implode(' OR ', $conditions) . ')';
     }
 
     /**

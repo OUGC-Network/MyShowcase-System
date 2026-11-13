@@ -221,11 +221,7 @@ abstract class BaseController
 
     protected function commentVisibilityClause(string $alias = 'comment_data'): string
     {
-        return $this->context->entries_manager->statusVisibilityClause(
-            $alias,
-            $this->isCommentModerator(),
-            UserPermissions::CommentsCanViewDeleted
-        );
+        return $this->context->entries_manager->commentVisibilityWhereClause($alias);
     }
 
     public function verifyPermission(?string $entry_public_id = null, ?string $comment_public_id = null): int
@@ -349,12 +345,7 @@ abstract class BaseController
 
     private function isCommentAccessible(CommentEntity $comment): bool
     {
-        return $this->context->entries_manager->isStatusVisible(
-            (int)$comment->status,
-            (int)$comment->user_id,
-            $this->isCommentModerator(),
-            UserPermissions::CommentsCanViewDeleted
-        );
+        return $this->context->entries_manager->canViewCommentStatus((int)$comment->status, (int)$comment->user_id);
     }
 
     #[NoReturn]
@@ -397,10 +388,6 @@ abstract class BaseController
         ];
 
         $where_clauses[] = $this->commentVisibilityClause();
-
-        if ($comment_clause = $this->context->entries_manager->commentVisibilityWhereClause('')) {
-            $where_clauses[] = $comment_clause;
-        }
 
         $comments_repository = new CommentsRepository($this->context->database, $this->context->showcase);
         $total_comments = $comments_repository->queryCommentCount($where_clauses);
