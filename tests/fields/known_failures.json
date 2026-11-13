@@ -61,6 +61,16 @@
    "reason": "a blank optional datetime-local is posted and refused by the database: the empty string is not a valid datetime-local on this engine, so the entry is not stored (the other cases of the field pass)",
    "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
    "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_date|c": {
+   "reason": "a blank optional date is posted and refused by the database: the empty string is not a valid date on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_datetime|c": {
+   "reason": "a blank optional datetime-local is posted and refused by the database: the empty string is not a valid datetime-local on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
   }
  },
  "pgsql": {
@@ -95,6 +105,21 @@
    "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
   },
   "fk_time_bounded|c": {
+   "reason": "a blank optional time is posted and refused by the database: the empty string is not a valid time on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_date|c": {
+   "reason": "a blank optional date is posted and refused by the database: the empty string is not a valid date on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_datetime|c": {
+   "reason": "a blank optional datetime-local is posted and refused by the database: the empty string is not a valid datetime-local on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_time|c": {
    "reason": "a blank optional time is posted and refused by the database: the empty string is not a valid time on this engine, so the entry is not stored (the other cases of the field pass)",
    "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
    "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
