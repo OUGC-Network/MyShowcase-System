@@ -32,6 +32,24 @@ DBNAME = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.dig
 results = []
 
 
+def stop_server(ctx):
+    """Stops the test server: the process that listens on the port (the php process, which may be a child of the one
+    started), then the process started. Nothing else is signalled."""
+    listeners = subprocess.run(['lsof', '-ti', f'tcp:{PORT}', '-sTCP:LISTEN'], capture_output=True, text=True).stdout.split()
+    for pid in listeners:
+        try:
+            os.kill(int(pid), 9)
+        except OSError:
+            pass
+    if ctx.server:
+        try:
+            ctx.server.kill()
+            ctx.server.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        ctx.server = None
+
+
 def check(name, ok, detail=''):
     results.append({'check': name, 'result': 'pass' if ok else 'fail', 'detail': detail})
 
@@ -42,7 +60,8 @@ def main():
         ctx.server = subprocess.Popen(['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1',
                                        '-d', f'error_log={os.path.join(a.scratch, f"php_acp_{a.engine}_errors.log")}',
                                        '-S', f'127.0.0.1:{PORT}', '-t', ctx.board],
-                                      stdout=open(os.path.join(a.scratch, f'php_acp_{a.engine}.log'), 'w'), stderr=subprocess.STDOUT)
+                                      stdout=open(os.path.join(a.scratch, f'php_acp_{a.engine}.log'), 'w'), stderr=subprocess.STDOUT,
+                                      start_new_session=True)
         time.sleep(1.5)
         acp = board.activate(ctx)
         ctx.execute("insert into mybb_myshowcase_collections (name) values ('AcpBounds')")
@@ -108,7 +127,7 @@ def main():
         page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={field_id}')['body']
         check('the edit screen shows the stored bounds', 'value="20"' in page and 'value="1"' in page)
     finally:
-        ctx.stop()
+        stop_server(ctx)
         if a.engine == 'mysql':
             env = ctx.env
             cmd = [env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"]

@@ -36,6 +36,24 @@ NEW_COLUMNS = ('minimum_value', 'maximum_value')
 results = []
 
 
+def stop_server(ctx):
+    """Stops the test server: the process that listens on the port (the php process, which may be a child of the one
+    started), then the process started. Nothing else is signalled."""
+    listeners = subprocess.run(['lsof', '-ti', f'tcp:{PORT}', '-sTCP:LISTEN'], capture_output=True, text=True).stdout.split()
+    for pid in listeners:
+        try:
+            os.kill(int(pid), 9)
+        except OSError:
+            pass
+    if ctx.server:
+        try:
+            ctx.server.kill()
+            ctx.server.wait(timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        ctx.server = None
+
+
 def check(name, ok, detail=''):
     results.append({'check': name, 'result': 'pass' if ok else 'fail', 'detail': detail})
 
@@ -97,12 +115,12 @@ def swap_plugin(ctx, tree):
 
 
 def start_server(ctx):
-    ctx.stop()
+    stop_server(ctx)
     php_log = os.path.join(a.scratch, f'php_upgrade_{a.engine}_errors.log')
     ctx.server = subprocess.Popen(['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1',
                                    '-d', f'error_log={php_log}', '-S', f'127.0.0.1:{PORT}', '-t', ctx.board],
                                   stdout=open(os.path.join(a.scratch, f'php_upgrade_{a.engine}.log'), 'w'),
-                                  stderr=subprocess.STDOUT)
+                                  stderr=subprocess.STDOUT, start_new_session=True)
     time.sleep(1.5)
 
 
@@ -153,7 +171,7 @@ def main():
         check('a second activation changes no column', again_columns == after_columns)
         check('a second activation changes no row', rows_of(ctx, again_columns) == rows_before)
     finally:
-        ctx.stop()
+        stop_server(ctx)
         if a.engine == 'mysql':
             env = ctx.env
             cmd = [env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"]
