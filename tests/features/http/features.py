@@ -613,8 +613,71 @@ def logs():
     ok(not mine, f'MyBB error log: no MyShowcase errors or warnings ({len(errors)} environment entries)' + (f' ({mine[0]})' if mine else ''))
 
 
+def blog_fields():
+    """The nine blog fields through the real form: stored, refused when out of range, shown according to their
+    visibility, and a script value rendered escaped."""
+    print('--- B0. blog fields through the real form')
+    m1 = user('member1')
+    form = m1.get(f'{B}/create')
+    post_hash = re.search(r'name="post_hash" value="([^"]+)"', form['body']).group(1)
+    key = post_key(form['body'])
+    cat = option_id('blog', 'Tutorials')
+
+    attempts = iter(range(1, 1000))
+
+    def values(subject, **changes):
+        # every attempt has its own post hash, as a form does
+        data = {'subject': subject, 'message': f'Body of {subject}', 'category': cat, 'post_hash': f'{post_hash[:24]}{next(attempts):03d}',
+                'my_post_key': key, 'submit': 'Post', 'summary': 'A short summary', 'tags': 'news, release',
+                'cover_image': 'https://example.com/cover.png', 'reading_time': '4', 'series': 'Building a forum',
+                'series_part': '2', 'meta_description': 'Describes the post', 'source_url': 'https://example.org/original'}
+        data.update(changes)
+        return data
+
+    m1.post(f'{B}/create', values('Full blog post'))
+    e = entry('blog', 'subject', 'Full blog post')
+    ok(e is not None, 'blog post with every field created through the form')
+    if e is not None:
+        row = q(f"select summary, tags, cover_image, reading_time, series, series_part, meta_description, source_url, category "
+                f"from mybb_myshowcase_data{sid('blog')} where entry_id={e['entry_id']}")
+        ok(row and [str(v) for v in row[0]] == ['A short summary', 'news, release', 'https://example.com/cover.png', '4',
+                                                'Building a forum', '2', 'Describes the post', 'https://example.org/original', str(cat)],
+           f'every blog field stored as entered {row[:1]}')
+        page = m1.get(f"{B}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}")
+        ok('Describes the post' in page['body'] and 'Building a forum' in page['body'] and 'https://example.org/original' in page['body'],
+           'entry page shows the page description, the series and the original source')
+        main = m1.get(f'{B}/')
+        ok('A short summary' in main['body'] and 'Describes the post' not in main['body'],
+           'list shows the summary and not the page description')
+
+    refused = {
+        'cover image not http(s)': {'cover_image': 'javascript:alert(1)'},
+        'reading time above 999': {'reading_time': '1000'},
+        'reading time zero': {'reading_time': '0'},
+        'series part not a number': {'series_part': 'abc'},
+        'summary above 300 characters': {'summary': 'x' * 301},
+        'page description above 160 characters': {'meta_description': 'y' * 161},
+        'original source not http(s)': {'source_url': 'ftp://example.org/file'},
+        'category missing': {'category': ''},
+    }
+    for label, changes in refused.items():
+        subject = 'Refused: ' + label
+        r = m1.post(f'{B}/create', values(subject, **changes))
+        ok(entry('blog', 'subject', subject) is None and not no_permission(r), f'blog: {label} is refused, nothing stored')
+        if label == 'cover image not http(s)':
+            ok('Cover image' in r['body'], 'the refusal names the field with a readable message')
+
+    m1.post(f'{B}/create', values('Escaped post', summary='<script>alert(1)</script>'))
+    e2 = entry('blog', 'subject', 'Escaped post')
+    if e2 is not None:
+        page = m1.get(f"{B}/view/{e2['public_id']}/{e2['entry_slug_custom'] or 'x'}")
+        ok('<script>alert(1)</script>' not in page['body'] and '&lt;script&gt;alert(1)&lt;/script&gt;' in page['body'],
+           'a script in the summary is rendered escaped')
+
+
 def run(acp):
     setup(acp)
+    blog_fields()
     defaults(acp)
     field_deletion(acp)
     e1, e2 = security()
