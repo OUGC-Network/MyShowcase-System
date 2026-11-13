@@ -1,6 +1,6 @@
 """The HTTP checks of the entries import. run.py installs the board, creates the blog showcase (create_blog) and calls
 run(). Every check prints PASS or FAIL; FAILS and NOT_RUN collect what did not pass or could not run."""
-import html, json, os, re, secrets, subprocess, sys, time, urllib.request
+import glob, hashlib, html, http.server, json, os, re, secrets, subprocess, sys, tempfile, threading, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'features', 'http'))
@@ -261,6 +261,7 @@ def run():
     section_security()
     section_permissions()
     section_flood_and_limit()
+    section_files()
     section_logs()
 
 
@@ -460,7 +461,6 @@ def section_scope():
        and '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;' in body and entry_count(uid) == before,
        'the report escapes the file name and the subject of a refused entry, and imports nothing')
 
-    not_run('file fields over HTTP: the blog collection has no file field to test D45 with; covered by tests/import/run.php')
 
 
 def section_security():
@@ -546,6 +546,181 @@ def section_flood_and_limit():
     ok(report is not None and report['status'] == 'failed' and entry_count(uid) == before,
        'an import that would pass the entry limit is refused as a whole')
     fixture('permission', 'Registered', 'entries_limit_post_amount', '0')
+
+
+def create_showcase(acp, route, name):
+    acp.get('/admin/index.php?module=myshowcase-json_sync&action=create&type=showcase')
+    for action in ('preview', 'run'):
+        acp.post('/admin/index.php?module=myshowcase-json_sync', {
+            'action': action, 'mode': 'create', 'type': 'showcase', 'file': f'showcases/{route}.json',
+            'name': name, 'route_identifier': route, 'custom_template_prefix': '',
+        })
+    ok(one(f"select count(*) from mybb_myshowcase_config where route_identifier='{route}'") == '1', f'the {route} showcase is created from JSON')
+
+
+def import_into(client, route, path):
+    base = f'/showcase.php/{route}'
+    form = client.get(f'{base}/import')
+    return client.upload(f'{base}/import', {'my_post_key': post_key(form['body']), 'action': 'import'}, 'entries_file', path)
+
+
+def gallery_entry(i, image):
+    # The gallery showcase does not use a subject: an entry carries its title as a field.
+    return {'fields': {'title': f'Picture {i}', 'image': image, 'caption': f'Caption {i}'}}
+
+
+def sha256_of(path):
+    with open(path, 'rb') as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def fetch_bytes(url):
+    with urllib.request.urlopen(url, timeout=60) as response:
+        return response.read()
+
+
+class Listener:
+    """A server on 127.0.0.1 of this run, that records every request it gets (the SSRF checks must leave it empty)."""
+
+    def __init__(self, path):
+        self.path = path
+        self.hits = []
+        hits = self.hits
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+def section_files():
+    print('--- F file fields by URL')
+    fixture('files-setup', 'import-test-uploads')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    gid = int(one("select showcase_id from mybb_myshowcase_config where route_identifier='gallery'") or 0)
+    uploads = one(f"select attachments_uploads_path from mybb_myshowcase_config where showcase_id={gid}")
+    if not gid or not uploads:
+        ok(False, 'the gallery showcase exists and has an uploads folder')
+        return
+
+    def gallery_rows():
+        return int(one(f'select count(*) from mybb_myshowcase_data{gid} where user_id={uid}') or 0)
+
+    def attachment_rows():
+        return int(one(f"select count(*) from mybb_myshowcase_attachments where showcase_id={gid} and field_id is not null") or 0)
+
+    # F1: entries whose image is a placehold.co URL are imported, and their files are attached through the form's pipeline.
+    urls = [f'https://placehold.co/600x450.png?text=Gallery%20Entry%20{i}' for i in (1, 2)]
+    before_rows, before_files = gallery_rows(), attachment_rows()
+    path = write_file('gallery-urls.xml', xml_file([gallery_entry(i + 1, url) for i, url in enumerate(urls)],
+                                                   route='gallery', collection='Gallery', format_version=2))
+    body = import_into(member, 'gallery', path)['body']
+    dump('gallery-urls', body)
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'completed', 'a gallery file with two placehold.co images imports')
+    ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2,
+       f'two gallery entries and two attached images are stored (entries {gallery_rows() - before_rows}, files {attachment_rows() - before_files})')
+    stored = one(f"select group_concat(file_name, '|') from mybb_myshowcase_attachments where showcase_id={gid} and user_id={uid} and field_id is not null order by attachment_id desc limit 2") or ''
+    stored_names = [name for name in stored.split('|') if name]
+    bytes_by_url = [fetch_bytes(url) for url in urls]
+    stored_hashes = [hashlib.sha256(open(os.path.join(uploads, name), 'rb').read()).hexdigest() for name in stored_names]
+    ok(sorted(stored_hashes) == sorted(hashlib.sha256(b).hexdigest() for b in bytes_by_url),
+       'the stored files are the bytes of the two URLs (SHA-256 of each)')
+    thumbs = one(f"select count(*) from mybb_myshowcase_attachments where showcase_id={gid} and thumbnail_name is not null and thumbnail_name!=''")
+    ok(thumbs == '2' or int(thumbs or 0) >= 2, f'the two images have thumbnails ({thumbs})')
+    logged = one(f"select log_data from mybb_myshowcase_logs where showcase_id={gid} and type_id=3 order by log_id desc limit 1") or ''
+    ok('"external_files":2' in logged, 'the import log row records the two files taken from URLs')
+
+    # F2: the export writes each file as its public URL (format version 2); the URL opens with the same bytes; the export
+    # imported back into the same board resolves its own files without a request to the attachment route (decision D52).
+    export_form = member.get('/showcase.php/gallery/export')
+    member.post('/showcase.php/gallery/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                                'order_dir': 'asc', 'submit': 'Export'})
+    export_id = one(f'select export_id from mybb_myshowcase_exports where user_id={uid} and showcase_id={gid} order by export_id desc limit 1')
+    ok(export_id != '', 'the gallery export is stored')
+    if export_id == '':
+        return
+    download = member.get(f'/showcase.php/gallery/export/{export_id}/download')
+    exported = download['raw'].decode('utf-8', errors='replace')
+    ok('<value type="INT">2</value>' in exported and 'format_version' in exported, 'the export is format version 2')
+    attach_urls = re.findall(r'https?://127\.0\.0\.1:\d+/(?:showcase\.php/)?gallery/attachment/[^<\s]+', exported)
+    ok(len(attach_urls) >= 2 and all(CTX.url in u for u in attach_urls), f'the export holds the public URL of each image ({len(attach_urls)})')
+    if attach_urls:
+        # The board's routed URL is /gallery/attachment/...; this test server has no URL rewriting, so the same route is
+        # requested through the front controller. A real server's rewrite rules map one to the other.
+        first = attach_urls[0].replace(CTX.url, '').replace('/gallery/attachment/', '/showcase.php/gallery/attachment/', 1)
+        fetched = member.get(first)['raw']
+        ok(len(fetched) > 0 and hashlib.sha256(fetched).hexdigest() in set(
+            hashlib.sha256(open(os.path.join(uploads, name), 'rb').read()).hexdigest() for name in stored_names),
+           "the URL opens in the exporting user's session and gives the stored bytes")
+    path = write_file('gallery-export.xml', download['raw'])
+    before_rows, before_files = gallery_rows(), attachment_rows()
+    server_log = os.path.join(SCRATCH, f'php_{ENGINE}.log')
+    lines_before = len(open(server_log, encoding='utf-8', errors='replace').read().splitlines()) if os.path.exists(server_log) else 0
+    body = import_into(member, 'gallery', path)['body']
+    dump('gallery-roundtrip', body)
+    report = report_of(body)
+    lines_after = open(server_log, encoding='utf-8', errors='replace').read().splitlines()[lines_before:] if os.path.exists(server_log) else []
+    ok(report is not None and report['status'] == 'completed', 'the export of the gallery imports back into the gallery')
+    ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2, 'the round trip adds two entries with two new files')
+    ok(not any('/attachment/' in line for line in lines_after), 'the round trip makes no request to the attachment route (own files are copied)')
+
+    # F3 (V7): addresses that must be refused, each without a single request to the local listener of this run.
+    listener = Listener(os.path.join(SCRATCH, 'listener.log'))
+    try:
+        refused_urls = [
+            f'http://127.0.0.1:{listener.port}/x.png', f'http://localhost:{listener.port}/x.png', f'http://[::1]:{listener.port}/x.png',
+            'http://169.254.169.254/latest/meta-data/', 'http://2130706433/x.png', 'http://0x7f000001/x.png', 'http://0177.0.0.1/x.png',
+            f'http://placehold.co@127.0.0.1:{listener.port}/x.png', 'file:///etc/passwd', 'ftp://placehold.co/x.png',
+            'gopher://placehold.co/', 'data:image/png;base64,AAAA', 'javascript:alert(1)', 'https://placehold.co:8443/x.png',
+            'http://placehold.co:22/', 'https://placehold.co/' + 'a' * 3000, 'https://placehold.co/a b.png',
+            'https://placehold.co/a\r\nX-Injected: 1.png', 'https://placehold.co/a\x00.png',
+        ]
+        listener_hits = len(listener.hits)
+        for index, url in enumerate(refused_urls):
+            before_rows, before_files = gallery_rows(), attachment_rows()
+            path = write_file(f'ssrf-{index}.xml', xml_file([gallery_entry(90 + index, url)], route='gallery', collection='Gallery', format_version=2))
+            body = import_into(member, 'gallery', path)['body']
+            dump(f'ssrf-{index}', body)
+            report = report_of(body)
+            after_rows, after_files = gallery_rows(), attachment_rows()
+            # A NUL byte makes the file binary: the upload's text check refuses it before any entry is read (no report).
+            refused_ok = (report is not None and report['status'] == 'failed') or (report is None and 'not an XML text file' in text(body))
+            ok(refused_ok and after_rows == before_rows and after_files == before_files,
+               f'refused, nothing stored: index {index} (rows {before_rows}->{after_rows}, files {before_files}->{after_files}, status {report and report["status"]})')
+        ok(len(listener.hits) == listener_hits, f'the local listener saw no request ({len(listener.hits) - listener_hits} requests)')
+    finally:
+        listener.close()
+
+    # F5: five good entries and one URL that the server does not serve: nothing is imported, nothing is left on disk.
+    before_rows, before_files, before_logs = gallery_rows(), attachment_rows(), import_log_count()
+    files_before = set(os.listdir(uploads))
+    temp_before = set(glob.glob(os.path.join(tempfile.gettempdir(), 'myshowcase-import-*')))
+    entries = [gallery_entry(200 + i, f'https://placehold.co/600x450.png?text=Good%20{i}') for i in range(5)]
+    entries.append(gallery_entry(299, 'https://github.com/mybb/mybb/archive/refs/heads/this-branch-does-not-exist.zip'))
+    path = write_file('gallery-bad-last.xml', xml_file(entries, route='gallery', collection='Gallery', format_version=2))
+    body = import_into(member, 'gallery', path)['body']
+    dump('gallery-bad-last', body)
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and 'could not be imported' in report['text'], 'a file with one 404 URL fails as a whole')
+    ok(gallery_rows() == before_rows and attachment_rows() == before_files and import_log_count() == before_logs, 'nothing is stored, no attachment row, no log row')
+    ok(set(os.listdir(uploads)) == files_before, 'no file is left in the uploads folder')
+    ok(set(glob.glob(os.path.join(tempfile.gettempdir(), 'myshowcase-import-*'))) == temp_before, 'no temporary folder of the import is left')
 
 
 def section_logs():

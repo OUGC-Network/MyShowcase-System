@@ -203,6 +203,35 @@ switch ($switch) {
         $out(['check' => $argv[3]]);
         break;
 
+    case 'files-setup':
+        // The board's attachment types and folder for the file-field checks (DATA of the test, not the plugin's code):
+        // PNG (the board has none by default) for the gallery, ZIP of 50 MB for the downloads, a writable uploads folder
+        // for both showcases, and the attachment permissions of the registered group.
+        $gallery = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='gallery'"), 'showcase_id');
+        $downloads = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='downloads'"), 'showcase_id');
+        $uploads = rtrim(MYBB_ROOT, '/') . '/' . $argv[2];
+        if (!is_dir($uploads)) {
+            mkdir($uploads, 0777, true);
+        }
+        chmod($uploads, 0777);
+        $db->update_query('myshowcase_config', ['attachments_uploads_path' => $db->escape_string($uploads)], "showcase_id IN ({$gallery},{$downloads})");
+        $db->update_query('myshowcase_config', ['import_export_flood_seconds' => 0], "showcase_id IN ({$gallery},{$downloads})");
+        $png = $db->fetch_field($db->simple_select('attachtypes', 'atid', "extension='png'"), 'atid');
+        $png_row = ['name' => 'PNG Image', 'mimetype' => 'image/png', 'extension' => 'png', 'maxsize' => 10240,
+                    'icon' => 'images/attachtypes/image.png', 'enabled' => 1, 'forcedownload' => 0, 'groups' => '-1',
+                    'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => (string)$gallery];
+        if ($png) {
+            $db->update_query('attachtypes', $png_row, "atid='" . (int)$png . "'");
+        } else {
+            $db->insert_query('attachtypes', $png_row);
+        }
+        $db->update_query('attachtypes', ['maxsize' => 51200, 'myshowcase_ids' => (string)$downloads, 'enabled' => 1, 'groups' => '-1'], "extension='zip'");
+        $db->update_query('myshowcase_permissions', ['attachments_can_download' => 1, 'attachments_can_upload' => 1], "group_id='2' AND showcase_id='0'");
+        $cacheManager->update(CacheDataTypes::AttachmentTypes);
+        $rebuild();
+        $out(['files' => ['gallery' => $gallery, 'downloads' => $downloads, 'uploads' => $uploads]]);
+        break;
+
     case 'count':
         $table = $argv[2];
 

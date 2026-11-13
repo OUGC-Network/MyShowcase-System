@@ -74,6 +74,8 @@ try:
 
     flows.configure(ctx, a.scratch, log)
     flows.create_blog(acp)
+    flows.create_showcase(acp, 'gallery', 'Gallery')
+    flows.create_showcase(acp, 'downloads', 'Downloads')
     flows.run()
 
     print(f'\n{flows.PASSES} passed, {len(flows.FAILS)} failed ({a.engine}, PluginLibrary: {pl_file})')
