@@ -114,6 +114,11 @@
    "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
+  },
+  "fk_text_group|j": {
+   "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
+   "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
+   "classification": "needs decision (the collection file format cannot name groups)"
   }
  },
  "mysql": {
@@ -226,6 +231,11 @@
    "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
+  },
+  "fk_text_group|j": {
+   "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
+   "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
+   "classification": "needs decision (the collection file format cannot name groups)"
   }
  },
  "pgsql": {
@@ -328,6 +338,11 @@
    "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
+  },
+  "fk_text_group|j": {
+   "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
+   "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
+   "classification": "needs decision (the collection file format cannot name groups)"
   }
  }
 }

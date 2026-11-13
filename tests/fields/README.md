@@ -53,10 +53,17 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `f` main list. Not automated yet.
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
 * `h` delete and data type change. Not automated yet.
-* `i` XML export and import. Not automated yet.
-* `j` JSON-sync round trip. Not automated yet.
+* `i` XML export and import: the entries of valid values are exported and imported into the same showcase (the import of
+  files from URLs is switched on through the fixture for the run, with the wait the server's opcache needs); every copy must
+  hold the stored value. The file fields are not compared yet (`notrun`).
+* `j` JSON-sync round trip: the ACP exports the collection, the exported file replaces the collection file and is applied
+  again; every stored property is compared before and after. The export leaves out the properties that hold the column
+  default, which the importer takes as the default.
 * `k` reserved and long keys. Not automated yet.
-* `l` escaping: a value with markup is never printed raw.
+* `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
+  the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
+
+The inventory of the properties is in `inventory.md`.
 
 ## Known failures
 
