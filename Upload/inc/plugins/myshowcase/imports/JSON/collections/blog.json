@@ -109,6 +109,35 @@
             "display_in_main_page": 0,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all"
+        },
+        {
+            "field_key": "meta_description",
+            "label": "Page description",
+            "description": "Optional. A sentence describing the post for search engines and link previews, up to 160 characters.",
+            "html_type": "text",
+            "field_type": "varchar",
+            "maximum_length": 160,
+            "is_enabled": 1,
+            "display_order": 8,
+            "render_order": 8,
+            "display_in_main_page": 0,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
+        },
+        {
+            "field_key": "source_url",
+            "label": "Original source",
+            "description": "Optional. The http or https address of the original article when this post is a translation or a repost.",
+            "html_type": "url",
+            "field_type": "varchar",
+            "maximum_length": 255,
+            "regular_expression": "/^(|https?:\\/\\/\\S+)$/i",
+            "is_enabled": 1,
+            "display_order": 9,
+            "render_order": 9,
+            "display_in_main_page": 0,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
         }
     ]
 }
