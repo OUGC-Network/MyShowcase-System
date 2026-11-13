@@ -1,30 +1,5 @@
 {
  "sqlite": {
-  "fk_color|c": {
-   "reason": "a colour is accepted without a hex check: only the length is validated for text types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_datetime|c": {
-   "reason": "an invalid date and time is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
-   "classification": "repair in Part 2"
-  },
-  "fk_date|c": {
-   "reason": "an invalid date is accepted by the validator (SQLite stores the text); MySQL and PostgreSQL refuse it in the database",
-   "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
-   "classification": "repair in Part 2"
-  },
-  "fk_email|c": {
-   "reason": "an invalid e-mail address is accepted: no format check for the varchar HTML types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_month|c": {
-   "reason": "an invalid month is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
@@ -34,21 +9,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_time|c": {
-   "reason": "an invalid time is accepted by the validator and stored (SQLite text; MySQL TIME accepts 25:00:00)",
-   "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
-   "classification": "repair in Part 2"
-  },
-  "fk_url|c": {
-   "reason": "the javascript: scheme is accepted: no URL check",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_week|c": {
-   "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
   },
   "fk_text_group|j": {
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
@@ -67,21 +27,6 @@
   }
  },
  "mysql": {
-  "fk_color|c": {
-   "reason": "a colour is accepted without a hex check: only the length is validated for text types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_email|c": {
-   "reason": "an invalid e-mail address is accepted: no format check for the varchar HTML types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_month|c": {
-   "reason": "an invalid month is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
@@ -97,21 +42,6 @@
    "cause": "MyBB db_encoding (inc/db_mysqli.php:307); data table charset",
    "classification": "needs decision (utf8mb4 is a schema and connection change)"
   },
-  "fk_time|c": {
-   "reason": "an invalid time is accepted by the validator and stored (SQLite text; MySQL TIME accepts 25:00:00)",
-   "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
-   "classification": "repair in Part 2"
-  },
-  "fk_url|c": {
-   "reason": "the javascript: scheme is accepted: no URL check",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_week|c": {
-   "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
   "fk_text_group|j": {
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
    "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
@@ -124,21 +54,6 @@
   }
  },
  "pgsql": {
-  "fk_color|c": {
-   "reason": "a colour is accepted without a hex check: only the length is validated for text types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_email|c": {
-   "reason": "an invalid e-mail address is accepted: no format check for the varchar HTML types",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_month|c": {
-   "reason": "an invalid month is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
@@ -148,16 +63,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_url|c": {
-   "reason": "the javascript: scheme is accepted: no URL check",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_week|c": {
-   "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
-   "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
   },
   "fk_text_group|j": {
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",

@@ -870,6 +870,47 @@ class EntriesManager
         return false;
     }
 
+    /**
+     * Whether a text value has the format of its HTML input type. Types without a format check are always valid.
+     */
+    private function fieldFormatIsValid(string $html_type, string $value): bool
+    {
+        return match ($html_type) {
+            FieldHtmlTypes::Email => filter_var($value, FILTER_VALIDATE_EMAIL) !== false,
+            FieldHtmlTypes::Url => preg_match('#^https?://#i', $value) === 1 && filter_var($value, FILTER_VALIDATE_URL) !== false,
+            FieldHtmlTypes::Color => preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1,
+            FieldHtmlTypes::Date => $this->isCalendarDate($value),
+            FieldHtmlTypes::DateTimeLocal => preg_match('/^(\d{4}-\d{2}-\d{2})[T ]([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $value, $parts) === 1
+                && $this->isCalendarDate($parts[1]),
+            FieldHtmlTypes::Time => preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $value) === 1,
+            FieldHtmlTypes::Month => preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value) === 1,
+            FieldHtmlTypes::Week => $this->isIsoWeek($value),
+            FieldHtmlTypes::Telephone => preg_match('/^\+?[0-9 ()\-.]*[0-9][0-9 ()\-.]*$/', $value) === 1,
+            default => true,
+        };
+    }
+
+    private function isCalendarDate(string $value): bool
+    {
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) !== 1) {
+            return false;
+        }
+
+        return checkdate((int)$parts[2], (int)$parts[3], (int)$parts[1]);
+    }
+
+    /** A week of an ISO year, YYYY-Www, where the week exists in that year (week 53 only in some years). */
+    private function isIsoWeek(string $value): bool
+    {
+        if (preg_match('/^(\d{4})-W(\d{2})$/', $value, $parts) !== 1) {
+            return false;
+        }
+
+        $date = (new \DateTimeImmutable())->setISODate((int)$parts[1], (int)$parts[2]);
+
+        return $date->format('o') === $parts[1] && $date->format('W') === $parts[2];
+    }
+
     /** Files the submitted form removes: they do not count as uploaded while the entry is validated. */
     public function setRemovedAttachments(array $attachment_ids): void
     {
@@ -1219,6 +1260,13 @@ class EntriesManager
                 } elseif ($field->maximum_length && $number > (int)$field->maximum_length) {
                     $this->validateSetError('number_maximum', [$field_label, (string)(int)$field->maximum_length]);
                 }
+
+                continue;
+            }
+
+            // The value must have the format the HTML input of its type sends (the stored format is not changed).
+            if (is_scalar($field_value) && !$this->fieldFormatIsValid($field->html_type, (string)$field_value)) {
+                $this->validateSetError('invalid_value', [$field_label]);
 
                 continue;
             }
