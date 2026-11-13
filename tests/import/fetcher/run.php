@@ -404,6 +404,26 @@ check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://x.example/a/%20
 check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://x.example/')) === 'download', 'an empty name is download');
 check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://x.example/.hidden')) === 'hidden', 'a leading dot is removed from the name');
 
+// --- The import budget (section 5.8.5) -----------------------------------------------------------------------------------
+
+$budget = new MyShowcase\Service\ExternalFileBudget(60, 1000.0);
+check($budget->secondsLeft(1000.0) === 30, 'the time left of a file is at most its 30 seconds');
+check($budget->secondsLeft(1050.0) === 10, 'the time left shrinks as the import runs');
+check(reasonOf(fn() => $budget->secondsLeft(1061.0)) === 'time', 'a spent time budget refuses the next file');
+check(MyShowcase\Service\ExternalFileBudget::fits(25, 60) && !MyShowcase\Service\ExternalFileBudget::fits(26, 60), 'a file count of 25 fits and 26 does not');
+check(!MyShowcase\Service\ExternalFileBudget::fits(1, 4), 'a time budget below 5 seconds does not fit');
+
+$count = new MyShowcase\Service\ExternalFileBudget(60, 1000.0);
+for ($i = 0; $i < 25; $i++) {
+    $count->reserveFile();
+}
+check(reasonOf(fn() => $count->reserveFile()) === 'budget', 'the 26th file of an import is refused');
+
+$data = new MyShowcase\Service\ExternalFileBudget(60, 1000.0);
+$data->addBytes(ExternalFileLimits::BUDGET_BYTES - 10);
+check(reasonOf(fn() => $data->addBytes(11)) === 'budget', 'a download over the 100 MB budget is refused');
+check($data->bytes() === ExternalFileLimits::BUDGET_BYTES - 10, 'a refused download is not counted');
+
 // --- Limits and the time budget ------------------------------------------------------------------------------------------
 
 check(ExternalFileLimits::MAX_FILES === 25 && ExternalFileLimits::BUDGET_BYTES === 100 * 1024 * 1024 && ExternalFileLimits::CEILING_BYTES === 50 * 1024 * 1024, 'the documented limits are 25 files, 100 MB and 50 MB');

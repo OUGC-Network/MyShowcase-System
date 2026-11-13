@@ -23,7 +23,8 @@ namespace MyShowcase\Service;
  * - entry_shape: the first position at which an entry is not an array, or a value is not a scalar, or "fields" is not
  *   an array; the position in the file (1-based).
  * - not_enabled: the file has a subject or a message the showcase does not use.
- * - unknown_field, file_field, not_fillable: one per field key (args: key, first positions, count of positions).
+ * - unknown_field, not_fillable: one per field key (args: key, first positions, count of positions).
+ * - external_disabled: a file field holds a URL and the import of external files is off (args: first positions, count).
  */
 final class ImportFileCheck
 {
@@ -32,7 +33,7 @@ final class ImportFileCheck
 
     /**
      * @param array<mixed> $data the file's content, as XmlFile::read() returns it
-     * @param array{route_identifier: string, collection_name: string, known_keys: string[], fillable_keys: string[], file_keys: string[], maximum_entries: int, subject_enabled: bool, message_enabled: bool} $target
+     * @param array{route_identifier: string, collection_name: string, known_keys: string[], fillable_keys: string[], file_keys: string[], maximum_entries: int, subject_enabled: bool, message_enabled: bool, external_files: bool} $target
      * @return list<array{code: string, args: list<mixed>}>
      */
     public static function problems(array $data, array $target): array
@@ -122,9 +123,10 @@ final class ImportFileCheck
 
         $not_enabled = [];
 
-        // Field key => the positions (1-based) of the entries that use it, by kind.
+        // Field key => the positions (1-based) of the entries that use it, by kind. A file field that holds a value holds
+        // a URL (section 5.7): its syntax is checked per entry by the importer, not here.
         $unknown = [];
-        $file = [];
+        $external = [];
         $not_fillable = [];
 
         foreach ($entries as $index => $entry) {
@@ -166,7 +168,9 @@ final class ImportFileCheck
                 if (!in_array($key, $target['known_keys'], true)) {
                     $unknown[$key][] = $position;
                 } elseif (in_array($key, $target['file_keys'], true)) {
-                    $file[$key][] = $position;
+                    if ($value !== null && $value !== '') {
+                        $external[$key][] = $position;
+                    }
                 } elseif (!in_array($key, $target['fillable_keys'], true)) {
                     $not_fillable[$key][] = $position;
                 }
@@ -181,10 +185,21 @@ final class ImportFileCheck
             $problems[] = ['code' => 'not_enabled', 'args' => [$core]];
         }
 
+        // With the import of external files off (decision D51), a file that carries any file URL is refused as a whole.
+        if (!$target['external_files'] && $external !== []) {
+            $positions = array_unique(array_merge(...array_values($external)));
+
+            sort($positions);
+
+            $problems[] = [
+                'code' => 'external_disabled',
+                'args' => [implode(', ', array_slice($positions, 0, self::POSITIONS_LISTED)), count($positions)],
+            ];
+        }
+
         foreach (
             [
                 'unknown_field' => $unknown,
-                'file_field' => $file,
                 'not_fillable' => $not_fillable,
             ] as $code => $by_key
         ) {

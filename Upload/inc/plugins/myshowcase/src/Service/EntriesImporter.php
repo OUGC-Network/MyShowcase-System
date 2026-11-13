@@ -9,10 +9,15 @@ use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Util\ExternalFileException;
+use MyShowcase\Util\ExternalFileLimits;
+use MyShowcase\Util\ExternalUrl;
+use MyShowcase\Util\ImportSettings;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
 use MyShowcase\Util\XmlFile;
 use MyShowcase\Util\XmlFileException;
+use RuntimeException;
 use Throwable;
 
 use function MyShowcase\Plugin\Functions\collectionGet;
@@ -53,9 +58,14 @@ class EntriesImporter
         foreach ($this->context->custom_fields_collection as $field) {
             $known[] = $field->field_key;
 
+            // A file field the user may not fill is known but not fillable, so a file that names it is refused.
+            if (!$field->canFill()) {
+                continue;
+            }
+
             if ($field->html_type === FieldHtmlTypes::File) {
                 $files[] = $field->field_key;
-            } elseif ($field->canFill()) {
+            } else {
                 $fillable[] = $field->field_key;
             }
         }
@@ -94,6 +104,7 @@ class EntriesImporter
             'maximum_entries' => (new EntriesExporter($this->context))->maximumEntries(),
             'subject_enabled' => (bool)$this->context->showcase->entries_enable_subject,
             'message_enabled' => (bool)$this->context->showcase->entries_enable_message,
+            'external_files' => ImportSettings::externalFilesEnabled(),
         ]);
 
         if ($problems !== []) {
@@ -106,78 +117,129 @@ class EntriesImporter
 
         $count = count($entries);
 
+        // The limits of the files of the whole import, checked before any download (section 5.8.5).
+        $file_count = $this->fileValueCount($entries, $keys['file_keys']);
+
+        $time_budget = ExternalFileLimits::timeBudget();
+
+        if ($file_count > 0 && $file_count > ExternalFileLimits::MAX_FILES) {
+            return ImportReport::refused($file_name, $showcase_name, [[
+                'code' => 'too_many_files',
+                'args' => [$file_count, ExternalFileLimits::MAX_FILES],
+            ]], $warnings);
+        }
+
+        if ($file_count > 0 && !ExternalFileBudget::fits($file_count, $time_budget)) {
+            return ImportReport::refused($file_name, $showcase_name, [['code' => 'time_budget', 'args' => []]], $warnings);
+        }
+
         $batch_hash = (new StringUtil())->generatePublicId();
 
         $status = $manager->newEntryStatus();
+
+        $temp = new ExternalFileTempArea();
+
+        // Whatever the request does after this point, the temporary files are removed (section 5.8.9).
+        register_shutdown_function([$temp, 'cleanup']);
+
+        $budget = new ExternalFileBudget($time_budget, microtime(true));
 
         $validated = [];
 
         $failures = [];
 
-        foreach ($entries as $index => $raw) {
-            $position = $index + 1;
+        try {
+            foreach ($entries as $index => $raw) {
+                $position = $index + 1;
 
-            $entry = new EntryEntity();
+                $prepared = $this->prepareFiles($raw, $temp, $budget);
 
-            $manager->attachFields($entry);
+                if ($prepared['errors'] !== []) {
+                    $failures[] = [
+                        'position' => $position,
+                        'subject' => (string)($raw['subject'] ?? ''),
+                        'errors' => $prepared['errors'],
+                    ];
 
-            $entry_data = array_merge(
-                (array)$entry,
-                $manager->allowedEntryInput($this->postedValues($raw)),
-                [
-                    'entry_id' => $entry->entry_id,
-                    'user_id' => (int)$this->context->current_user->uid,
-                    'post_hash' => $batch_hash,
-                ],
-                ['status' => $status]
-            );
+                    continue;
+                }
 
-            $preview = $manager->generateEntry($entry_data);
+                $entry = new EntryEntity();
 
-            $manager->validateSet($preview, EntriesManager::VALIDATION_METHOD_INSERT);
+                $manager->attachFields($entry);
 
-            if ($manager->validateEntry()) {
-                $validated[] = $preview;
-            } else {
-                $failures[] = [
-                    'position' => $position,
-                    'subject' => (string)($raw['subject'] ?? ''),
-                    'errors' => array_values($manager->validateGetError()),
-                ];
+                $entry_data = array_merge(
+                    (array)$entry,
+                    $manager->allowedEntryInput($this->postedValues($raw)),
+                    [
+                        'entry_id' => $entry->entry_id,
+                        'user_id' => (int)$this->context->current_user->uid,
+                        'post_hash' => $batch_hash,
+                    ],
+                    ['status' => $status]
+                );
+
+                // The files are checked and will be attached: the validator counts them as attachments of their fields.
+                $manager->pending_file_counts = $prepared['counts'];
+
+                $preview = $manager->generateEntry($entry_data);
+
+                $manager->validateSet($preview, EntriesManager::VALIDATION_METHOD_INSERT);
+
+                $valid = $manager->validateEntry();
+
+                $manager->pending_file_counts = [];
+
+                if ($valid) {
+                    $validated[] = ['entry' => $preview, 'files' => $prepared['files'], 'counts' => $prepared['counts']];
+                } else {
+                    $failures[] = [
+                        'position' => $position,
+                        'subject' => (string)($raw['subject'] ?? ''),
+                        'errors' => array_values($manager->validateGetError()),
+                    ];
+                }
             }
+
+            $limit_problems = $this->limitProblems($count);
+
+            if ($failures !== [] || $limit_problems !== []) {
+                return new ImportReport(
+                    ImportReport::FAILED,
+                    $file_name,
+                    $showcase_name,
+                    $count,
+                    0,
+                    $limit_problems,
+                    $failures,
+                    $warnings,
+                    count($validated),
+                );
+            }
+
+            if ($validate_only) {
+                return new ImportReport(ImportReport::VALIDATED, $file_name, $showcase_name, $count, 0, [], [], $warnings, $count);
+            }
+
+            return $this->write($validated, $file_name, $showcase_name, $batch_hash, $data, $warnings);
+        } finally {
+            $manager->pending_file_counts = [];
+
+            $temp->cleanup();
         }
-
-        $limit_problems = $this->limitProblems($count);
-
-        if ($failures !== [] || $limit_problems !== []) {
-            return new ImportReport(
-                ImportReport::FAILED,
-                $file_name,
-                $showcase_name,
-                $count,
-                0,
-                $limit_problems,
-                $failures,
-                $warnings,
-                count($validated),
-            );
-        }
-
-        if ($validate_only) {
-            return new ImportReport(ImportReport::VALIDATED, $file_name, $showcase_name, $count, 0, [], [], $warnings, $count);
-        }
-
-        return $this->write($validated, $file_name, $showcase_name, $batch_hash, $data, $warnings);
     }
 
     /**
-     * Inserts the validated entries in one transaction. Any failure rolls the whole import back.
+     * Inserts the validated entries in one transaction, and attaches their files through the form's attachment pipeline
+     * (section 5.9). Any failure rolls the whole import back, and removes every file it stored.
      *
-     * @param EntryEntity[] $validated
+     * @param array<int, array{entry: EntryEntity, files: array<int, array<string, mixed>>, counts: array<int, int>}> $validated
      */
     private function write(array $validated, string $file_name, string $showcase_name, string $batch_hash, array $data, array $warnings): ImportReport
     {
         $manager = $this->context->entries_manager;
+
+        $uploads = rtrim((string)$this->context->showcase->attachments_uploads_path, '/');
 
         $transaction = new ImportTransaction(
             $this->context->database,
@@ -186,22 +248,70 @@ class EntriesImporter
             SchemaManager::engine()
         );
 
+        // The paths of the files this import stored (a file and its thumbnail), removed if the import fails.
+        $stored = [];
+
+        $external = 0;
+
         try {
             $transaction->begin();
 
-            foreach ($validated as $entry) {
-                $manager->validateSet($entry, EntriesManager::VALIDATION_METHOD_INSERT);
+            foreach ($validated as $item) {
+                $manager->pending_file_counts = $item['counts'];
 
-                $saved = $manager->validationEntryInsert();
+                try {
+                    $manager->validateSet($item['entry'], EntriesManager::VALIDATION_METHOD_INSERT);
+
+                    $saved = $manager->validationEntryInsert();
+                } finally {
+                    $manager->pending_file_counts = [];
+                }
 
                 $transaction->record((int)$saved->entry_id);
+
+                foreach ($item['files'] as $file) {
+                    // A new manager per file: the attachments manager keeps the data of the upload it made last.
+                    $result = (new AttachmentsManager($this->context))->uploadAttachment(
+                        [
+                            'name' => $file['name'],
+                            'type' => $file['mime'],
+                            'tmp_name' => $file['path'],
+                            'size' => $file['size'],
+                            'error' => 0,
+                            'local_file' => true,
+                        ],
+                        $saved,
+                        (int)$file['field_id'],
+                        $file['definition'],
+                    );
+
+                    if (isset($result['error'])) {
+                        throw new RuntimeException('attachment');
+                    }
+
+                    $stored[] = $uploads . '/' . (string)$result['file_name'];
+
+                    if (!empty($result['thumbnail_name'])) {
+                        $stored[] = $uploads . '/' . (string)$result['thumbnail_name'];
+                    }
+
+                    $transaction->recordAttachment((int)$result['attachment_id']);
+
+                    $external++;
+                }
             }
 
-            $this->logImport($file_name, count($validated), $data);
+            $this->logImport($file_name, count($validated), $data, $external);
 
             $transaction->commit();
         } catch (Throwable $exception) {
             $transaction->rollback();
+
+            foreach ($stored as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
 
             self::logWriteFailure($exception);
 
@@ -232,6 +342,150 @@ class EntriesImporter
     }
 
     /**
+     * The number of file values the file holds (a non-empty value of a file field, in any entry).
+     *
+     * @param array<int, mixed> $entries
+     * @param string[] $file_keys
+     */
+    private function fileValueCount(array $entries, array $file_keys): int
+    {
+        $count = 0;
+
+        foreach ($entries as $entry) {
+            $fields = is_array($entry['fields'] ?? null) ? $entry['fields'] : [];
+
+            foreach ($file_keys as $key) {
+                if (isset($fields[$key]) && $fields[$key] !== '') {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Takes the files of one entry: each file field value is a URL, read and checked (section 5.9, phase 1). Nothing is
+     * written. A failure of any file is an error of the entry.
+     *
+     * @return array{files: array<int, array<string, mixed>>, errors: string[], counts: array<int, int>}
+     */
+    private function prepareFiles(array $raw, ExternalFileTempArea $temp, ExternalFileBudget $budget): array
+    {
+        $result = ['files' => [], 'errors' => [], 'counts' => []];
+
+        $values = is_array($raw['fields'] ?? null) ? $raw['fields'] : [];
+
+        $language = $this->context->language;
+
+        foreach ($this->context->custom_fields_collection as $field) {
+            if ($field->html_type !== FieldHtmlTypes::File || !$field->canFill()) {
+                continue;
+            }
+
+            $value = $values[$field->field_key] ?? null;
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $field_id = (int)$field->field_id;
+
+            try {
+                $file = $this->takeFile($this->scalarText($value), $field, $temp, $budget);
+            } catch (ExternalFileException $exception) {
+                $result['errors'][] = $language->sprintf(
+                    $language->myshowcase_import_file_error,
+                    $this->context->entries_manager->fieldLabel($field),
+                    $this->reasonText($exception->reason)
+                );
+
+                continue;
+            }
+
+            $result['files'][] = $file + [
+                'field_id' => $field_id,
+                'definition' => $this->context->collection_fields[$field_id],
+            ];
+
+            $result['counts'][$field_id] = ($result['counts'][$field_id] ?? 0) + 1;
+        }
+
+        return $result;
+    }
+
+    /**
+     * One file of an import: the URL's syntax, then either this board's own file (decision D52) or the fetcher, then the
+     * checks an upload makes. The result is the checked file in the temporary area.
+     *
+     * @return array{path: string, name: string, mime: string, size: int}
+     * @throws ExternalFileException
+     */
+    private function takeFile(string $text, CustomFieldEntity $field, ExternalFileTempArea $temp, ExternalFileBudget $budget): array
+    {
+        $url = ExternalUrl::parse($text);
+
+        $access = new AttachmentAccess($this->context);
+
+        $types = $access->attachmentTypes();
+
+        $field_bytes = $field->maximum_size > 0 ? $field->maximum_size * 1024 : 0;
+
+        $own = $access->ownAttachment($url);
+
+        if ($own !== null) {
+            if (!$access->mayDownload($own, $types)) {
+                throw new ExternalFileException('not_downloadable');
+            }
+
+            $source = rtrim((string)$this->context->showcase->attachments_uploads_path, '/') . '/' . (string)$own['file_name'];
+
+            $path = $temp->newFile('.part');
+
+            if (!is_file($source) || !copy($source, $path)) {
+                throw new ExternalFileException('unknown');
+            }
+
+            $download = new ExternalFileDownload($path, (int)filesize($path), $text);
+        } else {
+            if (!ImportSettings::externalFilesEnabled()) {
+                throw new ExternalFileException('disabled');
+            }
+
+            if (!function_exists('curl_init')) {
+                throw new ExternalFileException('curl_missing');
+            }
+
+            $budget->reserveFile();
+
+            $max = $field_bytes > 0 ? min($field_bytes, ExternalFileLimits::CEILING_BYTES) : ExternalFileLimits::CEILING_BYTES;
+
+            $fetcher = new ExternalFileFetcher(new DnsExternalFileResolver(), new CurlExternalFileTransport(), $temp);
+
+            $download = $fetcher->download($text, $max, $budget->secondsLeft(microtime(true)));
+
+            try {
+                $budget->addBytes($download->bytes);
+            } catch (ExternalFileException $exception) {
+                @unlink($download->path);
+
+                throw $exception;
+            }
+        }
+
+        $checked = (new ExternalFileAcceptance($types))->accept($download, $url, $field_bytes);
+
+        return ['path' => $download->path, 'name' => $checked['name'], 'mime' => $checked['mime'], 'size' => $checked['size']];
+    }
+
+    private function reasonText(string $reason): string
+    {
+        $language = $this->context->language;
+
+        return (string)($language->{'myshowcase_import_file_reason_' . $reason} ?? $language->myshowcase_import_file_reason_unknown);
+    }
+
+    /**
      * The values of one entry as the form would post them: the subject and message as given, and every fillable field:
      * the value of the file, or the field's default when the file leaves it out (T20). A file value of null is an absent one.
      *
@@ -253,6 +507,14 @@ class EntriesImporter
 
         foreach ($this->context->custom_fields_collection as $field) {
             if (!$field->canFill()) {
+                continue;
+            }
+
+            // A file field is never posted as a value: its file is attached after the entry is saved, as the form does
+            // (the validator counts the attachments of the field instead).
+            if ($field->html_type === FieldHtmlTypes::File) {
+                $posted[$field->field_key] = '';
+
                 continue;
             }
 
@@ -345,7 +607,7 @@ class EntriesImporter
     /**
      * One row of myshowcase_logs for the import: who, when, which file (its name and its SHA-256) and how many entries.
      */
-    private function logImport(string $file_name, int $entries, array $data): void
+    private function logImport(string $file_name, int $entries, array $data, int $external_files = 0): void
     {
         $this->context->database->insert_query('myshowcase_logs', [
             'showcase_id' => (int)$this->context->showcase->showcase_id,
@@ -356,6 +618,7 @@ class EntriesImporter
             'log_data' => json_encode([
                 'file' => substr(basename($file_name), 0, 120),
                 'entries' => $entries,
+                'external_files' => $external_files,
                 'exported_at' => (string)($data['header']['generated'] ?? ''),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '',
         ]);

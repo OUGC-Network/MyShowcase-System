@@ -6,11 +6,8 @@ namespace MyShowcase\Service;
 
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
-use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldHtmlTypes;
-use MyShowcase\Enum\Routes;
-use MyShowcase\Enum\UserPermissions;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\ImportLimits;
 use MyShowcase\Util\XmlFile;
@@ -392,9 +389,9 @@ class EntriesExporter
             $attachments[(int)$attachment['entry_id']][(int)$attachment['field_id']][] = $attachment;
         }
 
-        $base = $this->publicBase();
+        $access = new AttachmentAccess($this->context);
 
-        $types = $this->attachmentTypes();
+        $types = $access->attachmentTypes();
 
         foreach ($attachments as $entry_id => $by_field) {
             foreach ($by_field as $field_id => $list) {
@@ -405,7 +402,7 @@ class EntriesExporter
                 $chosen = false;
 
                 foreach ($list as $attachment) {
-                    if (!$this->mayDownload($attachment, $types)) {
+                    if (!$access->mayDownload($attachment, $types)) {
                         $result['notes']['files_without_url']++;
 
                         continue;
@@ -417,15 +414,7 @@ class EntriesExporter
                         continue;
                     }
 
-                    $path = $this->context->routing->generateUrl(
-                        Routes::AttachmentDownload,
-                        [
-                            'attachment_public_id' => (string)$attachment['public_id'],
-                            'attachment_name' => (string)$attachment['attachment_name'],
-                        ]
-                    );
-
-                    $url = self::joinUrl($base, $path);
+                    $url = $access->publicUrl((string)$attachment['public_id'], (string)$attachment['attachment_name']);
 
                     if ($url === '') {
                         $result['notes']['files_without_url']++;
@@ -441,91 +430,6 @@ class EntriesExporter
         }
 
         return $result;
-    }
-
-    /**
-     * The base of the public URLs: the showcase's "Url to Showcase" when it is set, else the board's address (as the
-     * links of the showcase are built).
-     */
-    private function publicBase(): string
-    {
-        global $mybb;
-
-        $base = trim((string)$this->context->showcase->showcase_url);
-
-        if ($base === '') {
-            $base = (string)($mybb->settings['bburl'] ?? '');
-        }
-
-        return rtrim($base, '/');
-    }
-
-    /**
-     * Joins the base and a route path into an absolute http or https URL, or returns '' when either part is not one. A
-     * file is written with a URL only when it is a full address a browser can open.
-     */
-    public static function joinUrl(string $base, string $path): string
-    {
-        if (!preg_match('#^https?://[^/?\#\s]+#i', $base) || !str_starts_with($path, '/') || preg_match('/[\x00-\x20\x7f]/', $path)) {
-            return '';
-        }
-
-        return rtrim($base, '/') . $path;
-    }
-
-    /**
-     * The board's attachment types of this showcase, as the download route reads them.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function attachmentTypes(): array
-    {
-        return $this->context->cache_manager->get(CacheDataTypes::AttachmentTypes)[$this->context->showcase->showcase_id] ?? [];
-    }
-
-    /**
-     * Whether the exporting user could download this file through the download route: the same checks, in the same
-     * order (AttachmentsController::viewThumbnail()). The owner of the file needs no download permission.
-     *
-     * @param array<string, mixed> $attachment
-     * @param array<int, array<string, mixed>> $types
-     */
-    private function mayDownload(array $attachment, array $types): bool
-    {
-        $user = $this->context->current_user;
-
-        $is_owner = (int)$user->uid > 0 && (int)$user->uid === (int)$attachment['user_id'];
-
-        if (!$user->hasPermission(UserPermissions::MainCanView)) {
-            return false;
-        }
-
-        if (!$is_owner) {
-            if (!$user->hasPermission(UserPermissions::EntriesCanView) || !$user->hasPermission(UserPermissions::AttachmentsCanView)) {
-                return false;
-            }
-
-            if ((int)$attachment['status'] !== ContentStatuses::VisibleApproved &&
-                !$user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved)) {
-                return false;
-            }
-
-            if (!$user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
-                return false;
-            }
-        }
-
-        $extension = my_strtolower(get_extension((string)$attachment['attachment_name']));
-
-        $mime = my_strtolower((string)$attachment['mime_type']);
-
-        foreach ($types as $type) {
-            if ($type['file_extension'] === $extension && $type['mime_type'] === $mime) {
-                return $is_owner || is_member($type['allowed_groups']);
-            }
-        }
-
-        return false;
     }
 
     private function valueOf(mixed $value, CustomFieldEntity $field): mixed

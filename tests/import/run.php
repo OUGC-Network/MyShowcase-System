@@ -105,6 +105,7 @@ function importTarget(array $overrides = []): array
         'maximum_entries' => 5000,
         'subject_enabled' => true,
         'message_enabled' => true,
+        'external_files' => true,
     ], $overrides);
 }
 
@@ -143,7 +144,15 @@ check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['en
 $unknown = ImportFileCheck::problems(['header' => importHeader(['entry_count' => 2])] + ['entries' => [['fields' => ['legacy' => 'x']], ['fields' => ['legacy' => 'y']]]], importTarget());
 check(problemCodes($unknown) === ['unknown_field'] && $unknown[0]['args'][0] === 'legacy' && $unknown[0]['args'][1] === '1, 2' && $unknown[0]['args'][2] === 2, 'an unknown key is refused with its positions');
 
-check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => 'a.png']]]], importTarget())) === ['file_field'], 'a file field key is refused');
+// A file field holds a URL (decision D48). Its syntax is checked per entry by the importer; the file check only decides
+// whether URLs are allowed at all (the setting, decision D51).
+check(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => 'https://example.com/a.png']]]], importTarget()) === [], 'a file field with a URL passes the structural check when the setting is on');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => 'https://example.com/a.png']]]], importTarget(['external_files' => false]))) === ['external_disabled'], 'a file field with a URL refuses the whole file when the setting is off');
+check(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => '']]]], importTarget(['external_files' => false])) === [], 'an empty file field is not a URL, even with the setting off');
+check(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => null]]]], importTarget(['external_files' => false])) === [], 'a null file field is absent, even with the setting off');
+$off = ImportFileCheck::problems(['header' => importHeader(['entry_count' => 3])] +['entries' => [['fields' => ['picture' => 'https://a.example/1.png']], ['fields' => ['summary' => 'x']], ['fields' => ['picture' => 'https://a.example/2.png']]]], importTarget(['external_files' => false, 'known_keys' => ['category', 'summary', 'cover_image', 'picture'], 'fillable_keys' => ['category', 'summary', 'cover_image'], 'file_keys' => ['picture']]));
+check(problemCodes($off) === ['external_disabled'] && $off[0]['args'] === ['1, 3', 2], 'the setting refusal names the positions of the entries with URLs and counts them');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => 'https://a.example/1.png']]]], importTarget(['file_keys' => [], 'fillable_keys' => ['category']]))) === ['not_fillable'], 'a file field the user may not fill is refused as not fillable');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['summary' => 'x']]]], importTarget(['fillable_keys' => ['category']]))) === ['not_fillable'], 'a key the user cannot fill is refused');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['subject' => 'S']]], importTarget(['subject_enabled' => false]))) === ['not_enabled'], 'a subject the showcase does not use is refused');
 
@@ -183,15 +192,15 @@ check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external file
 use MyShowcase\Service\EntriesExporter;
 
 check(EntriesExporter::FORMAT_VERSION === 2, 'the export writes format version 2');
-check(EntriesExporter::joinUrl('https://forum.example.com', '/showcase.php/gallery/attachment/AbC/pic.png') === 'https://forum.example.com/showcase.php/gallery/attachment/AbC/pic.png', 'a file URL is the base and the route path');
-check(EntriesExporter::joinUrl('https://forum.example.com/', '/x/attachment/a/b.png') === 'https://forum.example.com/x/attachment/a/b.png', 'a trailing slash of the base is not doubled');
-check(EntriesExporter::joinUrl('http://127.0.0.1:8080', '/a/b') === 'http://127.0.0.1:8080/a/b', 'a base with a port is kept');
-check(EntriesExporter::joinUrl('', '/a/b') === '', 'no base gives no URL');
-check(EntriesExporter::joinUrl('forum.example.com', '/a/b') === '', 'a base without a scheme gives no URL');
-check(EntriesExporter::joinUrl('ftp://forum.example.com', '/a/b') === '', 'a base that is not http or https gives no URL');
-check(EntriesExporter::joinUrl('https://forum.example.com', 'a/b') === '', 'a path that is not absolute gives no URL');
-check(EntriesExporter::joinUrl('https://forum.example.com', '/a b') === '', 'a path with a space gives no URL');
-check(EntriesExporter::joinUrl('https://forum.example.com', "/a\nb") === '', 'a path with a line break gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', '/showcase.php/gallery/attachment/AbC/pic.png') === 'https://forum.example.com/showcase.php/gallery/attachment/AbC/pic.png', 'a file URL is the base and the route path');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com/', '/x/attachment/a/b.png') === 'https://forum.example.com/x/attachment/a/b.png', 'a trailing slash of the base is not doubled');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('http://127.0.0.1:8080', '/a/b') === 'http://127.0.0.1:8080/a/b', 'a base with a port is kept');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('', '/a/b') === '', 'no base gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('forum.example.com', '/a/b') === '', 'a base without a scheme gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('ftp://forum.example.com', '/a/b') === '', 'a base that is not http or https gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', 'a/b') === '', 'a path that is not absolute gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', '/a b') === '', 'a path with a space gives no URL');
+check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', "/a\nb") === '', 'a path with a line break gives no URL');
 
 // --- Upload -------------------------------------------------------------------------------------------------------------
 
