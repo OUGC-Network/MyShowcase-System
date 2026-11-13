@@ -5,6 +5,7 @@
     "description": "A downloads list: every entry is one file with its version, checksum and changelog, and a comment thread.",
     "main_per_page": 20,
     "main_sort_default_field": "dateline",
+    "main_sort_direction": 0,
     "entries_enable_subject": 1,
     "entries_enable_message": 1,
     "entries_message_minimum_length": 0,
