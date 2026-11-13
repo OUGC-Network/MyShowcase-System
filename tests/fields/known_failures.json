@@ -239,44 +239,9 @@
    "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   },
-  "fk_checkbox|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_color|c": {
    "reason": "a colour is accepted without a hex check: only the length is validated for text types",
    "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_color|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_color|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_datetime|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_datetime|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_date|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_date|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   },
   "fk_email|c": {
@@ -284,44 +249,9 @@
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
   },
-  "fk_email|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_email|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_entries|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_file_req|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_file|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_month|c": {
    "reason": "an invalid month is accepted by the validator (SQLite stores the text)",
    "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_month|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_month|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   },
   "fk_number_req|b": {
@@ -334,16 +264,6 @@
    "cause": "src/Service/EntriesManager.php:1119 (empty()); src/Service/EntriesManager.php:1139-1146 (no bounds)",
    "classification": "repair in Part 2"
   },
-  "fk_number_req|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_number_req|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_number|b": {
    "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (100)",
    "cause": "view/templates/pageEntryCreateUpdateField.twig:457",
@@ -354,54 +274,14 @@
    "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
    "classification": "repair in Part 2"
   },
-  "fk_number|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_password|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_password|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
   },
-  "fk_poll|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_poll|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_radio|c": {
    "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
    "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
-  "fk_radio|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_radio|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   },
   "fk_range|b": {
@@ -414,149 +294,19 @@
    "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
    "classification": "repair in Part 2"
   },
-  "fk_range|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_range|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_rating|b": {
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_rating|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_rating|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_search|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_search|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_select_req|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_select_req|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
   },
   "fk_select|c": {
    "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
    "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
    "classification": "repair in Part 2"
   },
-  "fk_select|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_select|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_tel|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_tel|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_default|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_default|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_group|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_group|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_min1|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_min1|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_opt|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_opt|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_text_pattern|c": {
    "reason": "a blank optional value is refused because the pattern is tested before the empty check",
    "cause": "src/Service/EntriesManager.php:1113-1115",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_pattern|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_pattern|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_readonly|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_readonly|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_req|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_req|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   },
   "fk_text_uuid|b": {
@@ -569,89 +319,14 @@
    "cause": "src/Controller/EntriesController.php:1017-1019; src/Service/EntriesManager.php:1129",
    "classification": "repair in Part 2"
   },
-  "fk_text_uuid|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_uuid|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_textarea_parse|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_textarea_parse|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_textarea_plain|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_textarea_plain|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_threads|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_time|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_time|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_url|c": {
    "reason": "the javascript: scheme is accepted: no URL check",
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
   },
-  "fk_url|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_url|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_users|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_users|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_week|c": {
    "reason": "an invalid week is accepted by the validator (SQLite stores the text)",
    "cause": "src/Service/EntriesManager.php:1149-1166",
-   "classification": "repair in Part 2"
-  },
-  "fk_week|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
-  "fk_week|g": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
    "classification": "repair in Part 2"
   }
  }

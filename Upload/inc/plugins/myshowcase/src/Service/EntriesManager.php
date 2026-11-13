@@ -707,6 +707,12 @@ class EntriesManager
         }
 
         foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
+            // A bytea column (ipaddress) comes back from PostgreSQL's PDO driver as a stream, not as a string: read it here,
+            // once, as the binary string it holds (MySQL and SQLite already return strings).
+            if (is_resource($entry_data[$field_name] ?? null)) {
+                $entry_data[$field_name] = (string)stream_get_contents($entry_data[$field_name]);
+            }
+
             if (isset($entry_data[$field_name])) {
                 $entry_data[$field_name] = castTableFieldValue(
                     $entry_data[$field_name],
