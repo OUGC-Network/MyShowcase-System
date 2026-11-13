@@ -10,7 +10,6 @@ use DB_PgSQL;
 use DB_SQLite;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ModeratorPermissions;
-use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Entity\ShowcaseEntity;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
@@ -77,37 +76,28 @@ readonly class CacheManager
 
                 break;
             case CacheDataTypes::Permissions:
-                $function = function (iterable $generator) use ($tablesData, &$cache_data) {
-                    foreach ($generator as $permission_id => $permission_data) {
-                        $showcase_id = (int)$permission_data['showcase_id'];
-
-                        $group_id = (int)$permission_data['group_id'];
-
-                        $cache_data[$showcase_id][$group_id] = [];
-
-                        foreach ($tablesData['myshowcase_permissions'] as $field_name => $field_definition) {
-                            if (isset($permission_data[$field_name])) {
-                                $cache_data[$showcase_id][$group_id][$field_name] = castTableFieldValue(
-                                    $permission_data[$field_name],
-                                    $field_definition['type']
-                                );
-                            }
-                        }
-                    }
-                };
-
-                $permissions_repository = new PermissionsRepository($this->database, $this->config);
-
-                $function(
-                    $permissions_repository
-                        ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
+                // PermissionsRepository::queryPermissions() only reads the permissions of one showcase, so the
+                // cache, which holds all of them, reads the table directly.
+                $query = $this->database->simple_select(
+                    'myshowcase_permissions',
+                    implode(', ', array_keys($tablesData['myshowcase_permissions']))
                 );
 
-                foreach (showcaseGet() as $showcase_id => $showcase_data) {
-                    $function(
-                        $permissions_repository
-                            ->queryPermissions(query_fields: array_keys($tablesData['myshowcase_permissions']))
-                    );
+                while ($permission_data = $this->database->fetch_array($query)) {
+                    $showcase_id = (int)$permission_data['showcase_id'];
+
+                    $group_id = (int)$permission_data['group_id'];
+
+                    $cache_data[$showcase_id][$group_id] = [];
+
+                    foreach ($tablesData['myshowcase_permissions'] as $field_name => $field_definition) {
+                        if (isset($permission_data[$field_name])) {
+                            $cache_data[$showcase_id][$group_id][$field_name] = castTableFieldValue(
+                                $permission_data[$field_name],
+                                $field_definition['type']
+                            );
+                        }
+                    }
                 }
 
                 break;
