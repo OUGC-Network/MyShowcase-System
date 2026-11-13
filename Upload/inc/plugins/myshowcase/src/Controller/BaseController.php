@@ -31,7 +31,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\ShowcaseContext;
-use MyShowcase\Util\UuidUtil;
+use MyShowcase\Util\StringUtil;
 use MyShowcase\ValueObjects\EntryCustomField;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
@@ -574,21 +574,21 @@ abstract class BaseController
 
     /**
      * The post hash of the form being handled: the one the form sent back when it is well formed, else a fresh one.
-     * The form only ever sends back a hash it was given, and MyShowcase's hashes are UUID v4 (MyBB core's posthash is an
-     * md5; this plugin's is not, and the column and the upload route are sized for the UUID), so anything that does not
-     * have that shape can only be a tampered post and is replaced instead of rejected. The same value is returned for
-     * the rest of the request, for the entries and the comments form alike.
+     * A post hash comes from the shared identifier logic (StringUtil::generatePublicId(), as public_id does) and matches
+     * the route requirement (StringUtil::publicIdPattern()). The form only ever sends back a hash it was given, so
+     * anything that does not have that shape can only be a tampered post and is replaced instead of rejected. The same
+     * value is returned for the rest of the request, for the entries and the comments form alike.
      */
     protected function requestPostHash(): string
     {
         if ($this->request_post_hash === null) {
-            $uuid_util = new UuidUtil();
+            $string_util = new StringUtil();
 
             $posted_post_hash = $this->context->mybb->get_input('post_hash');
 
-            $this->request_post_hash = $uuid_util->isValidUuidV4($posted_post_hash)
+            $this->request_post_hash = $string_util->isValidPublicId($posted_post_hash)
                 ? $posted_post_hash
-                : $uuid_util->generateUuidV4();
+                : $string_util->generatePublicId();
         }
 
         return $this->request_post_hash;
