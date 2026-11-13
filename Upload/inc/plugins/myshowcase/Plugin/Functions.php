@@ -435,6 +435,12 @@ function fieldsInsert(array $field_data, bool $isUpdate = false, int $field_id =
         }
     }
 
+    // A bound is kept for the types that have one (decision D124); for any other type it is saved as empty.
+    if (isset($insertData['html_type']) && !\MyShowcase\Util\FieldBoundUtil::isBoundedType((string)$insertData['html_type'])) {
+        $insertData['minimum_value'] = '';
+        $insertData['maximum_value'] = '';
+    }
+
     $hookArguments = hooksRun('field_insert_update_end', $hookArguments);
 
     if ($isUpdate) {

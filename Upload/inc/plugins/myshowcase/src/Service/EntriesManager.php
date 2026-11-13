@@ -13,6 +13,7 @@ use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Util\FieldBoundUtil;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Fields\FieldFactory;
@@ -908,24 +909,9 @@ class EntriesManager
         };
     }
 
-    /**
-     * A bound or a value of a date, time or month type in one comparable string. A time and the time part of a
-     * datetime-local may leave out the seconds (HH:MM means HH:MM:00); a datetime-local may use a space for the T.
-     * The format of the value was checked before, so the parts are well formed.
-     */
     private function boundKey(string $html_type, string $value): string
     {
-        $normalizeTime = static fn(string $time): string => strlen($time) === 5 ? $time . ':00' : $time;
-
-        return match ($html_type) {
-            FieldHtmlTypes::Time => $normalizeTime($value),
-            FieldHtmlTypes::DateTimeLocal => (static function (string $datetime) use ($normalizeTime): string {
-                [$date, $time] = preg_split('/[T ]/', $datetime, 2) + ['', '00:00:00'];
-
-                return $date . 'T' . $normalizeTime($time);
-            })($value),
-            default => $value,
-        };
+        return FieldBoundUtil::comparableKey($html_type, $value);
     }
 
     private function isCalendarDate(string $value): bool

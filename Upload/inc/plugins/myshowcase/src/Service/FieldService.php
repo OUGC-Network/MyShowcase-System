@@ -17,6 +17,7 @@ namespace MyShowcase\Service;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Service\JsonSync\JsonLock;
+use MyShowcase\Util\FieldBoundUtil;
 
 use function MyShowcase\Admin\languageModify;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -56,6 +57,16 @@ final class FieldService
     public static function reservedKeys(): array
     {
         return array_merge(array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']), ['keys', 'full_keys', 'unique_keys']);
+    }
+
+    /** Whether the minimum is above the maximum: integers for number and range, the comparable form for the others. */
+    private function boundOrderInverted(string $htmlType, string $minimumValue, string $maximumValue): bool
+    {
+        if (in_array($htmlType, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true)) {
+            return (int)$minimumValue > (int)$maximumValue;
+        }
+
+        return FieldBoundUtil::comparableKey($htmlType, $minimumValue) > FieldBoundUtil::comparableKey($htmlType, $maximumValue);
     }
 
     /**
@@ -111,6 +122,39 @@ final class FieldService
 
         if (($data['minimum_length'] ?? 0) > ($data['maximum_length'] ?? 0)) {
             $errors[] = ['key' => 'myshowcase_admin_error_invalid_min_max', 'message' => 'Invalid minimum/maximum values.'];
+        }
+
+        // The bounds are checked for the types that have them only; for the other types they are saved as empty.
+        $htmlType = (string)($data['html_type'] ?? '');
+
+        if (FieldBoundUtil::isBoundedType($htmlType)) {
+            $minimumValue = (string)($data['minimum_value'] ?? '');
+            $maximumValue = (string)($data['maximum_value'] ?? '');
+            $bounds = ['minimum_value' => $minimumValue, 'maximum_value' => $maximumValue];
+
+            foreach ($bounds as $bound => $value) {
+                if ($value !== '' && !FieldBoundUtil::formatIsValid($htmlType, $value)) {
+                    $errors[] = [
+                        'key' => 'myshowcase_admin_error_bound_format',
+                        'message' => 'A minimum or maximum value does not have the format of its field type.'
+                    ];
+                }
+            }
+
+            if ($htmlType === FieldHtmlTypes::Range && ($minimumValue === '' || $maximumValue === '')) {
+                $errors[] = [
+                    'key' => 'myshowcase_admin_error_range_bounds',
+                    'message' => 'A range field needs both a minimum and a maximum value.'
+                ];
+            } elseif ($minimumValue !== '' && $maximumValue !== '' &&
+                FieldBoundUtil::formatIsValid($htmlType, $minimumValue) &&
+                FieldBoundUtil::formatIsValid($htmlType, $maximumValue) &&
+                $this->boundOrderInverted($htmlType, $minimumValue, $maximumValue)) {
+                $errors[] = [
+                    'key' => 'myshowcase_admin_error_bounds_order',
+                    'message' => 'The minimum value is above the maximum value.'
+                ];
+            }
         }
 
         if (!empty($data['regular_expression']) && @preg_match($data['regular_expression'], '') === false) {
