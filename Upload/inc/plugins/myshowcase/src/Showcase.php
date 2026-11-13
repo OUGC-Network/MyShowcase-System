@@ -193,6 +193,12 @@ class Showcase
 
         $this->context->mybb->binary_fields['myshowcase_data' . $showcase_id]['ipaddress'] = true;
         $this->context->mybb->binary_fields['myshowcase_access_logs']['ipaddress'] = true;
+
+        // The other tables with a binary address take the same insert path. Without the flag MyBB quotes the expression
+        // escape_binary() returns: PostgreSQL refuses the insert of an attachment, and MySQL stores the text X' in the column.
+        $this->context->mybb->binary_fields['myshowcase_attachments']['ipaddress'] = true;
+        $this->context->mybb->binary_fields['myshowcase_attachments_download_logs']['ipaddress'] = true;
+        $this->context->mybb->binary_fields['myshowcase_comments']['ipaddress'] = true;
     }
 
     /** What belongs to an entry is removed in one place, whichever path deleted the entry. */

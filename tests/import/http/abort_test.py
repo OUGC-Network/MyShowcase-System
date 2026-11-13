@@ -26,14 +26,14 @@ import flows  # noqa: E402
 from front import Front  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('--engine', required=True, choices=['sqlite', 'mysql'])
+p.add_argument('--engine', required=True, choices=['sqlite', 'mysql', 'pgsql'])
 p.add_argument('--mybb', required=True)
 p.add_argument('--scratch', required=True)
 p.add_argument('--port', type=int, default=0)
 a = p.parse_args()
 
 PL_FILE = os.path.join(REPO, '..', '_deps', 'MyBB-PluginLibrary', 'inc', 'plugins', 'pluginlibrary.php')
-PORT = a.port or {'sqlite': 18300, 'mysql': 18310}[a.engine]
+PORT = a.port or {'sqlite': 18300, 'pgsql': 18320, 'mysql': 18310}[a.engine]
 SCRATCH = os.path.join(a.scratch, 'abort-' + a.engine)
 os.makedirs(SCRATCH, exist_ok=True)
 DBNAME = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
@@ -111,6 +111,18 @@ def remove_marker(ctx):
 def gallery_file(label, count):
     entries = [flows.gallery_entry(i + 1, f'https://placehold.co/600x450.png?text=Abort%20{label}%20{i + 1}') for i in range(count)]
     return flows.write_file(f'abort-{label}.xml', flows.xml_file(entries, route='gallery', collection='Gallery', format_version=2))
+
+
+def drop_database(name):
+    """Drops the throwaway database of this run (MySQL or PostgreSQL); nothing else is touched."""
+    env = board.db_env()
+    if a.engine == 'mysql':
+        subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
+                       ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {name}'], check=False)
+    elif a.engine == 'pgsql':
+        subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres', '-q',
+                        '-c', f'DROP DATABASE IF EXISTS {name}'], check=False, env={**os.environ, 'LC_ALL': 'en_US.UTF-8'})
+    print('dropped database', name)
 
 
 def main():
@@ -209,11 +221,8 @@ def main():
     finally:
         if ctx is not None:
             ctx.stop()
-        if a.engine == 'mysql':
-            env = board.db_env()
-            subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
-                           ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {DBNAME}'], check=False)
-            print('dropped database', DBNAME)
+        if a.engine in ('mysql', 'pgsql'):
+            drop_database(DBNAME)
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ import flows  # noqa: E402
 from front import Front, post_key  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('--engine', required=True, choices=['sqlite', 'mysql'])
+p.add_argument('--engine', required=True, choices=['sqlite', 'mysql', 'pgsql'])
 p.add_argument('--mybb', required=True)
 p.add_argument('--scratch', required=True)
 p.add_argument('--port', type=int, default=0)
@@ -36,7 +36,7 @@ p.add_argument('--old-upload', default='', help='the Upload/ folder of local mai
 a = p.parse_args()
 
 PL_FILE = os.path.join(REPO, '..', '_deps', 'MyBB-PluginLibrary', 'inc', 'plugins', 'pluginlibrary.php')
-PORT_BASE = a.port or {'sqlite': 18200, 'mysql': 18210}[a.engine]
+PORT_BASE = a.port or {'sqlite': 18200, 'pgsql': 18220, 'mysql': 18210}[a.engine]
 MEDIA = os.path.join(a.scratch, 'media')
 os.makedirs(MEDIA, exist_ok=True)
 
@@ -196,6 +196,7 @@ class Build:
         fid = self.field_id(route, file_field)
         up = client.upload(f'/showcase.php/{route}/update/{post_hash}/upload?my_post_key={key}&field_id={fid}',
                            {'my_post_key': key, 'field_id': fid}, file_field, file_path)
+        self.last_upload = (up['status'], ' '.join(up['body'].split())[:300])
         if not save:
             return {'post_hash': post_hash, 'upload': up}
         data = dict(fields, post_hash=post_hash, my_post_key=key, submit='Post')
@@ -205,7 +206,7 @@ class Build:
     def attachments_of(self, post_hash):
         rows = self.sql(f"select attachment_id, public_id, attachment_name, entry_id, user_id, status, mime_type, thumbnail_name "
                         f"from mybb_myshowcase_attachments where post_hash='{post_hash}'")
-        assert len(rows) == 1, f'expected one attachment for {post_hash}, got {len(rows)}'
+        assert len(rows) == 1, f'expected one attachment for {post_hash}, got {len(rows)}; last upload: {self.last_upload}'
         keys = ['attachment_id', 'public_id', 'attachment_name', 'entry_id', 'user_id', 'status', 'mime_type', 'thumbnail_name']
         return dict(zip(keys, rows[0]))
 
@@ -251,6 +252,11 @@ class Build:
 
         # A8: the entry row is gone, the attachment row stays (deleted last: no later entry may reuse its id).
         self.sql_exec(f"delete from mybb_myshowcase_data{self.gid} where entry_id={e4}")
+        # The stored address of an attachment: the packed address of the uploader (127.0.0.1), in binary, on every engine.
+        hex_of = {'pgsql': "encode(ipaddress, 'hex')"}.get(a.engine, 'hex(ipaddress)')
+        self.stored_ip = self.one(f"select {hex_of} from mybb_myshowcase_attachments where attachment_id={a1['attachment_id']}")
+        if self.probe:  # the NEW board: the default address is empty; the previous route stored the text X' on MySQL
+            assert self.stored_ip in ('', '7f000001'), f'the stored address of an attachment is {self.stored_ip!r}'
         self.attachments = {'A1': a1, 'A2': a2, 'A3': a3, 'A4': a4, 'A5': a5, 'A6': a6, 'A7': a7, 'A8': a8}
         self.attachment_showcase = {'A1': 'gallery', 'A2': 'gallery', 'A3': 'gallery', 'A4': 'gallery', 'A5': 'gallery', 'A6': 'gallery',
                                     'A7': 'downloads', 'A8': 'gallery'}
@@ -380,6 +386,18 @@ def import_cells(build):
     return result
 
 
+def drop_database(name):
+    """Drops the throwaway database of this run (MySQL or PostgreSQL); nothing else is touched."""
+    env = board.db_env()
+    if a.engine == 'mysql':
+        subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
+                       ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {name}'], check=False)
+    elif a.engine == 'pgsql':
+        subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres', '-q',
+                        '-c', f'DROP DATABASE IF EXISTS {name}'], check=False, env={**os.environ, 'LC_ALL': 'en_US.UTF-8'})
+    print('dropped database', name)
+
+
 def main():
     results = {}
     builds = []
@@ -454,6 +472,7 @@ def main():
                   f"expected={r['expected']:10} import={r['import']:9} {'ok' if not r['notes'] else 'FAIL ' + '; '.join(r['notes'])}"
                   + (' [explained: 503 from the front controller, same on OLD]' if r['user'] == 'nomain' and r['new'] == 503 else ''))
         print(f"\ncells: {len(rows)}; failing: {len(failures)}; OLD compared: {bool(old)}")
+        print('stored ipaddress of A1 (NEW):', new.stored_ip, '| OLD:', old.stored_ip if old else '-')
         out = os.path.join(a.scratch, f'matrix-{a.engine}.json')
         with open(out, 'w') as h:
             json.dump(results, h, indent=1, default=str)
@@ -462,11 +481,8 @@ def main():
     finally:
         for b in builds:
             b.ctx.stop()
-            if a.engine == 'mysql':
-                env = board.db_env()
-                subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
-                               ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {b.dbname}'], check=False)
-                print('dropped database', b.dbname)
+            if a.engine in ('mysql', 'pgsql'):
+                drop_database(b.dbname)
 
 
 if __name__ == '__main__':
