@@ -237,7 +237,8 @@ class Showcase
         }
 
         $dataFields = TABLES_DATA['myshowcase_permissions'];
-        hooksRun('admin_user_groups_edit_graph_start', ['dataFields' => &$dataFields]);
+        $hookArguments = ['dataFields' => &$dataFields];
+        hooksRun('admin_user_groups_edit_graph_start', $hookArguments);
 
         $permissions = $this->buildDefaultGroupPermissions($dataFields);
         $permissions = $this->applyUsergroupPermissions($permissions, $dataFields, $groupID);
