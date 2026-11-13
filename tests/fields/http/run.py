@@ -50,7 +50,6 @@ FIELDS = {f['field_key']: f for f in FIELDKIT['fields']}
 NOT_RUN = {
     'a': 'ACP definition stage not automated yet (remaining step: read each field through the ACP edit screens and save one property)',
     'f': 'main list stage not automated yet (remaining step: sort and filter on each offered field)',
-    'h': 'delete and data-type change stage not automated yet (remaining step: delete an entry, a field and an option, then change a type with entries)',
     'k': 'reserved and long key stage not automated yet (remaining step: JSON-sync preview and run for each key on each engine)',
 }
 LONG = 'x' * 21
@@ -645,6 +644,169 @@ def stage_j(acp, cells):
         check(cells, key, 'j', 'pass' if not diffs else 'fail', '; '.join(diffs) or 'every stored property is unchanged')
 
 
+def stage_h(member, acp, cells, ctx, cid, fixture):
+    """Stage h: deletion and data type change, on throwaway data (the matrix's entries are removed first; this stage runs last).
+    A  an entry is deleted through the entry page's moderation link (delete=2): its row and attachments go, the others stay.
+    B  an option that entries use is deleted in the ACP: the option goes, the stored ids stay, the entry page still renders.
+    D  types changed through the ACP's JSON sync, one change at a time: a shrink that loses values, a text-to-number change
+       that loses values and a number-to-text change that loses nothing. A change with a loss must be refused as a whole.
+    C  a field is deleted in the ACP. The ACP refuses a field a JSON file manages; that refusal is checked first, then the same
+       field is unmanaged as data (the detach of a file, decision in the README) and deleted; only its column may go.
+    Every operation is checked against every field it touches; a failure is recorded, never raised."""
+    ops = {}
+
+    def note(field, op, ok, detail):
+        ops.setdefault(field, []).append((op, bool(ok), str(detail)))
+
+    def columns_now():
+        return column_types(DATA)
+
+    CTX.execute(f"delete from {DATA}")
+    for token in ('H1', 'H2'):
+        create(member, {}, token, {'fk_file_req': True, 'fk_file': False})
+    first, second = stored_row('H1'), stored_row('H2')
+    if first is None or second is None:
+        for key in FIELDS:
+            note(key, 'setup', False, 'the two entries were not created')
+    else:
+        ids = {t: entry_ids(t)[0] for t in ('H1', 'H2') if entry_ids(t)}
+        # ---- A: the owner deletes the first entry through the moderation link of its page; the test data gives the
+        # member group the delete permission of the showcase (the admin account has no row of its own: a 403)
+        sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{ROUTE}'")[0][0]
+        ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=1 where showcase_id={sid} and group_id=2")
+        fixture('rebuild')
+        listing = member.get(f'/showcase.php/{ROUTE}')
+        deleted = member.post(f'/showcase.php/{ROUTE}?action=inline_moderation', {
+            'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
+            'selected_entries': json.dumps([first['public_id']]), 'unselected_entries': '[]'})
+        open(os.path.join(a.scratch, 'entry-delete.html'), 'w').write(f"list {listing['status']}; delete {deleted['status']}\n" + deleted['body'])
+        gone = stored_row('H1') is None
+        left = query(f"select count(*) from mybb_myshowcase_attachments where entry_id={ids['H1']}")[0][0]
+        kept = stored_row('H2') == second
+        answer = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', deleted['body']))
+        message = re.search(r'Board Message (.{0,120})', answer)
+        check(cells, 'place:entry-delete', 'h', 'pass' if (gone and kept and left == '0') else 'fail',
+              f'delete answered {deleted["status"]}: {message.group(1) if message else "no board message"}; '
+              f'first entry gone: {gone}; its attachments left: {left}; second entry unchanged: {kept}')
+
+        # ---- B: delete an option the second entry uses ----
+        opt = query(f"select field_data_id, value from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
+                    f"and value='Alpha'")
+        if opt:
+            fdid = opt[0][0]
+            acp.post(f'/admin/index.php?module=myshowcase-fields&action=deleteOption&field_data_id={fdid}', {'yes': '1'})
+            still = query(f"select count(*) from mybb_myshowcase_field_data where field_data_id={fdid}")[0][0]
+            shown = member.get(f'/showcase.php/{ROUTE}/view/{second["public_id"]}/{second["entry_slug_custom"]}')
+            stored_id = str(stored_row('H2').get('fk_select'))
+            problems = []
+            if still != '0':
+                problems.append('the option row is still there')
+            if shown['status'] != 200:
+                problems.append(f'entry page answered {shown["status"]}: {page_problem(shown)}')
+            if stored_id != str(fdid):
+                problems.append(f'stored id {stored_id!r} changed from {fdid}')
+            note('fk_select', 'B delete option in use', not problems,
+                 '; '.join(problems) or f'option {fdid} removed; the entry keeps id {stored_id}; page answers {shown["status"]}; '
+                                        f'label shown: {"Alpha" in html_text(shown["body"])}')
+        else:
+            note('fk_select', 'B delete option in use', False, 'the option Alpha was not found')
+
+        # ---- D: type changes through the JSON sync, one at a time, the file restored after each ----
+        collection_file = os.path.join(ctx.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'collections', 'fieldkit.json')
+        original_text = open(collection_file).read()
+        base_doc = json.loads(original_text)
+
+        def change(field_key, new_props, label):
+            doc = json.loads(original_text)
+            for f in doc['fields']:
+                if f['field_key'] == field_key:
+                    f.update(new_props)
+            open(collection_file, 'w').write(json.dumps(doc, indent=1))
+            before_type = columns_now().get(field_key)
+            before_values = {t: stored_row(t) for t in ('H1', 'H2') if stored_row(t)}
+            reply = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
+                                                                             'id': str(cid), 'file': 'collections/fieldkit.json'})
+            open(os.path.join(a.scratch, f'apply-{field_key}.html'), 'w').write(reply['body'])
+            message = re.sub(r'\s+', ' ', re.sub(r'<script.*?</script>', ' ', re.sub(r'<[^>]+>', ' ', reply['body']), flags=re.S))
+            found = re.search(r'(loss|lost|cannot|not allowed|refus|problem|Problem|error[^a-z][^|]{0,160}|The field[^|]{0,160}|could not[^|]{0,160}|Saved|Updated|applied)', message)
+            after_type = columns_now().get(field_key)
+            after_values = {t: stored_row(t) for t in before_values}
+            unchanged = before_values == after_values
+            accepted = 'was applied' in message
+            return {'label': label, 'before_type': before_type, 'after_type': after_type, 'unchanged': unchanged,
+                    'accepted': accepted, 'message': found.group(0)[:220] if found else message[:160]}
+
+        plans = [
+            ('fk_text_req', {'maximum_length': 3}, 'D1 varchar(20) to varchar(3) with stored values of 4 characters (a loss)', True),
+            ('fk_text_pattern', {'field_type': 'int', 'html_type': 'number'}, 'D2 text to number on stored text (a loss)', True),
+            ('fk_number', {'field_type': 'varchar', 'html_type': 'text', 'maximum_length': 10}, 'D3 number to text (no loss)', False),
+        ]
+        original_types = columns_now()
+
+        def apply_file(text_for_file):
+            open(collection_file, 'w').write(text_for_file)
+            reply = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
+                                                                             'id': str(cid), 'file': 'collections/fieldkit.json'})
+            return reply
+
+        for field_key, props, label, expect_refusal in plans:
+            start_type = columns_now().get(field_key)
+            started_from_original = start_type == original_types.get(field_key)
+            result = change(field_key, props, label)
+            # restore the original definition, so that the next change starts from the original state (the file is restored
+            # and applied again; the column type must return to its original type)
+            restore_reply = apply_file(original_text)
+            restore_text = re.sub(r'\s+', ' ', re.sub(r'<script.*?</script>', ' ', re.sub(r'<[^>]+>', ' ', restore_reply['body']), flags=re.S))
+            restored_type = columns_now().get(field_key)
+            restored = restored_type == original_types.get(field_key)
+            restore_note = (f"restore: {'applied' if 'was applied' in restore_text else 'not applied'}; type back to "
+                            f"{restored_type}: {restored}")
+            if expect_refusal:
+                # a change that loses values must be refused as a whole: no 'applied', the column and the entries unchanged
+                ok = (not result['accepted']) and result['unchanged'] and result['after_type'] == result['before_type']
+                detail = (f"{label}: the apply {'accepted it' if result['accepted'] else 'refused it'}; type {result['before_type']} -> "
+                          f"{result['after_type']}; entries unchanged: {result['unchanged']}; start state original: {started_from_original}; "
+                          f"{restore_note}; message: {result['message']}")
+            else:
+                ok = (result['accepted'] and result['after_type'] != result['before_type'] and
+                      str(result['after_type']).lower().startswith(('varchar', 'character varying')) and result['unchanged'])
+                detail = (f"{label}: the apply {'accepted it' if result['accepted'] else 'refused it'}; type {result['before_type']} -> "
+                          f"{result['after_type']}; entries unchanged: {result['unchanged']}; start state original: {started_from_original}; "
+                          f"{restore_note}; message: {result['message']}")
+            ok = ok and started_from_original and restored
+            note(field_key, 'D type change', ok, detail)
+        open(collection_file, 'w').write(original_text)
+
+        # ---- C: delete a field: refused while a JSON file manages it, then deleted once unmanaged ----
+        fid = FIELD_IDS['fk_text_opt']
+        blocked = acp.get(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={fid}&collection_id={cid}')
+        still_there = 'fk_text_opt' in columns_now()
+        note('fk_text_opt', 'C1 delete while managed', still_there and 'managed by' in blocked['body'],
+             f'the column is kept: {still_there}; ACP answer {blocked["status"]}: '
+             f'{"managed-by refusal shown" if "managed by" in blocked["body"] else "no managed-by text on the page"}')
+        ctx.execute(f"update mybb_myshowcase_fields set json_file='' where field_key='fk_text_opt'")
+        before_cols = set(columns_now())
+        confirm = acp.get(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={fid}&collection_id={cid}')
+        acp.post(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={fid}&collection_id={cid}', {'yes': '1'})
+        after_cols = set(columns_now())
+        removed = before_cols - after_cols
+        rest_ok = query(f"select fk_text_req from {DATA} where subject='H2'") == [(second.get('fk_text_req', ''),)]
+        note('fk_text_opt', 'C2 delete unmanaged field', removed == {'fk_text_opt'} and rest_ok,
+             f'columns removed: {sorted(removed)}; other values unchanged: {rest_ok}; confirm page {confirm["status"]}')
+
+    for key in FIELDS:
+        steps = ops.get(key)
+        if steps is None:
+            check(cells, key, 'h', 'na', 'no delete or type change applies to this field')
+            continue
+        ok = all(s[1] for s in steps)
+        check(cells, key, 'h', 'pass' if ok else 'fail', ' | '.join(f'{op}: {"ok" if good else "FAILED"}; {detail}' for op, good, detail in steps))
+
+
+def cid_of_fieldkit():
+    return query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
+
+
 def main():
     global CTX, DATA, PNG
     PNG = png_bytes()
@@ -746,6 +908,7 @@ def main():
         time.sleep(3)
         stage_j(acp, cells)
         stage_l(member, cells, DATA)
+        stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
     finally:
         ctx.stop()
         if a.engine == 'mysql':

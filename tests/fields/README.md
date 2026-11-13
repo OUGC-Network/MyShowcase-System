@@ -43,25 +43,34 @@ The run prints the counts per result, the distinct PHP messages of the run's err
 Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not applicable: for example no entry was stored) or
 `notrun` (the stage is not automated yet; the reason is written with the cell).
 
-* `a` definition: the ACP edit form of the stored definition. Not automated yet.
+* `a` definition: the ACP edit form of the stored definition. Not automated yet (`notrun`).
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
   pre-filled default (as defined or generated), and the visibility for a user outside the restricted group.
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
   option ids that do not belong to the field, several checked boxes, markup, multibyte text, emoji, overlong values.
 * `d` storage: the value that the database holds after the create.
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
-* `f` main list. Not automated yet.
+* `f` main list. Not automated yet (`notrun`).
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
-* `h` delete and data type change. Not automated yet.
+* `h` delete and data type change, on throwaway data (run last, after stage `l`): an entry is deleted through the forum's
+  inline moderation (cell `place:entry-delete|h`); an option that entries use is deleted in the ACP (`fk_select|h`); the
+  ACP refuses to delete a field that a JSON file manages, and the same field, unmanaged as data, is deleted and its column
+  dropped (`fk_text_opt|h`); the types are changed through the JSON sync: a shrink that loses values, a text-to-number change
+  that loses values (both must be refused as a whole) and a number-to-text change that loses nothing (`fk_text_req|h`,
+  `fk_text_pattern|h`, `fk_number|h`). The original definition is applied again after each change.
 * `i` XML export and import: the entries of valid values are exported and imported into the same showcase (the import of
   files from URLs is switched on through the fixture for the run, with the wait the server's opcache needs); every copy must
-  hold the stored value. The file fields are not compared yet (`notrun`).
+  hold the stored value. The file fields are compared through the download route: the stored bytes, name, MIME type and size,
+  and the entry page shows the file. With the setting off the same file is refused as a whole (decision D57).
 * `j` JSON-sync round trip: the ACP exports the collection, the exported file replaces the collection file and is applied
   again; every stored property is compared before and after. The export leaves out the properties that hold the column
   default, which the importer takes as the default.
-* `k` reserved and long keys. Not automated yet.
+* `k` reserved and long keys. Not automated yet (`notrun`).
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
+
+A cell that cannot run is `notrun` with its reason and the remaining steps. The place cell `place:entry-delete|h` is not a
+field cell: it records the forum's answer to the entry delete.
 
 The inventory of the properties is in `inventory.md`.
 
