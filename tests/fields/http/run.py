@@ -12,7 +12,7 @@ MySQL: MYSQL_* variables (tests/json-sync/README.md). PostgreSQL: a server the r
 named by PGHOST, PGPORT and PGUSER, the client by PSQL_BIN. The database msc_test_<random> is dropped at the end.
 
 Exit code 0 only when the failing cells equal known_failures.json. A new failing cell, or a listed cell that passes, exits 1.
-Stages a, f, h, i, j and k are not automated yet: their cells are written as NOT RUN with the reason.
+Stages a, f, h and k are not automated yet: their cells are written as NOT RUN with the reason.
 """
 import argparse, html as htmllib, json, os, random, re, shutil, sqlite3, string, struct, subprocess, sys, time, zlib
 
@@ -48,16 +48,22 @@ ROUTE = 'fieldkit'
 FIELDKIT = json.load(open(os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')))
 FIELDS = {f['field_key']: f for f in FIELDKIT['fields']}
 NOT_RUN = {
-    'a': 'ACP definition stage (edit form and save of a stored definition) not automated in this run',
-    'f': 'main list stage (display, sorting, filtering) not automated in this run',
-    'h': 'delete and data-type change stage not automated in this run',
-    'i': 'XML export and import stage not automated in this run',
-    'j': 'JSON-sync export and re-import stage not automated in this run',
-    'k': 'reserved and long key stage not automated in this run',
+    'a': 'ACP definition stage not automated yet (remaining step: read each field through the ACP edit screens and save one property)',
+    'f': 'main list stage not automated yet (remaining step: sort and filter on each offered field)',
+    'h': 'delete and data-type change stage not automated yet (remaining step: delete an entry, a field and an option, then change a type with entries)',
+    'k': 'reserved and long key stage not automated yet (remaining step: JSON-sync preview and run for each key on each engine)',
 }
 LONG = 'x' * 21
 PAYLOAD = '<script>alert(1)</script>'
 CTX = None  # the board context, set by main()
+PROPERTY_COLUMNS = ['field_label', 'description', 'placeholder', 'html_type', 'field_type', 'file_capture', 'allow_multiple_values',
+                    'regular_expression', 'input_pattern', 'display_in_create_update_page', 'display_in_view_page',
+                    'display_in_main_page', 'minimum_length', 'maximum_length', 'minimum_size', 'maximum_size', 'step_size',
+                    'input_size', 'allowed_groups_fill', 'allowed_groups_view', 'default_value', 'default_type',
+                    'display_order', 'render_order', 'format', 'filter_on_save', 'is_enabled', 'is_required', 'parser_enable',
+                    'parser_allow_html', 'parser_allow_mycode', 'parser_allow_smiles', 'parser_allow_image_code',
+                    'parser_allow_video_code', 'parser_affects_message_length', 'enable_search', 'enable_slug',
+                    'enable_subject', 'enable_description', 'enable_editor', 'read_only']
 DATA = ''   # the data table of the showcase, set by main()
 PNG = None  # bytes of the upload used by the file fields
 BOARD_DIR = ''   # the scratch board of the run
@@ -451,6 +457,122 @@ def edit_round_trip(client, cells, row):
                  ('kept by an unchanged save' if kept else f'changed by an unchanged save: {row.get(key)!r} -> {after and after.get(key)!r}')
         check(cells, key, 'g', 'pass' if ok else 'fail', detail)
 
+def stored_rows(token):
+    """Every stored copy of the entries whose subject is the token (an import makes a second copy)."""
+    columns = ['public_id', 'entry_slug_custom', 'subject'] + list(FIELDS)
+    rows = query(f"select {', '.join(hex_of(c) for c in columns)} from {DATA} where subject='{token}' order by entry_id")
+    return [{c: ('' if v in (None, '', 'NULL') else bytes.fromhex(v).decode('utf-8', errors='replace')) for c, v in zip(columns, r)}
+            for r in rows]
+
+
+def stage_i(member, cells, users, uid):
+    """Stage i: the XML export of valid entries, imported into the same showcase. Every field of every copy must hold the
+    value it held. Throwaway data: the entries of the matrix are removed first, the round trip uses valid entries only."""
+    CTX.execute(f"delete from {DATA}")
+    tokens = ['XML1', 'XML2', 'XML3']
+    for token in tokens:
+        create(member, {}, token, {'fk_file_req': True, 'fk_file': False})
+    originals = {t: stored_rows(t) for t in tokens}
+    if not all(len(originals[t]) == 1 for t in tokens):
+        for key in FIELDS:
+            check(cells, key, 'i', 'fail', f'the valid entries were not created: {originals}')
+        return
+    export_form = member.get(f'/showcase.php/{ROUTE}/export')
+    member.post(f'/showcase.php/{ROUTE}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0',
+                                                 'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+    export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    if not export_id:
+        for key in FIELDS:
+            check(cells, key, 'i', 'fail', 'no export was stored')
+        return
+    download = member.get(f'/showcase.php/{ROUTE}/export/{export_id[0][0]}/download')
+    path = os.path.join(a.scratch, 'export.xml')
+    open(path, 'wb').write(download['raw'])
+    import_form = member.get(f'/showcase.php/{ROUTE}/import')
+    reply = member.upload(f'/showcase.php/{ROUTE}/import', {'my_post_key': post_key(import_form['body']), 'action': 'import'},
+                          'entries_file', path)
+    report = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', reply['body']))
+    open(os.path.join(a.scratch, 'import-reply.html'), 'w').write(reply['body'])
+    summary = re.search(r'Entries imported \d+|Failed: [^.]{0,120}|Problems with the file [^.]{0,200}', report)
+    summary = summary.group(0) if summary else 'no import report found'
+    for key, f in FIELDS.items():
+        if key.startswith('fk_file'):
+            check(cells, key, 'i', 'notrun', 'file round trip (URLs of the own board, stored attachments) not automated in this pass')
+            continue
+        problems = []
+        for token in tokens:
+            copies = stored_rows(token)
+            if len(copies) != 2:
+                problems.append(f'{token}: {len(copies)} copies after the import')
+                continue
+            original, imported = copies[0], copies[1]
+            if (original.get(key) or '') != (imported.get(key) or ''):
+                problems.append(f'{token}: {original.get(key)!r} became {imported.get(key)!r}')
+        check(cells, key, 'i', 'pass' if not problems else 'fail', '; '.join(problems) or f'every copy holds the same value; {summary}')
+        if problems:
+            cells[f'{key}|i']['detail'] += f' | import: {summary}'
+
+
+# a bare apostrophe is in every page's scripts, so only the two markup payloads are searched raw
+PAYLOADS = ['<script>alert(1)</script>', '"><img src=x onerror=alert(1)>']
+
+
+def stage_l(member, cells, data_table):
+    """Stage l: the places where a value is printed, checked with the payloads. The entry carries each payload in a text
+    field and an option label is not changed; a printed payload that is not escaped is a failure."""
+    payload_text = ' / '.join(PAYLOADS) + " / '"  # the apostrophe is sent too: the page must show it escaped
+    token = 'PAY1'
+    create(member, {'fk_textarea_parse': payload_text, 'fk_text_opt': '<b>x</b>"', 'subject': token}, token, {'fk_file_req': True})
+    row = stored_row(token)
+    if row is None:
+        for place in ('edit-form', 'main-list'):
+            check(cells, f'place:{place}', 'l', 'fail', 'the payload entry was not created')
+        return
+    edit = member.get(f'/showcase.php/{ROUTE}/update/{row["public_id"]}')
+    main = member.get(f'/showcase.php/{ROUTE}')
+    for place, page in (('edit-form', edit), ('main-list', main)):
+        body = page['body']
+        raw = [p for p in PAYLOADS if p in body]
+        check(cells, f'place:{place}', 'l', 'pass' if (page['status'] == 200 and not raw) else 'fail',
+              f'HTTP {page["status"]}; raw payloads printed: {raw}' if raw or page['status'] != 200 else 'every payload is escaped')
+
+
+def stage_j(acp, cells):
+    """Stage j: the round trip of the collection file. The ACP exports the collection; the exported file replaces the
+    collection's file in the board and is applied again. Every stored property of every field is compared before and after;
+    the export format leaves out the properties that hold the column default (the importer takes them as the default)."""
+    cid = query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
+    props = PROPERTY_COLUMNS
+
+    def snapshot():
+        rows = query(f"select field_key, {', '.join(props)} from mybb_myshowcase_fields where collection_id={cid} order by field_key")
+        return {r[0]: dict(zip(props, r[1:])) for r in rows}
+
+    before = snapshot()
+    exported = acp.get(f'/admin/index.php?module=myshowcase-json_sync&action=export&type=collection&id={cid}&my_post_key={acp.post_key}')
+    exported_ok = exported['status'] == 200 and exported['body'].lstrip().startswith('{')
+    file_path = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'collections', 'fieldkit.json')
+    open(os.path.join(a.scratch, 'collection-export.json'), 'w').write(exported['body'])
+    if exported_ok:
+        open(file_path, 'w').write(exported['body'])
+    acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
+                                                              'id': str(cid), 'file': 'collections/fieldkit.json'})
+    after = snapshot()
+    for key in FIELDS:
+        if not exported_ok:
+            check(cells, key, 'j', 'fail', f'the export answered {exported["status"]}')
+            continue
+        diffs = [f'{p}: {before.get(key, {}).get(p)!r} -> {after.get(key, {}).get(p)!r}'
+                 for p in props if before.get(key, {}).get(p) != after.get(key, {}).get(p)]
+        # the export writes a group restriction only as "all": a restriction to other groups is not in the file
+        exported_entry = next((f for f in json.loads(exported['body'])['fields'] if f['field_key'] == key), {})
+        for column in ('allowed_groups_fill', 'allowed_groups_view'):
+            stored = before.get(key, {}).get(column)
+            if stored not in (None, '-1', 'all') and exported_entry.get(column) != 'all':
+                diffs.append(f'{column} {stored!r} is not in the exported file (it would be lost on another board)')
+        check(cells, key, 'j', 'pass' if not diffs else 'fail', '; '.join(diffs) or 'every stored property is unchanged')
+
+
 def main():
     global CTX, DATA, PNG
     PNG = png_bytes()
@@ -542,6 +664,16 @@ def main():
         open(os.path.join(a.scratch, 'matrix.png'), 'wb').write(PNG)
         COLUMN_TYPES.update(column_types(DATA))
         run_matrix(member, cells, users, restricted)
+        ctx.execute(f"update mybb_myshowcase_config set import_export_flood_seconds=0 where route_identifier='{ROUTE}'")
+        fixture('rebuild')
+        # the setting is read from inc/settings.php, which the server's opcache revalidates on its own clock: wait for it
+        fixture('external-setting', 1)
+        time.sleep(3)
+        stage_i(member, cells, users, users['users']['fkmember']['uid'])
+        fixture('external-setting', 0)
+        time.sleep(3)
+        stage_j(acp, cells)
+        stage_l(member, cells, DATA)
     finally:
         ctx.stop()
         if a.engine == 'mysql':

@@ -155,7 +155,7 @@ switch ($switch) {
 
         $view = ['main_can_view', 'entries_can_view', 'comments_can_view', 'attachments_can_view', 'can_search_entries'];
         $grantShowcaseRow($showcase, 1, $view);
-        $grantShowcaseRow($showcase, 2, array_merge($view, ['entries_can_post', 'entries_can_update', 'attachments_can_upload', 'attachments_can_download']));
+        $grantShowcaseRow($showcase, 2, array_merge($view, ['entries_can_post', 'entries_can_update', 'attachments_can_upload', 'attachments_can_download', 'entries_can_export', 'entries_can_import']));
         $grantShowcaseRow($showcase, $restricted_gid, array_merge($view, ['entries_can_post', 'entries_can_update', 'attachments_can_upload', 'attachments_can_download']));
 
         $rebuild();
@@ -198,6 +198,13 @@ switch ($switch) {
         $rebuild();
 
         $out(['showcase' => $showcase, 'uploads' => $uploads]);
+        break;
+
+    case 'external-setting':
+        // The import of files from URLs (decision D51): test data for the round trip of the file fields.
+        $db->update_query('settings', ['value' => (string)(int)$argv[2]], "name='myshowcase_import_external_files'");
+        rebuild_settings();
+        $out(['myshowcase_import_external_files' => (int)$argv[2]]);
         break;
 
     case 'gid':
