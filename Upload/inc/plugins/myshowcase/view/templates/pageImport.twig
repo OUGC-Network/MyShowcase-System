@@ -20,8 +20,10 @@
                 <li>{{ lang.myshowcase_import_export_import_note_not_imported }}</li>
                 <li>{{ lang.myshowcase_import_export_import_note_duplicates }}</li>
                 <li>{{ lang.myshowcase_import_export_import_note_all_or_nothing }}</li>
-                {% if required_file_field %}
-                    <li>{{ lang.myshowcase_import_export_import_note_required_file }}</li>
+                {% if external_files %}
+                    <li>{{ trans('myshowcase_import_export_import_note_file_urls', 25, '50 MB', '100 MB') }}</li>
+                {% else %}
+                    <li>{{ lang.myshowcase_import_export_import_note_external_off }}</li>
                 {% endif %}
             </ul>
         </section>

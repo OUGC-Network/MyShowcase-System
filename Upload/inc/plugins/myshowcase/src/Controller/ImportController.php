@@ -10,6 +10,7 @@ use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Service\EntriesImporter;
 use MyShowcase\Service\ImportReport;
 use MyShowcase\Util\ImportLimits;
+use MyShowcase\Util\ImportSettings;
 use MyShowcase\Util\ImportUpload;
 use MyShowcase\Util\ImportUploadException;
 use MyShowcase\Util\PluginLibraryLoader;
@@ -198,21 +199,11 @@ class ImportController extends BaseController
             'notes' => [
                 'size' => get_friendly_size(ImportLimits::effectiveCap()),
             ],
-            'required_file_field' => $this->hasRequiredFileField(),
+            'external_files' => ImportSettings::externalFilesEnabled(),
             'url' => ['import_main' => $this->context->routing->generateUrl(Routes::ImportMain)],
         ]);
     }
 
-    private function hasRequiredFileField(): bool
-    {
-        foreach ($this->context->custom_fields_collection as $field) {
-            if ($field->html_type === FieldHtmlTypes::File && !empty($field->is_required) && !empty($field->is_enabled)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /**
      * The report with every code and reason turned into the language's sentence.
