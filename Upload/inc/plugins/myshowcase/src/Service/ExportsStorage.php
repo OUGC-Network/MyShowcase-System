@@ -30,11 +30,15 @@ class ExportsStorage
     }
 
     /**
-     * Turns the setting's value into a folder relative to the forum folder: empty is the default, and any value that is
-     * not a plain relative folder inside the forum folder is null. Used both when the setting is read and when it is saved.
+     * Turns the setting's value into a folder relative to the forum folder: surrounding whitespace is dropped, empty is
+     * the default, and any value that is not a plain relative folder inside the forum folder, and a dedicated one (see
+     * isDedicatedFolder()), is null. Used where the setting is read (directory(), configurationProblem()) and where it is
+     * saved (admin_config_settings_change in admin_hooks.php).
      */
     public static function normalizeDirectory(string $value): ?string
     {
+        $value = trim($value);
+
         if ($value === '') {
             return self::DEFAULT_DIRECTORY;
         }
@@ -63,7 +67,51 @@ class ExportsStorage
 
         $normalized = implode('/', $segments);
 
-        return self::isInsideForumRoot($normalized) ? $normalized : null;
+        if (!self::isInsideForumRoot($normalized) || !self::isDedicatedFolder(rtrim(MYBB_ROOT, '/') . '/' . $normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * A folder can be used for exports when it does not exist yet, or when it is a real directory (not a link) that holds
+     * nothing but export files, the plugin's deny file exactly as written, and an index page. Anything else in it is
+     * somebody else's, so the plugin never writes to it or deletes from it.
+     */
+    public static function isDedicatedFolder(string $directory): bool
+    {
+        if (!file_exists($directory) && !is_link($directory)) {
+            return true;
+        }
+
+        if (is_link($directory) || !is_dir($directory)) {
+            return false;
+        }
+
+        foreach (scandir($directory) ?: [] as $name) {
+            if ($name === '.' || $name === '..') {
+                continue;
+            }
+
+            $path = $directory . '/' . $name;
+
+            if (is_link($path) || !is_file($path)) {
+                return false;
+            }
+
+            $owned = match ($name) {
+                '.htaccess' => file_get_contents($path) === self::DENY_FILE,
+                'index.html' => true,
+                default => (new self())->isValidFileName($name),
+            };
+
+            if (!$owned) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -143,18 +191,27 @@ class ExportsStorage
 
     /**
      * Creates the folder (and missing parents inside the forum folder) with its deny file and an empty index page when
-     * they are not there yet.
+     * they are not there yet. An existing index page is kept. An existing deny file must be the plugin's own, exactly:
+     * otherwise the folder is not protected by this plugin and nothing is written to it, so false is returned.
      */
     public function ensureDirectory(): bool
     {
         $directory = $this->directory();
 
+        if (!self::isDedicatedFolder($directory)) {
+            return false;
+        }
+
         if (!is_dir($directory) && !mkdir($directory, 0750, true) && !is_dir($directory)) {
             return false;
         }
 
-        if (!is_file($directory . '/.htaccess')) {
-            file_put_contents($directory . '/.htaccess', self::DENY_FILE);
+        if (is_file($directory . '/.htaccess')) {
+            if (file_get_contents($directory . '/.htaccess') !== self::DENY_FILE) {
+                return false;
+            }
+        } elseif (file_put_contents($directory . '/.htaccess', self::DENY_FILE) === false) {
+            return false;
         }
 
         if (!is_file($directory . '/index.html')) {
@@ -227,8 +284,9 @@ class ExportsStorage
     }
 
     /**
-     * Removes the stored exports and the deny file and index page this plugin wrote, then the folder if it is empty
-     * (plugin uninstall). Links are never followed, and parent folders are never removed.
+     * Removes the stored exports (regular files only), the deny file when it is exactly the plugin's, and the index page
+     * only when the folder held nothing else; then the folder if it is empty (plugin uninstall). Links are never followed
+     * and parent folders are never removed.
      */
     public function removeAll(): void
     {
@@ -238,14 +296,34 @@ class ExportsStorage
             return;
         }
 
-        foreach (scandir($directory) ?: [] as $name) {
+        $names = array_values(array_diff(scandir($directory) ?: [], ['.', '..']));
+
+        $is_regular = static fn(string $path): bool => is_file($path) && !is_link($path);
+
+        $htaccess = $directory . '/.htaccess';
+
+        $deny_file_is_ours = $is_regular($htaccess) && file_get_contents($htaccess) === self::DENY_FILE;
+
+        $only_plugin_files = true;
+
+        foreach ($names as $name) {
+            $is_export = $this->isValidFileName($name) && $is_regular($directory . '/' . $name);
+
+            $is_ours = ($name === '.htaccess' && $deny_file_is_ours) || ($name === 'index.html' && $is_regular($directory . '/' . $name));
+
+            if (!$is_export && !$is_ours) {
+                $only_plugin_files = false;
+            }
+        }
+
+        foreach ($names as $name) {
             $path = $directory . '/' . $name;
 
-            if (is_link($path) || !is_file($path)) {
-                continue;
-            }
-
-            if ($this->isValidFileName($name) || $name === '.htaccess' || $name === 'index.html') {
+            if ($this->isValidFileName($name) && $is_regular($path)) {
+                @unlink($path);
+            } elseif ($name === '.htaccess' && $deny_file_is_ours) {
+                @unlink($path);
+            } elseif ($name === 'index.html' && $only_plugin_files && $is_regular($path)) {
                 @unlink($path);
             }
         }
