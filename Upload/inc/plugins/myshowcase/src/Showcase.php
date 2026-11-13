@@ -269,17 +269,22 @@ class Showcase
 
     private function applyUsergroupPermissions(array $permissions, array $dataFields, int $groupID): array
     {
+        // The usergroups cache is keyed by group id, and each row can also carry numeric keys (SQLite), so the
+        // row is read by the myshowcase_ column name of each permission instead of being looped over.
         $usergroupsCache = $this->context->mybb->cache->read('usergroups') ?? [];
 
-        foreach ($usergroupsCache[$groupID] as $key => $value) {
-            if (!str_starts_with($key, 'myshowcase_')) {
+        $usergroup = $usergroupsCache[$groupID] ?? [];
+
+        foreach ($dataFields as $permissionName => $field) {
+            $columnName = "myshowcase_{$permissionName}";
+
+            if (!array_key_exists($columnName, $usergroup)) {
                 continue;
             }
 
-            $permissionName = str_replace('myshowcase_', '', $key);
             $permissions[$permissionName] = sanitizeTableFieldValue(
-                $value,
-                $dataFields[$permissionName]['type'] ?? ''
+                $usergroup[$columnName],
+                $field['type'] ?? ''
             );
         }
 
