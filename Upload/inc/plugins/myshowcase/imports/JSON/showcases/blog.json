@@ -7,5 +7,6 @@
     "entries_enable_message": 1,
     "comments_enable": 1,
     "main_per_page": 5,
-    "main_sort_default_field": "dateline"
+    "main_sort_default_field": "dateline",
+    "main_sort_direction": 0
 }
