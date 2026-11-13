@@ -147,7 +147,7 @@ class AccessLogsRepository
         );
 
         $access_log_data = $this->queryAccessLog(
-            ["attachmen_id='{$access_log_id}'"],
+            ["access_log_id='{$access_log_id}'"],
             ['access_log_name', 'thumbnail_name', 'status']
         );
 
