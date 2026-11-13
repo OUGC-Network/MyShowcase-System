@@ -215,7 +215,7 @@ duplicates, exactly as submitting the same form twice does.** Also not checked: 
 
 Other consequences of "same validator":
 
-* A required `file` field can never be satisfied by an XML import (no attachment), so the validator rejects every entry
+* A required `file` field is satisfied by its URL once the file has been checked and is to be attached (T28; the validator counts the pending files).
   for such a showcase and import fails with the validator's own message. This is stated on the import page.
 * A group that needs a captcha cannot import: the validator would demand a captcha for each entry. The import page
   refuses up front with a clear message instead of changing the validator.
@@ -228,7 +228,7 @@ Imported entry content is **`subject`, `message` and custom field values only.**
 the current user: `user_id`/`username` = current user, `dateline` = now, `status` = what the form path assigns (column
 default today, see Finding 4), `ipaddress` = current IP, new `public_id`/`post_hash`, counters 0, `is_closed`/`is_sticky`
 defaults. The file's author, dates, status, flags, counters are neither exported nor read. **Out of scope for v1:**
-attachments (and `file` fields), comments, edit history.
+attachments that are not file fields, comments, edit history. A `file` field is imported from its URL (T28).
 
 ### B.5 Insert path and sharing code with the form
 
@@ -684,7 +684,7 @@ before stage 7.
      count, each entry is an array whose `fields` (if present) is an array;
    * **every field key used in any entry's `fields` must exist in the target collection, matched exactly
      (case-sensitive).** Any unknown key **fails the import**; the error lists each unknown key and the entry numbers that
-     use it. (A key naming a `file` field is also rejected here: attachments are out of scope.) **Fillable fields only
+     use it. (A key naming a `file` field is checked here as the others, and its URL is read by the importer, T28.) **Fillable fields only
      (T18, T23):** a key must also name a field the importing user may fill, `CustomFieldEntity::canFill()` (enabled, not
      read-only, in a group listed in `allowed_groups_fill`); the same rule the form now applies to posted input.
    * `header.collection.name` differing from the target collection name is a **warning** in the report, not an error (T3).
@@ -812,7 +812,7 @@ distinct error). On COMPLETED the entries are created as the current user and fo
 | Export list | `col_created`, `col_entries`, `col_size`, `col_rules`, `download`, `delete`, `delete_confirm`, `none_stored`, `rules_limit`, `rules_sort`, `rules_fields`, `rules_options`, `rules_removed_characters` |
 | Export messages | `export_done`, `export_too_large` ({1} entries fit), `export_empty`, `export_cap_reached` ({1} stored exports), `export_flood` ({1} seconds), `export_deleted` |
 | Import form | `import_file`, `import_validate_only`, `import_submit`, `import_note_xml_only`, `import_note_same_board`, `import_note_size` ({1}), `import_note_duplicates` |
-| Import errors | `error_no_file`, `error_upload`, `error_extension`, `error_mime`, `error_too_large` ({1}), `error_memory`, `error_parse` ({1} line, {2} text), `error_doctype`, `error_format`, `error_version`, `error_count_mismatch`, `error_unknown_fields` ({1}), `error_captcha_group`, `error_required_file_field`, `error_flood`, `error_entry_limit` ({1} limit, {2} existing, {3} in file) |
+| Import errors | `error_no_file`, `error_upload`, `error_extension`, `error_mime`, `error_too_large` ({1}), `error_memory`, `error_parse` ({1} line, {2} text), `error_doctype`, `error_format`, `error_version`, `error_count_mismatch`, `error_unknown_fields` ({1}), `error_captcha_group`, `error_flood`, `error_entry_limit` ({1} limit, {2} existing, {3} in file) |
 | Report | `report_title`, `report_completed`, `report_failed`, `report_validated`, `report_total`, `report_imported`, `report_warnings`, `report_failures`, `report_entry_position` ({1} position, {2} subject), `warning_collection_name` ({1} found, {2} expected), `report_hash_seen` ({1} date) |
 | Library / access | `error_library_missing`, `error_library_version`, `error_no_permission`, `error_not_found` |
 | Logs | `log_import` |
@@ -997,6 +997,13 @@ All of the following are final unless you change them.
 | T25 | **Stage B import as built:** pipeline of section 6 with these points settled in code. Both the per-user limit and the validator failures are reported together (the limit is checked after validation, for the whole file); the post-insert steps of the create path are all inside `EntriesManager::validationEntryInsert()` (slug generation, the insert with its defaults and hooks, attachment linking by post hash, slug refetch, the end hook), which the import calls for every entry, so nothing else is shared or missing: there are no counters or caches to update (counts are queries). "Only check the file" is kept. A file that was imported before by the same user is flagged as a hint. |
 | T26 | **Null and empty values:** the form posts an empty optional field as `''`, which is stored as `''` (`0` for an integer column), never as NULL. The import does the same: a null or missing value takes the field's default or `''`. A NULL in the source database therefore arrives as `''`. |
 | T27 | **Rollback by entry id:** the compensating delete removes the inserted rows with a direct `DELETE ... WHERE entry_id IN (...)` (plus the post hashes the import generated, to find the one row whose id was not yet known if the request ends right after its insert), never through the controller delete path; the shutdown guard does the same after an `exit`. |
+| T28 | **File fields carry URLs (D48).** Format version 2 writes each file field as the public URL of its file, for a file the exporting user may download (the rules of the download route, in `AttachmentAccess`); any other file is written empty and counted in the export's notes, and no path is ever written. The import takes each file from its URL, checks it as an upload is checked (the board's types by extension and by the detected MIME type, the field and type sizes, a valid image), and attaches it through the form's attachment pipeline after the entry is saved. A failure of any file fails the whole import; nothing is stored. |
+| T29 | **One global setting (D51).** `myshowcase_import_external_files` (yes or no, default yes), created on activation and kept on re-activation (PluginLibrary keeps the value). When it is off, a file with any file URL is refused as a whole by the structural check; exports are not affected. It is read in one place, `ImportSettings`. |
+| T30 | **The fetcher's rules (D53).** http and https only; ports 80 and 443; no userinfo; a URL of at most 2048 characters without spaces, control characters or `#`; every address the host resolves to must be public (the ranges of `AddressClass`, including the IPv4 forms inside IPv6 addresses and the obfuscated IPv4 literals); the connection is pinned to the validated address; each redirect is checked the same way, at most three, and keeps the scheme and the port; TLS is verified; no cookie or credential is sent. The body is streamed to a temporary file and stopped at its size limit; the time limits and the import budget (25 files, 100 MB, 60 % of `max_execution_time`) are constants, not settings. Failures carry reason codes; no message carries an address, a body, a header or a path. |
+| T31 | **The board's own file URLs are resolved internally (D52).** A URL that is exactly the board's download route for a file of this showcase, on the board's own base (which may use the board's port), is read from the board's storage, after the importing user's download permission has been checked as the route checks it. It is never fetched. A URL of another host, or of the same path on another host, is an external URL. |
+| T32 | **Format version 2.** The importer reads versions 1 and 2 and refuses a higher one. Only version 2 files carry file URLs. The export's header rules state that file fields hold URLs. |
+| T33 | **ZIP packages deferred.** One ZIP file that holds one entry and its files is designed in `Documentation/import-packages.md` for a later implementation. It is not implemented. A file may name its files by URL or by a package reference (see that document). |
+| T34 | **The attachment pipeline's seams.** The form's attachment pipeline accepts a file the importer has made and checked (`local_file`, which no request can set) in place of an uploaded one, and copies it. The validator counts the pending files of an import for their fields (`pending_file_counts`, empty outside an import). The attachments repository's update flag is no longer readonly, so one instance can insert several attachments. The form's own paths are unchanged. |
 
 **From the previous numbered list (accepted unless overridden)**
 
@@ -1010,7 +1017,7 @@ All of the following are final unless you change them.
 | 6 Author mapping | **Dropped** (T7). |
 | 7 Status on import | **Dropped** (T7). |
 | 8 Select values | **Changed:** export `value_id` only. Label resolution would be an import-specific value check (T1). |
-| 9 Attachments/comments/history | Out of v1. **Changed:** file-type fields are not excluded from the required check; the validator rejects a required `file` field, so such showcases cannot use import (stated on the import page). |
+| 9 Attachments/comments/history | Comments and history stay out. **Changed (T28):** a `file` field is imported from its URL; a required file field is satisfied by a URL that passes the checks. |
 | 10 Storage | Accepted: default directory with deny rules and random names, setting for an outside-web-root path. |
 | 11 Retention | Accepted (30 days + manual). |
 | 12 Size limits | **Replaced** by T16. |
