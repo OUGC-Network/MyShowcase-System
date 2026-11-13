@@ -117,8 +117,9 @@ file's name and content type are checked, not the ones the server claims. An ent
 The downloads showcase takes its `archive` the same way, from a URL of a ZIP file.
 
 **The setting.** The board's administrator switches the import of files from URLs off with the global setting
-**Import files from URLs** (`myshowcase_import_external_files`, yes or no, yes by default). When it is off, an import whose
-file fields hold URLs is refused as a whole, with nothing imported. The setting does not change exports, which always
+**Import files from URLs** (`myshowcase_import_external_files`, yes or no, no by default). When it is off, an import whose
+file fields hold any URL, one of this board's own files included, is refused as a whole, with nothing imported. The
+setting does not change exports, which always
 write the URLs.
 
 **Where a URL points.** A URL of this board's own download route is not fetched: the file is copied from the board's

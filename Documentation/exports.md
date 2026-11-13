@@ -107,8 +107,9 @@ empty):
 https://forum.example.com/gallery/attachment/<public id>/<file name>
 ```
 
-Only a file the exporting user may download gets a URL, by the rules of the download route: the user must be able to view
-the entry and the file, the file must be approved (or the user may view unapproved files), the user needs the download
+Only a file the exporting user may download gets a URL, by the rules of the download route, which the export and the
+route share (`AttachmentAccess::decide()`): the user must be able to view the entry (an entry the user may not see gives
+its files no URL, whoever uploaded them), the user must be able to view the file, the file must be approved (or the user may view unapproved files), the user needs the download
 permission (the owner of a file does not), and the file's type must be allowed for the user's group. Any other file leaves
 the field empty; the export's notes count those files. The export never writes a filesystem path.
 
