@@ -571,7 +571,7 @@ class RenderManager
             $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
                 Routes::EntryUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
+                    'entry_public_id' => $entry->public_id,
                     'action' => 'restore',
                     'my_post_key' => $this->context->mybb->post_code,
                 ]
@@ -608,8 +608,8 @@ class RenderManager
             $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
                 Routes::CommentUpdate,
                 [
-                    'entry_slug' => $entry->entry_slug,
-                    'comment_slug' => $comment->comment_slug,
+                    'entry_public_id' => $entry->public_id,
+                    'comment_public_id' => $comment->public_id,
                     'action' => 'restore',
                     'my_post_key' => $this->context->mybb->post_code,
                 ]

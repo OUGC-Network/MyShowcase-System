@@ -904,7 +904,7 @@ class EntriesController extends BaseController
             if (empty($entry['entry_id'])) {
                 // Not found with the visibility rule: say so, and tell authors their own hidden entry is the reason.
                 $hidden_entry = $this->context->entries_repository->queryEntry(
-                    ["entry_data.entry_slug='{$this->context->database->escape_string($entry_slug)}'"],
+                    ["entry_data.public_id='{$this->context->database->escape_string($entry_public_id)}'"],
                     ['entry_id', 'user_id', 'status']
                 );
 
@@ -1623,7 +1623,7 @@ class EntriesController extends BaseController
                 ),
                 'entry_moderation' => $this->context->routing->generateUrl(
                     Routes::EntryUpdate,
-                    ['entry_slug' => $entry->entry_slug]
+                    ['entry_public_id' => $entry->public_id]
                 ),
                 'comment' => $this->context->routing->generateUrl(
                     Routes::CommentCreate,

@@ -388,7 +388,7 @@ class CommentsController extends BaseController
 
         global $lang;
 
-        switch ($this->verifyPermission($entry_slug, $comment_slug)) {
+        switch ($this->verifyPermission($entry_public_id, $comment_public_id)) {
             case self::NO_PERMISSION:
                 $this->errorNoPermission();
                 break;
@@ -448,7 +448,7 @@ class CommentsController extends BaseController
             redirect(
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryView,
-                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                    ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
                 $lang->myshowcase_main_inline_moderation_redirect_restored ?? 'The comment was restored.'
             );
@@ -470,7 +470,7 @@ class CommentsController extends BaseController
             redirect(
                 $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                     Routes::EntryView,
-                    ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                    ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
                 $lang->myshowcase_main_inline_moderation_redirect_deleted ?? 'The comment was deleted.'
             );
@@ -485,7 +485,7 @@ class CommentsController extends BaseController
         redirect(
             $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
                 Routes::EntryView,
-                ['entry_slug' => $entry->entry_slug, 'entry_slug_custom' => $entry->entry_slug_custom]
+                ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             ),
             $lang->myshowcase_main_inline_moderation_redirect_soft_deleted ?? 'The comment was soft deleted.'
         );
