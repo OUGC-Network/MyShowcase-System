@@ -85,11 +85,6 @@
    "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
    "classification": "repair in Part 2"
   },
-  "fk_text_pattern|c": {
-   "reason": "a blank optional value is refused because the pattern is tested before the empty check",
-   "cause": "src/Service/EntriesManager.php:1113-1115",
-   "classification": "repair in Part 2"
-  },
   "fk_text_uuid|b": {
    "reason": "the UUID default is not generated for the form: the assignment is commented out",
    "cause": "src/Controller/EntriesController.php:1017-1019",
@@ -207,11 +202,6 @@
    "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
    "classification": "repair in Part 2"
   },
-  "fk_text_pattern|c": {
-   "reason": "a blank optional value is refused because the pattern is tested before the empty check",
-   "cause": "src/Service/EntriesManager.php:1113-1115",
-   "classification": "repair in Part 2"
-  },
   "fk_text_req|c": {
    "reason": "on MySQL the emoji (4-byte UTF-8) is refused without a message: the connection charset is 3-byte utf8 (to confirm)",
    "cause": "MyBB db_encoding (inc/db_mysqli.php:307); data table charset",
@@ -327,11 +317,6 @@
   "fk_select|c": {
    "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
    "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_pattern|c": {
-   "reason": "a blank optional value is refused because the pattern is tested before the empty check",
-   "cause": "src/Service/EntriesManager.php:1113-1115",
    "classification": "repair in Part 2"
   },
   "fk_text_uuid|b": {

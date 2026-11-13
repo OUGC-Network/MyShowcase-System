@@ -1116,30 +1116,32 @@ class EntriesManager
 
             $field_label = $this->fieldLabel($field);
 
-            if ($field->regular_expression &&
-                preg_match($field->regular_expression, '') !== false &&
-                preg_match($field->regular_expression, $this->validation_entry->extra_data[$field_key]) !== 1) {
-                $this->validateSetError('invalid_value1', [$field_label]);
-            }
+            $field_value = $this->validation_entry->extra_data[$field_key];
 
-            if ($field->is_required && empty($this->validation_entry->extra_data[$field_key])) {
+            // A blank value is '' (or no value at all). A blank optional field has nothing to check: no pattern, no
+            // length, no format. A blank required field is refused. The value "0" is a value, never blank.
+            if ($field_value === '' || $field_value === null || $field_value === []) {
                 if ($field->html_type === FieldHtmlTypes::File) {
-                    if ($this->countFieldAttachments((int)$field_id) < 1) {
+                    if ($field->is_required && $this->countFieldAttachments((int)$field_id) < 1) {
                         $this->validateSetError('required_field', [$field_label]);
                     }
-                } else {
+                } elseif ($field->is_required) {
                     $this->validateSetError('required_field', [$field_label]);
                 }
-            }
 
-            if (empty($this->validation_entry->extra_data[$field_key]) && $field->default_value !== '') {
+                if ($field->html_type === FieldHtmlTypes::File || $field->default_value === '') {
+                    continue;
+                }
+
+                // The default applies only to a truly blank value.
                 $this->validation_entry->extra_data[$field_key] = $field->default_value;
+                $field_value = $field->default_value;
             }
 
-            // A field left empty has nothing more to check: if it is required it was reported above.
-            if ($this->validation_entry->extra_data[$field_key] === '' ||
-                $this->validation_entry->extra_data[$field_key] === []) {
-                continue;
+            if (is_scalar($field_value) && $field->regular_expression &&
+                preg_match($field->regular_expression, '') !== false &&
+                preg_match($field->regular_expression, (string)$field_value) !== 1) {
+                $this->validateSetError('invalid_value1', [$field_label]);
             }
 
             if (fieldTypeMatchInt($field->field_type)) {

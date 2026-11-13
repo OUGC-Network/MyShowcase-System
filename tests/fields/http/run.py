@@ -89,6 +89,7 @@ def cases():
     o = option_ids
     return {
         'fk_text_req': [('valid', 'Hello', 'accept', None), ('blank required', '', 'refuse', None),
+                        ('required zero is a value, refused for its length, not as missing', '0', 'refuse_not_missing', None),
                         ('too short', 'a', 'refuse', None), ('too long', LONG, 'refuse', None),
                         ('multibyte UTF-8', 'héllo wörld', 'accept', None),
                         ('markup and quotes', '<b>a</b>"\'\\', 'accept', None),
@@ -117,6 +118,7 @@ def cases():
                       ('above maximum', '101', 'refuse', None), ('not a number', 'abc', 'refuse', None),
                       ('blank optional', '', 'accept', ''), ('very large integer', '99999999999999999999', 'refuse', None)],
         'fk_number_req': [('blank required', '', 'refuse', None), ('below minimum', '0', 'refuse', None),
+                          ('zero is a value: refused for the minimum, not as missing', '0', 'refuse_not_missing', None),
                           ('above maximum', '11', 'refuse', None), ('valid', '5', 'accept', None)],
         'fk_range': [('valid', '50', 'accept', None), ('above maximum', '55', 'refuse', None), ('blank optional', '', 'accept', '')],
         'fk_rating': [('valid', '5', 'accept', None), ('not a number', 'abc', 'refuse', None)],
@@ -302,7 +304,7 @@ def same(stored, sent):
     return s == v or s.startswith(v) or v.startswith(s)
 
 
-def record_case(key, name, expectation, extra, value, accepted, row):
+def record_case(key, name, expectation, extra, value, accepted, row, extra_error=''):
     """The verdict of one validation case and the text of its detail."""
     stored = row.get(key) if row else None
     option_type = FIELDS[key]['html_type'] in ('select', 'radio', 'checkbox')
@@ -319,6 +321,8 @@ def record_case(key, name, expectation, extra, value, accepted, row):
         ok = accepted and stored not in (None, '')
     elif expectation == 'multi':
         ok = (not accepted) or stored == ','.join(value)
+    elif expectation == 'refuse_not_missing':
+        ok = not accepted and 'is missing' not in extra_error
     else:
         ok = False
     detail = f'{name}: sent {value!r}; ' + (f'accepted, stored {stored!r}' if accepted else 'refused')
@@ -380,7 +384,7 @@ def run_matrix(client, cells, users, restricted):
             response = create(client, overrides, token, uploads)
             row = stored_row(token)
             accepted = row is not None
-            ok, detail = record_case(key, name, expectation, extra, value, accepted, row or {})
+            ok, detail = record_case(key, name, expectation, extra, value, accepted, row or {}, response['error'] or '')
             detail += '' if response['status'] in (200, 302) else f'; HTTP {response["status"]}'
             if response['error'] and not accepted:
                 detail += f'; message: {response["error"][:160]}'
