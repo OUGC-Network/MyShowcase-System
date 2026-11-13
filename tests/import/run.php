@@ -160,6 +160,13 @@ check($report->failed() && $report->imported === 0 && $report->entries_in_file =
 $array = (new ImportReport(ImportReport::COMPLETED, 'a.xml', 'Blog', 2, 2, [], [], [], 2))->toArray();
 check($array['status'] === 'completed' && $array['imported'] === 2 && $array['passed_entries'] === 2 && $array['entry_failures'] === [], 'a completed report keeps its counts');
 
+// --- Write failure log ----------------------------------------------------------------------------------------------------
+
+$described = MyShowcase\Service\EntriesImporter::describeFailure(new RuntimeException("Query: INSERT INTO t VALUES ('secret one', \"other secret\")", 7));
+check(str_contains($described, 'RuntimeException') && preg_match('/\(run\.php:\d+\)$/', $described) === 1, 'the failure log names the class and the file and line');
+check(!str_contains($described, 'secret') && str_contains($described, 'Query: INSERT INTO t VALUES (?, ?)'), 'the failure log has no quoted value of the query');
+check(!str_contains($described, __DIR__), 'the failure log has no server path beyond the file name');
+
 // --- Upload -------------------------------------------------------------------------------------------------------------
 
 $directory = sys_get_temp_dir() . '/msc-import-tests-' . bin2hex(random_bytes(4));

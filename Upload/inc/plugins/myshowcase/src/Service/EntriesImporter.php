@@ -200,8 +200,10 @@ class EntriesImporter
             $this->logImport($file_name, count($validated), $data);
 
             $transaction->commit();
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
             $transaction->rollback();
+
+            self::logWriteFailure($exception);
 
             return new ImportReport(
                 ImportReport::FAILED,
@@ -301,6 +303,43 @@ class EntriesImporter
         }
 
         return [['code' => 'entry_limit', 'args' => [$limit, $manager->userEntriesCount(), $count]]];
+    }
+
+    /**
+     * Writes the cause of a failed write to the board's error log, as the other errors of the board are written. The user
+     * sees only the generic report (decision T6).
+     */
+    public static function logWriteFailure(Throwable $exception): void
+    {
+        global $error_handler;
+
+        $line = self::describeFailure($exception);
+
+        if (is_object($error_handler) && method_exists($error_handler, 'log_error')) {
+            $error_handler->log_error(E_WARNING, 'MyShowcase import: the entries could not be written. ' . $line, $exception->getFile(), $exception->getLine());
+
+            return;
+        }
+
+        error_log('MyShowcase import: the entries could not be written. ' . $line);
+    }
+
+    /**
+     * The class, the message and the place of an exception, for the log. The message has its quoted literals removed: a
+     * database error carries the query, and the query carries the values of the file. No path of the server beyond the
+     * file's base name is written.
+     */
+    public static function describeFailure(Throwable $exception): string
+    {
+        $message = preg_replace(["/'(?:[^'\\\\]|\\\\.)*'/", '/"(?:[^"\\\\]|\\\\.)*"/'], '?', $exception->getMessage()) ?? '';
+
+        return sprintf(
+            '%s: %s (%s:%d)',
+            $exception::class,
+            substr($message, 0, 200),
+            basename($exception->getFile()),
+            $exception->getLine()
+        );
     }
 
     /**
