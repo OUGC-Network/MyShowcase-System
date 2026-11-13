@@ -38,6 +38,9 @@ final class ImportTransaction
     /** @var int[] */
     private array $inserted = [];
 
+    /** @var int[] */
+    private array $attachments = [];
+
     /**
      * @param string $engine SchemaManager::ENGINE_* of the board's database
      */
@@ -73,6 +76,12 @@ final class ImportTransaction
     public function record(int $entry_id): void
     {
         $this->inserted[] = $entry_id;
+    }
+
+    /** Remembers an attachment the transaction inserted (its row is removed with the entries). */
+    public function recordAttachment(int $attachment_id): void
+    {
+        $this->attachments[] = $attachment_id;
     }
 
     /**
@@ -146,7 +155,16 @@ final class ImportTransaction
 
         $this->database->delete_query($table, implode(' OR ', $conditions));
 
+        if ($this->attachments !== []) {
+            $this->database->delete_query(
+                'myshowcase_attachments',
+                'attachment_id IN (' . implode(',', array_map('intval', array_unique($this->attachments))) . ')'
+            );
+        }
+
         $this->inserted = [];
+
+        $this->attachments = [];
     }
 
     private function escape(string $value): string

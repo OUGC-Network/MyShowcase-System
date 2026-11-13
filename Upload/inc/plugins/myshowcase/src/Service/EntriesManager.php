@@ -95,6 +95,14 @@ class EntriesManager
     private bool $validation_data_is_valid = true;
     private string $validation_method = self::VALIDATION_METHOD_INSERT;
     private array $removed_attachment_ids = [];
+
+    /**
+     * The number of files per field that an entries import has checked and will attach to the entry once it is saved,
+     * keyed by field id. Empty except during an import (section 5.9).
+     *
+     * @var array<int, int>
+     */
+    public array $pending_file_counts = [];
     private ?array $stored_entry_row = null;
 
     /** @var array<int, bool> Moderator answers per user id, see isModerator(). */
@@ -463,6 +471,9 @@ class EntriesManager
      */
     private function countFieldAttachments(int $field_id): int
     {
+        // The files an entries import has checked and will attach after the entry is saved (decision T20 and section 5.9).
+        $pending = (int)($this->pending_file_counts[$field_id] ?? 0);
+
         $where_clauses = ["field_id='{$field_id}'"];
 
         $owners = [];
@@ -476,7 +487,7 @@ class EntriesManager
         }
 
         if (!$owners) {
-            return 0;
+            return $pending;
         }
 
         $where_clauses[] = '(' . implode(' OR ', $owners) . ')';
@@ -485,7 +496,7 @@ class EntriesManager
             $where_clauses[] = "attachment_id NOT IN ('" . implode("','", $this->removed_attachment_ids) . "')";
         }
 
-        return count(
+        return $pending + count(
             iterator_to_array(
                 $this->context->attachments_repository->queryAttachments($where_clauses, ['attachment_id']),
                 false

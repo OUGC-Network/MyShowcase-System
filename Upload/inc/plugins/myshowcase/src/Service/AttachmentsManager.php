@@ -219,7 +219,11 @@ class AttachmentsManager
             return ['error' => $error_message];
         }
 
-        if (!is_uploaded_file($attachment_data['tmp_name']) || empty($attachment_data['tmp_name'])) {
+        // 'local_file' is set only by the entries importer, for a file it downloaded and checked itself (decision D53).
+        // No request field can set it: the upload arrays come from PHP's $_FILES, which has no such key.
+        $is_local = !empty($attachment_data['local_file']);
+
+        if (($is_local ? false : !is_uploaded_file($attachment_data['tmp_name'])) || empty($attachment_data['tmp_name'])) {
             return ['error' => $this->context->language->myshowcase_attachments_upload_error_upload_failed . $this->context->language->error_uploadfailed_php4];
         }
 
@@ -731,10 +735,14 @@ class AttachmentsManager
 
         $file_name = preg_replace('#/$#', '', $file_name);
 
-        if (!move_uploaded_file(
-            $file_data['tmp_name'],
-            $this->context->showcase->attachments_uploads_path . '/' . $uploads_path . '/' . $file_name
-        )) {
+        $destination = $this->context->showcase->attachments_uploads_path . '/' . $uploads_path . '/' . $file_name;
+
+        // A local file is copied: the importer keeps its own temporary copy until the import ends, and removes it then.
+        $stored = !empty($file_data['local_file'])
+            ? copy($file_data['tmp_name'], $destination)
+            : move_uploaded_file($file_data['tmp_name'], $destination);
+
+        if (!$stored) {
             return ['error' => self::UPLOAD_ERROR_FAILED];
         }
 
