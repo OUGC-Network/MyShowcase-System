@@ -232,6 +232,25 @@ switch ($switch) {
         $out(['files' => ['gallery' => $gallery, 'downloads' => $downloads, 'uploads' => $uploads]]);
         break;
 
+    case 'title-check':
+        // A refusal of the database after a file was stored: the gallery's title must not start with BOOM (test board only).
+        // SQLite: a trigger; MySQL: a CHECK constraint (8.0.16 or later).
+        $gallery = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='gallery'"), 'showcase_id');
+        $table = $db->table_prefix . 'myshowcase_data' . $gallery;
+        if ($db->type === 'sqlite') {
+            if ($argv[2] === 'add') {
+                $db->write_query("CREATE TRIGGER import_test_no_boom_title BEFORE INSERT ON {$table} WHEN NEW.title LIKE 'BOOM%' BEGIN SELECT RAISE(ABORT, 'import test refusal'); END");
+            } else {
+                $db->write_query('DROP TRIGGER import_test_no_boom_title');
+            }
+        } elseif ($argv[2] === 'add') {
+            $db->write_query("ALTER TABLE {$table} ADD CONSTRAINT import_test_no_boom_title CHECK (title NOT LIKE 'BOOM%')");
+        } else {
+            $db->write_query("ALTER TABLE {$table} DROP CHECK import_test_no_boom_title");
+        }
+        $out(['check' => $argv[2]]);
+        break;
+
     case 'external-setting':
         // The global setting of decision D51 (myshowcase_import_external_files): prints its stored value after the change.
         $db->update_query('settings', ['value' => (string)(int)$argv[2]], "name='myshowcase_import_external_files'");

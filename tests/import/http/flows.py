@@ -777,6 +777,26 @@ def section_files():
     finally:
         listener.close()
 
+    # F4 (5.3, 5.9): a database refusal after a file was stored. The first entry's image is stored (a file on disk, an
+    # attachment row); the second entry's title is refused by the database. The whole import is rolled back: the entries, the
+    # attachment rows, the log row and the stored file are all gone.
+    before_rows, before_files, before_logs = gallery_rows(), attachment_rows(), import_log_count()
+    files_before = set(os.listdir(uploads))
+    fixture('title-check', 'add')
+    try:
+        rows = [gallery_entry(400, 'https://placehold.co/600x450.png?text=Stored%20First'),
+                {'fields': {'title': 'BOOM second', 'image': 'https://placehold.co/600x450.png?text=Refused%20Second', 'caption': 'x'}}]
+        body = import_into(member, 'gallery', write_file('gallery-rollback.xml', xml_file(rows, route='gallery', collection='Gallery', format_version=2)))['body']
+        dump('gallery-rollback', body)
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'failed' and 'could not be written' in report['text'],
+           'a database refusal after a stored file fails the import with the generic report')
+        ok(gallery_rows() == before_rows and attachment_rows() == before_files and import_log_count() == before_logs,
+           'the entries, the attachment rows and the log row of the failed import are rolled back')
+        ok(set(os.listdir(uploads)) == files_before, 'the file stored before the refusal is removed from the uploads folder')
+    finally:
+        fixture('title-check', 'drop')
+
     # F5: five good entries and one URL that the server does not serve: nothing is imported, nothing is left on disk.
     before_rows, before_files, before_logs = gallery_rows(), attachment_rows(), import_log_count()
     files_before = set(os.listdir(uploads))
