@@ -409,7 +409,7 @@ def section_validator():
     ok(report is not None and report['status'] == 'completed', 'a script in a summary is imported as text')
     # The example file of the documentation imports as it is written there.
     doc = open(os.path.join(HERE, '..', '..', '..', 'Documentation', 'import.md'), encoding='utf-8').read()
-    example = re.search(r'```xml\n(.*?)```', doc, re.S).group(1)
+    example = re.search(r'### Example.*?```xml\n(.*?)```', doc, re.S).group(1)
     report = report_of(import_file(member, write_file('doc-example.xml', example))['body'])
     ok(report is not None and report['status'] == 'completed', 'the example file of the documentation imports')
 
@@ -699,6 +699,51 @@ def section_files():
     ok(report is not None and report['status'] == 'completed', 'the export of the gallery imports back into the gallery')
     ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2, 'the round trip adds two entries with two new files')
     ok(not any('/attachment/' in line for line in lines_after), 'the round trip makes no request to the attachment route (own files are copied)')
+
+    # F2b (V4, V5). A user who may not download a file gets no URL for it in an export (the exporter is not the owner of the
+    # files and has no download permission). A user who may not download an own-board file cannot import it (member2 is not
+    # the owner). A look-alike address of this board is an external address: it is refused as a private address.
+    exporter = logged_in('exporter')
+    export_form = exporter.get('/showcase.php/gallery/export')
+    exporter.post('/showcase.php/gallery/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                                  'order_dir': 'asc', 'submit': 'Export'})
+    exporter_id = one(f"select export_id from mybb_myshowcase_exports where user_id={USERS['exporter']['uid']} and showcase_id={gid} order by export_id desc limit 1")
+    if exporter_id:
+        no_download = exporter.get(f'/showcase.php/gallery/export/{exporter_id}/download')['raw'].decode('utf-8', errors='replace')
+        ok('/attachment/' not in no_download and 'gallery' in no_download,
+           'a user without the download permission gets no URL for the file fields of an export')
+    else:
+        ok(False, 'the exporter can export the gallery')
+
+    member2 = logged_in('member2')
+    reg_title = one('select title from mybb_usergroups where gid=2')
+    fixture('permission', reg_title, 'attachments_can_download', '0')
+    before_rows, before_files = gallery_rows(), attachment_rows()
+    body = import_into(member2, 'gallery', path)['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and 'you may not download' in report['text'] and gallery_rows() == before_rows and attachment_rows() == before_files,
+       'a user who may not download an own-board file cannot import it, and nothing is stored')
+    fixture('permission', reg_title, 'attachments_can_download', '1')
+    time.sleep(3)
+
+    listener_look = Listener(os.path.join(SCRATCH, 'listener-lookalike.log'))
+    try:
+        look = 'http://localhost/gallery/attachment/AAAA/600x450.png'
+        before_rows, before_files = gallery_rows(), attachment_rows()
+        body = import_into(member, 'gallery', write_file('gallery-lookalike.xml', xml_file([gallery_entry(9, look)], route='gallery', collection='Gallery', format_version=2)))['body']
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'failed' and 'not a public one' in report['text'] and gallery_rows() == before_rows and not listener_look.hits,
+           'a look-alike of the board address goes through the fetcher and is refused as a private address')
+    finally:
+        listener_look.close()
+
+    # F2c (V8): more than 25 files are refused before any download.
+    many = [gallery_entry(300 + i, f'https://placehold.co/600x450.png?text=Many%20{i}') for i in range(26)]
+    before_rows, before_files = gallery_rows(), attachment_rows()
+    body = import_into(member, 'gallery', write_file('gallery-many.xml', xml_file(many, route='gallery', collection='Gallery', format_version=2)))['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and 'At most 25 files' in report['text'] and gallery_rows() == before_rows,
+       'a file with 26 file URLs is refused before any download')
 
     # With the setting on again, the same file imports (after the round trip, so that the round trip counts its own file).
     body = import_into(member, 'gallery', write_file('gallery-urls-on.xml', xml_file([gallery_entry(8, urls[0])], route='gallery', collection='Gallery', format_version=2)))['body']
