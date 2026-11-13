@@ -251,12 +251,17 @@ class Showcase
 
     private function buildDefaultGroupPermissions(array $dataFields): array
     {
+        // TABLES_DATA does not flag permission columns, so every column that is not a row identifier is one.
+        $identifierFields = ['permission_id', 'showcase_id', 'group_id', 'moderator_id', 'user_id'];
+
         $permissions = [];
 
         foreach ($dataFields as $key => $field) {
-            if (isset($field['isPermission'])) {
-                $permissions[$key] = $field['default'];
+            if (in_array($key, $identifierFields, true)) {
+                continue;
             }
+
+            $permissions[$key] = $field['default'];
         }
 
         return $permissions;
