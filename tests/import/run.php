@@ -76,6 +76,143 @@ check(
     'effectiveCap ignores unset request limits'
 );
 
+// --- File structure ----------------------------------------------------------------------------------------------------
+
+use MyShowcase\Service\ImportFileCheck;
+use MyShowcase\Service\ImportReport;
+use MyShowcase\Util\ImportUpload;
+use MyShowcase\Util\ImportUploadException;
+
+function importHeader(array $overrides = []): array
+{
+    return array_replace([
+        'format' => 'myshowcase-entries',
+        'format_version' => 1,
+        'showcase' => ['route_identifier' => 'blog', 'name' => 'Blog'],
+        'collection' => ['name' => 'Blog'],
+        'entry_count' => 1,
+    ], $overrides);
+}
+
+function importTarget(array $overrides = []): array
+{
+    return array_replace([
+        'route_identifier' => 'blog',
+        'collection_name' => 'Blog',
+        'known_keys' => ['category', 'summary', 'cover_image', 'picture'],
+        'fillable_keys' => ['category', 'summary', 'cover_image'],
+        'file_keys' => ['picture'],
+        'maximum_entries' => 5000,
+        'subject_enabled' => true,
+        'message_enabled' => true,
+    ], $overrides);
+}
+
+function problemCodes(array $problems): array
+{
+    return array_map(static fn(array $problem): string => $problem['code'], $problems);
+}
+
+$good = ['header' => importHeader(), 'entries' => [['subject' => 'A', 'message' => 'B', 'fields' => ['category' => 1, 'summary' => '']]]];
+
+check(ImportFileCheck::problems($good, importTarget()) === [], 'a valid file has no structural problems');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format' => 'x'])] + $good, importTarget())) === ['format'], 'a wrong format is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 0])] + $good, importTarget())) === ['version'], 'a format version of 0 is refused');
+
+$foreign = ImportFileCheck::problems(['header' => importHeader(['showcase' => ['route_identifier' => 'gallery']])] + $good, importTarget());
+check(problemCodes($foreign) === ['showcase'] && $foreign[0]['args'] === ['gallery', 'blog'], 'a file of another showcase is refused with both names');
+
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['collection' => ['name' => 'Gallery']])] + $good, importTarget())) === ['collection'], 'a file of another collection is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => ['a' => []]], importTarget())) === ['entries_not_list'], 'entries that are not a list are refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['entry_count' => 0])] + ['entries' => []], importTarget())) === ['empty'], 'a file without entries is refused as empty');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['entry_count' => 3])] + $good, importTarget())) === ['count_mismatch'], 'a wrong entry_count is refused');
+$many = ImportFileCheck::problems(['header' => importHeader(['entry_count' => 3])] + ['entries' => [[], [], []]], importTarget(['maximum_entries' => 2]));
+check(in_array('too_many', problemCodes($many), true), 'more entries than the maximum is refused');
+
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => ['not an entry']], importTarget())) === ['entry_shape'], 'an entry that is not an array is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => 'x']]], importTarget())) === ['entry_shape'], 'fields that are not an array are refused');
+
+$unknown = ImportFileCheck::problems(['header' => importHeader(['entry_count' => 2])] + ['entries' => [['fields' => ['legacy' => 'x']], ['fields' => ['legacy' => 'y']]]], importTarget());
+check(problemCodes($unknown) === ['unknown_field'] && $unknown[0]['args'][0] === 'legacy' && $unknown[0]['args'][1] === '1, 2' && $unknown[0]['args'][2] === 2, 'an unknown key is refused with its positions');
+
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['picture' => 'a.png']]]], importTarget())) === ['file_field'], 'a file field key is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['fields' => ['summary' => 'x']]]], importTarget(['fillable_keys' => ['category']]))) === ['not_fillable'], 'a key the user cannot fill is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => [['subject' => 'S']]], importTarget(['subject_enabled' => false]))) === ['not_enabled'], 'a subject the showcase does not use is refused');
+
+$many_positions = [];
+for ($i = 0; $i < 9; $i++) {
+    $many_positions[] = ['fields' => ['legacy' => 'x']];
+}
+$listed = ImportFileCheck::problems(['header' => importHeader(['entry_count' => 9])] + ['entries' => $many_positions], importTarget());
+check($listed[0]['args'][1] === '1, 2, 3, 4, 5' && $listed[0]['args'][2] === 9, 'a key lists its first five positions and counts all');
+
+// --- Report -------------------------------------------------------------------------------------------------------------
+
+$report = ImportReport::refused('entries.xml', 'Blog', [['code' => 'format', 'args' => []]]);
+check($report->failed() && $report->imported === 0 && $report->entries_in_file === 0, 'a refused file is a failed report with nothing imported');
+$array = (new ImportReport(ImportReport::COMPLETED, 'a.xml', 'Blog', 2, 2, [], [], [], 2))->toArray();
+check($array['status'] === 'completed' && $array['imported'] === 2 && $array['passed_entries'] === 2 && $array['entry_failures'] === [], 'a completed report keeps its counts');
+
+// --- Upload -------------------------------------------------------------------------------------------------------------
+
+$directory = sys_get_temp_dir() . '/msc-import-tests-' . bin2hex(random_bytes(4));
+mkdir($directory);
+
+function tempFile(string $directory, string $name, string $content): string
+{
+    $path = $directory . '/' . bin2hex(random_bytes(4)) . '-' . $name;
+    file_put_contents($path, $content);
+
+    return $path;
+}
+
+function uploadOf(string $path, string $name = 'entries.xml', int $error = UPLOAD_ERR_OK): array
+{
+    return ['name' => $name, 'tmp_name' => $path, 'error' => $error, 'size' => is_file($path) ? filesize($path) : 0];
+}
+
+function uploadReason(callable $call): ?string
+{
+    try {
+        $call();
+    } catch (ImportUploadException $exception) {
+        return $exception->reason;
+    }
+
+    return null;
+}
+
+$trusted = static fn(string $path): bool => true;
+$reader = new ImportUpload(1024, '128M', $trusted);
+
+check(uploadReason(fn() => $reader->read(null)) === ImportUpload::REASON_NO_FILE, 'no upload is refused');
+check(uploadReason(fn() => $reader->read(uploadOf('', 'a.xml', UPLOAD_ERR_NO_FILE))) === ImportUpload::REASON_NO_FILE, 'an upload without a file is refused');
+check(uploadReason(fn() => $reader->read(uploadOf('/nonexistent', 'a.xml', UPLOAD_ERR_INI_SIZE))) === ImportUpload::REASON_TOO_LARGE, 'an upload over the PHP limit is refused as too large');
+check(uploadReason(fn() => $reader->read(uploadOf('/nonexistent', 'a.xml', UPLOAD_ERR_PARTIAL))) === ImportUpload::REASON_UPLOAD, 'a partial upload is refused');
+
+$xml_path = tempFile($directory, 'a.xml', '<?xml version="1.0"?><array></array>');
+check(uploadReason(fn() => $reader->read(uploadOf($xml_path, 'a.txt'))) === ImportUpload::REASON_EXTENSION, 'a file that is not .xml is refused');
+check(uploadReason(fn() => (new ImportUpload(1024, '128M', static fn(string $path): bool => false))->read(uploadOf($xml_path))) === ImportUpload::REASON_UPLOAD, 'a file that was not uploaded by PHP is refused');
+check($reader->read(uploadOf($xml_path)) === '<?xml version="1.0"?><array></array>', 'a valid XML upload is read');
+
+$bom_path = tempFile($directory, 'bom.xml', "\xEF\xBB\xBF<?xml version=\"1.0\"?><array></array>");
+check(str_starts_with($reader->read(uploadOf($bom_path)), "\xEF\xBB\xBF"), 'an XML upload with a byte order mark is read');
+
+check(uploadReason(fn() => $reader->read(uploadOf(tempFile($directory, 'empty.xml', '')))) === ImportUpload::REASON_EMPTY, 'an empty file is refused');
+check(uploadReason(fn() => $reader->read(uploadOf(tempFile($directory, 'big.xml', '<' . str_repeat('a', 2000)))) ) === ImportUpload::REASON_TOO_LARGE, 'a file above the cap is refused before it is read');
+check(uploadReason(fn() => $reader->read(uploadOf(tempFile($directory, 'text.xml', 'hello world')))) === ImportUpload::REASON_NOT_XML, 'a text file that is not XML is refused');
+check(uploadReason(fn() => $reader->read(uploadOf(tempFile($directory, 'binary.xml', "\x00\x01\x02\x03\xFF\xFE")))) === ImportUpload::REASON_MIME, 'a binary file is refused by its MIME type');
+
+$discard_path = tempFile($directory, 'discard.xml', '<array/>');
+$reader->discard(uploadOf($discard_path));
+check(!is_file($discard_path), 'discard removes the temporary file');
+
+foreach (glob($directory . '/*') ?: [] as $leftover) {
+    @unlink($leftover);
+}
+@rmdir($directory);
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);
