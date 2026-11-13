@@ -293,9 +293,8 @@
             "display_in_main_page": 1,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all",
-            "minimum_size": 0,
-            "maximum_size": 100,
-            "maximum_length": 10
+            "minimum_length": 0,
+            "maximum_length": 100
         },
         {
             "field_key": "fk_number_req",
@@ -312,8 +311,7 @@
             "display_in_main_page": 1,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all",
-            "minimum_size": 1,
-            "maximum_size": 10,
+            "minimum_length": 1,
             "maximum_length": 10
         },
         {
@@ -331,10 +329,9 @@
             "display_in_main_page": 1,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all",
-            "minimum_size": 0,
-            "maximum_size": 50,
-            "step_size": 5,
-            "maximum_length": 10
+            "minimum_length": 0,
+            "maximum_length": 50,
+            "step_size": 5
         },
         {
             "field_key": "fk_rating",

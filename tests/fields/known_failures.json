@@ -25,40 +25,10 @@
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
   },
-  "fk_number_req|b": {
-   "reason": "the min attribute is not written: minimum_size is not used for number fields",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:456",
-   "classification": "repair in Part 2"
-  },
-  "fk_number_req|c": {
-   "reason": "a maximum of 11 is accepted; the value 0 is reported as a missing required field because empty() treats \"0\" as empty",
-   "cause": "src/Service/EntriesManager.php:1119 (empty()); src/Service/EntriesManager.php:1139-1146 (no bounds)",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (100)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:457",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|c": {
-   "reason": "minimum and maximum are not enforced for numbers; 99999999999999999999 is stored clipped as 9223372036854775807 on SQLite",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_range|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
-   "classification": "repair in Part 2"
-  },
-  "fk_range|c": {
-   "reason": "a value above the maximum is accepted; a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_rating|b": {
    "reason": "the create form has no control for the rating type: the container is empty",
@@ -112,40 +82,10 @@
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
   },
-  "fk_number_req|b": {
-   "reason": "the min attribute is not written: minimum_size is not used for number fields",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:456",
-   "classification": "repair in Part 2"
-  },
-  "fk_number_req|c": {
-   "reason": "a maximum of 11 is accepted; the value 0 is reported as a missing required field because empty() treats \"0\" as empty",
-   "cause": "src/Service/EntriesManager.php:1119 (empty()); src/Service/EntriesManager.php:1139-1146 (no bounds)",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (100)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:457",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|c": {
-   "reason": "minimum and maximum are not enforced for numbers; 99999999999999999999 is stored clipped as 9223372036854775807 on SQLite",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_range|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
-   "classification": "repair in Part 2"
-  },
-  "fk_range|c": {
-   "reason": "a value above the maximum is accepted; a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_rating|b": {
    "reason": "the create form has no control for the rating type: the container is empty",
@@ -199,40 +139,10 @@
    "cause": "src/Service/EntriesManager.php:1149-1166",
    "classification": "repair in Part 2"
   },
-  "fk_number_req|b": {
-   "reason": "the min attribute is not written: minimum_size is not used for number fields",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:456",
-   "classification": "repair in Part 2"
-  },
-  "fk_number_req|c": {
-   "reason": "a maximum of 11 is accepted; the value 0 is reported as a missing required field because empty() treats \"0\" as empty",
-   "cause": "src/Service/EntriesManager.php:1119 (empty()); src/Service/EntriesManager.php:1139-1146 (no bounds)",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (100)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:457",
-   "classification": "repair in Part 2"
-  },
-  "fk_number|c": {
-   "reason": "minimum and maximum are not enforced for numbers; 99999999999999999999 is stored clipped as 9223372036854775807 on SQLite",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_poll|b": {
    "reason": "the create form has no control for the poll type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_range|b": {
-   "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
-   "classification": "repair in Part 2"
-  },
-  "fk_range|c": {
-   "reason": "a value above the maximum is accepted; a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146; Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_rating|b": {
    "reason": "the create form has no control for the rating type: the container is empty",

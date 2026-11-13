@@ -1202,6 +1202,27 @@ class EntriesManager
                 continue;
             }
 
+            // A number or range value is a whole number within the signed 32-bit range of its column, at least the
+            // minimum (minimum_length, 0 when none is set) and at most the maximum (maximum_length, when it is set).
+            if (in_array($field->html_type, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true)) {
+                $number = is_scalar($field_value) && preg_match('/^-?\d+$/', (string)$field_value) === 1
+                    ? filter_var((string)$field_value, FILTER_VALIDATE_INT)
+                    : false;
+
+                if ($number === false || $number < -2147483648 || $number > 2147483647) {
+                    $this->validateSetError(
+                        'integer_range',
+                        [$field_label, '-2147483648', '2147483647']
+                    );
+                } elseif ($number < (int)$field->minimum_length) {
+                    $this->validateSetError('number_minimum', [$field_label, (string)(int)$field->minimum_length]);
+                } elseif ($field->maximum_length && $number > (int)$field->maximum_length) {
+                    $this->validateSetError('number_maximum', [$field_label, (string)(int)$field->maximum_length]);
+                }
+
+                continue;
+            }
+
             if (fieldTypeMatchInt($field->field_type)) {
                 if (is_array($this->validation_entry->extra_data[$field_key])) {
                     foreach ($this->validation_entry->extra_data[$field_key] as $fieldValue) {
