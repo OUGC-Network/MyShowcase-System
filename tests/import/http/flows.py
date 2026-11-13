@@ -379,6 +379,12 @@ def section_validator():
     entry['fields']['summary'] = '<script>alert(1)</script>'
     report = report_of(import_file(member, write_file('validator-script.xml', xml_file([entry])))['body'])
     ok(report is not None and report['status'] == 'completed', 'a script in a summary is imported as text')
+    # The example file of the documentation imports as it is written there.
+    doc = open(os.path.join(HERE, '..', '..', '..', 'Documentation', 'import.md'), encoding='utf-8').read()
+    example = re.search(r'```xml\n(.*?)```', doc, re.S).group(1)
+    report = report_of(import_file(member, write_file('doc-example.xml', example))['body'])
+    ok(report is not None and report['status'] == 'completed', 'the example file of the documentation imports')
+
     public_id = one(f"select public_id from {data_table()} where subject='Import entry 10 & more <b>x</b>' order by entry_id desc limit 1")
     view = member.get(f'{SHOWCASE}/view/{public_id}')['body']
     ok('<script>alert(1)</script>' not in view, 'the stored script is not rendered as markup on the entry page')
