@@ -60,6 +60,8 @@ imports/
   format of their type (`YYYY-MM-DD`, `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM`, `YYYY-Www`, `HH:MM[:SS]`). An empty or absent
   bound is no bound. A range field needs both bounds, and the minimum may not be above the maximum. Another type with a
   bound is an error.
+* A file that omits a bound keeps the bound stored for the field; a bound set to an empty string clears it. The
+  exporter writes a bound only when it is set, so the file of a field without bounds has no bound properties.
 
 Which property a field uses:
 

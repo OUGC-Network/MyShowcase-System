@@ -10,8 +10,8 @@ under `Upload/inc/plugins/myshowcase/`.
 | HTML type | Field class | Create form | Matrix |
 |---|---|---|---|
 | text, search, email, url, tel, password, textarea | TextField, SearchField, EmailField, UrlField, TelephoneField, PasswordField, TextAreaField | yes (`view/templates/pageEntryCreateUpdateField.twig`) | verified |
-| number, range | NumberField, RangeField | yes; the `max` attribute is built from `maximum_length` (`:457` number, `:507` range) and `min` is not written for numbers (`:456`) | verified (the attributes are wrong) |
-| date, datetime-local, time, month, week | DateField, DateTimeLocalField, TimeField, MonthField, WeekField | yes | verified |
+| number, range | NumberField, RangeField | yes; `min` and `max` are the value properties, written only when set (`pageEntryCreateUpdateField.twig`, number and range blocks) | verified (bounds, including the unbounded number) |
+| date, datetime-local, time, month, week | DateField, DateTimeLocalField, TimeField, MonthField, WeekField | yes; `min` and `max` are the value properties, written only when set | verified (bounds; blank optional date-type values are refused by MySQL and PostgreSQL, see known failures) |
 | color | ColorField | yes | verified |
 | checkbox, radio, select | CheckBoxField, RadioField, SelectField | yes; options are posted by `field_data_id` | verified |
 | select2_users, select2_entries, select2_threads | SelectUsersField, SelectEntriesField, SelectThreadsField | yes (plain text input) | verified (validation only) |
@@ -37,8 +37,9 @@ listed in `fieldTypesGet()`; the JSON validator (`JsonValidator.php`) checks the
 | regular_expression | validator (`EntriesManager.php:1113-1115`), ACP validity (`FieldService.php`) | verified; a blank optional value is refused (defect) |
 | input_pattern | create form `pattern` attribute | verified |
 | display_in_create_update_page, display_in_view_page, display_in_main_page | `FieldTrait.php:74,87,100,379` | read; the default is verified, a hidden field is not |
-| minimum_length, maximum_length | validator length checks (`EntriesManager.php:1152-1166`), column size (`Plugin/Functions.php:600-651`), form `minlength`/`maxlength`, form `min`/`max` on the date types | verified (length); number and range `min`/`max` are wrong |
-| minimum_size, maximum_size | file size (`AttachmentsManager.php:254-269`), importer (`EntriesImporter.php:426`) | read for files only; NOT read for numbers or ranges: dead for numeric fields |
+| minimum_length, maximum_length | validator length checks for the text-like types only (`EntriesManager.php`, `TEXT_LIKE_HTML_TYPES`), column size (`Plugin/Functions.php:600-651`), form `minlength`/`maxlength` for the text-like inputs | verified (length); no length rule and no `minlength`/`maxlength` for number, range, date, time, month, week or color |
+| minimum_size, maximum_size | file size (`AttachmentsManager.php:254-269`), importer (`EntriesImporter.php:426`) | read for file fields only; no other type reads them (the number and range reads of Part 2a are gone) |
+| minimum_value, maximum_value | validator bounds of number, range, date, datetime-local, month, week and time (`EntriesManager.php`, `FieldBoundUtil`), form `min`/`max` (`pageEntryCreateUpdateField.twig`), field validation and ACP save (`FieldService::validate`, `Plugin/Functions.php` `fieldsInsert`), JSON sync validator (`JsonValidator.php`), exporter and drift status (through `JsonSchema::fieldColumns()`) | verified (matrix, ACP test, JSON sync) |
 | step_size | range `step` attribute | verified |
 | input_size | `size` attribute (`:92`, `:475`, `:525`, `:543`) | read, not exercised |
 | allowed_groups_fill, allowed_groups_view | `FieldTrait`, `EntriesManager` (`is_member`) | verified (hidden from the other group, shown to its members) |
@@ -64,5 +65,29 @@ listed in `fieldTypesGet()`; the JSON validator (`JsonValidator.php`) checks the
 ## Properties stored but read nowhere (or only dead code)
 
 * `parser_affects_message_length` at field level (the showcase has the property).
-* `minimum_size` and `maximum_size` for number and range fields.
 * The form's `default_type` values IsNull, CurrentTimestamp and UUID (commented out in `EntriesController.php:1017-1022`).
+
+## Property mapping (decision D124)
+
+Which property each input type reads, for every validator read and form attribute. Checked by the matrix (stage b for
+the attributes, stage c for the bounds and lengths) and the ACP test.
+
+| Property | Input types | Attribute or check |
+|---|---|---|
+| `minimum_size`, `maximum_size` | file | upload size in kilobytes (`AttachmentsManager.php`) |
+| `minimum_length`, `maximum_length` | text, textarea, search, password, email, url, tel | `minlength`, `maxlength`; length check |
+| `minimum_value`, `maximum_value` | number, range (integers); date, datetime-local, month, week, time (their own formats) | `min`, `max`; bound check and order |
+| `input_size` | text based inputs | `size` |
+| `step_size` | number, range, date, datetime-local, month, time, week | `step` (the server does not check the step) |
+
+## Dead properties after this part
+
+* `parser_affects_message_length` at field level (the showcase has its own).
+* The form's `default_type` values IsNull, CurrentTimestamp and UUID (commented out in `EntriesController.php`).
+* `minimum_size` and `maximum_size` for any type other than file: they are not read there, and the form writes no
+  `min` or `max` from them.
+* `minimum_length` and `maximum_length` for the types that have no text input (number, range, date, datetime-local,
+  time, month, week, color): they are stored and not read there.
+* The shipped blog stores `maximum_length` 5 and 3 on `reading_time` and `series_part`, a digit count no input type
+  uses; the shipped files are unchanged in this part (F2).
+

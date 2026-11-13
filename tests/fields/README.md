@@ -7,13 +7,25 @@ only while the failing cells are exactly that list.
 
 ## What is in this folder
 
-* `collections/fieldkit.json` is the FieldKit collection: one field for every HTML type the plugin offers, with the
+* `collections/fieldkit.json` is the FieldKit collection: 41 fields, one for every HTML type the plugin offers, with the
   variants of the matrix (required and optional, defaults as defined and generated, minimum and maximum lengths, a
-  validation pattern, numeric bounds, read-only, a fill and view restriction, parser settings on and off, select, radio and
-  checkbox options).
+  validation pattern, the bounds of number, range, date, datetime-local, time, month and week, read-only, a fill and view
+  restriction, parser settings on and off, select, radio and checkbox options). The bounds are the value properties
+  `minimum_value` and `maximum_value`. The fields `fk_number_free` (no bounds: a negative value is accepted),
+  `fk_date_bounded`, `fk_datetime_bounded`, `fk_time_bounded`, `fk_month_bounded` and `fk_week_bounded` have bounds and
+  their cases are in `http/run.py`. The blank optional cases of the date, datetime-local and time fields are known
+  failures on the engines that refuse an empty date value (see `known_failures.json`).
 * `showcases/fieldkit.json` is the showcase created from it (route `fieldkit`; the name and route are supplied at creation).
 * `http/run.py` installs the board, creates the showcase through the ACP's JSON sync, creates and edits entries through the
   forum form, and writes one cell per field and stage into `matrix-<engine>.json` in the scratch directory.
+* `http/upgrade_test.py` (stage `u`, one run per engine) installs a board with the BASE commit's plugin, stores a
+  collection and two fields, then activates the working tree's plugin through the ACP and checks that the columns
+  `minimum_value` and `maximum_value` exist with the empty default, the stored rows are unchanged, and a second activation
+  changes nothing. The base commit is `--base` (default `16e928c`, the commit this part starts from).
+* `http/acp_bounds_test.py` (stage `a`, the bounds through the ACP) saves number, range, date, time and week fields
+  through the field screens with a valid pair, a non-integer bound, a minimum above the maximum, a range without a
+  maximum, an invalid calendar date, a week the year does not have, and a text field with bounds (saved empty); then it
+  edits a field and checks the edit screen. Run it like `run.py`, without `--matrix-out`.
 * `http/fixture.php` is the board-side test data: the test users, a group that may fill and view the restricted field,
   the permission rows of the showcase, the PNG attachment type and the uploads folder. It is run from the board root and is
   not part of the plugin.
@@ -43,7 +55,8 @@ The run prints the counts per result, the distinct PHP messages of the run's err
 Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not applicable: for example no entry was stored) or
 `notrun` (the stage is not automated yet; the reason is written with the cell).
 
-* `a` definition: the ACP edit form of the stored definition. Not automated yet (`notrun`).
+* `a` definition: the ACP edit form of the stored definition. The matrix does not automate it (`notrun`); the bounds
+  are covered by `http/acp_bounds_test.py`.
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
   pre-filled default (as defined or generated), and the visibility for a user outside the restricted group.
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
