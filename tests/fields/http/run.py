@@ -180,7 +180,9 @@ RESTRICTED_OPTION = {}
 BASE = {'fk_text_req': 'Base', 'fk_number_req': '5', 'fk_text_pattern': 'abc', 'fk_text_min1': 'Series', 'fk_text_opt': 'Opt',
         'fk_date': '2026-11-13', 'fk_datetime': '2026-11-13T10:00', 'fk_time': '10:30', 'fk_month': '2026-11',
         'fk_week': '2026-W46', 'fk_color': '#ff0000', 'fk_email': 'a@example.com', 'fk_url': 'https://example.com/b',
-        'fk_number': '7', 'fk_range': '10', 'fk_rating': '4', 'fk_poll': '4', 'fk_tel': '+1 555-0100'}
+        'fk_number': '7', 'fk_range': '10', 'fk_rating': '4', 'fk_poll': '4', 'fk_tel': '+1 555-0100',
+        'fk_date_bounded': '2026-06-01', 'fk_datetime_bounded': '2026-06-01T10:00', 'fk_time_bounded': '10:00',
+        'fk_month_bounded': '2026-06', 'fk_week_bounded': '2026-W20'}
 
 def check(cells, key, stage, result, detail=''):
     cells[f'{key}|{stage}'] = {'result': result, 'detail': str(detail)}

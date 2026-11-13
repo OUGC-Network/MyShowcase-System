@@ -51,6 +51,16 @@
    "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
    "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
    "classification": "repair in Part 2"
+  },
+  "fk_date_bounded|c": {
+   "reason": "a blank optional date is posted and refused by the database: the empty string is not a valid date on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_datetime_bounded|c": {
+   "reason": "a blank optional datetime-local is posted and refused by the database: the empty string is not a valid datetime-local on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
   }
  },
  "pgsql": {
@@ -73,6 +83,21 @@
    "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
    "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
    "classification": "repair in Part 2"
+  },
+  "fk_date_bounded|c": {
+   "reason": "a blank optional date is posted and refused by the database: the empty string is not a valid date on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_datetime_bounded|c": {
+   "reason": "a blank optional datetime-local is posted and refused by the database: the empty string is not a valid datetime-local on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
+  },
+  "fk_time_bounded|c": {
+   "reason": "a blank optional time is posted and refused by the database: the empty string is not a valid time on this engine, so the entry is not stored (the other cases of the field pass)",
+   "cause": "Plugin/Functions.php:sanitizeTableFieldValue (a posted blank date-type value is escaped as the empty string and inserted; newRowDefault covers only values that are not posted)",
+   "classification": "needs decision (a blank optional date-type value is stored as NULL or as the column default; the choice changes storage)"
   }
  }
 }
