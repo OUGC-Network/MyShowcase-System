@@ -789,7 +789,7 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         plans = [
             ('fk_text_req', {'maximum_length': 3}, 'D1 varchar(20) to varchar(3) with stored values of 4 characters (a loss)', True),
             ('fk_text_pattern', {'field_type': 'int', 'html_type': 'number'}, 'D2 text to number on stored text (a loss)', True),
-            ('fk_number', {'field_type': 'varchar', 'html_type': 'text', 'maximum_length': 10}, 'D3 number to text (no loss)', False),
+            ('fk_number', {'field_type': 'varchar', 'html_type': 'text', 'maximum_length': 10, 'minimum_value': '', 'maximum_value': ''}, 'D3 number to text (no loss; the bounds of a number are not kept for a text)', False),
         ]
         original_types = columns_now()
 

@@ -55,6 +55,21 @@ imports/
 * `allowed_groups_fill` and `allowed_groups_view` can only be `"all"` (stored as `-1`).
 * Property names are the column names of the table; an unknown property is an error. Never allowed: `field_id`,
   `collection_id` and the `json_*` columns.
+* The bounds are `minimum_value` and `maximum_value`, texts of up to 32 characters, and only for the types number,
+  range, date, datetime-local, month, week and time. A number or range bound is a whole number; the others take the
+  format of their type (`YYYY-MM-DD`, `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM`, `YYYY-Www`, `HH:MM[:SS]`). An empty or absent
+  bound is no bound. A range field needs both bounds, and the minimum may not be above the maximum. Another type with a
+  bound is an error.
+
+Which property a field uses:
+
+| Property | Input types | Read by |
+|----------|-------------|---------|
+| `minimum_size`, `maximum_size` | file (the limit in kilobytes, as written in the file) | attachments validation |
+| `minimum_length`, `maximum_length` | text, textarea, search, password, email, url, tel (the `minlength` and `maxlength` of the input); the maximum is also the size of a char column | entries validation and form |
+| `minimum_value`, `maximum_value` | number, range, date, datetime-local, month, week, time (the `min` and `max` of the input) | entries validation and form, field validation, ACP |
+| `input_size` | text based inputs (the `size` of the input) | form |
+| `step_size` | number, range, date, datetime-local, month, time, week (the `step` of the input; the server does not check it) | form |
 
 ## Showcase files
 

@@ -59,16 +59,6 @@ final class FieldService
         return array_merge(array_keys(DATA_TABLE_STRUCTURE['myshowcase_data']), ['keys', 'full_keys', 'unique_keys']);
     }
 
-    /** Whether the minimum is above the maximum: integers for number and range, the comparable form for the others. */
-    private function boundOrderInverted(string $htmlType, string $minimumValue, string $maximumValue): bool
-    {
-        if (in_array($htmlType, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true)) {
-            return (int)$minimumValue > (int)$maximumValue;
-        }
-
-        return FieldBoundUtil::comparableKey($htmlType, $minimumValue) > FieldBoundUtil::comparableKey($htmlType, $maximumValue);
-    }
-
     /**
      * @param array $data The field columns being saved. field_key must already be normalized; columns that are not
      *                    present are not checked.
@@ -149,7 +139,7 @@ final class FieldService
             } elseif ($minimumValue !== '' && $maximumValue !== '' &&
                 FieldBoundUtil::formatIsValid($htmlType, $minimumValue) &&
                 FieldBoundUtil::formatIsValid($htmlType, $maximumValue) &&
-                $this->boundOrderInverted($htmlType, $minimumValue, $maximumValue)) {
+                FieldBoundUtil::isInverted($htmlType, $minimumValue, $maximumValue)) {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_bounds_order',
                     'message' => 'The minimum value is above the maximum value.'

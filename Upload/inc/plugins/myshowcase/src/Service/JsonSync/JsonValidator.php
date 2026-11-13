@@ -16,7 +16,9 @@ namespace MyShowcase\Service\JsonSync;
 use function MyShowcase\Plugin\Functions\fieldHtmlTypes;
 use function MyShowcase\Plugin\Functions\fieldTypesGet;
 
+use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Service\FieldService;
+use MyShowcase\Util\FieldBoundUtil;
 
 /** Checks a decoded file and returns every problem, each with its JSON path. */
 final class JsonValidator
@@ -179,6 +181,36 @@ final class JsonValidator
 
             foreach (self::value($entry[$name], $definition, "{$path}.{$name}") as $error) {
                 $errors[] = $error;
+            }
+        }
+
+        // The bounds are for the types that have them (decision D124), with the same checks as the ACP form.
+        // An empty bound is no bound, so it is allowed for any type.
+        $boundNames = array_values(array_filter(
+            ['minimum_value', 'maximum_value'],
+            static fn(string $name): bool => isset($entry[$name]) && $entry[$name] !== ''
+        ));
+        $htmlType = is_string($entry['html_type'] ?? null) ? $entry['html_type'] : '';
+
+        if ($boundNames !== [] && !FieldBoundUtil::isBoundedType($htmlType)) {
+            foreach ($boundNames as $name) {
+                $errors[] = self::error("{$path}.{$name}", 'is only for the number, range, date, datetime-local, month, week and time types');
+            }
+        } elseif ($boundNames !== []) {
+            $minimum = (string)($entry['minimum_value'] ?? '');
+            $maximum = (string)($entry['maximum_value'] ?? '');
+
+            foreach (['minimum_value' => $minimum, 'maximum_value' => $maximum] as $name => $value) {
+                if ($value !== '' && !FieldBoundUtil::formatIsValid($htmlType, $value)) {
+                    $errors[] = self::error("{$path}.{$name}", 'does not have the format of the field type');
+                }
+            }
+
+            if ($htmlType === FieldHtmlTypes::Range && ($minimum === '' || $maximum === '')) {
+                $errors[] = self::error($path, 'a range field needs both minimum_value and maximum_value');
+            } elseif ($minimum !== '' && $maximum !== '' && FieldBoundUtil::formatIsValid($htmlType, $minimum) &&
+                FieldBoundUtil::formatIsValid($htmlType, $maximum) && FieldBoundUtil::isInverted($htmlType, $minimum, $maximum)) {
+                $errors[] = self::error("{$path}.minimum_value", 'is above maximum_value');
             }
         }
 

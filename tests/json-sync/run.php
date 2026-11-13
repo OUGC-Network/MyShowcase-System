@@ -342,6 +342,24 @@ check($blogOpen, 'blog: every field is allowed for all groups to fill and view')
 check(preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'javascript:alert(1)') !== 1 && preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'https://example.com/a.png') === 1, 'blog: the cover image accepts an http(s) address and refuses a javascript address');
 check(preg_match($blogFields['reading_time']['regular_expression'] ?? '', '0') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '1000') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '999') === 1, 'blog: reading time is 1 to 999');
 
+// The bounds of a field (decision D124): the types that have them, their formats, a range with both, the order.
+$oneField = static function (array $props) use ($collection): array {
+    $document = $collection();
+    $document['fields'] = [array_merge(['field_key' => 'bound_test', 'label' => 'Bound', 'html_type' => 'number', 'field_type' => 'int'], $props)];
+
+    return $document;
+};
+check(JsonValidator::validate($oneField(['minimum_value' => '1', 'maximum_value' => '10'])) === [], 'a number with whole number bounds is valid');
+check(JsonValidator::validate($oneField(['minimum_value' => '-5'])) === [], 'a number with a negative minimum is valid');
+check(paths(JsonValidator::validate($oneField(['minimum_value' => '1.5']))) === ['$.fields[0].minimum_value'], 'a number bound that is not a whole number is refused');
+check(paths(JsonValidator::validate($oneField(['minimum_value' => '5', 'maximum_value' => '3']))) === ['$.fields[0].minimum_value'], 'a minimum above the maximum is refused');
+check(paths(JsonValidator::validate($oneField(['html_type' => 'range', 'minimum_value' => '0']))) === ['$.fields[0]'], 'a range without a maximum is refused');
+check(paths(JsonValidator::validate($oneField(['html_type' => 'text', 'field_type' => 'varchar', 'minimum_value' => 'x']))) === ['$.fields[0].minimum_value'], 'a bound on a text field is refused');
+check(JsonValidator::validate($oneField(['html_type' => 'date', 'field_type' => 'date', 'minimum_value' => '2026-01-01', 'maximum_value' => '2026-12-31'])) === [], 'a date with valid bounds is valid');
+check(paths(JsonValidator::validate($oneField(['html_type' => 'date', 'field_type' => 'date', 'maximum_value' => '2026-02-30']))) === ['$.fields[0].maximum_value'], 'a date bound that is not a calendar date is refused');
+check(paths(JsonValidator::validate($oneField(['html_type' => 'week', 'field_type' => 'varchar', 'maximum_value' => '2026-W54']))) === ['$.fields[0].maximum_value'], 'a week bound that the year does not have is refused');
+check(JsonValidator::validate($oneField(['html_type' => 'time', 'field_type' => 'time', 'minimum_value' => '09:00', 'maximum_value' => '18:00:00'])) === [], 'a time with HH:MM and HH:MM:SS bounds is valid');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

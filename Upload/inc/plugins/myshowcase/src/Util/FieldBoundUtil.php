@@ -64,6 +64,16 @@ final class FieldBoundUtil
         };
     }
 
+    /** Whether the minimum is above the maximum: integers for number and range, the comparable form for the others. */
+    public static function isInverted(string $html_type, string $minimum, string $maximum): bool
+    {
+        if (in_array($html_type, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true)) {
+            return (int)$minimum > (int)$maximum;
+        }
+
+        return self::comparableKey($html_type, $minimum) > self::comparableKey($html_type, $maximum);
+    }
+
     private static function isCalendarDate(string $value): bool
     {
         if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) !== 1) {
