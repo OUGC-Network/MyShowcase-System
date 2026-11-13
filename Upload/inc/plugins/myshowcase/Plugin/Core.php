@@ -1908,6 +1908,18 @@ const TABLES_DATA = [
             'default' => 0,
             'input_type' => FormTypes::Number,
         ],
+        'minimum_value' => [
+            'type' => 'VARCHAR',
+            'size' => 32,
+            'default' => '',
+            'input_type' => FormTypes::Text,
+        ],
+        'maximum_value' => [
+            'type' => 'VARCHAR',
+            'size' => 32,
+            'default' => '',
+            'input_type' => FormTypes::Text,
+        ],
         'step_size' => [
             'type' => 'TINYINT',
             'unsigned' => true,

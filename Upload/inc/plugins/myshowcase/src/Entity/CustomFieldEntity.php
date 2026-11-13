@@ -35,6 +35,8 @@ final  class CustomFieldEntity
         public int $maximum_length = 0,
         public int $minimum_size = 0,
         public int $maximum_size = 0,
+        public string $minimum_value = '',
+        public string $maximum_value = '',
         public int $step_size = 0,
         public int $input_size = 0,
         public string $allowed_groups_fill = '',
