@@ -1,6 +1,6 @@
 {
     "type": "collection",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "name": "Blog",
     "fields": [
         {
@@ -14,6 +14,8 @@
             "display_order": 1,
             "render_order": 1,
             "enable_search": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all",
             "options": [
                 {"value_id": 1, "value": "News", "display_order": 1},
                 {"value_id": 2, "value": "Tutorials", "display_order": 2},
@@ -29,7 +31,9 @@
             "field_type": "text",
             "is_enabled": 1,
             "display_order": 2,
-            "render_order": 2
+            "render_order": 2,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
         },
         {
             "field_key": "tags",
@@ -40,7 +44,10 @@
             "maximum_length": 120,
             "is_enabled": 1,
             "display_order": 3,
-            "enable_search": 1
+            "render_order": 3,
+            "enable_search": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
         },
         {
             "field_key": "cover_image",
@@ -50,7 +57,10 @@
             "field_type": "varchar",
             "maximum_length": 255,
             "is_enabled": 1,
-            "display_order": 4
+            "display_order": 4,
+            "render_order": 4,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
         },
         {
             "field_key": "reading_time",
@@ -60,7 +70,10 @@
             "field_type": "int",
             "maximum_length": 5,
             "is_enabled": 1,
-            "display_order": 5
+            "display_order": 5,
+            "render_order": 5,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
         }
     ]
 }
