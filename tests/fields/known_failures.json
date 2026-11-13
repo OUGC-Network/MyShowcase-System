@@ -60,11 +60,6 @@
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
   },
-  "fk_radio|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_range|b": {
    "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
    "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
@@ -79,11 +74,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_select|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_text_uuid|b": {
    "reason": "the UUID default is not generated for the form: the assignment is commented out",
@@ -177,11 +167,6 @@
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
   },
-  "fk_radio|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_range|b": {
    "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
    "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
@@ -196,11 +181,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_select|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_text_req|c": {
    "reason": "on MySQL the emoji (4-byte UTF-8) is refused without a message: the connection charset is 3-byte utf8 (to confirm)",
@@ -294,11 +274,6 @@
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
    "classification": "needs decision (poll is not a form control)"
   },
-  "fk_radio|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
-  },
   "fk_range|b": {
    "reason": "the max attribute is written from maximum_length (10) instead of maximum_size (50)",
    "cause": "view/templates/pageEntryCreateUpdateField.twig:507",
@@ -313,11 +288,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_select|c": {
-   "reason": "an option id that does not belong to the field is accepted (decision D50); a blank optional value is stored as 0",
-   "cause": "src/Service/EntriesManager.php:1139-1146 (is_numeric only); Plugin/Functions.php:863",
-   "classification": "repair in Part 2"
   },
   "fk_text_uuid|b": {
    "reason": "the UUID default is not generated for the form: the assignment is commented out",

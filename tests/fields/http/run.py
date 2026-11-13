@@ -131,7 +131,8 @@ def cases():
         'fk_color': [('valid', '#ff0000', 'accept', None), ('name instead of hex', 'red', 'refuse', None)],
         'fk_select': [('valid option', o['fk_select'][0], 'accept', None), ('option id that does not exist', '999', 'refuse', None),
                       ('option of another field', o['fk_radio'][0], 'refuse', None), ('not a number', 'abc', 'refuse', None),
-                      ('blank optional', '', 'accept', '')],
+                      ('blank optional', '', 'accept', ''),
+                      ('restricted option, outside its group', str(RESTRICTED_OPTION.get('fk_select', 0)), 'refuse', None)],
         'fk_select_req': [('blank required', '', 'refuse', None), ('valid option', o['fk_select_req'][1], 'accept', None)],
         'fk_radio': [('valid option', o['fk_radio'][0], 'accept', None), ('option id that does not exist', '999', 'refuse', None),
                      ('blank optional', '', 'accept', '')],
@@ -148,6 +149,9 @@ def cases():
 
 # the option ids of each select, radio and checkbox field, in the order of the form (set in main)
 option_ids = {}
+
+# the id of the restricted option added to the select for the run (set in main): a group outside it must be refused
+RESTRICTED_OPTION = {}
 
 # the values of a valid entry: every required field is filled, every other field is valid or blank
 BASE = {'fk_text_req': 'Base', 'fk_number_req': '5', 'fk_text_pattern': 'abc', 'fk_text_min1': 'Series', 'fk_text_opt': 'Opt',
@@ -877,6 +881,13 @@ def main():
                     f"where field_key='fk_text_group'")
         fixture('rebuild')
 
+        # test data: one option of the select that only the restricted group may fill (not in the JSON file)
+        ctx.execute(f"insert into mybb_myshowcase_field_data (collection_id, field_id, field_key, value_id, value, "
+                    f"allowed_groups_fill) select collection_id, field_id, field_key, 'restricted', 'Restricted option', "
+                    f"'{restricted}' from mybb_myshowcase_fields where field_key='fk_select'")
+        RESTRICTED_OPTION['fk_select'] = int(query("select field_data_id from mybb_myshowcase_field_data "
+                                                   "where value='Restricted option'")[0][0])
+
         # the field ids and the option ids the form posts, read from the form itself
         for row in query("select field_key, field_id from mybb_myshowcase_fields"):
             FIELD_IDS[row[0]] = int(row[1])
@@ -902,6 +913,7 @@ def main():
         open(os.path.join(a.scratch, 'matrix.png'), 'wb').write(PNG)
         COLUMN_TYPES.update(column_types(DATA))
         run_matrix(member, cells, users, restricted)
+        ctx.execute("delete from mybb_myshowcase_field_data where value='Restricted option'")
         ctx.execute(f"update mybb_myshowcase_config set import_export_flood_seconds=0 where route_identifier='{ROUTE}'")
         fixture('rebuild')
         # the setting is read from inc/settings.php, which the server's opcache revalidates on its own clock: wait for it

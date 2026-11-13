@@ -33,6 +33,7 @@ use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
 use function MyShowcase\Plugin\Functions\hooksRun;
+use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
 
@@ -846,6 +847,27 @@ class EntriesManager
         return $this->context->language->{$language_key} ?? $message;
     }
 
+    /**
+     * Whether a submitted option id belongs to the field and is an option the current user's group may fill.
+     */
+    private function optionUsableForField(int $field_id, mixed $option_value): bool
+    {
+        if (!is_scalar($option_value) || preg_match('/^\d+$/', (string)$option_value) !== 1) {
+            return false;
+        }
+
+        $options = fieldDataGet(
+            ["field_data_id='" . (int)$option_value . "'", "field_id='{$field_id}'"],
+            ['allowed_groups_fill']
+        );
+
+        foreach ($options as $option) {
+            return optionGroupsAllow((string)$option['allowed_groups_fill']);
+        }
+
+        return false;
+    }
+
     /** Files the submitted form removes: they do not count as uploaded while the entry is validated. */
     public function setRemovedAttachments(array $attachment_ids): void
     {
@@ -1142,6 +1164,22 @@ class EntriesManager
                 preg_match($field->regular_expression, '') !== false &&
                 preg_match($field->regular_expression, (string)$field_value) !== 1) {
                 $this->validateSetError('invalid_value1', [$field_label]);
+            }
+
+            // A select, radio or checkbox value is the id of an option of THIS field, and the option must be one the
+            // user's group may fill. An id of another field, an unknown id or a restricted option is refused.
+            if (in_array($field->html_type, [FieldHtmlTypes::Select, FieldHtmlTypes::Radio, FieldHtmlTypes::CheckBox], true)) {
+                $option_values = is_array($field_value) ? $field_value : [$field_value];
+
+                foreach ($option_values as $option_value) {
+                    if (!$this->optionUsableForField((int)$field_id, $option_value)) {
+                        $this->validateSetError('invalid_value', [$field_label]);
+
+                        break;
+                    }
+                }
+
+                continue;
             }
 
             if (fieldTypeMatchInt($field->field_type)) {
