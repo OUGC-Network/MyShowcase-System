@@ -630,6 +630,13 @@ def section_files():
     def attachment_rows():
         return int(one(f"select count(*) from mybb_myshowcase_attachments where showcase_id={gid} and field_id is not null") or 0)
 
+    # F0 (decision D51): the setting is stored with the value no on a board that has not switched it. The checks below that
+    # import file URLs switch it on first through the fixture (the server's opcache revalidates the settings on its own clock).
+    ok(one("select value from mybb_settings where name='myshowcase_import_external_files'") == '0',
+       'a fresh board stores the setting myshowcase_import_external_files with the value no')
+    fixture('external-setting', '1')
+    time.sleep(3)
+
     # F1: entries whose image is a placehold.co URL are imported, and their files are attached through the form's pipeline.
     urls = [f'https://placehold.co/600x450.png?text=Gallery%20Entry%20{i}' for i in (1, 2)]
     before_rows, before_files = gallery_rows(), attachment_rows()
@@ -641,8 +648,8 @@ def section_files():
     ok(report is not None and report['status'] == 'completed', 'a gallery file with two placehold.co images imports')
     ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2,
        f'two gallery entries and two attached images are stored (entries {gallery_rows() - before_rows}, files {attachment_rows() - before_files})')
-    stored = one(f"select group_concat(file_name, '|') from mybb_myshowcase_attachments where showcase_id={gid} and user_id={uid} and field_id is not null order by attachment_id desc limit 2") or ''
-    stored_names = [name for name in stored.split('|') if name]
+    # The two newest files of the uploader, one row each (GROUP_CONCAT's separator syntax differs between the engines).
+    stored_names = [row[0] for row in db(f"select file_name from mybb_myshowcase_attachments where showcase_id={gid} and user_id={uid} and field_id is not null order by attachment_id desc limit 2")]
     bytes_by_url = [fetch_bytes(url) for url in urls]
     stored_hashes = [hashlib.sha256(open(os.path.join(uploads, name), 'rb').read()).hexdigest() for name in stored_names]
     ok(sorted(stored_hashes) == sorted(hashlib.sha256(b).hexdigest() for b in bytes_by_url),
@@ -654,7 +661,6 @@ def section_files():
 
     # F1b (V3): the setting is stored after activation, and with it off a file with URLs is refused as a whole, with nothing
     # stored; with it on again the same file imports.
-    ok(one("select value from mybb_settings where name='myshowcase_import_external_files'") == '1', 'the setting exists after activation, with value yes')
     fixture('external-setting', '0')
     time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
     before_rows, before_files = gallery_rows(), attachment_rows()
@@ -736,6 +742,40 @@ def section_files():
            'a look-alike of the board address goes through the fetcher and is refused as a private address')
     finally:
         listener_look.close()
+
+    # F2a (decisions D57 and D58, V2 and V3). One rule set for the route and the import. With the setting off, the board's own
+    # file URL is refused as a whole too. With it on, member2 (a member who may import and download, not the owner) gets the
+    # same answer from the route and from the import: the file is read while its entry is visible, and both refuse it when the
+    # entry is awaiting approval or soft-deleted. The entry's status is changed in the database for this check and restored.
+    if attach_urls:
+        own_url = attach_urls[0]
+        route_path = own_url.replace(CTX.url, '').replace('/gallery/attachment/', '/showcase.php/gallery/attachment/', 1)
+        # The entry of the file the URL names (found by its public id, not assumed to be the newest one).
+        own_public_id = own_url.split('/gallery/attachment/', 1)[1].split('/', 1)[0]
+        own_entry = one(f"select entry_id from mybb_myshowcase_attachments where showcase_id={gid} and public_id='{own_public_id}'")
+        ok(own_entry != '' and own_entry != '0', 'the URL of the export names a file with an entry of the gallery')
+
+        fixture('external-setting', '0')
+        time.sleep(3)
+        before_rows, before_files = gallery_rows(), attachment_rows()
+        body = import_into(member2, 'gallery', write_file('gallery-own-off.xml', xml_file([gallery_entry(19, own_url)], route='gallery', collection='Gallery', format_version=2)))['body']
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'failed' and 'switched off on this board' in report['text'] and gallery_rows() == before_rows and attachment_rows() == before_files,
+           'with the setting off, the board\'s own file URL is refused as a whole, and nothing is stored')
+        fixture('external-setting', '1')
+        time.sleep(3)
+
+        for status, label, want in ((1, 'visible', True), (0, 'awaiting approval', False), (2, 'soft-deleted', False)):
+            CTX.execute(f"update mybb_myshowcase_data{gid} set status={status} where entry_id={own_entry}")
+            route_status = member2.get(route_path)['status']
+            before_rows, before_files = gallery_rows(), attachment_rows()
+            body = import_into(member2, 'gallery', write_file(f'gallery-parity-{status}.xml', xml_file([gallery_entry(20 + status, own_url)], route='gallery', collection='Gallery', format_version=2)))['body']
+            report = report_of(body)
+            imported = report is not None and report['status'] == 'completed'
+            nothing_stored = gallery_rows() == before_rows and attachment_rows() == before_files
+            ok((route_status == 200) == want and imported == want and (imported or nothing_stored),
+               f'the route and the import agree for an entry that is {label} (route {route_status}, import {"completed" if imported else "refused"})')
+        CTX.execute(f"update mybb_myshowcase_data{gid} set status=1 where entry_id={own_entry}")
 
     # F2c (V8): more than 25 files are refused before any download.
     many = [gallery_entry(300 + i, f'https://placehold.co/600x450.png?text=Many%20{i}') for i in range(26)]
