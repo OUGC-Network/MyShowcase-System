@@ -9,7 +9,7 @@ One row per export file that a user has stored. The table is defined in `Upload/
 |---|---|---|
 | `export_id` | INT, auto-increment primary key | Internal id. The download and delete routes carry it. |
 | `showcase_id` | INT unsigned | The showcase the export was made from. |
-| `collection_id` | INT unsigned | The collection (field set) the export was made from. |
+| `collection_id` | INT unsigned | The collection the export was made from. |
 | `user_id` | INT unsigned | The creator. Only this user can see, download or delete the export. |
 | `created_at` | DATETIME | When the export was made (UTC). Used by the retention task. |
 | `file_name` | VARCHAR(120), unique | The name of the file in the exports folder (see [exports](../exports.md#file-name)). |
