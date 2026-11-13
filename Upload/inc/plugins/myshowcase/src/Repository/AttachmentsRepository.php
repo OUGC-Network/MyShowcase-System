@@ -34,7 +34,8 @@ class AttachmentsRepository
 
     private array $attachment_data = [];
 
-    private readonly bool $is_update;
+    /** Set on every insert or update: a readonly property would refuse the second insert of one repository instance. */
+    private bool $is_update = false;
 
     public function __construct(
         private readonly DB_SQLite|DB_PgSQL|PostgresPdoDbDriver|MysqlPdoDbDriver|DB_MySQLi $database,
