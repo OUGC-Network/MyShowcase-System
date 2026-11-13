@@ -210,7 +210,7 @@ class EntriesExporter
 
         $rules['removed_characters'] = $removed;
 
-        $cap = ImportLimits::sizeCap();
+        $cap = ImportLimits::effectiveCap();
 
         if (strlen($xml) > $cap) {
             $header_only = strlen($xml_file->write(['header' => $data['header'], 'entries' => []]));

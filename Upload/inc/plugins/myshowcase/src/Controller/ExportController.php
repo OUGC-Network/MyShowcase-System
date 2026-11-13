@@ -353,7 +353,7 @@ class ExportController extends BaseController
                 'is_moderator' => $this->context->entries_manager->isModerator(),
             ],
             'exports' => $exports,
-            'size_cap' => get_friendly_size(ImportLimits::sizeCap()),
+            'size_cap' => get_friendly_size(ImportLimits::effectiveCap()),
             'storage_inside_web_root' => $this->storage->isInsideWebRoot(),
             'storage_problem' => $this->storage->configurationProblem() !== null,
             'url' => ['export_main' => $this->context->routing->generateUrl(Routes::ExportMain)],
@@ -438,7 +438,7 @@ class ExportController extends BaseController
             ExportException::REASON_TOO_LARGE => $language->sprintf(
                 $language->myshowcase_import_export_export_too_large,
                 my_number_format($exception->entries_that_fit),
-                get_friendly_size(ImportLimits::sizeCap())
+                get_friendly_size(ImportLimits::effectiveCap())
             ),
             ExportException::REASON_STORAGE => $language->myshowcase_import_export_export_storage,
             default => $language->myshowcase_import_export_export_empty,
