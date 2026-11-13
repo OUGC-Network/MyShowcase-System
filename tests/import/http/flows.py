@@ -99,6 +99,14 @@ def error_log_lines():
     return open(ERROR_LOG, encoding='utf-8', errors='replace').read().splitlines()
 
 
+def board_error_log_lines():
+    """The lines of the board's own error log (MyBB's error handler writes the errors it logs there, not to PHP's log)."""
+    path = os.path.join(BOARD, 'error.log')
+    if not os.path.exists(path):
+        return []
+    return open(path, encoding='utf-8', errors='replace').read().splitlines()
+
+
 # ---- the blog showcase, through the ACP's JSON sync -------------------------------------------------------------------
 
 def create_blog(acp):
@@ -339,23 +347,28 @@ def section_all_or_nothing():
     ok(report is not None and 'Entry 1' in report['text'] and 'Cover image' in report['text'],
        'the report names the entry and the field')
 
-    # A row the database refuses and the validator lets through: a CHECK constraint on the entries table (test board only)
-    # refuses a subject that starts with BOOM, and the import must roll back the entries written before it. MySQL 8.0.16 or
-    # later enforces CHECK constraints; SQLite cannot add one to an existing table, so the check runs on MySQL only.
-    if ENGINE != 'mysql':
-        not_run(f'a database refusal in the middle of the import on {ENGINE}: the CHECK constraint used for it needs MySQL 8.0.16 or later')
-    else:
-        before, logs = entry_count(uid), import_log_count()
-        fixture('db-check', 'blog', 'add')
-        try:
-            entries = [good_entry(13), dict(good_entry(15), subject='BOOM entry'), good_entry(14)]
-            body = import_file(member, write_file('aon-write.xml', xml_file(entries)))['body']
-            dump('aon-write', body)
-            ok(report_of(body) is None or report_of(body)['status'] != 'completed', 'the database refuses an entry the validator accepted')
-            ok(entry_count(uid) == before, 'the entries written before the refused one are rolled back')
-            ok(import_log_count() == logs, 'the import log row is rolled back with the entries')
-        finally:
-            fixture('db-check', 'blog', 'drop')
+    # A row the database refuses and the validator lets through: a CHECK constraint (MySQL 8.0.16 or later) or a trigger
+    # (SQLite) refuses a subject that starts with BOOM, and the import must roll back the entries written before it, leave
+    # no import log row, and log the cause without showing it on the page (decision T6, section 5.3 and 5.4).
+    before, logs = entry_count(uid), import_log_count()
+    log_before = len(board_error_log_lines())
+    fixture('db-check', 'blog', 'add')
+    try:
+        entries = [good_entry(13), dict(good_entry(15), subject='BOOM entry'), good_entry(14)]
+        body = import_file(member, write_file('aon-write.xml', xml_file(entries)))['body']
+        dump('aon-write', body)
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'failed' and 'could not be written' in report['text'],
+           f'the database refuses an entry the validator accepted ({ENGINE}): the report is the generic write failure')
+        ok(entry_count(uid) == before, 'the entries written before the refused one are rolled back')
+        ok(import_log_count() == logs, 'the import log row is rolled back with the entries')
+        new_lines = board_error_log_lines()[log_before:]
+        ok(any('MyShowcase import: the entries could not be written.' in line for line in new_lines),
+           'the cause of the failed write is written to the board error log')
+        ok(not any(marker in body for marker in ('SQLSTATE', 'INSERT INTO', 'import test refusal', BOARD or '\0')),
+           'the failed write shows no SQL, no database message and no path on the page')
+    finally:
+        fixture('db-check', 'blog', 'drop')
 
 
 def section_validator():

@@ -9,8 +9,8 @@
  *   group-id <title>      prints the id of a usergroup
  *   count <table>         prints the number of rows of a table (MyShowcase or MyBB table, without the prefix)
  *   showcase-setting <route> <column> <value>   change one column of a showcase's config row, and rebuild the cache
- *   db-check <route> add|drop   a CHECK constraint on the entries table of a showcase (MySQL 8.0.16 or later): entries
- *                               whose subject starts with "BOOM" are refused by the database, not by the validator
+ *   db-check <route> add|drop   a CHECK constraint on the entries table of a showcase (MySQL 8.0.16 or later; a trigger on
+ *                               SQLite): entries whose subject starts with "BOOM" are refused by the database, not by the validator
  *
  * Output is one JSON line. Nothing here is the plugin's own code path for entries: entries are created through the forum
  * form by the suite itself.
@@ -187,7 +187,14 @@ switch ($switch) {
     case 'db-check':
         $table = 'myshowcase_data' . (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='" . $db->escape_string($argv[2]) . "'"), 'showcase_id');
 
-        if ($argv[3] === 'add') {
+        // SQLite cannot add a CHECK constraint to an existing table: a trigger refuses the same rows instead.
+        if ($db->type === 'sqlite') {
+            if ($argv[3] === 'add') {
+                $db->write_query("CREATE TRIGGER import_test_no_boom BEFORE INSERT ON {$db->table_prefix}{$table} WHEN NEW.subject LIKE 'BOOM%' BEGIN SELECT RAISE(ABORT, 'import test refusal'); END");
+            } else {
+                $db->write_query('DROP TRIGGER import_test_no_boom');
+            }
+        } elseif ($argv[3] === 'add') {
             $db->write_query("ALTER TABLE {$db->table_prefix}{$table} ADD CONSTRAINT import_test_no_boom CHECK (subject NOT LIKE 'BOOM%')");
         } else {
             $db->write_query("ALTER TABLE {$db->table_prefix}{$table} DROP CHECK import_test_no_boom");
