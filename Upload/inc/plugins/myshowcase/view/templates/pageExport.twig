@@ -13,6 +13,14 @@
 
         {{ error_messages|raw }}
 
+        {% if storage_problem %}
+            <div class="alert alert--error">
+                <div class="alert__message">
+                    <p class="alert__description">{{ lang.myshowcase_import_export_error_exports_directory }}</p>
+                </div>
+            </div>
+        {% endif %}
+
         {% if storage_inside_web_root %}
             <div class="alert alert--info">
                 <div class="alert__message">

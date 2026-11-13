@@ -95,6 +95,12 @@ function pluginActivation(): bool
             'optionscode' => 'yesno',
             'value' => 0
         ],
+        'exports_directory' => [
+            'title' => 'Folder for stored exports',
+            'description' => 'A folder relative to the forum folder, for example uploads/myshowcase/exports. Leave it empty for that default. Absolute paths, .. segments and folders outside the forum folder are not used.',
+            'optionscode' => 'text',
+            'value' => ''
+        ],
     ]);
 
     // Insert/update version into cache

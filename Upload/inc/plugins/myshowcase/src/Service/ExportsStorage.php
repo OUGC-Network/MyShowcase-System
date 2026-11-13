@@ -4,24 +4,118 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
-use const MyShowcase\ROOT;
-use const MyShowcase\SETTINGS;
-
 /**
  * Where the exported files live on disk and how they are named and reached. The files are never served from a URL: the
  * controller finds the row, checks the owner, asks pathOf() and sends the file itself.
  *
- * The default folder is inc/plugins/myshowcase/exports/, protected by a deny file that only Apache reads. The setting
- * exportsDirectory (inc/plugins/myshowcase.php) can name any absolute folder, which should be outside the web root.
+ * The folder is set by the global MyBB setting myshowcase_exports_directory: a path relative to the forum folder. Empty
+ * means uploads/myshowcase/exports/. The folder must stay inside the forum folder; a value that does not is replaced by
+ * the default and reported. The folder carries a deny file that only Apache reads; other servers need the rule in the
+ * documentation.
  */
 class ExportsStorage
 {
+    public const SETTING = 'myshowcase_exports_directory';
+
+    public const DEFAULT_DIRECTORY = 'uploads/myshowcase/exports';
+
     private const FILE_NAME_PATTERN = '/^[0-9]+-[a-z0-9_-]+-[0-9]{8}-[0-9]{6}-[0-9a-f]{32}\.xml$/D';
+
+    private const DIRECTORY_PATTERN = '#^[A-Za-z0-9_./-]+$#D';
 
     private const DENY_FILE = "# Nothing in here is meant to be requested from the web.\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order deny,allow\n    Deny from all\n</IfModule>\n";
 
     public function __construct(private readonly ?string $directory = null)
     {
+    }
+
+    /**
+     * Turns the setting's value into a folder relative to the forum folder: empty is the default, and any value that is
+     * not a plain relative folder inside the forum folder is null. Used both when the setting is read and when it is saved.
+     */
+    public static function normalizeDirectory(string $value): ?string
+    {
+        if ($value === '') {
+            return self::DEFAULT_DIRECTORY;
+        }
+
+        if (preg_match(self::DIRECTORY_PATTERN, $value) !== 1 || str_starts_with($value, '/')) {
+            return null;
+        }
+
+        $segments = [];
+
+        foreach (explode('/', $value) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                return null;
+            }
+
+            $segments[] = $segment;
+        }
+
+        if ($segments === []) {
+            return null;
+        }
+
+        $normalized = implode('/', $segments);
+
+        return self::isInsideForumRoot($normalized) ? $normalized : null;
+    }
+
+    /**
+     * The folder must resolve inside the forum folder: the nearest existing part is resolved with realpath(), so a
+     * symlink that points elsewhere is refused too.
+     */
+    private static function isInsideForumRoot(string $relative): bool
+    {
+        $root = realpath(MYBB_ROOT);
+
+        if ($root === false) {
+            return false;
+        }
+
+        $probe = rtrim(MYBB_ROOT, '/') . '/' . $relative;
+
+        $missing = [];
+
+        while (!file_exists($probe)) {
+            $missing[] = basename($probe);
+
+            $probe = dirname($probe);
+        }
+
+        $real = realpath($probe);
+
+        if ($real === false) {
+            return false;
+        }
+
+        $resolved = rtrim($real, '/') . ($missing === [] ? '' : '/' . implode('/', array_reverse($missing)));
+
+        return $resolved !== rtrim($root, '/') && str_starts_with($resolved . '/', rtrim($root, '/') . '/');
+    }
+
+    private static function configuredValue(): string
+    {
+        return isset($GLOBALS['mybb']->settings) ? (string)($GLOBALS['mybb']->settings[self::SETTING] ?? '') : '';
+    }
+
+    /**
+     * The language key of the problem with the setting, or null when it is valid (or not read from the setting at all).
+     */
+    public function configurationProblem(): ?string
+    {
+        if ($this->directory !== null) {
+            return null;
+        }
+
+        return self::normalizeDirectory(self::configuredValue()) === null
+            ? 'myshowcase_import_export_error_exports_directory'
+            : null;
     }
 
     public function directory(): string
@@ -30,9 +124,9 @@ class ExportsStorage
             return rtrim($this->directory, '/\\');
         }
 
-        $configured = (string)(SETTINGS['exportsDirectory'] ?? '');
+        $relative = self::normalizeDirectory(self::configuredValue()) ?? self::DEFAULT_DIRECTORY;
 
-        return $configured !== '' ? rtrim($configured, '/\\') : ROOT . '/exports';
+        return rtrim(MYBB_ROOT, '/') . '/' . $relative;
     }
 
     /**
@@ -48,7 +142,8 @@ class ExportsStorage
     }
 
     /**
-     * Creates the folder with its deny file and an empty index page when they are not there yet.
+     * Creates the folder (and missing parents inside the forum folder) with its deny file and an empty index page when
+     * they are not there yet.
      */
     public function ensureDirectory(): bool
     {
@@ -132,27 +227,29 @@ class ExportsStorage
     }
 
     /**
-     * Removes every stored export and the folder's own files, then the folder (plugin uninstall).
+     * Removes the stored exports and the deny file and index page this plugin wrote, then the folder if it is empty
+     * (plugin uninstall). Links are never followed, and parent folders are never removed.
      */
     public function removeAll(): void
     {
         $directory = $this->directory();
 
-        if (!is_dir($directory)) {
+        if (!is_dir($directory) || is_link($directory)) {
             return;
         }
 
         foreach (scandir($directory) ?: [] as $name) {
-            if ($this->isValidFileName($name)) {
-                @unlink($directory . '/' . $name);
+            $path = $directory . '/' . $name;
+
+            if (is_link($path) || !is_file($path)) {
+                continue;
+            }
+
+            if ($this->isValidFileName($name) || $name === '.htaccess' || $name === 'index.html') {
+                @unlink($path);
             }
         }
 
-        // The shipped folder keeps its deny file, index page and README; a folder set in the settings is removed if empty.
-        if ($directory !== ROOT . '/exports') {
-            @unlink($directory . '/.htaccess');
-            @unlink($directory . '/index.html');
-            @rmdir($directory);
-        }
+        @rmdir($directory);
     }
 }

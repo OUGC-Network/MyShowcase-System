@@ -38,9 +38,6 @@ define('MyShowcase\SETTINGS', [
     'ViewsCountGuests' => true,
     'ViewsCountAuthor' => false,
     'parserMyCodeAffectsLength' => true,
-    // Where exported files are kept: empty means inc/plugins/myshowcase/exports/ (protected by a deny file; Apache only).
-    // Set an absolute path outside the web root for any other web server.
-    'exportsDirectory' => '',
     // Days a stored export is kept before the scheduled task deletes its file (0 keeps them).
     'exportsRetentionDays' => 30,
     // The most entries one export holds.

@@ -355,6 +355,7 @@ class ExportController extends BaseController
             'exports' => $exports,
             'size_cap' => get_friendly_size(ImportLimits::sizeCap()),
             'storage_inside_web_root' => $this->storage->isInsideWebRoot(),
+            'storage_problem' => $this->storage->configurationProblem() !== null,
             'url' => ['export_main' => $this->context->routing->generateUrl(Routes::ExportMain)],
             'stored_count' => $this->storedExportsCount(),
             'stored_maximum' => (int)$this->context->showcase->exports_per_user_maximum,

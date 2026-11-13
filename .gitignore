@@ -369,4 +369,4 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,intellij+all,phpstorm+all,visualstudiocode,intellij+iml,intellij
 
 # Stored entry exports
-Upload/inc/plugins/myshowcase/exports/*.xml
+Upload/uploads/myshowcase/exports/*.xml
