@@ -181,11 +181,13 @@ check(!str_contains($described, __DIR__), 'the failure log has no server path be
 
 $mybb = new stdClass();
 $mybb->settings = [];
-check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting defaults to yes when it is not stored');
+check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting defaults to no when it is not stored');
 $mybb->settings['myshowcase_import_external_files'] = '0';
 check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is off when it is stored as no');
 $mybb->settings['myshowcase_import_external_files'] = '1';
 check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is on when it is stored as yes');
+unset($mybb->settings['myshowcase_import_external_files']);
+check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is off again when the stored value is removed');
 
 // --- Export version 2: the URL of a file (decision D48) ------------------------------------------------------------------
 

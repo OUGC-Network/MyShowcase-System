@@ -8,8 +8,8 @@ namespace MyShowcase\Util;
  * The global setting that switches the import of external files off (decision D51). Every reader of the setting goes
  * through this class, so the name and the default are in one place.
  *
- * The default is yes: an import file whose file fields carry URLs is imported, as the forum's own settings allow.
- * Exports are never affected by the setting.
+ * The default is no (decision D51): an import file whose file fields carry any URL is refused as a whole. A missing
+ * setting is read as no. Exports are never affected by the setting.
  */
 final class ImportSettings
 {
@@ -20,7 +20,7 @@ final class ImportSettings
     {
         global $mybb;
 
-        $value = $mybb->settings[self::EXTERNAL_FILES] ?? 1;
+        $value = $mybb->settings[self::EXTERNAL_FILES] ?? 0;
 
         return (int)$value === 1;
     }
