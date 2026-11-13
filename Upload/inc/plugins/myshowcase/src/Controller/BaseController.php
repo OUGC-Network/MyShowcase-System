@@ -216,12 +216,7 @@ abstract class BaseController
 
     protected function isEntryVisible(EntryEntity $entry): bool
     {
-        return $this->context->entries_manager->isStatusVisible(
-            (int)$entry->status,
-            (int)$entry->user_id,
-            $this->isEntryModerator(),
-            UserPermissions::EntriesCanViewDeleted
-        );
+        return $this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id);
     }
 
     protected function commentVisibilityClause(string $alias = 'comment_data'): string
