@@ -238,25 +238,37 @@ class ImportController extends BaseController
             'imported' => $report->imported,
             'passed_entries' => $report->passed_entries,
             'problems' => array_map(fn(array $problem): string => $this->problemText($problem['code'], $problem['args']), $report->problems),
+            'warnings' => array_map(
+                fn(array $warning): string => $this->problemText($warning['code'], $warning['args'], self::WARNING_PREFIX),
+                $report->warnings
+            ),
+            // Every value of the file reaches the template as plain text here, and Twig escapes it there. trans() is not
+            // used in the template: it returns HTML unescaped, so a subject with markup would be printed as markup.
             'entry_failures' => array_map(
-                static fn(array $failure): array => [
-                    'position' => $failure['position'],
-                    'subject' => $failure['subject'],
-                    'errors' => $failure['errors'],
+                fn(array $failure): array => [
+                    'text' => $language->sprintf(
+                        $language->myshowcase_import_export_report_entry,
+                        (int)$failure['position'],
+                        $failure['subject'] !== '' ? $failure['subject'] : $language->myshowcase_import_export_report_no_subject
+                    ),
+                    'errors' => array_map('strval', $failure['errors']),
                 ],
                 $report->entry_failures
             ),
         ];
     }
 
+    /** The language key prefix of a warning (the same codes as a problem, with their own sentences). */
+    private const WARNING_PREFIX = 'myshowcase_import_export_warning_';
+
     /**
      * @param list<mixed> $args
      */
-    private function problemText(string $code, array $args): string
+    private function problemText(string $code, array $args, string $prefix = 'myshowcase_import_export_problem_'): string
     {
         $language = $this->context->language;
 
-        $key = 'myshowcase_import_export_problem_' . $code;
+        $key = $prefix . $code;
 
         if ($code === 'unknown_field' || $code === 'file_field' || $code === 'not_fillable') {
             // args: the key, the first positions, how many entries use it in all.

@@ -20,12 +20,21 @@
         </ul>
     {% endif %}
 
+    {% if report.warnings is not empty %}
+        <h3 class="title title--minor">{{ lang.myshowcase_import_export_report_warnings }}</h3>
+        <ul class="list">
+            {% for warning in report.warnings %}
+                <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
     {% if report.entry_failures is not empty %}
         <h3 class="title title--minor">{{ lang.myshowcase_import_export_report_failures }}</h3>
         <ul class="list">
             {% for failure in report.entry_failures %}
                 <li>
-                    {{ trans('myshowcase_import_export_report_entry', failure.position, failure.subject ?: lang.myshowcase_import_export_report_no_subject) }}
+                    {{ failure.text }}
                     <ul class="list">
                         {% for error in failure.errors %}
                             <li>{{ error }}</li>
