@@ -24,6 +24,45 @@ named `php` on the `PATH`: to run the suite on another version, put a directory 
 
 Use `--port` when another server uses the default port (18092 for SQLite, 18091 for MySQL). Exit code 1 if a check fails.
 
+## Access matrix (users, attachments and modes of the download route)
+
+```
+python3 tests/import/http/access_matrix.py --engine sqlite|mysql|pgsql --mybb <source tree> --scratch <directory> [--old-upload <directory>]
+```
+
+It installs the NEW board (this working tree's `Upload/`) and, with `--old-upload`, an OLD board from the Upload folder of
+the previous route. Export that folder from the repository with `git archive <branch> Upload` into a scratch directory, for
+example `git -C <worktree> archive main Upload | tar -x -C <directory>/old-src`, and pass `<directory>/old-src/Upload`.
+Both boards get the same users, groups, permission rows, attachment types and attachments (created through the entry form
+and the upload route, with locally generated PNG and ZIP bytes). For every user, attachment and mode (file or thumbnail)
+the script compares the HTTP status and the SHA-256 of the body of both boards, records the answer of
+`AttachmentAccess::decide()` (the test-only probe `fixtures/msc_test_probe.php` is installed into the NEW board only), and
+imports the own-board file URL of each attachment with the setting on. It exits with 1 if a cell differs from the rules.
+The result of every cell is written to `<directory>/matrix-<engine>.json`.
+
+A user without the main view permission gets the front controller's own no-permission page, which fails with a 503 in the
+MyBB build of this batch; the same happens on the previous route, so that cell is marked as explained, not as a difference.
+
+## Abnormal end of an import
+
+```
+python3 tests/import/http/abort_test.py --engine sqlite|mysql|pgsql --mybb <source tree> --scratch <directory>
+```
+
+The request of a two-entry import is ended by the test-only plugin `fixtures/msc_test_abort.php` (installed into the
+temporary board only): by `exit` and by a fatal error on the second entry, which is after the first entry's file was
+stored and recorded. The test checks that nothing is left after the request: no entry row, no attachment row, no import log
+row, no file and no subfolder of the upload folder, and no temporary folder of the import. A normal import then has to
+complete. A third case ends the request after a file was copied and before it is recorded: that window is accepted and
+not covered by the guard, so the test only reports what is left in it.
+
+## PostgreSQL
+
+The matrix and the abnormal-end test accept `--engine pgsql`. They use the throwaway database `msc_test_<random>` of the
+server named by `PGHOST`, `PGPORT` and `PGUSER` (and `PSQL_BIN` for the client program), and drop it at the end. The run
+needs a server that may create and drop databases: start a throwaway instance from the installed binaries for the run, with
+its own data directory in the scratch directory, and stop it afterwards.
+
 ## Building the source tree
 
 The suite copies a MyBB 1.9 source tree into its scratch directory and never changes the source. Build the source tree
