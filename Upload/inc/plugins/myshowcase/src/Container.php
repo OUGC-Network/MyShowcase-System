@@ -118,8 +118,7 @@ class Container
             ->setLazy(true);
 
         $this->container->register('cache.manager', CacheManager::class)
-            ->setArguments([new Reference('database'), new Reference('mybb.cache')])
-            ->setLazy(true);
+            ->setArguments([new Reference('database'), new Reference('mybb.cache')]);
 
         $this->container->register('users.manager', UsersManager::class)
             ->setArguments([new Reference('showcase.context')])
@@ -141,8 +140,7 @@ class Container
             ->setArguments([new Reference('showcase.context')])
             ->setLazy(true);
 
-        $this->container->register('showcase.entity', ShowcaseEntity::class)
-            ->setLazy(true);
+        $this->container->register('showcase.entity', ShowcaseEntity::class);
 
         $this->container->register('fields.collection', Collection::class)
             ->setLazy(true);
