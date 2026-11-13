@@ -449,6 +449,13 @@ def edit_round_trip(client, cells, row):
     data['fk_select'] = option_ids['fk_select'][0]
     data['fk_select_req'] = option_ids['fk_select_req'][0]
     data['fk_text_req'] = row['fk_text_req']
+    # a browser posts every pre-filled value: the save without change posts what the form shows for each field
+    for key in FIELDS:
+        if key.startswith('fk_file') or key == 'fk_text_group' or key in data or FIELDS[key]['html_type'] in ('select', 'radio', 'checkbox'):
+            continue
+        shown = re.search(rf'<input\b[^>]*name="{re.escape(key)}"[^>]*value="([^"]*)"', body)
+        if shown:
+            data[key] = htmllib.unescape(shown.group(1))
     post_hash = re.search(r'name="post_hash" value="([^"]+)"', body)
     if post_hash:
         data['post_hash'] = post_hash.group(1)

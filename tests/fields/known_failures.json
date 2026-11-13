@@ -65,16 +65,6 @@
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
   },
-  "fk_text_uuid|b": {
-   "reason": "the UUID default is not generated for the form: the assignment is commented out",
-   "cause": "src/Controller/EntriesController.php:1017-1019",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_uuid|c": {
-   "reason": "a blank value with the UUID default is stored empty",
-   "cause": "src/Controller/EntriesController.php:1017-1019; src/Service/EntriesManager.php:1129",
-   "classification": "repair in Part 2"
-  },
   "fk_time|c": {
    "reason": "an invalid time is accepted by the validator and stored (SQLite text; MySQL TIME accepts 25:00:00)",
    "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
@@ -167,16 +157,6 @@
    "cause": "MyBB db_encoding (inc/db_mysqli.php:307); data table charset",
    "classification": "needs decision (utf8mb4 is a schema and connection change)"
   },
-  "fk_text_uuid|b": {
-   "reason": "the UUID default is not generated for the form: the assignment is commented out",
-   "cause": "src/Controller/EntriesController.php:1017-1019",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_uuid|c": {
-   "reason": "a blank value with the UUID default is stored empty",
-   "cause": "src/Controller/EntriesController.php:1017-1019; src/Service/EntriesManager.php:1129",
-   "classification": "repair in Part 2"
-  },
   "fk_time|c": {
    "reason": "an invalid time is accepted by the validator and stored (SQLite text; MySQL TIME accepts 25:00:00)",
    "cause": "src/Service/EntriesManager.php:1149 (date types are not checked)",
@@ -258,16 +238,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_text_uuid|b": {
-   "reason": "the UUID default is not generated for the form: the assignment is commented out",
-   "cause": "src/Controller/EntriesController.php:1017-1019",
-   "classification": "repair in Part 2"
-  },
-  "fk_text_uuid|c": {
-   "reason": "a blank value with the UUID default is stored empty",
-   "cause": "src/Controller/EntriesController.php:1017-1019; src/Service/EntriesManager.php:1129",
-   "classification": "repair in Part 2"
   },
   "fk_url|c": {
    "reason": "the javascript: scheme is accepted: no URL check",

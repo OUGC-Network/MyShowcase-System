@@ -10,6 +10,7 @@ use Exception;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\ContentStatuses;
+use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\UserPermissions;
@@ -20,6 +21,7 @@ use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Util\FieldDefaultUtil;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
 use MyShowcase\Util\ValidationHelpers;
@@ -1151,13 +1153,23 @@ class EntriesManager
                     $this->validateSetError('required_field', [$field_label]);
                 }
 
-                if ($field->html_type === FieldHtmlTypes::File || $field->default_value === '') {
+                // The default applies only to a truly blank value. A generated default (a UUID or the current time) is
+                // made once, for a new entry; an update keeps the as-defined default only, so a blank value of an
+                // existing entry does not change its UUID on every save.
+                if ($field->html_type === FieldHtmlTypes::File) {
+                    $default_value = null;
+                } elseif ($this->validation_method === self::VALIDATION_METHOD_INSERT) {
+                    $default_value = FieldDefaultUtil::valueFor($field);
+                } else {
+                    $default_value = $field->default_type === FieldDefaultTypes::AsDefined ? $field->default_value : null;
+                }
+
+                if ($default_value === null || $default_value === '') {
                     continue;
                 }
 
-                // The default applies only to a truly blank value.
-                $this->validation_entry->extra_data[$field_key] = $field->default_value;
-                $field_value = $field->default_value;
+                $this->validation_entry->extra_data[$field_key] = (string)$default_value;
+                $field_value = (string)$default_value;
             }
 
             if (is_scalar($field_value) && $field->regular_expression &&

@@ -25,7 +25,6 @@ use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\{AttachmentsDisplayType,
     ContentStatuses,
     ContentTypes,
-    FieldDefaultTypes,
     FieldHtmlTypes,
     FilterFields,
     NotificationTypes,
@@ -41,7 +40,7 @@ use MyShowcase\Repository\{AccessLogsRepository,
     SubscriptionsRepository
 };
 use MyShowcase\Service\{CommentsManager, EntriesManager};
-use MyShowcase\Util\{SelectableLists, StringUtil};
+use MyShowcase\Util\{FieldDefaultUtil, SelectableLists, StringUtil};
 use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
 use Symfony\Component\Routing\Annotation\Route;
@@ -998,26 +997,14 @@ class EntriesController extends BaseController
                 continue;
             }
 
-            switch ($field->field_definition['default_type']) {
-                case FieldDefaultTypes::AsDefined:
-                    // A new entry's form starts with the field's default value.
-                    if (!$is_update && $field->getValue() === '') {
-                        $field->valueSet((string)$field->field_definition['default_value']);
-                    }
+            // A new entry's form starts with the default of the field, from the same util the importer uses
+            // (as defined, the current time, a new UUID, or nothing for IsNull).
+            if (!$is_update && $field->getValue() === '') {
+                $default_value = FieldDefaultUtil::valueFor($field->field_definition);
 
-                    break;
-                case FieldDefaultTypes::IsNull:
-                    //$this->context->mybb->input[$field->field_definition['field_key']] = '';
-
-                    break;
-                case FieldDefaultTypes::CurrentTimestamp:
-                    //$this->context->mybb->input[$field->field_definition['field_key']] = date('Y-m-d H:i:s', TIME_NOW);
-
-                    break;
-                case FieldDefaultTypes::UUID:
-                    //$this->context->mybb->input[$field->field_definition['field_key']] = (new UuidUtil())->generateUuidV4();
-
-                    break;
+                if ($default_value !== null) {
+                    $field->valueSet((string)$default_value);
+                }
             }
         }
 
