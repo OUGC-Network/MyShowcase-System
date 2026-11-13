@@ -25,6 +25,7 @@ use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
+use MyShowcase\Service\AttachmentAccess;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\System\ExceptionInvalidRangeHeader;
 use MyShowcase\System\ExceptionNonExistentFile;
@@ -282,92 +283,49 @@ class AttachmentsController extends BaseController
             $this->error($lang->error_invalidattachment, 404);
         }
 
-        // Files uploaded with a form that was not saved yet have no entry.
-        $entry = null;
-
+        // Files uploaded with a form that was not saved yet have no entry. The file of an entry that no longer exists is not
+        // served to anyone (AttachmentAccess::decide() answers it like an unknown file).
         if ((int)$this->attachment_data['entry_id']) {
             $entry_data = $this->context->entries_repository->queryEntry(
                 ["entry_id='" . (int)$this->attachment_data['entry_id'] . "'"],
                 ['entry_id', 'user_id', 'post_hash', 'status']
             );
 
-            // The file of an entry that no longer exists is not served to anyone.
             if (empty($entry_data['entry_id'])) {
                 $this->error($lang->error_invalidattachment, 404);
             }
 
             $this->context->entries_manager->addEntry($entry_data);
-
-            $entry = $this->context->entries_manager->getEntryByID((int)$entry_data['entry_id']);
         }
 
         hooksRun('controller_attachments_download_start', $this);
 
-        // The file and its thumbnail answer the same: the uploader always, anyone else with the permissions to see
-        // the entry, the file and to download it.
+        // The decision of who may get the file is AttachmentAccess::decide(), the one rule set shared with the export and
+        // the import (decision D58). The file and its thumbnail answer the same, except that a thumbnail needs no download
+        // permission: that is decided on what was requested, before a missing thumbnail falls back to the image below.
         $user_id = (int)$this->context->current_user->uid;
 
         $is_owner = $user_id > 0 && $user_id === (int)$this->attachment_data['user_id'];
 
-        if (!$this->context->current_user->hasPermission(UserPermissions::MainCanView)) {
+        $access = new AttachmentAccess($this->context);
+
+        $attachment_types = $access->attachmentTypes();
+
+        $decision = $access->decide($this->attachment_data, $this->is_thumbnail, $attachment_types);
+
+        if ($decision === AttachmentAccess::HIDDEN) {
+            $this->error($lang->error_invalidattachment, 404);
+        }
+
+        if ($decision === AttachmentAccess::FORBIDDEN) {
             $this->errorNoPermission(403);
-        }
-
-        // A file of an entry the user may not see is not served, whoever uploaded it. A file not attached to an entry
-        // yet (its form was not saved) is served to its uploader only.
-        if ($entry !== null ? !$this->isEntryVisible($entry) : !$is_owner) {
-            $this->error($lang->error_invalidattachment, 404);
-        }
-
-        if (!$is_owner) {
-            if (!$this->context->current_user->hasPermission(UserPermissions::EntriesCanView) ||
-                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanView)) {
-                $this->errorNoPermission(403);
-            }
-
-            if ((int)$this->attachment_data['status'] !== ContentStatuses::VisibleApproved &&
-                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved)) {
-                $this->error($lang->error_invalidattachment, 404);
-            }
-
-        // An attachment is not served for an entry the user may not see, whoever uploaded it or whatever other permission
-        // they hold.
-        if (!empty($entry->entry_id) &&
-            !$this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id)) {
-            $this->error($lang->error_invalidattachment, 404);
-        }
-
-            // A thumbnail is a preview: only the file itself needs the download permission. This is checked against
-            // what was requested, before a missing thumbnail falls back to the image below.
-            if (!$this->is_thumbnail &&
-                !$this->context->current_user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
-                $this->errorNoPermission(403);
-            }
         }
 
         $attachment_file_extension = my_strtolower(get_extension($this->attachment_data['attachment_name']));
 
         $attachment_mime_type = my_strtolower($this->attachment_data['mime_type']);
 
-        $attachment_types = $this->context->cache_manager
-            ->get(CacheDataTypes::AttachmentTypes)[$this->context->showcase->showcase_id] ?? [];
-
-        foreach ($attachment_types as $attachment_type_id => $attachment_type_data) {
-            if (!($attachment_type_data['file_extension'] === $attachment_file_extension &&
-                $attachment_type_data['mime_type'] === $attachment_mime_type)) {
-                unset($attachment_type_data);
-            } else {
-                break;
-            }
-        }
-
-        if (empty($attachment_type_data)) {
-            $this->error($lang->error_invalidattachment, 404);
-        }
-
-        if (!$is_owner && !is_member($attachment_type_data['allowed_groups'])) {
-            $this->errorNoPermission(403);
-        }
+        $attachment_type_data = $access->attachmentType($this->attachment_data, $attachment_types) ?? [];
 
         $absolute_uploads_path = mk_path_abs($this->context->showcase->attachments_uploads_path);
 

@@ -402,7 +402,7 @@ class EntriesExporter
                 $chosen = false;
 
                 foreach ($list as $attachment) {
-                    if (!$access->mayDownload($attachment, $types)) {
+                    if ($access->decide($attachment, false, $types) !== AttachmentAccess::ALLOWED) {
                         $result['notes']['files_without_url']++;
 
                         continue;

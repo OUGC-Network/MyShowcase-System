@@ -434,7 +434,7 @@ class EntriesImporter
         $own = $access->ownAttachment($url);
 
         if ($own !== null) {
-            if (!$access->mayDownload($own, $types)) {
+            if ($access->decide($own, false, $types) !== AttachmentAccess::ALLOWED) {
                 throw new ExternalFileException('not_downloadable');
             }
 
