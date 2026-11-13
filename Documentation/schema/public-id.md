@@ -32,12 +32,15 @@ table names below are given without the board prefix.
   every `entry_public_id`, `comment_public_id`, `attachment_public_id` and `post_hash` route parameter
   (`src/Routing/Routing.php`), so a value of any other shape matches no route, and it finds `[attachment=...]` codes
   in forum posts.
-* `isValidPublicId()` checks a whole value against that pattern; the entry form uses it to accept a posted
-  `post_hash` only when it has the generated shape.
+* `isValidPublicId()` checks a whole value against that pattern. `BaseController::requestPostHash()` uses it for the
+  entry and comment forms: a posted `post_hash` is kept only when it has the generated shape, and any other value is
+  replaced by a new `generatePublicId()` value.
 
-The generator does not guarantee uniqueness. Each insert draws a value and draws again while a row already uses it
-(`EntriesManager::validationEntryInsert()`, `CommentsManager::validationCommentInsert()`,
-`AttachmentsManager::uploadAttachment()`); the unique key is the last guard. No UUIDs are used for these values.
+The generator does not guarantee uniqueness. Each insert of a `public_id` draws a value and draws again while a row
+already uses it (`EntriesManager::validationEntryInsert()`, `CommentsManager::validationCommentInsert()`,
+`AttachmentsManager::uploadAttachment()`); the unique key is the last guard. A `post_hash` is not checked against any
+table and has no unique key: it is only a transient token for one open form, and two open forms sharing a value (about
+one chance in 3.6 × 10^15 for a pair) would share their uploads when saved. No UUIDs are used for these values.
 
 ## Attachment file names
 
