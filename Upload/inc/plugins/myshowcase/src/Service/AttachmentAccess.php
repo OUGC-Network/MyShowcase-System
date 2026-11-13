@@ -124,6 +124,25 @@ final class AttachmentAccess
     }
 
     /**
+     * The port the board's own address uses, when the text is a URL of that address (decision D52): the board may be on a
+     * port other than 80 or 443. Null for any other URL, which must then use 80 or 443 like every external file.
+     *
+     * @return int[]
+     */
+    public function ownPorts(string $text): array
+    {
+        $base = $this->publicBase();
+
+        if ($base === '' || !str_starts_with($text, $base . '/')) {
+            return [];
+        }
+
+        $parts = parse_url($base);
+
+        return isset($parts['port']) ? [(int)$parts['port']] : [];
+    }
+
+    /**
      * The attachment a URL names, when the URL is this board's own download route for a file of this showcase (decision
      * D52). The URL must be exactly the route the board generates for that file, on the board's own base, so a look-alike
      * host or path is not one of the board's files and goes through the fetcher.

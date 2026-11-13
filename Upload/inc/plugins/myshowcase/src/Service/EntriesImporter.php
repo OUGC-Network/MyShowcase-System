@@ -423,9 +423,9 @@ class EntriesImporter
      */
     private function takeFile(string $text, CustomFieldEntity $field, ExternalFileTempArea $temp, ExternalFileBudget $budget): array
     {
-        $url = ExternalUrl::parse($text);
-
         $access = new AttachmentAccess($this->context);
+
+        $url = ExternalUrl::parse($text, $access->ownPorts($text));
 
         $types = $access->attachmentTypes();
 

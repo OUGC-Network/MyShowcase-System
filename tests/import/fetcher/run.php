@@ -108,6 +108,11 @@ foreach ($refused as $text => $reason) {
 check(reasonOf(fn() => ExternalUrl::parse(str_repeat('https://example.com/', 200))) === 'length', 'a URL of more than 2048 characters is refused');
 check(strlen('https://example.com/' . str_repeat('a', 2000)) <= 2048 && reasonOf(fn() => ExternalUrl::parse('https://example.com/' . str_repeat('a', 2000))) === null, 'a URL of 2048 characters is accepted');
 
+// The board's own port is allowed for the board's own file URLs only (decision D52): any other URL keeps 80 and 443.
+check(ExternalUrl::parse('http://127.0.0.1:18092/gallery/attachment/a/b.png', [18092])->port === 18092, 'the board own port is accepted for its own file URLs');
+check(reasonOf(fn() => ExternalUrl::parse('http://127.0.0.1:18092/x.png')) === 'port', 'a port other than 80 and 443 is refused for an external file');
+check(reasonOf(fn() => ExternalUrl::parse('http://127.0.0.1:18093/x.png', [18092])) === 'port', 'only the board own port is accepted, not another one');
+
 // Redirects keep the scheme and the port.
 $base = ExternalUrl::parse('https://placehold.co/a.png');
 check($base->redirectTo('/b.png')->path === '/b.png' && $base->redirectTo('/b.png')->host === 'placehold.co', 'a path redirect stays on the host');

@@ -26,7 +26,7 @@ final class ExternalUrl
     /**
      * @throws ExternalFileException with the reason of the first rule the URL breaks
      */
-    public static function parse(string $text): self
+    public static function parse(string $text, array $board_ports = []): self
     {
         if (strlen($text) > ExternalFileLimits::MAX_URL_LENGTH) {
             throw new ExternalFileException('length');
@@ -66,7 +66,7 @@ final class ExternalUrl
 
         $port = $port_text === null
             ? ($scheme === 'https' ? 443 : 80)
-            : self::portNumber($port_text);
+            : self::portNumber($port_text, $board_ports);
 
         if ($path === '') {
             $path = '/';
@@ -202,9 +202,14 @@ final class ExternalUrl
         return [$authority, $port];
     }
 
-    private static function portNumber(string $port): int
+    /**
+     * @param int[] $board_ports the port of this board's own address: a URL of this board's own files may use it (it is
+     *                           never fetched; see AttachmentAccess::ownAttachment())
+     */
+    private static function portNumber(string $port, array $board_ports = []): int
     {
-        if (preg_match('/^[0-9]{1,5}$/', $port) !== 1 || !in_array((int)$port, ExternalFileLimits::PORTS, true)) {
+        if (preg_match('/^[0-9]{1,5}$/', $port) !== 1 ||
+            !in_array((int)$port, array_merge(ExternalFileLimits::PORTS, $board_ports), true)) {
             throw new ExternalFileException('port');
         }
 
