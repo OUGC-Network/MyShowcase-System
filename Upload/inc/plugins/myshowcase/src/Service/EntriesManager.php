@@ -50,6 +50,24 @@ class EntriesManager
     public const STATUS_STICKY = 1;
     public const SIGNATURE_DISABLED = 0;
     public const SIGNATURE_ALLOW = 1;
+    /** The HTML types with a min and a max that are not numbers (their bounds are minimum_value and maximum_value). */
+    private const BOUNDED_HTML_TYPES = [
+        FieldHtmlTypes::Date,
+        FieldHtmlTypes::DateTimeLocal,
+        FieldHtmlTypes::Month,
+        FieldHtmlTypes::Week,
+        FieldHtmlTypes::Time,
+    ];
+    /** The HTML types whose input takes the minlength and maxlength of the field (the length properties). */
+    private const TEXT_LIKE_HTML_TYPES = [
+        FieldHtmlTypes::Text,
+        FieldHtmlTypes::TextArea,
+        FieldHtmlTypes::Search,
+        FieldHtmlTypes::Password,
+        FieldHtmlTypes::Email,
+        FieldHtmlTypes::Url,
+        FieldHtmlTypes::Telephone,
+    ];
     public const SMILIES_DISABLED = 0;
     public const SMILIES_ALLOW = 1;
     public const FIRST_PAGE = 1;
@@ -890,6 +908,26 @@ class EntriesManager
         };
     }
 
+    /**
+     * A bound or a value of a date, time or month type in one comparable string. A time and the time part of a
+     * datetime-local may leave out the seconds (HH:MM means HH:MM:00); a datetime-local may use a space for the T.
+     * The format of the value was checked before, so the parts are well formed.
+     */
+    private function boundKey(string $html_type, string $value): string
+    {
+        $normalizeTime = static fn(string $time): string => strlen($time) === 5 ? $time . ':00' : $time;
+
+        return match ($html_type) {
+            FieldHtmlTypes::Time => $normalizeTime($value),
+            FieldHtmlTypes::DateTimeLocal => (static function (string $datetime) use ($normalizeTime): string {
+                [$date, $time] = preg_split('/[T ]/', $datetime, 2) + ['', '00:00:00'];
+
+                return $date . 'T' . $normalizeTime($time);
+            })($value),
+            default => $value,
+        };
+    }
+
     private function isCalendarDate(string $value): bool
     {
         if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) !== 1) {
@@ -1249,9 +1287,9 @@ class EntriesManager
                 continue;
             }
 
-            // A number or range value is a whole number within the signed 32-bit range of its column, at least the
-            // minimum (minimum_size, 0 when none is set) and at most the maximum (maximum_size, when it is set). The
-            // length properties keep their meaning for text fields; the size properties are read for these types only here.
+            // A number or range value is a whole number within the signed 32-bit range of its column. The bounds are the
+            // value properties (minimum_value, maximum_value): an empty one is no bound, so an unbounded number accepts
+            // a negative value. The size properties are not read here: they are file sizes.
             if (in_array($field->html_type, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true)) {
                 $number = is_scalar($field_value) && preg_match('/^-?\d+$/', (string)$field_value) === 1
                     ? filter_var((string)$field_value, FILTER_VALIDATE_INT)
@@ -1262,13 +1300,28 @@ class EntriesManager
                         'integer_range',
                         [$field_label, '-2147483648', '2147483647']
                     );
-                } elseif ($number < (int)$field->minimum_size) {
-                    $this->validateSetError('number_minimum', [$field_label, (string)(int)$field->minimum_size]);
-                } elseif ($field->maximum_size > 0 && $number > (int)$field->maximum_size) {
-                    $this->validateSetError('number_maximum', [$field_label, (string)(int)$field->maximum_size]);
+                } elseif ($field->minimum_value !== '' && $number < (int)$field->minimum_value) {
+                    $this->validateSetError('number_minimum', [$field_label, (string)(int)$field->minimum_value]);
+                } elseif ($field->maximum_value !== '' && $number > (int)$field->maximum_value) {
+                    $this->validateSetError('number_maximum', [$field_label, (string)(int)$field->maximum_value]);
                 }
 
                 continue;
+            }
+
+            // Date, month, week, time and datetime-local bounds: compared in one normalized form (see boundKey()). A value
+            // whose format is wrong is refused by the format check below, so only well-formed values are compared here.
+            if (in_array($field->html_type, self::BOUNDED_HTML_TYPES, true) && is_scalar($field_value) &&
+                (string)$field_value !== '' && $this->fieldFormatIsValid($field->html_type, (string)$field_value)) {
+                $value_key = $this->boundKey($field->html_type, (string)$field_value);
+
+                if ($field->minimum_value !== '' &&
+                    $value_key < $this->boundKey($field->html_type, $field->minimum_value)) {
+                    $this->validateSetError('value_minimum', [$field_label, $field->minimum_value]);
+                } elseif ($field->maximum_value !== '' &&
+                    $value_key > $this->boundKey($field->html_type, $field->maximum_value)) {
+                    $this->validateSetError('value_maximum', [$field_label, $field->maximum_value]);
+                }
             }
 
             // The value must have the format the HTML input of its type sends (the stored format is not changed).
@@ -1295,7 +1348,8 @@ class EntriesManager
                     continue;
                 }
 
-                if ($field->html_type !== FieldHtmlTypes::Date) {
+                // The length properties are the minlength and maxlength of the text-like inputs only.
+                if (in_array($field->html_type, self::TEXT_LIKE_HTML_TYPES, true)) {
                     $length = my_strlen($this->validation_entry->extra_data[$field_key]);
 
                     if ($field->minimum_length && $length < $field->minimum_length) {

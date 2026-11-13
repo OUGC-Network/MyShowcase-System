@@ -52,8 +52,8 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
-                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
                     {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
@@ -68,8 +68,8 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
-                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
                     {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
@@ -435,8 +435,8 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
-                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
                     {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
@@ -453,8 +453,8 @@
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.placeholder %}placeholder="{{ field_data.placeholder }}"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    min="{{ field_data.minimum_size }}"
-                    {% if field_data.maximum_size %}max="{{ field_data.maximum_size }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
                     {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
@@ -503,8 +503,8 @@
                    class="textbox {% if field_data.enable_subject %}textbox--subject{% endif %}"
                    id="{{ field_data.field_key }}"
                    form="contentForm"
-                   min="{{ field_data.minimum_size }}"
-                    {% if field_data.maximum_size %}max="{{ field_data.maximum_size }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'search' %}
@@ -572,8 +572,8 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
-                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
                     {% if field_data.input_pattern %}pattern="{{ field_data.input_pattern }}"{% endif %}
             />
@@ -606,8 +606,8 @@
                    form="contentForm"
                    {% if field_data.read_only %}readonly="readonly"{% endif %}
                     {% if field_data.is_required %}required="required"{% endif %}
-                    {% if field_data.minimum_length %}min="{{ field_data.minimum_length }}"{% endif %}
-                    {% if field_data.maximum_length %}max="{{ field_data.maximum_length }}"{% endif %}
+                    {% if field_data.minimum_value != '' %}min="{{ field_data.minimum_value }}"{% endif %}
+                    {% if field_data.maximum_value != '' %}max="{{ field_data.maximum_value }}"{% endif %}
                     {% if field_data.step_size %}step="{{ field_data.step_size }}"{% endif %}
             />
                 {% elseif field_data.html_type == 'textarea' %}

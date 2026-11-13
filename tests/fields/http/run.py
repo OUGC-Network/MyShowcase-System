@@ -53,11 +53,14 @@ NOT_RUN = {
     'k': 'reserved and long key stage not automated yet (remaining step: JSON-sync preview and run for each key on each engine)',
 }
 LONG = 'x' * 21
+# the HTML types whose input has a min and a max (decision D124): number, range, date, datetime-local, month, week, time
+BOUNDED_TYPES = ('number', 'range', 'date', 'datetime-local', 'month', 'week', 'time')
 PAYLOAD = '<script>alert(1)</script>'
 CTX = None  # the board context, set by main()
 PROPERTY_COLUMNS = ['field_label', 'description', 'placeholder', 'html_type', 'field_type', 'file_capture', 'allow_multiple_values',
                     'regular_expression', 'input_pattern', 'display_in_create_update_page', 'display_in_view_page',
-                    'display_in_main_page', 'minimum_length', 'maximum_length', 'minimum_size', 'maximum_size', 'step_size',
+                    'display_in_main_page', 'minimum_length', 'maximum_length', 'minimum_size', 'maximum_size',
+                    'minimum_value', 'maximum_value', 'step_size',
                     'input_size', 'allowed_groups_fill', 'allowed_groups_view', 'default_value', 'default_type',
                     'display_order', 'render_order', 'format', 'filter_on_save', 'is_enabled', 'is_required', 'parser_enable',
                     'parser_allow_html', 'parser_allow_mycode', 'parser_allow_smiles', 'parser_allow_image_code',
@@ -120,7 +123,8 @@ def cases():
         'fk_number_req': [('blank required', '', 'refuse', None), ('below minimum', '0', 'refuse', None),
                           ('zero is a value: refused for the minimum, not as missing', '0', 'refuse_not_missing', None),
                           ('above maximum', '11', 'refuse', None), ('valid', '5', 'accept', None)],
-        'fk_range': [('valid', '50', 'accept', None), ('above maximum', '55', 'refuse', None), ('blank optional', '', 'accept', '')],
+        'fk_range': [('valid', '50', 'accept', None), ('at the minimum', '0', 'accept', None), ('above maximum', '55', 'refuse', None),
+                     ('below the minimum', '-1', 'refuse', None), ('blank optional', '', 'accept', '')],
         'fk_rating': [('valid', '5', 'accept', None), ('not a number', 'abc', 'refuse', None)],
         'fk_poll': [('valid', '5', 'accept', None)],
         'fk_date': [('valid', '2026-11-13', 'accept', None), ('invalid date', '2026-13-45', 'refuse', None), ('a day that does not exist', '2026-02-30', 'refuse', None)],
@@ -128,6 +132,25 @@ def cases():
         'fk_time': [('valid', '10:30', 'accept', None), ('invalid', '25:00', 'refuse', None), ('hour 25 with seconds', '25:00:00', 'refuse', None)],
         'fk_month': [('valid', '2026-11', 'accept', None), ('invalid', 'bad', 'refuse', None), ('month 13', '2026-13', 'refuse', None)],
         'fk_week': [('valid', '2026-W46', 'accept', None), ('invalid', 'bad', 'refuse', None), ('week 54 in a year without it', '2026-W54', 'refuse', None)],
+        'fk_number_free': [('negative, no bound set', '-5', 'accept', None), ('zero', '0', 'accept', None),
+                           ('very large integer', '99999999999999999999', 'refuse', None),
+                           ('blank optional', '', 'accept', '')],
+        'fk_date_bounded': [('at the minimum', '2026-01-01', 'accept', None), ('at the maximum', '2026-12-31', 'accept', None),
+                            ('below the minimum', '2025-12-31', 'refuse', None), ('above the maximum', '2027-01-01', 'refuse', None),
+                            ('blank optional', '', 'accept', '')],
+        'fk_datetime_bounded': [('at the minimum', '2026-01-01T09:00', 'accept', None),
+                                ('valid with seconds inside the bounds', '2026-06-01T12:00:30', 'accept', None),
+                                ('below the minimum', '2026-01-01T08:59', 'refuse', None),
+                                ('above the maximum', '2026-12-31T18:01', 'refuse', None),
+                                ('blank optional', '', 'accept', '')],
+        'fk_time_bounded': [('at the minimum', '09:00', 'accept', None), ('at the maximum with seconds', '18:00:00', 'accept', None),
+                            ('below the minimum', '08:59', 'refuse', None), ('above the maximum', '18:01', 'refuse', None),
+                            ('blank optional', '', 'accept', '')],
+        'fk_month_bounded': [('at the minimum', '2026-01', 'accept', None), ('at the maximum', '2026-12', 'accept', None),
+                             ('below the minimum', '2025-12', 'refuse', None), ('above the maximum', '2027-01', 'refuse', None),
+                             ('blank optional', '', 'accept', '')],
+        'fk_week_bounded': [('at the minimum', '2026-W01', 'accept', None), ('below the minimum', '2025-W52', 'refuse', None),
+                            ('above the maximum', '2026-W53', 'refuse', None), ('blank optional', '', 'accept', '')],
         'fk_color': [('valid', '#ff0000', 'accept', None), ('name instead of hex', 'red', 'refuse', None), ('three digits', '#fff', 'refuse', None)],
         'fk_select': [('valid option', o['fk_select'][0], 'accept', None), ('option id that does not exist', '999', 'refuse', None),
                       ('option of another field', o['fk_radio'][0], 'refuse', None), ('not a number', 'abc', 'refuse', None),
@@ -351,10 +374,20 @@ def run_matrix(client, cells, users, restricted):
             problems.append('read only not shown')
         if f.get('regular_expression') and 'pattern=' not in tag:
             problems.append('pattern not shown')
-        if f['html_type'] in ('number', 'range') and f.get('maximum_size') and f'max="{f["maximum_size"]}"' not in tag:
-            problems.append(f'max attribute does not match the maximum {f["maximum_size"]}')
-        if f['html_type'] in ('number', 'range') and f'min="{f.get("minimum_size", 0)}"' not in tag:
-            problems.append(f'min attribute does not match the minimum {f.get("minimum_size", 0)}')
+        # the bounds are the value properties: the form writes min and max only for the types that have them, and only
+        # when the property is set (decision D124)
+        if f['html_type'] in BOUNDED_TYPES:
+            for attr, prop in (('min', 'minimum_value'), ('max', 'maximum_value')):
+                expected = f.get(prop, '')
+                written = re.search(rf'\s{attr}="([^"]*)"', tag)
+                if expected and (not written or written.group(1) != expected):
+                    problems.append(f'{attr} attribute does not match the bound {expected}')
+                if not expected and written:
+                    problems.append(f'{attr} attribute written without a bound')
+        if f['html_type'] not in BOUNDED_TYPES and re.search(r'\s(min|max)="', tag):
+            problems.append('min or max written for a type without bounds')
+        if f['html_type'] in BOUNDED_TYPES and re.search(r'\s(minlength|maxlength)="', tag):
+            problems.append('minlength or maxlength written for a type that takes none')
         if f.get('default_value') and f['html_type'] not in ('textarea',) and f'value="{f["default_value"]}"' not in tag:
             problems.append('default value not pre-filled')
         if f.get('default_type') in (2, 3) and not re.search(r'value="[^"]+"', tag):
