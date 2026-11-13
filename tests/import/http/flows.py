@@ -1,6 +1,6 @@
 """The HTTP checks of the entries import. run.py installs the board, creates the blog showcase (create_blog) and calls
 run(). Every check prints PASS or FAIL; FAILS and NOT_RUN collect what did not pass or could not run."""
-import html, json, os, re, subprocess, sys, time
+import html, json, os, re, secrets, subprocess, sys, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'features', 'http'))
@@ -193,6 +193,20 @@ def write_file(name, content):
 def import_file(client, path, action='import'):
     form = client.get(f'{SHOWCASE}/import')
     return client.upload(f'{SHOWCASE}/import', {'my_post_key': post_key(form['body']), 'action': action}, 'entries_file', path)
+
+
+def import_named(client, file_name, content):
+    """Posts a file whose upload name is file_name (it may contain characters a disk path cannot hold)."""
+    form = client.get(f'{SHOWCASE}/import')
+    boundary = '----msc' + secrets.token_hex(8)
+    fields = {'my_post_key': post_key(form['body']), 'action': 'import'}
+    parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="entries_file"; filename="{file_name}"\r\n'
+                 f'Content-Type: text/xml\r\n\r\n'.encode() + content.encode('utf-8') + b'\r\n')
+    parts.append(f'--{boundary}--\r\n'.encode())
+    req = urllib.request.Request(client.url(f'{SHOWCASE}/import'), data=b''.join(parts), method='POST')
+    req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
+    return client._do(req)
 
 
 def dump(name, body):
@@ -420,6 +434,18 @@ def section_scope():
 
     body = import_file(member, write_file('wrong-extension.txt', xml_file([good_entry(1)])))['body']
     ok('.xml' in text(body) and entry_count(uid) == before, 'a file that is not .xml is refused')
+
+    # The report escapes the file name and the subject of a refused entry. The subject has no category, so the validator
+    # refuses it and the report prints it. (The payloads are the two of the design review.)
+    # PHP strips everything up to the last slash of an upload name, so the file name is a slash-free payload: the
+    # slash of </script> never reaches the report.
+    body = import_named(member, '<script>alert(1)<script>.xml', xml_file([{'subject': '"><img src=x onerror=alert(1)>', 'message': 'm', 'fields': {}}]))['body']
+    dump('escaping', body)
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and '<script>alert(1)<script>' not in body
+       and '<img src=x onerror=alert(1)>' not in body and '&lt;script&gt;alert(1)&lt;script&gt;' in body
+       and '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;' in body and entry_count(uid) == before,
+       'the report escapes the file name and the subject of a refused entry, and imports nothing')
 
     not_run('file fields over HTTP: the blog collection has no file field to test D45 with; covered by tests/import/run.php')
 
