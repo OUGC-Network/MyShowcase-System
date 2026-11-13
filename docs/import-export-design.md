@@ -249,8 +249,9 @@ new entry" decision into a shared service so form and import cannot diverge.
   Registered in `Plugin/Core.php` (`myshowcase_permissions` column), `Security/PermissionsFactory.php` (admin form
   metadata), `Entity/PermissionEntity.php` (constructor property), admin language strings
   (`admin/myshowcase.lang.php`), and `showcaseDefaultPermissions()` in `Plugin/Functions.php`.
-* **Visibility rule to reuse** (`EntriesController::buildQueryOptions`): a viewer without `EntriesCanView` sees only
-  approved entries plus their own awaiting ones. Field visibility: `CustomFieldEntity::isViewableInMain/Entry()`
+* **Visibility rule to reuse** (`EntriesManager::visibilityWhereClause()`, see `Documentation/visibility.md`): approved
+  entries are visible to everyone who may view the showcase; awaiting-approval entries need `entries_can_view_unapproved`
+  and soft-deleted ones `entries_can_view_deleted`, and then only the user's own, or any user's for a moderator. Field visibility: `CustomFieldEntity::isViewableInMain/Entry()`
   (`is_enabled` + `allowed_groups_view` via `is_member`).
 * **Scheduled task:** `inc/tasks/myshowcase.php` (`task_myshowcase`) already runs per-showcase maintenance; retention
   cleanup goes there.
@@ -757,8 +758,9 @@ entries actually written), **sort order** (field and direction), **selected fiel
 the file's `header.rules`, so a file can be understood without the board.
 
 **Export form options:** entry limit; sort by (entry date, last update, subject, views, or any exportable field) and
-direction; fields to include (default all exportable); include awaiting-approval entries and include soft-deleted entries
-(moderators only).
+direction; fields to include (default all exportable); include awaiting-approval entries and include soft-deleted entries.
+The two inclusion options follow the standing visibility rule: a non-moderator gets their own awaiting-approval or
+soft-deleted entries only with `entries_can_view_unapproved` or `entries_can_view_deleted`; a moderator gets any user's.
 
 ### 10. Retention
 
