@@ -45,7 +45,7 @@ elements, `header` and `entries`. A file with any other root element, or one tha
 | Key | Type | Meaning |
 |---|---|---|
 | `format` | string | Always `myshowcase-entries`. |
-| `format_version` | int | `1`. A higher number is refused. |
+| `format_version` | int | `1` or `2`. Version 2 writes the file fields as URLs (see [File fields](#file-fields)). A higher number is refused. |
 | `myshowcase_version` | string | The version of MyShowcase that wrote the file. Informational. |
 | `generated` | string | When the file was written (ISO 8601, UTC). Informational. |
 | `showcase` | array | `route_identifier` must be the route identifier of the showcase the file is imported into. `name` is informational. |
@@ -72,8 +72,8 @@ the file are ignored: every entry is created as the importing user, with the sta
 the forum (see [Status](#status)).
 
 Field keys match exactly (case-sensitive). A key that is not a field of the collection is refused. A key of a field the
-user may not fill (not enabled for the user's group, or read only) is refused. A key of a file field is refused, see
-[What is not imported](#what-is-not-imported).
+user may not fill (not enabled for the user's group, or read only) is refused. A key of a file field holds the URL of
+its file, see [File fields](#file-fields).
 
 ### Values by field type
 
@@ -86,6 +86,7 @@ The export writes each field as its stored value. The import reads the same valu
 | Select, radio and checkbox fields | the option's **value id** (`value_id`), not its label, as an integer | the id, stored as the form stores it |
 | Empty value | an empty element | the empty string: an optional field is stored empty |
 | A null value | the marker of a null (see `XmlFile`) | treated as absent (see [Absent fields](#absent-fields)) |
+| File fields (format version 2) | the public URL of the file, or an empty element when the exporting user may not download the file | the URL is downloaded and checked (see [File fields](#file-fields)) |
 
 The file is for the same board, which is why select values are ids: the option ids of the board are the ones the file
 was written with. The validator checks a select value only as a number. It does not check that the option exists, and
@@ -93,6 +94,82 @@ neither does the form, so an unknown id is stored as the form would store it.
 
 Subjects and messages are stored as text. A line break in a message is kept (carriage returns are written as character
 references); characters that XML 1.0 cannot hold were removed when the file was written.
+
+### File fields
+
+A file field holds the URL of its file. The URL is the public address the board serves the file at, so a browser can
+open it. An export writes it for every file the exporting user could download, by the rules of the download route; any
+other file is written empty and counted in the export's notes. No filesystem path is ever written.
+
+An import takes each file from its URL and attaches it through the same pipeline as the form: the board's attachment
+types, the sizes of the field and of the type, the thumbnails of images and the checks of a valid image all apply, and the
+file's name and content type are checked, not the ones the server claims. An entry of the gallery showcase, for example:
+
+```xml
+<element><key>0</key><value><array>
+  <element><key>fields</key><value><array>
+    <element><key>title</key><value>Picture</value></element>
+    <element><key>image</key><value>https://placehold.co/600x450.png?text=Gallery%20Entry</value></element>
+  </array></value></element>
+</array></value></element>
+```
+
+The downloads showcase takes its `archive` the same way, from a URL of a ZIP file.
+
+**The setting.** The board's administrator switches the import of files from URLs off with the global setting
+**Import files from URLs** (`myshowcase_import_external_files`, yes or no, yes by default). When it is off, an import whose
+file fields hold URLs is refused as a whole, with nothing imported. The setting does not change exports, which always
+write the URLs.
+
+**Where a URL points.** A URL of this board's own download route is not fetched: the file is copied from the board's
+storage, if the importing user may download that file (the same rules as the download route). A URL of any other address
+is fetched over the network, under the rules below. A look-alike address (another host with the same path) is an
+external address.
+
+**The rules of a fetch.** Every URL and every address it leads to is checked before a connection is made:
+
+* the URL is at most 2048 characters, has no spaces, control characters or non-ASCII characters, and no `#` part;
+* the scheme is `http` or `https`, the port is 80 or 443 (or the board's own port for the board's own files), and there is
+  no user name or password in the address;
+* every address the host name resolves to must be public. Loopback, private, link-local (including the cloud metadata
+  address), unique-local, carrier-grade NAT, multicast, reserved, documentation and benchmarking addresses are refused, and
+  so is the IPv4 address inside an IPv4-mapped, IPv4-compatible or NAT64 IPv6 address. An IP address written in decimal,
+  octal or hexadecimal form is read as the address it is;
+* the connection goes to the address that was checked, so a second answer of the name server cannot change the target;
+* a redirect is followed at most three times, and each redirect is checked the same way; a redirect that changes the scheme
+  or the port is refused;
+* certificates are verified; no cookie and no credential of the board or of the user is ever sent. The User-Agent is
+  `MyShowcase-Import/` and the plugin's version.
+
+The file is downloaded into a temporary folder of the server and is removed on every path: success, refusal, error and an
+interrupted request.
+
+**Limits.** The limits are constants of the code, not settings (`ExternalFileLimits`):
+
+| Limit | Value |
+|---|---|
+| Size of one file | the smallest of the field's maximum size, the type's maximum size and 50 MB |
+| Size of all files of one import | 100 MB |
+| Files per import | 25 |
+| Connect time | 5 seconds per file |
+| Time per file | 30 seconds |
+| Time of the whole import | 60 % of PHP's `max_execution_time`; 120 seconds when PHP has no limit. An import that cannot fit its files in that time does not start. |
+| Redirects | 3 per file |
+| URL length | 2048 characters |
+
+The file count is checked before any download: an import with more than 25 files is refused without a download.
+
+**Failure.** Any file that cannot be taken fails the whole import, with the entry, the field and the reason in the
+report (for example "the file of the field "Image" could not be imported: the address is not a public one, so it is not
+fetched"). Nothing is written, and no file, attachment row or import log row is left behind. The reasons are: the scheme,
+the port, the user name, the host, the characters, the length, the fragment, a private address, a name that does not
+resolve, a secure connection that is not verified, a server that cannot be reached, too many redirects, a file too large,
+a download too slow, a server that does not return the file, a file of a type the board does not allow, an empty or
+invalid image, the import's budget, the setting being off, a server without the cURL extension, and a file of this board
+that the user may not download.
+
+**What the protections do not cover.** A fetched file is checked against its type and size, not scanned for content. The
+board's administrator decides which types are allowed (the attachment types of the board).
 
 ### Absent fields
 
@@ -251,9 +328,8 @@ name of the file and the number of entries. The flood check reads it.
 
 ## What is not imported
 
-* **Files and attachments.** A file field cannot be carried by the XML format. A file whose key is a file field is refused.
-  A showcase with a required file field cannot be imported at all, because the validator refuses every entry without its
-  attachment. The import page says so.
+* **Attachments that are not file fields.** Only the file of a file field is taken from its URL (see [File fields](#file-fields)).
+  Other attachments of an entry are not exported and not imported.
 * **Comments and edit history.**
 * **The author and the dates.** The importing user is the author. The dates are the ones a new entry gets from the forum.
 * **Status, counters, flags and identifiers.** They come from the forum, as for a new entry. The public identifier of an
@@ -270,19 +346,30 @@ name of the file and the number of entries. The flood check reads it.
 * **The post key** is checked on the server for the import, as for every state-changing request of the forum.
 * **Permissions** are checked on the server for every request: a guest is refused, and so is a member without
   **Can Import Entries** (the import form and the POST).
+* **Files from URLs** are fetched under the rules of [File fields](#file-fields). Nothing in a file can change the rules
+  of the fetch: the address, the host and the redirects are checked by the server on every hop.
 * **Values** are stored through the repository the form uses and are escaped when they are shown.
 * **Error messages** do not contain paths, server names or the text of the XML.
 
 ## Tests
 
-The unit tests need no board: `php tests/import/run.php` (limits, the file check, the report and the upload reader).
+The unit tests need no board: `php tests/import/run.php` (limits, the file check, the report, the upload reader and the
+write-failure log), and `php tests/import/fetcher/run.php` (the URL rules, a table of addresses, the fetcher with a fake
+resolver and transport, the acceptance of a file, and the budget). Neither needs a network.
 
-The HTTP test installs a board, creates the blog from its JSON, creates entries through the form, exports and imports them,
-and checks the refusals and the security measures:
+The HTTP test installs a board, creates the blog, gallery and downloads showcases from their JSON, creates entries through
+the form, exports and imports them, takes files from URLs (placehold.co and a ZIP of GitHub, the only external hosts it
+contacts), and checks the refusals, the security measures and the file fields:
 
 ```bash
 python3 tests/import/http/run.py --engine sqlite --mybb /path/to/mybb-1.9 --scratch /path/to/scratch --pluginlibrary-file /path/to/pluginlibrary.php
 ```
+
+The network checks use placehold.co and github.com only. A local listener of the run records every request it receives, so
+the address checks can show that nothing was contacted.
+
+Packages (one ZIP file that holds one entry and its files) are not implemented yet; their design is in
+[import-packages.md](import-packages.md).
 
 For MySQL the test creates a database of its own (`msc_test_<random>`) and drops it at the end. The database settings are
 the ones of `tests/json-sync/README.md`. The MyBB tree needs its Composer dependencies in `vendor/`.
