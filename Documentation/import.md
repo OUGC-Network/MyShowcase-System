@@ -54,8 +54,10 @@ elements, `header` and `entries`. A file with any other root element, or one tha
 | `fields` | list | The fields of the export (`field_key`, `html_type`, `field_type`). Informational: the entries decide what is read. |
 | `rules` | array | The options the export was made with. Informational. |
 
-A file is for the same board only. Its showcase and collection must be the ones of the import target; a file written for
-the blog and imported into the gallery is refused with the names of both showcases.
+A file is for the same board only. Its showcase must be the one of the import target: a file written for the blog and
+imported into the gallery is refused with the names of both showcases. A collection name that differs from the target
+collection's is a warning in the report (the import goes on, and every field key is still checked against the target
+collection).
 
 ### Entries
 

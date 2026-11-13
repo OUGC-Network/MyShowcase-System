@@ -687,9 +687,8 @@ before stage 7.
      use it. (A key naming a `file` field is also rejected here: attachments are out of scope.) **Fillable fields only
      (T18, T23):** a key must also name a field the importing user may fill, `CustomFieldEntity::canFill()` (enabled, not
      read-only, in a group listed in `allowed_groups_fill`); the same rule the form now applies to posted input.
-   * `header.collection.name` differing from the target collection name **refuses the file** (changed in the import batch: the
-     brief requires a file of another collection to be refused; see Documentation/import.md). `header.showcase.route_identifier`
-     differing from the target showcase's identifier refuses it too.
+   * `header.collection.name` differing from the target collection name is a **warning** in the report, not an error (T3).
+     `header.showcase.route_identifier` differing from the target showcase's identifier **refuses the file**.
 6. **Defaulting step, then validation, per entry, in file order**, with a **fresh `EntriesManager` per entry**:
    1. Build the entry data from the file: `subject`, `message`, and the `fields` map. A `null` value is treated as absent.
    2. **Defaults for absent fields (T20):** for every enabled collection field whose key is absent (or null) in this
@@ -972,7 +971,7 @@ All of the following are final unless you change them.
 |---|---|
 | T1 | Validation principle: the forum create-form validator is the only per-entry verification; no import-specific value checks. |
 | T2 | No uniqueness flag, no uniqueness checks or normalisation, no duplicate handling anywhere in the design. Finding recorded: the validator enforces no uniqueness; importing the same file twice duplicates the entries. |
-| T3 | Only structural pre-check: every field key in the file must exist in the target collection (exact match); any unknown key fails the import. Collection name mismatch refuses the file (changed from "is a warning"; see Documentation/import.md). |
+| T3 | Only structural pre-check: every field key in the file must exist in the target collection (exact match); any unknown key fails the import. Collection name mismatch is a warning. |
 | T4 | Absent fields get their defaults before validation; a required field absent from the file is rejected by the validator and fails the import. |
 | T5 | All-or-nothing: every entry goes through the validator first; any rejection fails the whole import and writes nothing; the report lists each failing entry's file position and its validator errors. |
 | T6 | Writes: raw-SQL transaction plus compensating delete (and a shutdown-function guard). Assessed from code for MySQL, PostgreSQL, SQLite (section D); not executed. |
@@ -1006,7 +1005,7 @@ All of the following are final unless you change them.
 | 1 Unique-field flag | **Dropped** (overridden by T2). |
 | 2 Duplicate policy | **Dropped** (overridden by T2). |
 | 3 Required + default | **Changed:** because defaults are applied before validation (T4), a required field with an effective default is satisfied by it. This **conflicts with the earlier recommendation** (3a: still an error); your rule wins. |
-| 4 Collection match | Name mismatch refuses the file (changed from "is a warning (T3)" when the import was implemented). |
+| 4 Collection match | Name mismatch is a warning (T3). Overrode the earlier hard-fail recommendation. |
 | 5 Unknown fields | **Fails** the import (T3). Overrode the earlier "ignore and warn". |
 | 6 Author mapping | **Dropped** (T7). |
 | 7 Status on import | **Dropped** (T7). |
