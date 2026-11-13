@@ -25,6 +25,7 @@ $l = [
     'myshowcase_datahandler_invalid_dateline' => 'The entry dateline is invalid.',
     'myshowcase_datahandler_invalid_update_dateline' => 'The entry edit stamp is invalid.',
     'myshowcase_datahandler_invalid_value' => 'The field "{1}" has an invalid value.',
+    'myshowcase_datahandler_multiple_values' => 'The field "{1}" accepts one selected option only.',
     'myshowcase_datahandler_required_field' => 'A required field is missing: {1}.',
     'myshowcase_datahandler_invalid_length_minimum' => 'The field "{1}" has an invalid length. Make sure it at least {2} characters long.',
     'myshowcase_datahandler_invalid_length_maximum' => 'The field "{1}" has an invalid length. Make sure it is no more than {2} characters long.',

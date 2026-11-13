@@ -1,15 +1,5 @@
 {
  "sqlite": {
-  "fk_checkbox|c": {
-   "reason": "several checked boxes are stored as one value: the validator checks each id, then the cast turns the array into 1",
-   "cause": "Plugin/Functions.php:863 (castTableFieldValue, (int) cast); src/Service/EntriesManager.php:1139-1146",
-   "classification": "repair in Part 2"
-  },
-  "fk_checkbox|e": {
-   "reason": "the option labels are not shown because the stored value is 1 (see fk_checkbox|c)",
-   "cause": "Plugin/Functions.php:863; src/Service/EntriesManager.php:1139-1146",
-   "classification": "repair in Part 2"
-  },
   "fk_color|c": {
    "reason": "a colour is accepted without a hex check: only the length is validated for text types",
    "cause": "src/Service/EntriesManager.php:1149-1166",
@@ -117,16 +107,6 @@
   }
  },
  "mysql": {
-  "fk_checkbox|c": {
-   "reason": "several checked boxes are stored as one value: the validator checks each id, then the cast turns the array into 1",
-   "cause": "Plugin/Functions.php:863 (castTableFieldValue, (int) cast); src/Service/EntriesManager.php:1139-1146",
-   "classification": "repair in Part 2"
-  },
-  "fk_checkbox|e": {
-   "reason": "the option labels are not shown because the stored value is 1 (see fk_checkbox|c)",
-   "cause": "Plugin/Functions.php:863; src/Service/EntriesManager.php:1139-1146",
-   "classification": "repair in Part 2"
-  },
   "fk_color|c": {
    "reason": "a colour is accepted without a hex check: only the length is validated for text types",
    "cause": "src/Service/EntriesManager.php:1149-1166",
@@ -224,16 +204,6 @@
   }
  },
  "pgsql": {
-  "fk_checkbox|c": {
-   "reason": "several checked boxes are stored as one value: the validator checks each id, then the cast turns the array into 1",
-   "cause": "Plugin/Functions.php:863 (castTableFieldValue, (int) cast); src/Service/EntriesManager.php:1139-1146",
-   "classification": "repair in Part 2"
-  },
-  "fk_checkbox|e": {
-   "reason": "PostgreSQL: the entry page and the edit form answer 503 (EntryEntity receives the bytea column as a stream resource in ipaddress)",
-   "cause": "src/Service/EntriesManager.php:720 (new EntryEntity(...)); the ipaddress column is bytea on PostgreSQL",
-   "classification": "repair in Part 2"
-  },
   "fk_color|c": {
    "reason": "a colour is accepted without a hex check: only the length is validated for text types",
    "cause": "src/Service/EntriesManager.php:1149-1166",

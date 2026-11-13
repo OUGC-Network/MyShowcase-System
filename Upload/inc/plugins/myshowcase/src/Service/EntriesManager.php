@@ -1171,6 +1171,14 @@ class EntriesManager
             if (in_array($field->html_type, [FieldHtmlTypes::Select, FieldHtmlTypes::Radio, FieldHtmlTypes::CheckBox], true)) {
                 $option_values = is_array($field_value) ? $field_value : [$field_value];
 
+                // Several checked boxes are refused until multiple choice exists: the cast that stores the value
+                // would otherwise reduce the list to 1 (decision D105).
+                if (count($option_values) > 1) {
+                    $this->validateSetError('multiple_values', [$field_label]);
+
+                    continue;
+                }
+
                 foreach ($option_values as $option_value) {
                     if (!$this->optionUsableForField((int)$field_id, $option_value)) {
                         $this->validateSetError('invalid_value', [$field_label]);
