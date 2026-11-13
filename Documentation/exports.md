@@ -97,6 +97,29 @@ A download is never a link to a stored file. The link carries only the export id
 `12-gallery-20261112-093015-0c1f...e9.xml`. Nothing in the name comes from a request: the route identifier keeps only
 the characters `a-z 0-9 _ -`. The name is never shown to a user; the download name is built separately.
 
+## File fields
+
+An export writes each file field of an entry as the public URL of its file (format version 2). The URL is the route the
+board serves the file through, on the showcase's address (its "Url to Showcase", or the board's address when that is
+empty):
+
+```
+https://forum.example.com/gallery/attachment/<public id>/<file name>
+```
+
+Only a file the exporting user may download gets a URL, by the rules of the download route: the user must be able to view
+the entry and the file, the file must be approved (or the user may view unapproved files), the user needs the download
+permission (the owner of a file does not), and the file's type must be allowed for the user's group. Any other file leaves
+the field empty; the export's notes count those files. The export never writes a filesystem path.
+
+To download a file by hand, open its URL in a browser where the exporting user is signed in. The file is the one the entry
+shows; the board's permissions apply to that request as they do to any download.
+
+An import of the export into the same board does not download these URLs: it copies each file from the board's storage. It
+fails if the importing user may not download that file. An import into another board fetches the URLs under the rules in
+[import.md](import.md#file-fields). The file's URL is only as durable as
+the file: a file deleted from the entry is no longer served at its URL.
+
 ## Retention
 
 The scheduled task `myshowcase` deletes the files of exports that are older than **30 days**. The retention setting
