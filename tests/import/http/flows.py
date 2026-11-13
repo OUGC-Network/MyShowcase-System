@@ -569,6 +569,12 @@ def gallery_entry(i, image):
     return {'fields': {'title': f'Picture {i}', 'image': image, 'caption': f'Caption {i}'}}
 
 
+def downloads_entry(i, archive):
+    # Select values are the option ids of the shipped downloads collection (Tools, Any, Freeware).
+    return {'fields': {'archive': archive, 'category': 1, 'version': f'1.9.{i}', 'release_date': '2026-11-01',
+                       'platform': 1, 'license': 1, 'sha256': '0' * 64}}
+
+
 def sha256_of(path):
     with open(path, 'rb') as handle:
         return hashlib.sha256(handle.read()).hexdigest()
@@ -721,6 +727,35 @@ def section_files():
     ok(gallery_rows() == before_rows and attachment_rows() == before_files and import_log_count() == before_logs, 'nothing is stored, no attachment row, no log row')
     ok(set(os.listdir(uploads)) == files_before, 'no file is left in the uploads folder')
     ok(set(glob.glob(os.path.join(tempfile.gettempdir(), 'myshowcase-import-*'))) == temp_before, 'no temporary folder of the import is left')
+
+    # F6 (V6): the downloads showcase takes a ZIP of GitHub (a redirect to codeload.github.com, 50 MB field limit, the ZIP
+    # type). The size and the time are recorded; the stored file is the bytes of the archive.
+    did = int(one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'") or 0)
+    if did:
+        duploads = one(f"select attachments_uploads_path from mybb_myshowcase_config where showcase_id={did}")
+        zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
+        dbefore = int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0)
+        started = time.time()
+        path = write_file('downloads-zip.xml', xml_file([downloads_entry(1, zip_url)], route='downloads', collection='Downloads', format_version=2))
+        body = import_into(member, 'downloads', path)['body']
+        dump('downloads-zip', body)
+        elapsed = time.time() - started
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'completed', f'a downloads file with the GitHub ZIP imports ({elapsed:.1f} s)')
+        ok(int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore + 1, 'the GitHub ZIP entry is stored')
+        zipped = one(f"select file_name from mybb_myshowcase_attachments where showcase_id={did} and user_id={uid} and field_id is not null order by attachment_id desc limit 1") or ''
+        if zipped:
+            fetched_zip = fetch_bytes(zip_url)
+            ok(sha256_of(os.path.join(duploads, zipped)) == hashlib.sha256(fetched_zip).hexdigest(),
+               f'the stored ZIP is the archive of GitHub ({len(fetched_zip)} bytes)')
+        # A PNG in the downloads field: the board allows only ZIP there, so the file is refused by its type.
+        dbefore = int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0)
+        path = write_file('downloads-png.xml', xml_file([downloads_entry(2, 'https://placehold.co/600x450.png?text=Not%20a%20zip')], route='downloads', collection='Downloads', format_version=2))
+        body = import_into(member, 'downloads', path)['body']
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'failed' and 'not an allowed type' in report['text'] and
+           int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore,
+           'a PNG in the downloads field is refused by its type, and nothing is stored')
 
 
 def section_logs():
