@@ -131,16 +131,13 @@ class CommentsController extends BaseController
             $this->errorNoPermission();
         }
 
+        // The new comment carries the request's post hash, so the form sends it back (and uploads made with it link).
         $comment_data = $is_update
             ? $this->context->comments_manager->getComments()->offsetGet($this->comment_id)
-            : $this->context->comments_manager->generateComment();
+            : $this->context->comments_manager->generateComment(['post_hash' => $this->requestPostHash()]);
 
         $this->forcedFieldBreadcrumb($entry->user_id);
         $this->buildCommentBreadcrumbs($entry, $comment_public_id, $is_update, $lang);
-
-        if (!$is_update && empty($comment_data->post_hash)) {
-            $entry->post_hash = $this->requestPostHash();
-        }
 
         $commentPreview = '';
 
@@ -182,6 +179,7 @@ class CommentsController extends BaseController
             'buttonText' => $buttonText,
             'createUpdateUrl' => $createUpdateUrl,
             'attachmentsUpload' => $attachmentsUpload,
+            'comment_data' => $comment_data,
         ]);
     }
 
