@@ -10,7 +10,8 @@ one place in PHP and mirrored by one SQL condition, and the two must agree.
 
 A user is a moderator of a showcase when either:
 
-* their usergroup has the MyBB super-moderator or administrator flag (`issupermod` or `cancp`), or
+* one of their usergroups, primary or additional, has the MyBB super-moderator or administrator flag (`issupermod` or
+  `cancp`): MyBB merges the additional groups into `$mybb->usergroup`, which the test reads, or
 * a `myshowcase_moderators` row for the showcase matches them. `group_id` is the type of the row: 0 matches the user with
   the uid in `user_id`; 1 matches any of the user's usergroups, with the usergroup id in `user_id`
   (`ModeratorsRepository::matchesUser()`).
@@ -34,11 +35,12 @@ An entry has one of three statuses (`ContentStatuses`): awaiting approval, appro
 A guest, or a member without the permission for the status, sees no entry of that status, not even their own.
 
 The rule is `EntriesManager::statusViewScope()` (returns `any`, `own` or `none`) and `canViewStatus($status, $owner_id)`
-built on it. `visibilityWhereClause()` is the SQL form. The entry page, attachments, the listing, the search, the
-moderation actions (`canModerateEntry()`) and the export all use these.
+built on it. `visibilityWhereClause()` is the SQL form. The entry page, attachments, the listing, the search and the
+export all use these.
 
 The moderation permissions (`entries_can_approve`, `entries_can_open`, and the others) decide which actions a user may
-run, not which entries they may see. An action on someone else's entry also needs `isModerator()`.
+run, not which entries they may see. `BaseController::mayModerateEntry()` checks an action: the permission, and either
+the entry is the user's own or the user is a moderator (`isModerator()`).
 
 ## Comments
 
@@ -74,7 +76,9 @@ A status that the user may not see contributes nothing to the clause. When no st
   the entry page and the redirect to a comment's position).
 * Attachments: a file of an entry the user may not see is refused with the same 404 as an unknown attachment, whoever
   uploaded it.
-* Inline moderation menu: shown only for the tools in `moderationTools()` that the user holds, and each tool is checked
-  again with `canModerateEntry()` before it runs.
+* Inline moderation menu: the moderators see it; a guest and a member without a moderation permission do not. Each batch
+  action is checked with `mayModerateEntry()` for every selected entry before anything changes, so one refused entry
+  refuses the request. `EntriesManager::moderationTools()` and `canModerateEntry()` have no callers yet and are not part
+  of this rule.
 * Export: the export holds what the listing shows the user. The export page's moderator flag (`is_moderator`) is
   `isModerator()`.
