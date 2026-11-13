@@ -359,6 +359,10 @@ abstract class BaseController
                 break;
             case self::INVALID_ENTRY:
                 $this->error($this->context->language->myshowcase_report_error_invalid_entry);
+                break;
+            case self::INVALID_COMMENT:
+                // A hidden comment answers exactly like a missing one: no redirect to its position.
+                $this->error($this->context->language->myshowcase_report_error_invalid_comment);
         }
 
         /** @var EntryEntity $entry */
