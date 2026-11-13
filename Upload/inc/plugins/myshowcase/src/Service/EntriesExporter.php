@@ -6,8 +6,11 @@ namespace MyShowcase\Service;
 
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Enum\Routes;
+use MyShowcase\Enum\UserPermissions;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\ImportLimits;
 use MyShowcase\Util\XmlFile;
@@ -34,7 +37,11 @@ class EntriesExporter
 
     public const FORMAT = 'myshowcase-entries';
 
-    public const FORMAT_VERSION = 1;
+    /**
+     * Version 2 writes every file field as the public URL of its file (decision D48). Version 1 files, which have no file
+     * fields, are still imported.
+     */
+    public const FORMAT_VERSION = 2;
 
     public function __construct(private readonly ShowcaseContext $context)
     {
@@ -47,15 +54,15 @@ class EntriesExporter
     }
 
     /**
-     * The fields the user may export: enabled, visible to their group, fillable by their group (so what they export
-     * they could also import) and not an attachment field.
+     * The fields the user may export: enabled, visible to their group and fillable by their group (so what they export
+     * they could also import). A file field is exported as the URL of its file (format version 2).
      *
      * @return Collection<CustomFieldEntity>
      */
     public function exportableFields(): Collection
     {
         return $this->context->entries_manager->fillableFields()->filter(
-            static fn(CustomFieldEntity $field): bool => $field->canView() && $field->html_type !== FieldHtmlTypes::File
+            static fn(CustomFieldEntity $field): bool => $field->canView()
         );
     }
 
@@ -103,6 +110,11 @@ class EntriesExporter
         }
 
         foreach ($this->exportableFields() as $field) {
+            // A file field is not a column of the entries table: it cannot be a sort order.
+            if ($field->html_type === FieldHtmlTypes::File) {
+                continue;
+            }
+
             $choices[$field->field_key] = $this->context->entries_manager->fieldLabel($field);
         }
 
@@ -162,7 +174,7 @@ class EntriesExporter
      * Reads the entries the rules select and writes the XML.
      *
      * @param array<string, mixed> $rules from rulesFromInput()
-     * @return array{xml: string, entry_count: int, rules: array<string, mixed>}
+     * @return array{xml: string, entry_count: int, rules: array<string, mixed>, notes: array{files_without_url: int, files_not_in_value: int}}
      * @throws ExportException when nothing matches, or the file would be larger than the import size cap
      */
     public function build(array $rules, XmlFile $xml_file): array
@@ -174,6 +186,13 @@ class EntriesExporter
         }
 
         $fields = $this->selectedFields($rules);
+
+        $file_fields = array_values(array_filter(
+            $fields,
+            static fn(CustomFieldEntity $field): bool => $field->html_type === FieldHtmlTypes::File
+        ));
+
+        $files = $this->fileUrls($rows, $file_fields);
 
         $entries = [];
 
@@ -189,6 +208,13 @@ class EntriesExporter
             $entry['fields'] = [];
 
             foreach ($fields as $field) {
+                if ($field->html_type === FieldHtmlTypes::File) {
+                    // A file field holds the URL of its file, or nothing when the user may not download one (section 9).
+                    $entry['fields'][$field->field_key] = $files['urls'][(int)$row['entry_id']][$field->field_key] ?? '';
+
+                    continue;
+                }
+
                 $entry['fields'][$field->field_key] = $this->valueOf($row[$field->field_key] ?? null, $field);
             }
 
@@ -223,7 +249,13 @@ class EntriesExporter
             );
         }
 
-        return ['xml' => $xml, 'entry_count' => count($entries), 'rules' => $rules];
+        return [
+            'xml' => $xml,
+            'entry_count' => count($entries),
+            'rules' => $rules,
+            // Files the export did not write as a URL, counted for the user (never written into the file).
+            'notes' => $files['notes'],
+        ];
     }
 
     /**
@@ -268,7 +300,14 @@ class EntriesExporter
 
         $columns = ['entry_data.entry_id'];
 
+        $file_keys = $this->fileFieldKeys();
+
         foreach ($rules['fields'] as $key) {
+            // A file field is not a column: its value is read from the attachments (fileUrls()).
+            if (in_array($key, $file_keys, true)) {
+                continue;
+            }
+
             // The keys were checked against selectableKeys(): they are core columns or field keys of the collection.
             $columns[] = 'entry_data.' . $key;
         }
@@ -295,6 +334,198 @@ class EntriesExporter
         }
 
         return $rows;
+    }
+
+    /** @return string[] the keys of the exportable file fields */
+    private function fileFieldKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->exportableFields() as $field) {
+            if ($field->html_type === FieldHtmlTypes::File) {
+                $keys[] = $field->field_key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The public URL of the file of each file field value (decision D48). The value of a field is the first file of that
+     * field that the exporting user may download (the same rules as the download route); every other file is counted in
+     * the notes, and a file with no URL leaves the value empty. No filesystem path is ever written.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @param CustomFieldEntity[] $file_fields
+     * @return array{urls: array<int, array<string, string>>, notes: array{files_without_url: int, files_not_in_value: int}}
+     */
+    private function fileUrls(array $rows, array $file_fields): array
+    {
+        $result = ['urls' => [], 'notes' => ['files_without_url' => 0, 'files_not_in_value' => 0]];
+
+        if ($file_fields === [] || $rows === []) {
+            return $result;
+        }
+
+        $entry_ids = array_map(static fn(array $row): int => (int)$row['entry_id'], $rows);
+
+        $field_ids = array_map(static fn(CustomFieldEntity $field): int => (int)$field->field_id, $file_fields);
+
+        $field_keys = [];
+
+        foreach ($file_fields as $field) {
+            $field_keys[(int)$field->field_id] = $field->field_key;
+        }
+
+        $attachments = [];
+
+        foreach (
+            $this->context->attachments_repository->queryAttachments(
+                [
+                    'entry_id IN (' . implode(',', array_map('intval', $entry_ids)) . ')',
+                    'field_id IN (' . implode(',', array_map('intval', $field_ids)) . ')',
+                ],
+                ['attachment_id', 'public_id', 'attachment_name', 'user_id', 'status', 'mime_type', 'entry_id', 'field_id'],
+                ['order_by' => 'attachment_id', 'order_dir' => 'ASC']
+            ) as $attachment
+        ) {
+            $attachments[(int)$attachment['entry_id']][(int)$attachment['field_id']][] = $attachment;
+        }
+
+        $base = $this->publicBase();
+
+        $types = $this->attachmentTypes();
+
+        foreach ($attachments as $entry_id => $by_field) {
+            foreach ($by_field as $field_id => $list) {
+                if (!isset($field_keys[$field_id])) {
+                    continue;
+                }
+
+                $chosen = false;
+
+                foreach ($list as $attachment) {
+                    if (!$this->mayDownload($attachment, $types)) {
+                        $result['notes']['files_without_url']++;
+
+                        continue;
+                    }
+
+                    if ($chosen !== false) {
+                        $result['notes']['files_not_in_value']++;
+
+                        continue;
+                    }
+
+                    $path = $this->context->routing->generateUrl(
+                        Routes::AttachmentDownload,
+                        [
+                            'attachment_public_id' => (string)$attachment['public_id'],
+                            'attachment_name' => (string)$attachment['attachment_name'],
+                        ]
+                    );
+
+                    $url = self::joinUrl($base, $path);
+
+                    if ($url === '') {
+                        $result['notes']['files_without_url']++;
+
+                        continue;
+                    }
+
+                    $chosen = $url;
+
+                    $result['urls'][$entry_id][$field_keys[$field_id]] = $url;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * The base of the public URLs: the showcase's "Url to Showcase" when it is set, else the board's address (as the
+     * links of the showcase are built).
+     */
+    private function publicBase(): string
+    {
+        global $mybb;
+
+        $base = trim((string)$this->context->showcase->showcase_url);
+
+        if ($base === '') {
+            $base = (string)($mybb->settings['bburl'] ?? '');
+        }
+
+        return rtrim($base, '/');
+    }
+
+    /**
+     * Joins the base and a route path into an absolute http or https URL, or returns '' when either part is not one. A
+     * file is written with a URL only when it is a full address a browser can open.
+     */
+    public static function joinUrl(string $base, string $path): string
+    {
+        if (!preg_match('#^https?://[^/?\#\s]+#i', $base) || !str_starts_with($path, '/') || preg_match('/[\x00-\x20\x7f]/', $path)) {
+            return '';
+        }
+
+        return rtrim($base, '/') . $path;
+    }
+
+    /**
+     * The board's attachment types of this showcase, as the download route reads them.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function attachmentTypes(): array
+    {
+        return $this->context->cache_manager->get(CacheDataTypes::AttachmentTypes)[$this->context->showcase->showcase_id] ?? [];
+    }
+
+    /**
+     * Whether the exporting user could download this file through the download route: the same checks, in the same
+     * order (AttachmentsController::viewThumbnail()). The owner of the file needs no download permission.
+     *
+     * @param array<string, mixed> $attachment
+     * @param array<int, array<string, mixed>> $types
+     */
+    private function mayDownload(array $attachment, array $types): bool
+    {
+        $user = $this->context->current_user;
+
+        $is_owner = (int)$user->uid > 0 && (int)$user->uid === (int)$attachment['user_id'];
+
+        if (!$user->hasPermission(UserPermissions::MainCanView)) {
+            return false;
+        }
+
+        if (!$is_owner) {
+            if (!$user->hasPermission(UserPermissions::EntriesCanView) || !$user->hasPermission(UserPermissions::AttachmentsCanView)) {
+                return false;
+            }
+
+            if ((int)$attachment['status'] !== ContentStatuses::VisibleApproved &&
+                !$user->hasPermission(UserPermissions::AttachmentsCanViewUnapproved)) {
+                return false;
+            }
+
+            if (!$user->hasPermission(UserPermissions::AttachmentsCanDownload)) {
+                return false;
+            }
+        }
+
+        $extension = my_strtolower(get_extension((string)$attachment['attachment_name']));
+
+        $mime = my_strtolower((string)$attachment['mime_type']);
+
+        foreach ($types as $type) {
+            if ($type['file_extension'] === $extension && $type['mime_type'] === $mime) {
+                return $is_owner || is_member($type['allowed_groups']);
+            }
+        }
+
+        return false;
     }
 
     private function valueOf(mixed $value, CustomFieldEntity $field): mixed
@@ -341,7 +572,9 @@ class EntriesExporter
                 ],
                 $fields
             ),
-            'rules' => $rules,
+            // Version 2: a file field holds the public URL of its file, or is empty when the exporting user may not download
+            // it. The importer reads the URL and downloads the file (section 5.9).
+            'rules' => $rules + ['file_fields' => 'public URL of the file; empty when the exporting user may not download it'],
         ];
     }
 }

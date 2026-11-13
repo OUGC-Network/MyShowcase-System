@@ -438,7 +438,7 @@ def section_scope():
        and entry_count(uid) == before + 1, 'a file of another collection imports, with its warning in the report (T3)')
     before = entry_count(uid)
     refused('unknown.xml', xml_file([{'fields': {'legacy_tag': 'x'}}]), 'is not a field of this showcase')
-    refused('version.xml', xml_file([good_entry(1)], format_version=2), 'format version 2')
+    refused('version.xml', xml_file([good_entry(1)], format_version=3), 'format version 3')
     refused('count.xml', xml_file([good_entry(1)], entry_count=3), 'says it has 3 entries')
     refused('zero.xml', xml_file([]), 'The file has no entries')
     refused('notxml.xml', 'hello, not XML', 'does not start with an XML document')

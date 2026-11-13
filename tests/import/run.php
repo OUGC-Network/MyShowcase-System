@@ -117,7 +117,8 @@ $good = ['header' => importHeader(), 'entries' => [['subject' => 'A', 'message' 
 
 check(ImportFileCheck::problems($good, importTarget()) === [], 'a valid file has no structural problems');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format' => 'x'])] + $good, importTarget())) === ['format'], 'a wrong format is refused');
-check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2])] + $good, importTarget())) === [], 'format version 2 is accepted');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 3])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 0])] + $good, importTarget())) === ['version'], 'a format version of 0 is refused');
 
 $foreign = ImportFileCheck::problems(['header' => importHeader(['showcase' => ['route_identifier' => 'gallery']])] + $good, importTarget());
@@ -176,6 +177,21 @@ $mybb->settings['myshowcase_import_external_files'] = '0';
 check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is off when it is stored as no');
 $mybb->settings['myshowcase_import_external_files'] = '1';
 check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is on when it is stored as yes');
+
+// --- Export version 2: the URL of a file (decision D48) ------------------------------------------------------------------
+
+use MyShowcase\Service\EntriesExporter;
+
+check(EntriesExporter::FORMAT_VERSION === 2, 'the export writes format version 2');
+check(EntriesExporter::joinUrl('https://forum.example.com', '/showcase.php/gallery/attachment/AbC/pic.png') === 'https://forum.example.com/showcase.php/gallery/attachment/AbC/pic.png', 'a file URL is the base and the route path');
+check(EntriesExporter::joinUrl('https://forum.example.com/', '/x/attachment/a/b.png') === 'https://forum.example.com/x/attachment/a/b.png', 'a trailing slash of the base is not doubled');
+check(EntriesExporter::joinUrl('http://127.0.0.1:8080', '/a/b') === 'http://127.0.0.1:8080/a/b', 'a base with a port is kept');
+check(EntriesExporter::joinUrl('', '/a/b') === '', 'no base gives no URL');
+check(EntriesExporter::joinUrl('forum.example.com', '/a/b') === '', 'a base without a scheme gives no URL');
+check(EntriesExporter::joinUrl('ftp://forum.example.com', '/a/b') === '', 'a base that is not http or https gives no URL');
+check(EntriesExporter::joinUrl('https://forum.example.com', 'a/b') === '', 'a path that is not absolute gives no URL');
+check(EntriesExporter::joinUrl('https://forum.example.com', '/a b') === '', 'a path with a space gives no URL');
+check(EntriesExporter::joinUrl('https://forum.example.com', "/a\nb") === '', 'a path with a line break gives no URL');
 
 // --- Upload -------------------------------------------------------------------------------------------------------------
 
