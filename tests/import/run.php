@@ -167,6 +167,16 @@ check(str_contains($described, 'RuntimeException') && preg_match('/\(run\.php:\d
 check(!str_contains($described, 'secret') && str_contains($described, 'Query: INSERT INTO t VALUES (?, ?)'), 'the failure log has no quoted value of the query');
 check(!str_contains($described, __DIR__), 'the failure log has no server path beyond the file name');
 
+// --- The external files setting (decision D51) ---------------------------------------------------------------------------
+
+$mybb = new stdClass();
+$mybb->settings = [];
+check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting defaults to yes when it is not stored');
+$mybb->settings['myshowcase_import_external_files'] = '0';
+check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is off when it is stored as no');
+$mybb->settings['myshowcase_import_external_files'] = '1';
+check(MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external files setting is on when it is stored as yes');
+
 // --- Upload -------------------------------------------------------------------------------------------------------------
 
 $directory = sys_get_temp_dir() . '/msc-import-tests-' . bin2hex(random_bytes(4));

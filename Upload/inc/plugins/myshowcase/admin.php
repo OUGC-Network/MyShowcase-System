@@ -102,6 +102,14 @@ function pluginActivation(): bool
             'optionscode' => 'text',
             'value' => ''
         ],
+        // Decision D51. The shown title and description come from the setting_myshowcase_import_external_files language
+        // keys. PluginLibrary keeps the stored value when the plugin is activated again.
+        'import_external_files' => [
+            'title' => 'Import files from URLs',
+            'description' => 'When set to no, an entries import whose file fields contain URLs is refused as a whole, with nothing imported. Exports are not affected.',
+            'optionscode' => 'yesno',
+            'value' => 1
+        ],
     ]);
 
     // Insert/update version into cache
