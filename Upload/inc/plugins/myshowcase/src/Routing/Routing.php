@@ -19,6 +19,7 @@ use MyShowcase\Controller\AttachmentsController;
 use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
 use MyShowcase\Controller\ExportController;
+use MyShowcase\Controller\ImportController;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Showcase;
 use MyShowcase\ShowcaseContext;
@@ -162,6 +163,27 @@ class Routing
                     '_method' => 'POST',
                     'showcase' => '[a-z0-9]+',
                     'export_id' => '[0-9]+',
+                ],
+            )
+        );
+
+        // The router does not tell GET from POST (like ExportMain): a POST validates or imports the posted file.
+        $this->routes->add(
+            Routes::ImportMain,
+            new Route(
+                '/{showcase}/import',
+                [
+                    '_controller' => function (array $parameters): void {
+                        $controller = new ImportController($this->context,);
+
+                        output_page(
+                            $this->context->mybb->request_method === 'post' ? $controller->submit() : $controller->main()
+                        );
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
                 ],
             )
         );

@@ -1,0 +1,38 @@
+<section class="block block--container" id="import-report">
+    <h2 class="title title--major">{{ lang.myshowcase_import_export_report_title }}</h2>
+    <p class="import-report__status"><strong>{{ report.status_text }}</strong></p>
+    <table class="table">
+        <tbody>
+        <tr><th>{{ lang.myshowcase_import_export_report_file }}</th><td>{{ report.file_name }}</td></tr>
+        <tr><th>{{ lang.myshowcase_import_export_report_showcase }}</th><td>{{ report.showcase_name }}</td></tr>
+        <tr><th>{{ lang.myshowcase_import_export_report_entries }}</th><td>{{ report.entries_in_file }}</td></tr>
+        <tr><th>{{ lang.myshowcase_import_export_report_passed }}</th><td>{{ report.passed_entries }}</td></tr>
+        <tr><th>{{ lang.myshowcase_import_export_report_imported }}</th><td>{{ report.imported }}</td></tr>
+        </tbody>
+    </table>
+
+    {% if report.problems is not empty %}
+        <h3 class="title title--minor">{{ lang.myshowcase_import_export_report_problems }}</h3>
+        <ul class="list">
+            {% for problem in report.problems %}
+                <li>{{ problem }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if report.entry_failures is not empty %}
+        <h3 class="title title--minor">{{ lang.myshowcase_import_export_report_failures }}</h3>
+        <ul class="list">
+            {% for failure in report.entry_failures %}
+                <li>
+                    {{ trans('myshowcase_import_export_report_entry', failure.position, failure.subject ?: lang.myshowcase_import_export_report_no_subject) }}
+                    <ul class="list">
+                        {% for error in failure.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>

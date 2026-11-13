@@ -1,0 +1,54 @@
+{% extends 'layouts/master.twig' %}
+
+{% block head %}
+    <title>{{ trans('myshowcase_import_export_title_import', config.name) }} - {{ mybb.settings.bbname }}</title>
+    <link rel="manifest" href="/manifest.json">
+{% endblock head %}
+
+{% block body %}
+    <div class="page-content">
+        <header class="page-header">
+            <h1 class="title title--page">{{ lang.myshowcase_import_export_title_import }}</h1>
+        </header>
+
+        {{ error_messages|raw }}
+
+        <section class="block block--container">
+            <ul class="list">
+                <li>{{ trans('myshowcase_import_export_import_note_xml_only', notes.size) }}</li>
+                <li>{{ lang.myshowcase_import_export_import_note_same_board }}</li>
+                <li>{{ lang.myshowcase_import_export_import_note_not_imported }}</li>
+                <li>{{ lang.myshowcase_import_export_import_note_duplicates }}</li>
+                <li>{{ lang.myshowcase_import_export_import_note_all_or_nothing }}</li>
+                {% if required_file_field %}
+                    <li>{{ lang.myshowcase_import_export_import_note_required_file }}</li>
+                {% endif %}
+            </ul>
+        </section>
+
+        <form action="{{ url.showcase }}{{ url.import_main }}" method="post" enctype="multipart/form-data" id="import-form">
+            <section class="block block--form form">
+                <div class="section section--form">
+                    <div class="row row--form field">
+                        <h3 class="field__name"><label for="import-file">{{ lang.myshowcase_import_export_import_file }}</label></h3>
+                        <p class="field__description">{{ lang.myshowcase_import_export_import_file_description }}</p>
+                        <input type="file" class="textbox" name="entries_file" id="import-file" accept=".xml,application/xml,text/xml" required="required"/>
+                    </div>
+                </div>
+                <div class="form__submit">
+                    <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+                    <button type="submit" name="action" value="validate" class="button button--medium button--secondary">
+                        <span class="button__text">{{ lang.myshowcase_import_export_import_validate }}</span>
+                    </button>
+                    <button type="submit" name="action" value="import" class="button button--medium">
+                        <span class="button__text">{{ lang.myshowcase_import_export_import_submit }}</span>
+                    </button>
+                </div>
+            </section>
+        </form>
+
+        {% if report %}
+            {% include '@ext.myshowcase/pageImportReport.twig' %}
+        {% endif %}
+    </div>
+{% endblock body %}

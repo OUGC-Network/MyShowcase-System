@@ -75,7 +75,7 @@ class EntriesImporter
         } catch (XmlFileException $exception) {
             return ImportReport::refused($file_name, $showcase_name, [[
                 'code' => $this->parseCode($exception),
-                'args' => [$exception->xml_line, $exception->xml_source],
+                'args' => [$exception->xml_line],
             ]]);
         }
 
@@ -206,6 +206,9 @@ class EntriesImporter
                 count($validated),
                 0,
                 [['code' => 'write', 'args' => []]],
+                [],
+                [],
+                count($validated),
             );
         }
 
