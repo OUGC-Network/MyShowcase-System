@@ -22,8 +22,8 @@ use Throwable;
  * id was not recorded because the request ended between its insert and the record.
  *
  * The files an import stores (an attachment and its thumbnail) are recorded here too, and rollback() and the shutdown
- * guard remove them with the rows (decision D59). Only a file directly in the showcase's upload folder is removed, never
- * a link, never a path elsewhere.
+ * guard remove them with the rows (decision D59). Only a file below the showcase's upload folder is removed, never a
+ * link, never a path elsewhere.
  */
 final class ImportTransaction
 {
@@ -50,7 +50,7 @@ final class ImportTransaction
 
     /**
      * @param string $engine SchemaManager::ENGINE_* of the board's database
-     * @param string $uploads_path the showcase's attachment upload folder; the only folder whose files are removed
+     * @param string $uploads_path the showcase's attachment upload folder; only the files below it are removed
      */
     public function __construct(
         private readonly object $database,
@@ -166,8 +166,8 @@ final class ImportTransaction
     }
 
     /**
-     * Removes the recorded files that lie directly in the upload folder. A link is never followed, a missing file is
-     * ignored, and a path anywhere else is never touched.
+     * Removes the recorded files that lie in the upload folder or in one of its subfolders. A link is never followed, a
+     * missing file is ignored, and a path outside the upload folder is never touched.
      */
     private function deleteFiles(): void
     {
@@ -180,11 +180,15 @@ final class ImportTransaction
 
             $directory = realpath(dirname($path));
 
-            if ($directory !== $folder) {
+            // The attachment pipeline stores an upload in a dated subfolder of the upload folder: any depth below it counts.
+            if ($directory === false || !str_starts_with($directory . DIRECTORY_SEPARATOR, $folder . DIRECTORY_SEPARATOR)) {
                 continue;
             }
 
-            @unlink($path);
+            if (@unlink($path) && $directory !== $folder) {
+                // A subfolder the import left empty is removed; rmdir() refuses a folder that still holds other files.
+                @rmdir($directory);
+            }
         }
 
         $this->files = [];

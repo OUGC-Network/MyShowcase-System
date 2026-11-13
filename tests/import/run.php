@@ -358,6 +358,45 @@ $transaction->rollback();
 check(is_file($transaction_file), 'without an upload folder no file is removed');
 @unlink($transaction_file);
 
+// The attachment pipeline stores an upload in a dated subfolder of the upload folder: a file there is removed too, and the
+// subfolder the removal leaves empty with it. A subfolder that still holds another file stays, and a subfolder that links
+// outside the upload folder is never followed.
+$dated_dir = $uploads_dir . '/202611';
+mkdir($dated_dir, 0777, true);
+
+$dated_file = $stored_file($dated_dir, 'attachment_1.attach');
+$dated_thumb = $stored_file($dated_dir, 'attachment_1_thumb.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($dated_file);
+$transaction->recordFile($dated_thumb);
+$transaction->abandonIfOpen();
+check(!is_file($dated_file) && !is_file($dated_thumb), 'the shutdown guard removes the files of an import stored in a dated subfolder');
+check(!is_dir($dated_dir), 'the dated subfolder the import left empty is removed');
+
+$kept_dir = $uploads_dir . '/202612';
+mkdir($kept_dir, 0777, true);
+$kept_file = $stored_file($kept_dir, 'attachment_2.attach');
+$other_file = $stored_file($kept_dir, 'other.attach');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($kept_file);
+$transaction->abandonIfOpen();
+check(!is_file($kept_file) && is_file($other_file) && is_dir($kept_dir), 'a dated subfolder that still holds another file stays');
+@unlink($other_file);
+@rmdir($kept_dir);
+
+$linked_dir = $uploads_dir . '/linked';
+symlink($outside_dir, $linked_dir);
+$outside_file = $stored_file($outside_dir, 'through-link.png');
+$transaction = $new_transaction($fake_database, $uploads_dir);
+$transaction->begin();
+$transaction->recordFile($linked_dir . '/through-link.png');
+$transaction->abandonIfOpen();
+check(is_file($outside_file), 'a file reached through a link to a folder outside the upload folder is not removed');
+@unlink($linked_dir);
+@unlink($outside_file);
+
 foreach ([$uploads_dir, $outside_dir] as $folder) {
     foreach (glob($folder . '/*') ?: [] as $leftover) {
         @unlink($leftover);
