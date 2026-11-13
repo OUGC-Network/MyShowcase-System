@@ -26,6 +26,13 @@ function task_myshowcase(array $taskData): array
 {
     global $db, $mybb;
 
+    // Stored entry exports: the files older than the retention period are removed (design doc, section 10). This runs
+    // first and does not depend on the pruning below.
+    $exportsPurged = (new ExportsManager(new ExportsRepository($db), new ExportsStorage()))->purgeExpired(
+        (int)(\MyShowcase\SETTINGS['exportsRetentionDays'] ?? 30),
+        TIME_NOW
+    );
+
     foreach (
         (new CacheManager($db, $mybb->cache))->get(
             CacheDataTypes::Config
@@ -56,12 +63,6 @@ function task_myshowcase(array $taskData): array
             }
         }
     }
-
-    // Stored entry exports: the files older than the retention period are removed (design doc, section 10).
-    $exportsPurged = (new ExportsManager(new ExportsRepository($db), new ExportsStorage()))->purgeExpired(
-        (int)(\MyShowcase\SETTINGS['exportsRetentionDays'] ?? 30),
-        TIME_NOW
-    );
 
     add_task_log(
         $taskData,
