@@ -123,7 +123,13 @@ check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_
 $foreign = ImportFileCheck::problems(['header' => importHeader(['showcase' => ['route_identifier' => 'gallery']])] + $good, importTarget());
 check(problemCodes($foreign) === ['showcase'] && $foreign[0]['args'] === ['gallery', 'blog'], 'a file of another showcase is refused with both names');
 
-check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['collection' => ['name' => 'Gallery']])] + $good, importTarget())) === ['collection'], 'a file of another collection is refused');
+$other_collection = ['header' => importHeader(['collection' => ['name' => 'Gallery']])] + $good;
+check(ImportFileCheck::problems($other_collection, importTarget()) === [], 'a file of another collection is not refused (decision T3)');
+$collection_warnings = ImportFileCheck::warnings($other_collection, importTarget());
+check(problemCodes($collection_warnings) === ['collection'] && $collection_warnings[0]['args'] === ['Gallery', 'Blog'], 'a collection name mismatch is a warning with both names');
+check(ImportFileCheck::warnings($good, importTarget()) === [], 'a matching collection name gives no warning');
+$both = ['header' => importHeader(['showcase' => ['route_identifier' => 'gallery'], 'collection' => ['name' => 'Gallery']])] + $good;
+check(problemCodes(ImportFileCheck::problems($both, importTarget())) === ['showcase'], 'a route identifier mismatch still refuses the file, whatever the collection name');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader()] + ['entries' => ['a' => []]], importTarget())) === ['entries_not_list'], 'entries that are not a list are refused');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['entry_count' => 0])] + ['entries' => []], importTarget())) === ['empty'], 'a file without entries is refused as empty');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['entry_count' => 3])] + $good, importTarget())) === ['count_mismatch'], 'a wrong entry_count is refused');

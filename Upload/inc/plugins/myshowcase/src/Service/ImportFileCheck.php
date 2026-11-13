@@ -15,7 +15,7 @@ namespace MyShowcase\Service;
  * - format: none. The header is not the one of an entries export.
  * - version: the format_version found (not 1 or lower/higher than this version can read).
  * - showcase: the route identifier of the file, and of this showcase: the file belongs to another showcase.
- * - collection: the collection name of the file, and of this showcase's collection: another collection.
+ * - collection is not a problem: it is a warning (see warnings(), decision T3).
  * - entries_not_list: "entries" is not a list.
  * - empty: the file has no entries.
  * - too_many: the number of entries and the maximum.
@@ -59,14 +59,6 @@ final class ImportFileCheck
             $problems[] = ['code' => 'showcase', 'args' => [$file_route, $target['route_identifier']]];
         }
 
-        $collection = is_array($header['collection'] ?? null) ? $header['collection'] : [];
-
-        $file_collection = (string)($collection['name'] ?? '');
-
-        if ($file_collection !== $target['collection_name']) {
-            $problems[] = ['code' => 'collection', 'args' => [$file_collection, $target['collection_name']]];
-        }
-
         $entries = $data['entries'] ?? null;
 
         if (!is_array($entries) || !array_is_list($entries)) {
@@ -92,6 +84,29 @@ final class ImportFileCheck
         }
 
         return array_merge($problems, self::entryProblems($entries, $target));
+    }
+
+    /**
+     * The warnings of a file: a collection name that differs from the target's (decision T3). The import goes on; every
+     * field key of the file is still checked against the target collection by problems().
+     *
+     * @param array<mixed> $data
+     * @param array{collection_name: string} $target
+     * @return list<array{code: string, args: list<mixed>}>
+     */
+    public static function warnings(array $data, array $target): array
+    {
+        $header = is_array($data['header'] ?? null) ? $data['header'] : [];
+
+        $collection = is_array($header['collection'] ?? null) ? $header['collection'] : [];
+
+        $file_collection = (string)($collection['name'] ?? '');
+
+        if ($file_collection === $target['collection_name']) {
+            return [];
+        }
+
+        return [['code' => 'collection', 'args' => [$file_collection, $target['collection_name']]]];
     }
 
     /**

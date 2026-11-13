@@ -42,9 +42,9 @@ final class ImportReport
     }
 
     /** A report for a file that failed before any entry was looked at. */
-    public static function refused(string $file_name, string $showcase_name, array $problems): self
+    public static function refused(string $file_name, string $showcase_name, array $problems, array $warnings = []): self
     {
-        return new self(self::FAILED, $file_name, $showcase_name, 0, 0, $problems);
+        return new self(self::FAILED, $file_name, $showcase_name, 0, 0, $problems, [], $warnings);
     }
 
     public function failed(): bool

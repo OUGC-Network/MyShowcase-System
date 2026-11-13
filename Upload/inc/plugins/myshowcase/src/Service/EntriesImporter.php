@@ -81,9 +81,13 @@ class EntriesImporter
 
         $keys = $this->keys();
 
+        $collection_name = $this->collectionName();
+
+        $warnings = ImportFileCheck::warnings($data, ['collection_name' => $collection_name]);
+
         $problems = ImportFileCheck::problems($data, [
             'route_identifier' => (string)$this->context->showcase->route_identifier,
-            'collection_name' => $this->collectionName(),
+            'collection_name' => $collection_name,
             'known_keys' => $keys['known_keys'],
             'fillable_keys' => $keys['fillable_keys'],
             'file_keys' => $keys['file_keys'],
@@ -93,7 +97,7 @@ class EntriesImporter
         ]);
 
         if ($problems !== []) {
-            return ImportReport::refused($file_name, $showcase_name, $problems);
+            return ImportReport::refused($file_name, $showcase_name, $problems, $warnings);
         }
 
         $manager = $this->context->entries_manager;
@@ -154,16 +158,16 @@ class EntriesImporter
                 0,
                 $limit_problems,
                 $failures,
-                [],
+                $warnings,
                 count($validated),
             );
         }
 
         if ($validate_only) {
-            return new ImportReport(ImportReport::VALIDATED, $file_name, $showcase_name, $count, 0, [], [], [], $count);
+            return new ImportReport(ImportReport::VALIDATED, $file_name, $showcase_name, $count, 0, [], [], $warnings, $count);
         }
 
-        return $this->write($validated, $file_name, $showcase_name, $batch_hash, $data);
+        return $this->write($validated, $file_name, $showcase_name, $batch_hash, $data, $warnings);
     }
 
     /**
@@ -171,7 +175,7 @@ class EntriesImporter
      *
      * @param EntryEntity[] $validated
      */
-    private function write(array $validated, string $file_name, string $showcase_name, string $batch_hash, array $data): ImportReport
+    private function write(array $validated, string $file_name, string $showcase_name, string $batch_hash, array $data, array $warnings): ImportReport
     {
         $manager = $this->context->entries_manager;
 
@@ -207,7 +211,7 @@ class EntriesImporter
                 0,
                 [['code' => 'write', 'args' => []]],
                 [],
-                [],
+                $warnings,
                 count($validated),
             );
         }
@@ -220,7 +224,7 @@ class EntriesImporter
             count($validated),
             [],
             [],
-            [],
+            $warnings,
             count($validated),
         );
     }
