@@ -334,7 +334,7 @@ class AttachmentsController extends BaseController
         // they hold.
         if (!empty($entry->entry_id) &&
             !$this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id)) {
-            $this->error($lang->error_invalidattachment);
+            $this->error($lang->error_invalidattachment, 404);
         }
 
             // A thumbnail is a preview: only the file itself needs the download permission. This is checked against
