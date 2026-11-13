@@ -652,6 +652,20 @@ def section_files():
     logged = one(f"select log_data from mybb_myshowcase_logs where showcase_id={gid} and type_id=3 order by log_id desc limit 1") or ''
     ok('"external_files":2' in logged, 'the import log row records the two files taken from URLs')
 
+    # F1b (V3): the setting is stored after activation, and with it off a file with URLs is refused as a whole, with nothing
+    # stored; with it on again the same file imports.
+    ok(one("select value from mybb_settings where name='myshowcase_import_external_files'") == '1', 'the setting exists after activation, with value yes')
+    fixture('external-setting', '0')
+    time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
+    before_rows, before_files = gallery_rows(), attachment_rows()
+    body = import_into(member, 'gallery', write_file('gallery-urls-off.xml', xml_file([gallery_entry(7, urls[0])], route='gallery', collection='Gallery', format_version=2)))['body']
+    dump('gallery-urls-off', body)
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and 'switched off on this board' in report['text'] and gallery_rows() == before_rows and attachment_rows() == before_files,
+       'with the setting off, a file with URLs is refused as a whole, and nothing is stored')
+    fixture('external-setting', '1')
+    time.sleep(3)
+
     # F2: the export writes each file as its public URL (format version 2); the URL opens with the same bytes; the export
     # imported back into the same board resolves its own files without a request to the attachment route (decision D52).
     export_form = member.get('/showcase.php/gallery/export')
@@ -685,6 +699,11 @@ def section_files():
     ok(report is not None and report['status'] == 'completed', 'the export of the gallery imports back into the gallery')
     ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2, 'the round trip adds two entries with two new files')
     ok(not any('/attachment/' in line for line in lines_after), 'the round trip makes no request to the attachment route (own files are copied)')
+
+    # With the setting on again, the same file imports (after the round trip, so that the round trip counts its own file).
+    body = import_into(member, 'gallery', write_file('gallery-urls-on.xml', xml_file([gallery_entry(8, urls[0])], route='gallery', collection='Gallery', format_version=2)))['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'completed', 'with the setting on again, the same file imports')
 
     # F3 (V7): addresses that must be refused, each without a single request to the local listener of this run.
     listener = Listener(os.path.join(SCRATCH, 'listener.log'))

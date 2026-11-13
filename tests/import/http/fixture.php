@@ -232,6 +232,13 @@ switch ($switch) {
         $out(['files' => ['gallery' => $gallery, 'downloads' => $downloads, 'uploads' => $uploads]]);
         break;
 
+    case 'external-setting':
+        // The global setting of decision D51 (myshowcase_import_external_files): prints its stored value after the change.
+        $db->update_query('settings', ['value' => (string)(int)$argv[2]], "name='myshowcase_import_external_files'");
+        rebuild_settings();
+        $out(['setting' => (string)$db->fetch_field($db->simple_select('settings', 'value', "name='myshowcase_import_external_files'"), 'value')]);
+        break;
+
     case 'count':
         $table = $argv[2];
 
