@@ -14,7 +14,7 @@ named by PGHOST, PGPORT and PGUSER, the client by PSQL_BIN. The database msc_tes
 Exit code 0 only when the failing cells equal known_failures.json. A new failing cell, or a listed cell that passes, exits 1.
 Stages a, f, h and k are not automated yet: their cells are written as NOT RUN with the reason.
 """
-import argparse, html as htmllib, json, os, random, re, shutil, sqlite3, string, struct, subprocess, sys, time, zlib
+import argparse, hashlib, html as htmllib, json, os, random, re, shutil, sqlite3, string, struct, subprocess, sys, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -465,7 +465,58 @@ def stored_rows(token):
             for r in rows]
 
 
-def stage_i(member, cells, users, uid):
+def entry_ids(token):
+    """The entry ids of every stored copy of the token, the original first."""
+    return [int(r[0]) for r in query(f"select entry_id from {DATA} where subject='{token}' order by entry_id")]
+
+
+def files_of(entry_id, field_key):
+    """The stored attachments of one file field of one entry: public_id, attachment_name (the display name), file_name (the stored path), mime_type, file_size."""
+    return query(f"select public_id, attachment_name, file_name, mime_type, file_size from mybb_myshowcase_attachments "
+                 f"where entry_id={int(entry_id)} and field_id={FIELD_IDS[field_key]} and status=1 order by attachment_id")
+
+
+def fetch_file(member, file_row):
+    """The bytes of a stored file through the download route. The export writes the public form <route>/attachment/<id>/<name>,
+    which the built-in server does not rewrite: the request goes through the front controller, the same route handler."""
+    got = member.get(f'/showcase.php/{ROUTE}/attachment/{file_row[0]}/{file_row[1]}')
+    return got['status'], got['raw']
+
+
+def file_problems(member, key, tokens):
+    """Stage i, file fields: each imported copy holds the same stored file as its original (bytes, name, MIME type and size,
+    through the download route), the same field link, and its entry page shows the file's name."""
+    problems = []
+    for token in tokens:
+        ids = entry_ids(token)
+        if len(ids) != 2:
+            problems.append(f'{token}: {len(ids)} entries after the import')
+            continue
+        left, right = files_of(ids[0], key), files_of(ids[1], key)
+        if len(left) != len(right):
+            problems.append(f'{token}: {len(left)} stored file(s) became {len(right)}')
+            continue
+        for original, copy in zip(left, right):
+            status_a, body_a = fetch_file(member, original)
+            status_b, body_b = fetch_file(member, copy)
+            if status_a != 200 or status_b != 200:
+                problems.append(f'{token}: download answered {status_a} and {status_b}')
+            elif hashlib.sha256(body_a).digest() != hashlib.sha256(body_b).digest():
+                problems.append(f'{token}: bytes differ')
+            shown = lambda row: (row[1], row[3], row[4])  # the display name, MIME type and size (not the random stored path)
+            if shown(original) != shown(copy):
+                problems.append(f'{token}: file name, type or size {shown(original)} became {shown(copy)}')
+        for entry_id, row in zip(ids, stored_rows(token)):
+            if not files_of(entry_id, key):
+                continue
+            page = member.get(f'/showcase.php/{ROUTE}/view/{row["public_id"]}/{row["entry_slug_custom"]}')
+            name = files_of(entry_id, key)[0][1]
+            if page['status'] != 200 or name not in page['body']:
+                problems.append(f'{token}: entry page answered {page["status"]} without the file {name!r}')
+    return problems
+
+
+def stage_i(member, cells, users, uid, fixture):
     """Stage i: the XML export of valid entries, imported into the same showcase. Every field of every copy must hold the
     value it held. Throwaway data: the entries of the matrix are removed first, the round trip uses valid entries only."""
     CTX.execute(f"delete from {DATA}")
@@ -497,7 +548,9 @@ def stage_i(member, cells, users, uid):
     summary = summary.group(0) if summary else 'no import report found'
     for key, f in FIELDS.items():
         if key.startswith('fk_file'):
-            check(cells, key, 'i', 'notrun', 'file round trip (URLs of the own board, stored attachments) not automated in this pass')
+            problems = file_problems(member, key, tokens)
+            check(cells, key, 'i', 'pass' if not problems else 'fail',
+                  '; '.join(problems) or f'every copy holds the same stored file (bytes, name, type, size, entry page); {summary}')
             continue
         problems = []
         for token in tokens:
@@ -511,6 +564,25 @@ def stage_i(member, cells, users, uid):
         check(cells, key, 'i', 'pass' if not problems else 'fail', '; '.join(problems) or f'every copy holds the same value; {summary}')
         if problems:
             cells[f'{key}|i']['detail'] += f' | import: {summary}'
+
+    # the setting OFF (decision D57): the same file, which holds file URLs, is refused as a whole and adds no entry
+    before = {t: len(stored_rows(t)) for t in tokens}
+    fixture('external-setting', 0)
+    time.sleep(3)
+    reply_off = member.upload(f'/showcase.php/{ROUTE}/import', {'my_post_key': post_key(import_form['body']), 'action': 'import'},
+                              'entries_file', path)
+    report_off = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', reply_off['body']))
+    summary_off = re.search(r'Entries imported \d+|Failed: [^.]{0,120}|Problems with the file [^.]{0,200}|[^.]{0,80}external[^.]{0,120}',
+                            report_off)
+    summary_off = summary_off.group(0) if summary_off else 'no import report found'
+    after_off = {t: len(stored_rows(t)) for t in tokens}
+    refused = after_off == before
+    note = (f'setting OFF: the same file refused as a whole, no entry added; reply: {summary_off}' if refused else
+            f'setting OFF: NOT refused as a whole (copies {before} -> {after_off}); reply: {summary_off}')
+    for key in ('fk_file', 'fk_file_req'):
+        cells[f'{key}|i']['detail'] += ' | ' + note
+        if not refused:
+            cells[f'{key}|i']['result'] = 'fail'
 
 
 # a bare apostrophe is in every page's scripts, so only the two markup payloads are searched raw
@@ -669,7 +741,7 @@ def main():
         # the setting is read from inc/settings.php, which the server's opcache revalidates on its own clock: wait for it
         fixture('external-setting', 1)
         time.sleep(3)
-        stage_i(member, cells, users, users['users']['fkmember']['uid'])
+        stage_i(member, cells, users, users['users']['fkmember']['uid'], fixture)
         fixture('external-setting', 0)
         time.sleep(3)
         stage_j(acp, cells)
