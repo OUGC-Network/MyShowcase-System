@@ -21,6 +21,7 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Security\PermissionsFactory;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\ExportsStorage;
 use MyShowcase\Util\BuildShowcase;
 
 use function MyShowcase\Plugin\Functions\hooksRun;
@@ -30,6 +31,60 @@ use function MyShowcase\Plugin\Functions\showcaseGet;
 use function MyShowcase\Admin\buildPermissionsRow;
 
 use const MyShowcase\Plugin\Core\TABLES_DATA;
+
+/**
+ * Loads the plugin's admin language before the settings page is drawn, so the labels of the plugin's settings resolve.
+ */
+function admin_config_settings_begin(): void
+{
+    loadLanguage();
+}
+
+/**
+ * Checks the exports folder setting before the settings are written. A valid value is saved in its normalized form; an
+ * invalid one keeps the value that is stored now and the form says why. Other settings are not touched.
+ */
+function admin_config_settings_change(): void
+{
+    global $db, $mybb, $lang;
+
+    if (
+        $mybb->get_input('action') !== 'change' ||
+        $mybb->request_method !== 'post' ||
+        !isset($mybb->input['upsetting']) ||
+        !is_array($mybb->input['upsetting']) ||
+        !array_key_exists(ExportsStorage::SETTING, $mybb->input['upsetting'])
+    ) {
+        return;
+    }
+
+    $submitted = trim((string)$mybb->input['upsetting'][ExportsStorage::SETTING]);
+
+    if ($submitted === '') {
+        $mybb->input['upsetting'][ExportsStorage::SETTING] = '';
+
+        return;
+    }
+
+    $normalized = ExportsStorage::normalizeDirectory($submitted);
+
+    if ($normalized === null) {
+        // The value stored in the database now, not the settings cache, which a new setting may not be in yet.
+        $stored = $db->fetch_field(
+            $db->simple_select('settings', 'value', "name='" . $db->escape_string(ExportsStorage::SETTING) . "'"),
+            'value'
+        );
+
+        $mybb->input['upsetting'][ExportsStorage::SETTING] = (string)($stored ?? '');
+
+        // The settings save keeps one message, so the problem is added to it.
+        $lang->success_settings_updated .= '<br />' . $lang->myshowcase_exports_directory_save_error;
+
+        return;
+    }
+
+    $mybb->input['upsetting'][ExportsStorage::SETTING] = $normalized;
+}
 
 function admin_config_plugins_deactivate(): bool
 {

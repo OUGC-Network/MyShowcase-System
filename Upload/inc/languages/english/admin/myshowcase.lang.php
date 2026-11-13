@@ -321,4 +321,5 @@ $l = [
     'myshowcase_admin_permissions_can_bypass_moderation_description' => 'Allows users to bypass moderation requirements for entries, comments, and attachments.',
     'setting_myshowcase_exports_directory' => 'Folder for stored exports',
     'setting_myshowcase_exports_directory_desc' => 'A folder inside the forum folder, relative to it, for example uploads/myshowcase/exports. Leave it empty for that default. The folder must be used for MyShowcase exports only: it may hold export files, the plugin\'s .htaccess and an index page, and nothing else. Absolute paths, .. segments and folders outside the forum folder are refused.',
+    'myshowcase_exports_directory_save_error' => 'The folder for stored exports was not saved. It must be a folder inside the forum folder that is used for MyShowcase exports only. The previous value is kept.',
 ];
