@@ -192,12 +192,8 @@ class EntriesManager
      * Whether the current user is a moderator of this showcase: a super moderator or board administrator (issupermod
      * or cancp on the usergroup), or listed as a moderator of the showcase by user id or through one of their usergroups.
      *
-     * TODO(moderator-conflict): this is one of THREE moderator checks, and they disagree in design:
-     *   - isModerator() (here) reads the showcase's moderator rows through ModeratorsRepository::matchesUser();
-     *   - BaseController::isEntryModerator() / moderatorPermissions() reads CacheDataTypes::Moderators and the
-     *     per-flag ModeratorPermissions, and is what EntriesController and BaseController currently call;
-     *   - moderatesShowcase() below, a third variant.
-     *   Decide which one is the single source of truth, then make the others delegate to it or delete it.
+     * This is the single moderator notion for entries and comments (decision D29). The ACP moderator flags are stored but
+     * not read here.
      * TODO(verify): ModeratorsRepository::matchesUser() is static and exists; $this->context->moderators_repository
      *   is a property of ShowcaseContext. Neither has been confirmed in the files reviewed so far.
      */
@@ -598,12 +594,7 @@ class EntriesManager
     }
 
     /**
-     * Whether the current user moderates this showcase: their group may view entries in every status (the permission the
-     * listing uses to show awaiting-approval entries), or they, or one of their groups, are in the showcase's moderators.
-     *
-     * TODO(moderator-conflict): third moderator check, alongside isModerator() and BaseController::isEntryModerator().
-     *   Keep one and remove the others once the decision is made.
-     * TODO(verify): queryModerators() with a limit returns a row with a 'moderator_id' key; confirm the return shape.
+     * True for every member with EntriesCanView (on by default); it must not be used as a moderator test. Use isModerator().
      */
     public function moderatesShowcase(): bool
     {

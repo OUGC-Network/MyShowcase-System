@@ -350,7 +350,7 @@ class ExportController extends BaseController
                 'field_choices' => $field_choices,
                 'can_include_awaiting' => $this->context->entries_manager->canViewStatus(ContentStatuses::AwaitingApproval),
                 'can_include_deleted' => $this->context->entries_manager->canViewStatus(ContentStatuses::SoftDeleted),
-                'is_moderator' => $this->context->entries_manager->moderatesShowcase(),
+                'is_moderator' => $this->context->entries_manager->isModerator(),
             ],
             'exports' => $exports,
             'size_cap' => get_friendly_size(ImportLimits::sizeCap()),
