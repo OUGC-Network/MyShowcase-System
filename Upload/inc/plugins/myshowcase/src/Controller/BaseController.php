@@ -167,16 +167,16 @@ abstract class BaseController
         }
     }
 
-    /** Whether the user moderates the entries of this showcase (EntriesManager::moderatorPermissions()). */
+    /** Whether the user is a moderator of this showcase (EntriesManager::isModerator()); entries and comments alike. */
     protected function isEntryModerator(): bool
     {
-        return $this->context->entries_manager->isEntryModerator();
+        return $this->context->entries_manager->isModerator();
     }
 
-    /** Whether the user moderates the comments of this showcase. */
+    /** Whether the user is a moderator of this showcase (EntriesManager::isModerator()); entries and comments alike. */
     protected function isCommentModerator(): bool
     {
-        return $this->context->entries_manager->isCommentModerator();
+        return $this->context->entries_manager->isModerator();
     }
 
     /** Whether the user may run a moderation action, which needs $permission, on the entry. */
