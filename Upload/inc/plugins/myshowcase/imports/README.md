@@ -2,8 +2,10 @@
 
 Collections and showcases can be described in JSON files and kept in step with the board. A file is the source of
 the values it sets; the ACP shows what would change, and nothing is written until an administrator confirms.
-The reference files are [`JSON/collections/blog.json`](JSON/collections/blog.json) and
-[`JSON/showcases/blog.json`](JSON/showcases/blog.json).
+The shipped examples are a blog, a gallery and a downloads showcase, each a collection file and a showcase file:
+[blog](JSON/collections/blog.json), [gallery](JSON/collections/gallery.json) and
+[downloads](JSON/collections/downloads.json) collections, with the showcases in `JSON/showcases/`. Each one is described in
+[Documentation/showcases](../../../../../Documentation/showcases/README.md).
 
 ## Folder layout
 
@@ -151,6 +153,19 @@ After each step is written, `hooksRun('import_update_<type>', $payload)` fires, 
 1. Edit the file and raise its `version`.
 2. Deploy the files.
 3. In the ACP the row shows "Update available". Open Apply update, read the plan and its warnings, confirm.
+
+Where the pages are, in the MyShowcase System of the ACP:
+
+* **Collections** lists the collections with their JSON status, and has **Create from JSON file**.
+* **Showcases** lists the showcases with their JSON status, and has **Create from JSON file**.
+* A create form is `index.php?module=myshowcase-json_sync&action=create&type=collection` (or `type=showcase`). The ACP adds
+  the post key to every link it makes.
+* The `json_sync` module takes an `action` (`create`, `errors`, `export`, `detach`, `preview`, `run`). A request to
+  `index.php?module=myshowcase-json_sync` without an `action` is not a page: it goes back to the Showcases page. That is
+  intended; use the lists above to reach the pages.
+
+When a showcase is created from a file, its **Name** and **Route identifier** are asked for, and the template set may be
+chosen; the file supplies the rest.
 
 Other actions: link an existing row (choose the file in its "JSON file" select), detach (choose None; only the
 `json_*` columns change), create from a file (new collection or showcase page), and Export JSON (downloads the
