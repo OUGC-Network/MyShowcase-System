@@ -402,7 +402,14 @@ def section_scope():
         ok(needle in text(body) and entry_count(uid) == before, f'{name}: refused with a readable message')
 
     refused('foreign.xml', xml_file([good_entry(1)], route='gallery'), 'exported from the showcase')
-    refused('collection.xml', xml_file([good_entry(1)], collection='Gallery'), 'exported from the collection')
+    # Decision T3: a collection name mismatch is a warning. The file imports, its fields are still checked, and the
+    # report says so; the count the later refusals compare with is taken again after it.
+    body = import_file(member, write_file('collection.xml', xml_file([good_entry(1)], collection='Gallery')))['body']
+    dump('collection.xml', body)
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'completed' and 'exported from the collection' in report['text']
+       and entry_count(uid) == before + 1, 'a file of another collection imports, with its warning in the report (T3)')
+    before = entry_count(uid)
     refused('unknown.xml', xml_file([{'fields': {'legacy_tag': 'x'}}]), 'is not a field of this showcase')
     refused('version.xml', xml_file([good_entry(1)], format_version=2), 'format version 2')
     refused('count.xml', xml_file([good_entry(1)], entry_count=3), 'says it has 3 entries')
