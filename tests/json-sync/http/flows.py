@@ -240,10 +240,11 @@ def section_b():
     r = jsync({'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/blog.json', 'name': 'Blog', 'route_identifier': 'blog', 'custom_template_prefix': ''})
     ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'create from JSON applied')
     cid = int(one("select collection_id from mybb_myshowcase_collections where name='Blog'")); sid = int(one("select showcase_id from mybb_myshowcase_config where name='Blog'"))
-    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={cid}") == [('collections/blog.json', '1.0.0')], 'collection linked')
-    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid} and json_file='collections/blog.json' and json_hash<>''") == '5', '5 fields linked')
+    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={cid}") == [('collections/blog.json', '1.1.0')], 'collection linked at 1.1.0')
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid} and json_file='collections/blog.json' and json_hash<>''") == '9', '9 fields linked')
     ok(one(f"select count(*) from mybb_myshowcase_field_data where collection_id={cid}") == '4', '4 options')
     ok(one(f"select json_file from mybb_myshowcase_config where showcase_id={sid}") == 'showcases/blog.json', 'showcase linked')
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid} and allowed_groups_fill='-1' and allowed_groups_view='-1'") == '9', 'blog: all nine fields open to every group (fill and view)')
     ok(one(f"select count(*) from mybb_myshowcase_config where json_file='showcases/blog.json'") == '1', 'one showcase row linked')
     # lists
     t = list_text('myshowcase-summary'); ok('In sync' in t and 'showcases/blog.json' in t and 'version 1.0.0' in t and 'Export JSON' in page('myshowcase-summary')['body'], 'showcase list: badge, file, version, export')
@@ -271,7 +272,7 @@ def section_b():
     # forged requests
     before_c = snapshot('mybb_myshowcase_collections', 'collection_id', cid)
     page(f'myshowcase-fields&action=edit&collection_id={cid}', {'name': 'Hacked', 'json_file': 'collections/blog.json', 'json_hash': 'f' * 64, 'json_version': '9.9.9'})
-    ok(snapshot('mybb_myshowcase_collections', 'collection_id', cid) == before_c and one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.0.0', 'forged collection name / json_* ignored')
+    ok(snapshot('mybb_myshowcase_collections', 'collection_id', cid) == before_c and one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'forged collection name / json_* ignored')
     before_s = snapshot('mybb_myshowcase_config', 'showcase_id', sid)
     r = page(f'myshowcase-summary&action=update&showcase_id={sid}')
     fm = form(r['body'], 'type=main')
@@ -322,11 +323,11 @@ def badge_texts(path):
     return re.findall(r'myshowcase_json_status[^>]*>([^<]*)<', page(path)['body'])
 
 def section_c(cid, sid, fcat):
-    print('--- C. update to 1.1.0')
+    print('--- C. update to 1.2.0')
     tbl = f'mybb_myshowcase_data{sid}'
     for i in (1, 2, 3):
-        dbx(f"insert into {tbl} (public_id, dateline, update_dateline, category, summary, tags, reading_time, cover_image) values ('e{i}', '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1, 's{i}', 't{i}', {i * 4}, 'http://x/{i}.png')")
-    c = read_board_file('collections/blog.json'); c['version'] = '1.1.0'
+        dbx(f"insert into {tbl} (public_id, dateline, update_dateline, category, summary, tags, reading_time, cover_image, series, series_part, meta_description, source_url) values ('e{i}', '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1, 's{i}', 't{i}', {i * 4}, 'http://x/{i}.png', '', 0, '', '')")
+    c = read_board_file('collections/blog.json'); c['version'] = '1.2.0'
     c['fields'].append({'field_key': 'author_note', 'label': 'Author note', 'html_type': 'text', 'field_type': 'varchar', 'maximum_length': 60, 'is_enabled': 1, 'display_order': 6})
     for f in c['fields']:
         if f['field_key'] == 'tags': f['field_key'] = 'topics'; f['previous_keys'] = ['tags']
@@ -334,7 +335,7 @@ def section_c(cid, sid, fcat):
     c['fields'] = [f for f in c['fields'] if f['field_key'] != 'cover_image']
     board_file('collections/blog.json', c)
     os.makedirs(f'{IMP}/PHP/collections/blog', exist_ok=True)
-    open(f'{IMP}/PHP/collections/blog/1.1.0.php', 'w').write('<?php return function (int $id, string $old, string $new, array $file) { global $db; $db->update_query("myshowcase_fields", ["placeholder" => "step {$old}->{$new}"], "field_key=\'summary\'"); };')
+    open(f'{IMP}/PHP/collections/blog/1.2.0.php', 'w').write('<?php return function (int $id, string $old, string $new, array $file) { global $db; $db->update_query("myshowcase_fields", ["placeholder" => "step {$old}->{$new}"], "field_key=\'summary\'"); };')
     ok('Update available' in badge_texts('myshowcase-fields'), 'collection list: Update available badge')
     ok('Update available' in badge_texts(f'myshowcase-fields&action=viewFields&collection_id={cid}'), 'field list: Update available badge for the collection')
     ok('Apply update' in page('myshowcase-fields')['body'], 'collection list: Apply update button')
@@ -351,8 +352,8 @@ def section_c(cid, sid, fcat):
     ct = ([c[0] for c in db(f"select data_type from information_schema.columns where table_schema=database() and table_name='{tbl}' and column_name='reading_time'")] if ENGINE != 'sqlite' else [c[2] for c in db(f"pragma table_info('{tbl}')") if c[1] == 'reading_time'])
     ok('char' in ct[0].lower(), f'reading_time column type is now {ct[0]}')
     ok(db("select json_file, json_version from mybb_myshowcase_fields where field_key='cover_image'") == [('', '')], 'removed field: json_* cleared (custom)')
-    ok(one("select placeholder from mybb_myshowcase_fields where field_key='summary'") == 'step 1.0.0->1.1.0', 'PHP update step ran with old and new version')
-    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'version 1.1.0 recorded')
+    ok(one("select placeholder from mybb_myshowcase_fields where field_key='summary'") == 'step 1.1.0->1.2.0', 'PHP update step ran with old and new version')
+    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.2.0', 'version 1.2.0 recorded')
     vf = text(page(f'myshowcase-fields&action=viewFields&collection_id={cid}')['body'])
     ok('Custom, not in JSON' in vf, 'field list: "Custom, not in JSON" badge')
     ok(badge_texts('myshowcase-fields') == ['In sync'], 'collection list: in sync again')
@@ -376,18 +377,18 @@ def section_d(cid, sid):
     t = text(jsync({'action': 'preview', 'mode': 'apply', 'type': 'collection', 'id': str(cid)})['body'])
     ok('Apply update' not in page('myshowcase-fields')['body'] and 'Apply anyway' not in page('myshowcase-fields')['body'], 'downgrade: no apply action offered')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'})
-    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'downgrade: a forged apply is refused')
+    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.2.0', 'downgrade: a forged apply is refused')
     board_file('collections/blog.json', delete=True)
     ok('File missing' in badge_texts('myshowcase-fields'), 'file missing: error badge')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'})
-    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'file missing: a forged apply is refused')
-    board_file('collections/blog.json', '{"type": "collection", "version": "1.2.0", "name": "Blog", "fields": [{"field_key": "Bad Key", "html_type": "nope", "unknown": 1}]}')
+    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.2.0', 'file missing: a forged apply is refused')
+    board_file('collections/blog.json', '{"type": "collection", "version": "1.3.0", "name": "Blog", "fields": [{"field_key": "Bad Key", "html_type": "nope", "unknown": 1}]}')
     ok('File is invalid' in badge_texts('myshowcase-fields'), 'invalid file: error badge')
     ok('Show errors' in page('myshowcase-fields')['body'], 'invalid file: link to the errors')
     t = text(page(f'myshowcase-json_sync&action=errors&file=collections/blog.json&my_post_key={A.post_key}')['body'])
     ok('$.fields[0].field_key' in t and '$.fields[0].html_type' in t and '$.fields[0].unknown' in t, 'invalid file: every error with its JSON path')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'})
-    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'invalid file: a forged apply writes nothing')
+    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.2.0', 'invalid file: a forged apply writes nothing')
     # the showcase of a missing/invalid collection file keeps being listed; restore the file
     board_file('collections/blog.json', changed)
     ok(badge_texts('myshowcase-fields') == ['In sync'], 'restored file: in sync')
@@ -447,7 +448,7 @@ def section_e(cid_a, sid_a, cid, sid):
     open(f'{IMP}/PHP/collections/blog/1.3.0.php', 'w').write('<?php return function (int $id, string $old, string $new, array $file) { throw new RuntimeException("step exploded"); };')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'}); t = text(r['body'])
     ok('step exploded' in t and 'failed' in t and 'Run the PHP update step for 1.3.0' in t, 'failed step shown with the reason')
-    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.1.0', 'version not written after the failure')
+    ok(one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.2.0', 'version not written after the failure')
     os.remove(f'{IMP}/PHP/collections/blog/1.3.0.php')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'})
     ok('The file was applied' in text(r['body']) and one(f"select json_version from mybb_myshowcase_collections where collection_id={cid}") == '1.3.0', 're-run after fixing the step completes')
@@ -534,3 +535,28 @@ def section_g():
     ok(db(f"select main_per_page, entries_enable_subject, entries_display_empty_fields, attachments_display_type, comments_enable from mybb_myshowcase_config where showcase_id={gsid}") == [('24', '0', '0', '2', '1')], 'gallery showcase settings applied')
     ok(one(f"select count(*) from mybb_myshowcase_collections where name='Gallery'") == '1', 'no second gallery collection')
     return gid
+
+
+def section_h():
+    print('--- H. downloads example files, the JSON sync list URL, a second run')
+    # The list URL of the sync has no action: it is not a page and goes to the summary (by design, see the README).
+    r = A.get(ADM + 'myshowcase-json_sync&my_post_key=' + A.post_key, follow=False)
+    ok(r['status'] == 302 and 'myshowcase-summary' in (r['location'] or ''), 'json_sync without an action redirects to the summary (by design)')
+    r = jsync({'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/downloads.json'})
+    ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'downloads collection created from its file')
+    did = int(one("select collection_id from mybb_myshowcase_collections where name='Downloads'") or 0)
+    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={did}") == [('collections/downloads.json', '1.0.0')], 'downloads collection linked at 1.0.0')
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={did} and json_file='collections/downloads.json'") == '10', 'downloads: ten fields linked')
+    ok(one(f"select count(*) from mybb_myshowcase_field_data where collection_id={did}") == '17', 'downloads: 17 options (category 6, platform 5, license 6)')
+    r = jsync({'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/downloads.json', 'name': 'Downloads', 'route_identifier': 'downloads'})
+    ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'downloads showcase created from its file')
+    dsid = int(one("select showcase_id from mybb_myshowcase_config where name='Downloads'") or 0)
+    ok(db(f"select collection_id, json_file, json_version from mybb_myshowcase_config where showcase_id={dsid}") == [(str(did), 'showcases/downloads.json', '1.0.0')], 'downloads showcase uses the linked downloads collection')
+    ok(db(f"select attachments_allow_in_entries, attachments_allow_in_comments, attachments_main_render, attachments_display_type, comments_enable, entries_enable_subject, entries_enable_update_notes from mybb_myshowcase_config where showcase_id={dsid}") == [('1', '0', '1', '0', '1', '1', '1')], 'downloads showcase settings applied')
+    ok(badge_texts('myshowcase-summary').count('In sync') >= 2 and badge_texts('myshowcase-fields').count('In sync') >= 2, 'downloads and blog rows in sync in both lists')
+    # a second apply of the same file changes nothing
+    before = db(f"select field_key, field_label, json_version, json_hash from mybb_myshowcase_fields where collection_id={did} order by field_key")
+    jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(did), 'file': 'collections/downloads.json'})
+    after = db(f"select field_key, field_label, json_version, json_hash from mybb_myshowcase_fields where collection_id={did} order by field_key")
+    ok(before == after and len(before) == 10, 'downloads: a second apply changes no field')
+
