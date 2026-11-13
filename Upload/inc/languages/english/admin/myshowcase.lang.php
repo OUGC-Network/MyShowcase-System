@@ -319,4 +319,6 @@ $l = [
     'myshowcase_admin_permissions_can_bypass_download_limits_description' => 'Allows users to bypass attachment download limits.',
     'myshowcase_admin_permissions_can_bypass_moderation' => 'Can Bypass Moderation',
     'myshowcase_admin_permissions_can_bypass_moderation_description' => 'Allows users to bypass moderation requirements for entries, comments, and attachments.',
+    'setting_myshowcase_exports_directory' => 'Folder for stored exports',
+    'setting_myshowcase_exports_directory_desc' => 'A folder inside the forum folder, relative to it, for example uploads/myshowcase/exports. Leave it empty for that default. The folder must be used for MyShowcase exports only: it may hold export files, the plugin\'s .htaccess and an index page, and nothing else. Absolute paths, .. segments and folders outside the forum folder are refused.',
 ];

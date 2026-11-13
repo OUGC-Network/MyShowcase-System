@@ -96,8 +96,9 @@ function pluginActivation(): bool
             'value' => 0
         ],
         'exports_directory' => [
+            // The shown title and description come from the setting_myshowcase_exports_directory language keys.
             'title' => 'Folder for stored exports',
-            'description' => 'A folder relative to the forum folder, for example uploads/myshowcase/exports. Leave it empty for that default. Absolute paths, .. segments and folders outside the forum folder are not used.',
+            'description' => 'Folder for stored exports.',
             'optionscode' => 'text',
             'value' => ''
         ],
