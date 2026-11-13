@@ -261,6 +261,87 @@ foreach (['', 'JSON/', 'JSON/collections/', 'JSON/showcases/', 'PHP/', 'PHP/coll
 
 check(is_file(\MyShowcase\ROOT . '/imports/.htaccess') && str_contains((string)file_get_contents(\MyShowcase\ROOT . '/imports/.htaccess'), 'denied'), 'imports/.htaccess denies web access');
 
+// ---- every shipped file: planned by the engine, fields complete, showcases without the per-showcase keys ----------
+// The shipped JSON examples: every collection and showcase file is planned from an empty board, its plan has no
+// errors and every field has a type, a key, a label, a valid regular expression and, for select fields, options.
+$shippedCollections = [];
+
+foreach ($committed as $relative => $_) {
+    if (!str_starts_with($relative, 'collections/')) {
+        continue;
+    }
+
+    $read = (new JsonFiles(\MyShowcase\ROOT . '/imports'))->read($relative);
+    $decoded = $read['data'] ?? [];
+    $shippedCollections[$relative] = $decoded;
+
+    $plan = JsonPlanner::collection($decoded, $relative, []);
+    check($plan['errors'] === [] && $plan['steps'] !== [], "shipped collection is planned from an empty board: {$relative}");
+
+    $keys = array_column($decoded['fields'] ?? [], 'field_key');
+    check(count($keys) === count(array_unique($keys)), "shipped collection has unique field keys: {$relative}");
+
+    foreach ($decoded['fields'] ?? [] as $field) {
+        $name = ($field['field_key'] ?? '?') . ' in ' . $relative;
+
+        check(isset($field['html_type'], $field['field_type'], $field['label']) && $field['label'] !== '', "field has a type, a key and a label: {$name}");
+
+        if (!empty($field['regular_expression'])) {
+            check(@preg_match($field['regular_expression'], '') !== false, "regular expression compiles: {$name}");
+        }
+
+        if (($field['html_type'] ?? '') === 'select' || ($field['html_type'] ?? '') === 'radio' || ($field['html_type'] ?? '') === 'checkbox') {
+            check(count($field['options'] ?? []) > 0, "select, radio and checkbox fields have options: {$name}");
+        }
+    }
+}
+
+foreach ($committed as $relative => $_) {
+    if (!str_starts_with($relative, 'showcases/')) {
+        continue;
+    }
+
+    $decoded = (new JsonFiles(\MyShowcase\ROOT . '/imports'))->read($relative)['data'] ?? [];
+
+    check(!array_key_exists('name', $decoded) && !array_key_exists('route_identifier', $decoded), "showcase file sets neither name nor route_identifier: {$relative}");
+
+    $collectionFile = 'collections/' . ($decoded['collection'] ?? '') . '.json';
+
+    check(isset($shippedCollections[$collectionFile]), "showcase names a shipped collection file: {$relative}");
+
+    $plan = JsonPlanner::showcase($decoded, $relative, [
+        'showcase' => null,
+        'collection' => ['row' => null],
+        'collection_file' => $shippedCollections[$collectionFile] ?? null,
+        'collection_file_path' => $collectionFile,
+    ]);
+
+    check($plan['errors'] === [], "shipped showcase is planned without errors: {$relative}");
+}
+
+// The downloads example: a file field, a checksum that must be 64 hexadecimal characters, one platform and one licence.
+$downloads = $shippedCollections['collections/downloads.json'] ?? [];
+$downloadFields = array_column($downloads['fields'] ?? [], null, 'field_key');
+check(($downloadFields['archive']['html_type'] ?? '') === 'file' && ($downloadFields['archive']['is_required'] ?? 0) === 1 && ($downloadFields['archive']['maximum_size'] ?? 0) > 0, 'downloads: a required file field with a size limit');
+check(($downloadFields['sha256']['is_required'] ?? 0) === 1 && preg_match($downloadFields['sha256']['regular_expression'] ?? '', str_repeat('a', 64)) === 1 && preg_match($downloadFields['sha256']['regular_expression'] ?? '', str_repeat('a', 63)) !== 1, 'downloads: the checksum is required and must be 64 hexadecimal characters');
+check(preg_match($downloadFields['version']['regular_expression'] ?? '', '1.4.2') === 1 && preg_match($downloadFields['version']['regular_expression'] ?? '', 'v1') !== 1, 'downloads: the version pattern accepts 1.4.2 and refuses v1');
+check(array_column($downloadFields['platform']['options'] ?? [], 'value_id') === [1, 2, 3, 4, 5] && array_column($downloadFields['license']['options'] ?? [], 'value_id') === [1, 2, 3, 4, 5, 6], 'downloads: platform and license options have stable ids');
+check(isset($committed['showcases/downloads.json']) && (($shippedCollections['collections/downloads.json'] ?? null) !== null), 'downloads: collection and showcase are committed');
+
+// The blog example: the five original fields and the four added ones, every one visible to all groups.
+$blog = $shippedCollections['collections/blog.json'] ?? [];
+$blogFields = array_column($blog['fields'] ?? [], null, 'field_key');
+check(array_keys($blogFields) === ['category', 'summary', 'tags', 'cover_image', 'reading_time', 'series', 'series_part', 'meta_description', 'source_url'], 'blog: the five original fields and the four added ones');
+$blogOpen = true;
+
+foreach ($blogFields as $key => $field) {
+    $blogOpen = $blogOpen && ($field['allowed_groups_fill'] ?? '') === 'all' && ($field['allowed_groups_view'] ?? '') === 'all';
+}
+
+check($blogOpen, 'blog: every field is allowed for all groups to fill and view');
+check(preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'javascript:alert(1)') !== 1 && preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'https://example.com/a.png') === 1, 'blog: the cover image accepts an http(s) address and refuses a javascript address');
+check(preg_match($blogFields['reading_time']['regular_expression'] ?? '', '0') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '1000') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '999') === 1, 'blog: reading time is 1 to 999');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);
