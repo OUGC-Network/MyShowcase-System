@@ -351,10 +351,10 @@ def run_matrix(client, cells, users, restricted):
             problems.append('read only not shown')
         if f.get('regular_expression') and 'pattern=' not in tag:
             problems.append('pattern not shown')
-        if f['html_type'] in ('number', 'range') and f.get('maximum_length') and f'max="{f["maximum_length"]}"' not in tag:
-            problems.append(f'max attribute does not match the maximum {f["maximum_length"]}')
-        if f['html_type'] in ('number', 'range') and f'min="{f.get("minimum_length", 0)}"' not in tag:
-            problems.append(f'min attribute does not match the minimum {f.get("minimum_length", 0)}')
+        if f['html_type'] in ('number', 'range') and f.get('maximum_size') and f'max="{f["maximum_size"]}"' not in tag:
+            problems.append(f'max attribute does not match the maximum {f["maximum_size"]}')
+        if f['html_type'] in ('number', 'range') and f'min="{f.get("minimum_size", 0)}"' not in tag:
+            problems.append(f'min attribute does not match the minimum {f.get("minimum_size", 0)}')
         if f.get('default_value') and f['html_type'] not in ('textarea',) and f'value="{f["default_value"]}"' not in tag:
             problems.append('default value not pre-filled')
         if f.get('default_type') in (2, 3) and not re.search(r'value="[^"]+"', tag):
