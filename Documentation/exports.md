@@ -81,7 +81,8 @@ A download is never a link to a stored file. The link carries only the export id
 
 * the route is `ExportDownload`, with the parameter `export_id`; the link never carries the file name or any path;
 * the export must belong to the current user and to this showcase (`user_id` and `showcase_id` of the row). Any other
-  user, and a guest, gets the same 404 answer as for an export that does not exist;
+  user gets the same 404 answer as for an export that does not exist. A guest, who may not view the showcase, gets 403
+  before that check;
 * a missing row, a row with `file_deleted = 1`, a missing file, or a file whose SHA-256 no longer matches the row answer
   404;
 * the file name comes from the row and must match the file-name pattern below. The path is resolved with `realpath()`,
