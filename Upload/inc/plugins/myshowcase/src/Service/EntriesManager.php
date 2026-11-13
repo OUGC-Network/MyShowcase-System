@@ -1233,6 +1233,12 @@ class EntriesManager
                 }
 
                 foreach ($option_values as $option_value) {
+                    // 0 is how a blank optional option field is stored (decision T26): an export carries it back as no
+                    // option. Option ids start at 1, so a user cannot choose it; a required field still refuses it.
+                    if (!$field->is_required && (string)$option_value === '0') {
+                        continue;
+                    }
+
                     if (!$this->optionUsableForField((int)$field_id, $option_value)) {
                         $this->validateSetError('invalid_value', [$field_label]);
 
