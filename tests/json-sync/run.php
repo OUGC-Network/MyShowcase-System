@@ -233,7 +233,7 @@ foreach (['collection', 'showcase'] as $kind) {
 
             check($errors === [], "committed file validates: {$relative} " . json_encode($errors));
 
-            check(($read['data']['version'] ?? '') === '1.0.0' || str_starts_with($relative, 'x'), "committed example is at 1.0.0: {$relative}");
+            check(preg_match('/^\d+\.\d+\.\d+$/', (string)($read['data']['version'] ?? '')) === 1, "committed file has an x.y.z version: {$relative}");
         }
 
         $committed[$relative] = true;
