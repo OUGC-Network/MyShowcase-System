@@ -384,6 +384,10 @@ check($loss('12345678901234567890', 'bigint', true) === null && $loss('184467440
 check($loss('1e-999') === 'fraction', 'a tiny non-zero exponent is a fraction');
 check(\MyShowcase\Service\SchemaManager::isNumericText('1.5') && \MyShowcase\Service\SchemaManager::isNumericText('-2e3') && !\MyShowcase\Service\SchemaManager::isNumericText('') && !\MyShowcase\Service\SchemaManager::isNumericText('x'), 'decimal text: numbers yes, blank and words no');
 
+// Decision D129: a blank date, time or datetime value is NULL; the other types keep their value (blank included)
+check(\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'date') && \MyShowcase\Plugin\Functions\isNullDateTypeValue('  ', 'time') && \MyShowcase\Plugin\Functions\isNullDateTypeValue(null, 'datetime'), 'a blank date, time or datetime value is NULL');
+check(!\MyShowcase\Plugin\Functions\isNullDateTypeValue('2026-01-01', 'date') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('0', 'datetime') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'varchar') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'int'), 'a value of a date type, and a blank of another type, is not NULL');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

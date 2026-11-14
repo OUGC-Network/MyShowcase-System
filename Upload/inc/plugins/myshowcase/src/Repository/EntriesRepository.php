@@ -22,6 +22,7 @@ use Random\RandomException;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
+use function MyShowcase\Plugin\Functions\isNullDateTypeValue;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
@@ -38,6 +39,9 @@ class EntriesRepository
     private const FIRST_PAGE = 1;
     private ?int $entry_id;
     private array $insert_data = [];
+
+    /** The blank date, time and datetime fields of the entry being written, stored as NULL (decision D129). */
+    private array $null_columns = [];
     private EntryEntity $entry;
     private bool $is_update;
 
@@ -156,6 +160,7 @@ class EntriesRepository
         $this->entry = $entry;
         $this->entry_id = $entry->entry_id;
         $this->insert_data = [];
+        $this->null_columns = [];
         $this->is_update = $is_update;
 
         $this->prepareBaseEntryData();
@@ -176,7 +181,28 @@ class EntriesRepository
             );
         }
 
+        $this->writeNullColumns((int)$entry->entry_id);
+
         return $entry->entry_id;
+    }
+
+    /**
+     * Decision D129: a blank date, time or datetime value is stored as NULL. MyBB's query builder writes a PHP null as an
+     * empty string, so the columns are set to the literal NULL in a query of their own, after the row is written.
+     */
+    private function writeNullColumns(int $entry_id): void
+    {
+        if ($this->null_columns === []) {
+            return;
+        }
+
+        $this->database->update_query(
+            'myshowcase_data' . $this->showcase->showcase_id,
+            array_fill_keys($this->null_columns, 'NULL'),
+            "entry_id='{$entry_id}'",
+            '',
+            true
+        );
     }
 
     private function prepareBaseEntryData(): void
@@ -205,7 +231,11 @@ class EntriesRepository
                 $this->applyCustomFieldDefault($key, $field_definition);
             }
 
-            if (isset($this->entry->extra_data[$key])) {
+            if (isset($this->entry->extra_data[$key]) &&
+                isNullDateTypeValue($this->entry->extra_data[$key], $field_definition['field_type'])) {
+                unset($this->insert_data[$key]);
+                $this->null_columns[] = $key;
+            } elseif (isset($this->entry->extra_data[$key])) {
                 $this->insert_data[$key] = $this->castCustomFieldValue(
                     $this->entry->extra_data[$key],
                     $field_definition['field_type']
