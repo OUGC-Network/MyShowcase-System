@@ -81,6 +81,15 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `k` reserved and long keys. Not automated yet (`notrun`).
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
+* `m` the update rule (decision D122), over HTTP, on the select field `fk_select`, with throwaway options and entries of the
+  restricted user (`fkrestricted`), removed at the end. The option is changed as data to a group the owner is not in, then:
+  an unchanged save keeps the stored option (`place:update-a|m`); a change to an option the group may not fill is refused
+  (`place:update-b|m`); a change to an open option is accepted (`place:update-c|m`); a change to an option of another field is
+  refused (`place:update-o|m`); a file of the owner's entries exported and imported as an insert is refused as a whole, and
+  no copy is stored (`place:xml-import|m`); with the stored option deleted as data, an unchanged save is accepted and the
+  entry page answers 200 without its label (`place:update-d|m`, `place:update-d-page|m`); a change to a deleted option id is
+  refused (`place:update-e|m`); an insert with the not-allowed option is refused (`place:insert-denied|m`). The XML case proves
+  only that the whole file is refused: the import summary does not name the option.
 
 A cell that cannot run is `notrun` with its reason and the remaining steps. The place cell `place:entry-delete|h` is not a
 field cell: it records the forum's answer to the entry delete.

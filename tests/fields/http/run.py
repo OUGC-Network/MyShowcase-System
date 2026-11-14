@@ -453,6 +453,31 @@ def run_matrix(client, cells, users, restricted):
     edit_round_trip(client, cells, row)
 
 
+def update_post(client, row, overrides):
+    """Posts the edit form of an entry as a browser does: every field pre-filled from the form, the select, radio and
+    checkbox fields as the first option, and the overrides on top. Returns the response."""
+    body = client.get(f'/showcase.php/{ROUTE}/update/{row["public_id"]}')['body']
+    data = {'subject': row['subject'], 'message': 'edited', 'my_post_key': post_key(body), 'submit': 'Post'}
+    data.update(BASE)
+    data['fk_checkbox[]'] = [option_ids['fk_checkbox'][0]]
+    data['fk_radio'] = option_ids['fk_radio'][0]
+    data['fk_select'] = option_ids['fk_select'][0]
+    data['fk_select_req'] = option_ids['fk_select_req'][0]
+    data['fk_text_req'] = row['fk_text_req']
+    # a browser posts every pre-filled value: the save without change posts what the form shows for each field
+    for key in FIELDS:
+        if key.startswith('fk_file') or key == 'fk_text_group' or key in data or FIELDS[key]['html_type'] in ('select', 'radio', 'checkbox'):
+            continue
+        shown = re.search(rf'<input\b[^>]*name="{re.escape(key)}"[^>]*value="([^"]*)"', body)
+        if shown:
+            data[key] = htmllib.unescape(shown.group(1))
+    post_hash = re.search(r'name="post_hash" value="([^"]+)"', body)
+    if post_hash:
+        data['post_hash'] = post_hash.group(1)
+    data.update(overrides)
+    return client.post(f'/showcase.php/{ROUTE}/update/{row["public_id"]}', data)
+
+
 def edit_round_trip(client, cells, row):
     """Stage g: every field is pre-filled with its stored value, and a save without change keeps every value."""
     edit = client.get(f'/showcase.php/{ROUTE}/update/{row["public_id"]}')
@@ -480,24 +505,7 @@ def edit_round_trip(client, cells, row):
         elif stored and esc(stored) not in body and stored not in body:
             ok = False
         prefilled[key] = ok
-    data = {'subject': row['subject'], 'message': 'edited', 'my_post_key': post_key(body), 'submit': 'Post'}
-    data.update(BASE)
-    data['fk_checkbox[]'] = [option_ids['fk_checkbox'][0]]
-    data['fk_radio'] = option_ids['fk_radio'][0]
-    data['fk_select'] = option_ids['fk_select'][0]
-    data['fk_select_req'] = option_ids['fk_select_req'][0]
-    data['fk_text_req'] = row['fk_text_req']
-    # a browser posts every pre-filled value: the save without change posts what the form shows for each field
-    for key in FIELDS:
-        if key.startswith('fk_file') or key == 'fk_text_group' or key in data or FIELDS[key]['html_type'] in ('select', 'radio', 'checkbox'):
-            continue
-        shown = re.search(rf'<input\b[^>]*name="{re.escape(key)}"[^>]*value="([^"]*)"', body)
-        if shown:
-            data[key] = htmllib.unescape(shown.group(1))
-    post_hash = re.search(r'name="post_hash" value="([^"]+)"', body)
-    if post_hash:
-        data['post_hash'] = post_hash.group(1)
-    client.post(f'/showcase.php/{ROUTE}/update/{row["public_id"]}', data)
+    update_post(client, row, {})
     after = stored_row(row['subject'])
     for key, f in FIELDS.items():
         if key.startswith('fk_file') or key == 'fk_text_group':
@@ -856,6 +864,107 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         check(cells, key, 'h', 'pass' if ok else 'fail', ' | '.join(f'{op}: {"ok" if good else "FAILED"}; {detail}' for op, good, detail in steps))
 
 
+def stage_m(cells, users, restricted, fixture, radio_option):
+    """Stage m: the update rule (decision D122) over HTTP. The owner (a user of the restricted group) holds an entry with
+    an option the group may fill; the option is then changed as data to a group the owner is not in. An unchanged stored
+    option is accepted on update, even when the group may no longer fill it or the option is deleted; a changed value is
+    checked as on insert. An insert and an XML import of the owner's entries are checked as inserts. All options and
+    permission changes are throwaway data, removed at the end (the entries stay, as the matrix's do)."""
+    owner = Front(CTX.url)
+    owner.login('fkrestricted', users['users']['fkrestricted']['password'])
+    uid = users['users']['fkrestricted']['uid']
+    registered = '2'
+
+    def option(value_id, label, groups):
+        CTX.execute("insert into mybb_myshowcase_field_data (collection_id, field_id, field_key, value_id, value, "
+                    f"allowed_groups_fill) select collection_id, field_id, field_key, '{value_id}', '{label}', '{groups}' "
+                    "from mybb_myshowcase_fields where field_key='fk_select'")
+        return int(query(f"select field_data_id from mybb_myshowcase_field_data where value_id='{value_id}' "
+                         "and field_key='fk_select'")[0][0])
+
+    def record(name, ok, detail):
+        check(cells, f'place:{name}', 'm', 'pass' if ok else 'fail', detail)
+
+    stored = option('mstored', 'Stored option (update rule)', restricted)
+    open_option = option('mopen', 'Open option (update rule)', '')
+    denied = option('mdenied', 'Denied option (update rule)', registered)
+    gone = option('mgone', 'Gone option (update rule)', '')
+    CTX.execute(f"delete from mybb_myshowcase_field_data where field_data_id={gone}")
+    fixture('rebuild')
+
+    uploads = {'fk_file_req': True, 'fk_file': False}
+    tokens = {'a': 'UR1', 'b': 'UR2', 'c': 'UR3', 'o': 'UR4', 'd': 'UR5', 'e': 'UR6'}
+    for token in tokens.values():
+        create(owner, {'fk_select': str(stored)}, token, uploads)
+    rows = {k: stored_row(t) for k, t in tokens.items()}
+    if any(r is None or r.get('fk_select') != str(stored) for r in rows.values()):
+        for name in ('update-a', 'update-b', 'update-c', 'update-o', 'update-d', 'update-e', 'insert-denied', 'xml-import'):
+            record(name, False, f'the owner could not create the entries with the restricted option: {rows}')
+        return
+
+    # the option's group changes as data: the owner is not in the registered group any more
+    CTX.execute(f"update mybb_myshowcase_field_data set allowed_groups_fill='{registered}' where field_data_id={stored}")
+    fixture('rebuild')
+
+    def update(name, key, value, accepted):
+        before = rows[key]['fk_select']
+        update_post(owner, rows[key], {'fk_select': str(value)})
+        now = (stored_row(tokens[key]) or {}).get('fk_select')
+        expected = str(value) if accepted else before
+        record(name, now == expected, f"{'accepted' if accepted else 'refused'} expected; stored {before} -> {now}")
+
+    update('update-a', 'a', stored, True)
+    update('update-b', 'b', denied, False)
+    update('update-c', 'c', open_option, True)
+    update('update-o', 'o', radio_option, False)
+
+    # the XML import is an insert: the owner's file holds the option the owner may no longer fill, so nothing is imported
+    CTX.execute(f"update mybb_myshowcase_permissions set entries_can_export=1, entries_can_import=1 where group_id={restricted}")
+    CTX.execute(f"update mybb_myshowcase_config set import_export_flood_seconds=0 where route_identifier='{ROUTE}'")
+    fixture('rebuild')
+    fixture('external-setting', 1)
+    time.sleep(3)
+    export_form = owner.get(f'/showcase.php/{ROUTE}/export')
+    owner.post(f'/showcase.php/{ROUTE}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0',
+                                                'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+    export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    summary = 'no export was stored'
+    if export_id:
+        download = owner.get(f'/showcase.php/{ROUTE}/export/{export_id[0][0]}/download')
+        path = os.path.join(a.scratch, 'update-rule-export.xml')
+        open(path, 'wb').write(download['raw'])
+        import_form = owner.get(f'/showcase.php/{ROUTE}/import')
+        reply = owner.upload(f'/showcase.php/{ROUTE}/import', {'my_post_key': post_key(import_form['body']), 'action': 'import'},
+                             'entries_file', path)
+        report = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', reply['body']))
+        found = re.search(r'Entries imported \d+|Failed: [^.]{0,120}|Problems with the file [^.]{0,200}', report)
+        summary = found.group(0) if found else 'no import report found'
+    copies = {k: len(stored_rows(t)) for k, t in tokens.items()}
+    record('xml-import', bool(export_id) and all(c == 1 for c in copies.values()),
+           f'the file with the option is refused as a whole: copies {copies}; reply: {summary}')
+    fixture('external-setting', 0)
+    CTX.execute(f"update mybb_myshowcase_permissions set entries_can_export=0, entries_can_import=0 where group_id={restricted}")
+    fixture('rebuild')
+    time.sleep(3)
+
+    # the stored option is deleted as data: an unchanged save is accepted and the entry page shows no label for it
+    CTX.execute(f"delete from mybb_myshowcase_field_data where field_data_id={stored}")
+    fixture('rebuild')
+    update('update-d', 'd', stored, True)
+    row = stored_row(tokens['d'])
+    page = owner.get(f'/showcase.php/{ROUTE}/view/{row["public_id"]}/{row["entry_slug_custom"]}')
+    record('update-d-page', page['status'] == 200 and 'Stored option (update rule)' not in page['body'],
+           f"entry page answers {page['status']}; the deleted option's label shown: {'Stored option (update rule)' in page['body']}")
+    update('update-e', 'e', gone, False)
+
+    response = create(owner, {'fk_select': str(denied)}, 'UR7', uploads)
+    record('insert-denied', stored_row('UR7') is None, f"an insert with the not-allowed option answers {response['status']}; "
+                                                       f"stored: {stored_row('UR7') is not None}")
+
+    CTX.execute("delete from mybb_myshowcase_field_data where value_id in ('mstored', 'mopen', 'mdenied', 'mgone')")
+    fixture('rebuild')
+
+
 def cid_of_fieldkit():
     return query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
 
@@ -969,6 +1078,7 @@ def main():
         time.sleep(3)
         stage_j(acp, cells)
         stage_l(member, cells, DATA)
+        stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
     finally:
         ctx.stop()

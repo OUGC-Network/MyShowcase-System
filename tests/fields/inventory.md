@@ -91,3 +91,8 @@ the attributes, stage c for the bounds and lengths) and the ACP test.
 * The shipped blog stores `maximum_length` 5 and 3 on `reading_time` and `series_part`, a digit count no input type
   uses; the shipped files are unchanged in this part (F2).
 
+
+## Option update rule (stage m)
+
+The cells of stage `m` in `README.md` (decision D122) check which option values an update accepts: an unchanged stored option is
+accepted even when its group may no longer fill it or the option is deleted; a changed value is checked as on insert.
