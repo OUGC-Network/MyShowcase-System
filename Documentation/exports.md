@@ -97,6 +97,13 @@ A download is never a link to a stored file. The link carries only the export id
 `12-gallery-20261112-093015-0c1f...e9.xml`. Nothing in the name comes from a request: the route identifier keeps only
 the characters `a-z 0-9 _ -`. The name is never shown to a user; the download name is built separately.
 
+## Option fields
+
+An export writes each select, radio and checkbox field as the **value id** of the chosen option (format version 3), which
+is the token the option has in the collection. It is not the id the option has on this board, so the file can be imported
+into another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
+written empty, and the export counts those values in its notes (`options_not_exported`).
+
 ## File fields
 
 An export writes each file field of an entry as the public URL of its file (format version 2). The URL is the route the

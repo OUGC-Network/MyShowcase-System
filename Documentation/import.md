@@ -45,7 +45,7 @@ elements, `header` and `entries`. A file with any other root element, or one tha
 | Key | Type | Meaning |
 |---|---|---|
 | `format` | string | Always `myshowcase-entries`. |
-| `format_version` | int | `1` or `2`. Version 2 writes the file fields as URLs (see [File fields](#file-fields)). A higher number is refused. |
+| `format_version` | int | `1`, `2` or `3`. Version 2 writes the file fields as URLs (see [File fields](#file-fields)). Version 3 writes the select, radio and checkbox fields as the option's value id (see [Option values](#option-values)). A higher number is refused, and so is a version 1 or 2 file that carries option values. |
 | `myshowcase_version` | string | The version of MyShowcase that wrote the file. Informational. |
 | `generated` | string | When the file was written (ISO 8601, UTC). Informational. |
 | `showcase` | array | `route_identifier` must be the route identifier of the showcase the file is imported into. `name` is informational. |
@@ -83,14 +83,26 @@ The export writes each field as its stored value. The import reads the same valu
 |---|---|---|
 | Text, text area, URL, e-mail, telephone, colour, date and time fields | the stored string | the string, checked by the validator as the form checks it |
 | Number fields (integer column) | an integer, `type="INT"` | the number as a string, checked by the validator |
-| Select, radio and checkbox fields | the option's **value id** (`value_id`), not its label, as an integer | the id, stored as the form stores it |
+| Select, radio and checkbox fields | the option's **value id** (`value_id`), not its label and not its id on the board | the option of the field that has that value id, stored as the form stores it (see [Option values](#option-values)) |
 | Empty value | an empty element | the empty string: an optional field is stored empty |
 | A null value | the marker of a null (see `XmlFile`) | treated as absent (see [Absent fields](#absent-fields)) |
 | File fields (format version 2) | the public URL of the file, or an empty element when the exporting user may not download the file | the URL is downloaded and checked (see [File fields](#file-fields)) |
 
-The file is for the same board, which is why select values are ids: the option ids of the board are the ones the file
-was written with. The validator checks a select value only as a number. It does not check that the option exists, and
-neither does the form, so an unknown id is stored as the form would store it.
+## Option values
+
+A select, radio or checkbox field holds the **value id** of its option in the file (format version 3). The value id is
+the token the option has in the collection, so the same file imports into another board whose options have other ids on
+the board. The importer looks the value id up among the options of that field, and stores the id of the option on the
+board:
+
+* an empty value is a blank: it is stored as an optional field is stored empty (`0`); a required field refuses it;
+* a value id that is not the value id of an option of that field fails the entry, and so the whole import: the report
+  names the entry, the field and the value. A value id of an option of another field is refused the same way;
+* the option must be one the importing user's group may fill, as in the form (see the import's validator rules).
+
+A file of format version 1 or 2 holds option ids of the board it was written on, which cannot be read as value ids. Such a
+file is refused as a whole, before anything is stored, when any entry has an option value: export the entries again. A
+version 1 or 2 file without option values imports as before.
 
 Subjects and messages are stored as text. A line break in a message is kept (carriage returns are written as character
 references); characters that XML 1.0 cannot hold were removed when the file was written.
@@ -192,7 +204,7 @@ category field; the field keys are those of the shipped blog collection):
     <value>
       <array>
         <element><key>format</key><value>myshowcase-entries</value></element>
-        <element><key>format_version</key><value type="INT">1</value></element>
+        <element><key>format_version</key><value type="INT">3</value></element>
         <element><key>myshowcase_version</key><value>3.0.0</value></element>
         <element><key>generated</key><value>2026-11-12T09:30:00+00:00</value></element>
         <element>
