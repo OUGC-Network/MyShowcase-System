@@ -13,6 +13,7 @@ use MyShowcase\Util\ImportLimits;
 use MyShowcase\Util\XmlFile;
 
 use function MyShowcase\Plugin\Functions\collectionGet;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 
@@ -35,10 +36,14 @@ class EntriesExporter
     public const FORMAT = 'myshowcase-entries';
 
     /**
-     * Version 2 writes every file field as the public URL of its file (decision D48). Version 1 files, which have no file
-     * fields, are still imported.
+     * Version 2 writes every file field as the public URL of its file (decision D48). Version 3 writes every select, radio
+     * and checkbox field as the value_id of the option (decision D128), not the board-specific field_data_id. Versions 1
+     * and 2 are still imported, but a version 1 or 2 file that carries option values is refused (see ImportFileCheck).
      */
-    public const FORMAT_VERSION = 2;
+    public const FORMAT_VERSION = 3;
+
+    /** The html types whose value is an option of the field, written as the option's value_id. */
+    public const OPTION_HTML_TYPES = [FieldHtmlTypes::Select, FieldHtmlTypes::Radio, FieldHtmlTypes::CheckBox];
 
     public function __construct(private readonly ShowcaseContext $context)
     {
@@ -171,7 +176,7 @@ class EntriesExporter
      * Reads the entries the rules select and writes the XML.
      *
      * @param array<string, mixed> $rules from rulesFromInput()
-     * @return array{xml: string, entry_count: int, rules: array<string, mixed>, notes: array{files_without_url: int, files_not_in_value: int}}
+     * @return array{xml: string, entry_count: int, rules: array<string, mixed>, notes: array{files_without_url: int, files_not_in_value: int, options_not_exported: int}}
      * @throws ExportException when nothing matches, or the file would be larger than the import size cap
      */
     public function build(array $rules, XmlFile $xml_file): array
@@ -191,6 +196,10 @@ class EntriesExporter
 
         $files = $this->fileUrls($rows, $file_fields);
 
+        $option_tokens = $this->optionTokens($fields);
+
+        $options_not_exported = 0;
+
         $entries = [];
 
         foreach ($rows as $row) {
@@ -208,6 +217,21 @@ class EntriesExporter
                 if ($field->html_type === FieldHtmlTypes::File) {
                     // A file field holds the URL of its file, or nothing when the user may not download one (section 9).
                     $entry['fields'][$field->field_key] = $files['urls'][(int)$row['entry_id']][$field->field_key] ?? '';
+
+                    continue;
+                }
+
+                if (in_array($field->html_type, self::OPTION_HTML_TYPES, true)) {
+                    // An option is written as its value_id (decision D128); see optionToken().
+                    $token = self::optionToken($row[$field->field_key] ?? null, $option_tokens[(int)$field->field_id] ?? []);
+
+                    if ($token === null) {
+                        $options_not_exported++;
+
+                        $token = '';
+                    }
+
+                    $entry['fields'][$field->field_key] = $token;
 
                     continue;
                 }
@@ -251,7 +275,7 @@ class EntriesExporter
             'entry_count' => count($entries),
             'rules' => $rules,
             // Files the export did not write as a URL, counted for the user (never written into the file).
-            'notes' => $files['notes'],
+            'notes' => $files['notes'] + ['options_not_exported' => $options_not_exported],
         ];
     }
 
@@ -432,6 +456,49 @@ class EntriesExporter
         return $result;
     }
 
+    /**
+     * The value_id of every option of the given option fields, by field_id and then field_data_id.
+     *
+     * @param CustomFieldEntity[] $fields
+     * @return array<int, array<int, string>>
+     */
+    private function optionTokens(array $fields): array
+    {
+        $tokens = [];
+
+        foreach ($fields as $field) {
+            if (!in_array($field->html_type, self::OPTION_HTML_TYPES, true) || isset($tokens[(int)$field->field_id])) {
+                continue;
+            }
+
+            $tokens[(int)$field->field_id] = [];
+
+            foreach (fieldDataGet(["field_id='" . (int)$field->field_id . "'"], ['field_data_id', 'value_id']) as $option_id => $option) {
+                $tokens[(int)$field->field_id][(int)$option_id] = (string)$option['value_id'];
+            }
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * The value_id a stored option id is written as. A blank (null, '' or the stored 0 of a blank optional field) is
+     * written as '' and is not a problem. A stored id whose option no longer exists, or whose value_id is empty, returns
+     * null: the caller writes it as '' and counts it in the export notes.
+     *
+     * @param array<int, string> $tokens the value_id of each option of the field, by field_data_id
+     */
+    public static function optionToken(mixed $stored, array $tokens): ?string
+    {
+        if ($stored === null || (string)$stored === '' || (string)$stored === '0') {
+            return '';
+        }
+
+        $token = $tokens[(int)$stored] ?? '';
+
+        return $token !== '' && $token !== '0' ? $token : null;
+    }
+
     private function valueOf(mixed $value, CustomFieldEntity $field): mixed
     {
         if ($value === null) {
@@ -478,7 +545,11 @@ class EntriesExporter
             ),
             // Version 2: a file field holds the public URL of its file, or is empty when the exporting user may not download
             // it. The importer reads the URL and downloads the file (section 5.9).
-            'rules' => $rules + ['file_fields' => 'public URL of the file; empty when the exporting user may not download it'],
+            // Version 3: an option field (select, radio, checkbox) holds the value_id of the option, not its field_data_id.
+            'rules' => $rules + [
+                'file_fields' => 'public URL of the file; empty when the exporting user may not download it',
+                'option_fields' => 'value_id of the option (the token of the option, not its id on this board); empty when no option is chosen',
+            ],
         ];
     }
 }

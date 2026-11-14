@@ -119,7 +119,8 @@ $good = ['header' => importHeader(), 'entries' => [['subject' => 'A', 'message' 
 check(ImportFileCheck::problems($good, importTarget()) === [], 'a valid file has no structural problems');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format' => 'x'])] + $good, importTarget())) === ['format'], 'a wrong format is refused');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2])] + $good, importTarget())) === [], 'format version 2 is accepted');
-check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 3])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 3])] + $good, importTarget())) === [], 'format version 3 is accepted');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 4])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 0])] + $good, importTarget())) === ['version'], 'a format version of 0 is refused');
 
 $foreign = ImportFileCheck::problems(['header' => importHeader(['showcase' => ['route_identifier' => 'gallery']])] + $good, importTarget());
@@ -193,7 +194,19 @@ check(!MyShowcase\Util\ImportSettings::externalFilesEnabled(), 'the external fil
 
 use MyShowcase\Service\EntriesExporter;
 
-check(EntriesExporter::FORMAT_VERSION === 2, 'the export writes format version 2');
+check(EntriesExporter::FORMAT_VERSION === 3, 'the export writes format version 3');
+
+// --- Export version 3: an option is written as its value_id (decision D128) ----------------------------------------------
+
+$tokens = [11 => '1', 12 => '2', 13 => 'restricted'];
+check(EntriesExporter::optionToken('11', $tokens) === '1', 'a stored option is written as its value_id');
+check(EntriesExporter::optionToken(13, $tokens) === 'restricted', 'a non-numeric value_id is written as it is');
+check(EntriesExporter::optionToken('0', $tokens) === '', 'a stored 0 (blank optional option) is written as empty');
+check(EntriesExporter::optionToken(null, $tokens) === '', 'no stored option is written as empty');
+check(EntriesExporter::optionToken('', $tokens) === '', 'an empty stored option is written as empty');
+check(EntriesExporter::optionToken('99', $tokens) === null, 'a stored id whose option was deleted is counted, not written');
+check(EntriesExporter::optionToken('11', [11 => '']) === null, 'an option with an empty value_id is counted, not written');
+check(EntriesExporter::optionToken('11', [11 => '0']) === null, 'an option with a 0 value_id is counted, not written');
 check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', '/showcase.php/gallery/attachment/AbC/pic.png') === 'https://forum.example.com/showcase.php/gallery/attachment/AbC/pic.png', 'a file URL is the base and the route path');
 check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com/', '/x/attachment/a/b.png') === 'https://forum.example.com/x/attachment/a/b.png', 'a trailing slash of the base is not doubled');
 check(MyShowcase\Service\AttachmentAccess::joinUrl('http://127.0.0.1:8080', '/a/b') === 'http://127.0.0.1:8080/a/b', 'a base with a port is kept');
