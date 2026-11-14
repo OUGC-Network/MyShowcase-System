@@ -91,8 +91,10 @@ The export writes each field as its stored value. The import reads the same valu
 ## Option values
 
 A select, radio or checkbox field holds the **value id** of its option in the file (format version 3). The value id is
-the token the option has in the collection, so the same file imports into another board whose options have other ids on
-the board. The importer looks the value id up among the options of that field, and stores the id of the option on the
+the token the option has in the collection. The token is the same on every board built from the same collection, even where
+the option's id on a board differs, so the options survive a move to another board. The file itself is still meant for the
+same showcase on the same board (see the top of this page): it also refers to users, groups and file URLs, which only mean
+something there. The importer looks the value id up among the options of that field, and stores the id of the option on the
 board:
 
 * an empty value is a blank: it is stored as an optional field is stored empty (`0`); a required field refuses it;

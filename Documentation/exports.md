@@ -100,8 +100,9 @@ the characters `a-z 0-9 _ -`. The name is never shown to a user; the download na
 ## Option fields
 
 An export writes each select, radio and checkbox field as the **value id** of the chosen option (format version 3), which
-is the token the option has in the collection. It is not the id the option has on this board, so the file can be imported
-into another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
+is the token the option has in the collection. It is not the id the option has on this board, so an option keeps its token
+on every board built from the same collection. The file itself is still meant for the same showcase on the same board: its
+users, groups and file URLs do not carry over to another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
 written empty, and the export counts those values in its notes (`options_not_exported`).
 
 ## File fields
