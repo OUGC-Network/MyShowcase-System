@@ -646,6 +646,9 @@ function dataTableStructureGet(int $showcase_id = 0): array
             } elseif (fieldTypeMatchDateTime($field_definition['field_type'])) {
                 $dataTableStructure[$field_definition['field_key']]['type'] = $field_definition['field_type'];
 
+                // decision D129: a blank optional date, time or datetime value is stored as NULL, so the column is nullable
+                $dataTableStructure[$field_definition['field_key']]['null'] = true;
+
                 if ($field_definition['default_value'] !== '') {
                     $defaultValue = $db->escape_string($field_definition['default_value']);
                 } else {
@@ -945,6 +948,16 @@ function newRowDefault(array $fieldDefinition): mixed
     }
 
     return $fieldDefinition['default'] ?? '';
+}
+
+/**
+ * Pure: whether a value written to a custom field column is stored as NULL (decision D129). A blank value of a date,
+ * time or datetime field is NULL: those columns are nullable on every engine. A required field never gets here blank,
+ * the validator refuses it first.
+ */
+function isNullDateTypeValue(mixed $value, string $fieldType): bool
+{
+    return fieldTypeMatchDateTime($fieldType) && trim((string)$value) === '';
 }
 
 function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID = 0)
