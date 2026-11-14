@@ -127,6 +127,9 @@ class EntriesManager
     public array $pending_file_counts = [];
     private ?array $stored_entry_row = null;
 
+    /** @var array<string, ?string> The stored value of each option field of the entry being updated, by field key. */
+    private array $stored_option_values = [];
+
     /** @var array<int, bool> Moderator answers per user id, see isModerator(). */
     private array $is_moderator_cache = [];
 
@@ -824,6 +827,8 @@ class EntriesManager
 
         $this->stored_entry_row = null;
 
+        $this->stored_option_values = [];
+
         $this->validation_entry = $entry;
 
         $this->validation_method = $method;
@@ -866,6 +871,28 @@ class EntriesManager
         $language_key = 'myshowcase_datahandler_' . preg_replace('/\d+$/', '', $message);
 
         return $this->context->language->{$language_key} ?? $message;
+    }
+
+    /**
+     * The stored value of an option field of the entry being updated, read once. Null when the validation is not an
+     * update of an existing entry, so that nothing is kept as it was stored.
+     */
+    private function storedOptionValue(string $field_key): ?string
+    {
+        if ($this->validation_method !== self::VALIDATION_METHOD_UPDATE || empty($this->validation_entry->entry_id)) {
+            return null;
+        }
+
+        if (!array_key_exists($field_key, $this->stored_option_values)) {
+            $row = $this->context->entries_repository->queryEntry(
+                ["entry_data.entry_id='" . (int)$this->validation_entry->entry_id . "'"],
+                ["entry_data.{$field_key}"],
+            );
+
+            $this->stored_option_values[$field_key] = isset($row[$field_key]) ? (string)$row[$field_key] : null;
+        }
+
+        return $this->stored_option_values[$field_key];
     }
 
     /**
@@ -1260,6 +1287,12 @@ class EntriesManager
                     // 0 is how a blank optional option field is stored (decision T26): an export carries it back as no
                     // option. Option ids start at 1, so a user cannot choose it; a required field still refuses it.
                     if (!$field->is_required && (string)$option_value === '0') {
+                        continue;
+                    }
+
+                    // On an update an option that is kept as it was stored is accepted, even when the user's group may no
+                    // longer fill it or the option is gone (decision D122). A changed value is checked in full.
+                    if ($this->storedOptionValue($field->field_key) === (string)$option_value) {
                         continue;
                     }
 
