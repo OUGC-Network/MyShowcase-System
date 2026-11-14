@@ -369,6 +369,21 @@ check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('tinyint', false) =
 check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('int', false) === ['-2147483648', '2147483647'], 'int bounds are signed 32 bit by default');
 check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('bigint', true) === ['0', '18446744073709551615'], 'unsigned bigint bounds');
 
+// Decision D140: a stored text on an integer target is refused only when it is not a number, a real fraction or out of range
+$loss = static fn(string $value, string $type = 'int', bool $unsigned = false): ?string => \MyShowcase\Service\SchemaManager::integerValueLoss($value, ...\MyShowcase\Service\SchemaManager::sqliteIntegerBounds($type, $unsigned));
+check($loss('') === 'not_number', 'a blank stored text is not a number for an integer (MySQL and PostgreSQL refuse it too)');
+check($loss('abc') === 'not_number' && $loss('1 2') === 'not_number' && $loss('.') === 'not_number', 'text that is not a number is refused');
+check($loss('1.0') === null && $loss('1e3') === null && $loss('-0.0') === null && $loss('+7') === null && $loss(' 12 ') === null, 'an integral text (1.0, 1e3, -0.0, +7) is accepted for an integer');
+check($loss('1.5') === 'fraction' && $loss('1e-1') === 'fraction' && $loss('12e-1') === 'fraction', 'a real fraction is refused with the fraction reason');
+check($loss('1.00000000000000000000000001') === 'fraction' && $loss('0.99999999999999999999') === 'fraction', 'a fraction beyond float precision is refused exactly');
+check($loss('2147483647') === null && $loss('-2147483648') === null, 'the int limits are accepted');
+check($loss('2147483648') === 'out_of_range' && $loss('-2147483649') === 'out_of_range', 'values outside the int range are refused');
+check($loss('1e30', 'bigint') === 'out_of_range' && $loss('1e999') === 'out_of_range', 'a large exponent is out of range');
+check($loss('9223372036854775807', 'bigint') === null && $loss('9223372036854775808', 'bigint') === 'out_of_range', 'the bigint limit is exact');
+check($loss('12345678901234567890', 'bigint', true) === null && $loss('18446744073709551616', 'bigint', true) === 'out_of_range', 'the unsigned bigint limit is exact');
+check($loss('1e-999') === 'fraction', 'a tiny non-zero exponent is a fraction');
+check(\MyShowcase\Service\SchemaManager::isNumericText('1.5') && \MyShowcase\Service\SchemaManager::isNumericText('-2e3') && !\MyShowcase\Service\SchemaManager::isNumericText('') && !\MyShowcase\Service\SchemaManager::isNumericText('x'), 'decimal text: numbers yes, blank and words no');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

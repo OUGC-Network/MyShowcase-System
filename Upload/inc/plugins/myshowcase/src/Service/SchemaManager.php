@@ -746,8 +746,6 @@ final class SchemaManager
             . ' table or activate the plugin again to retry.',
         'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be'
             . ' dropped ({3}). Its values were copied to {4}.',
-        'myshowcase_admin_warning_column_loss_not_number' => '{1} row(s) hold a value that is not a number of the new type.',
-        'myshowcase_admin_warning_column_loss_out_of_range' => '{1} row(s) hold a value outside the range of the new type.',
         'myshowcase_admin_warning_column_loss_table_rebuild' => 'another column of the same table would lose data, and on'
             . ' SQLite a table is changed as one unit.',
     ];
@@ -1502,38 +1500,35 @@ final class SchemaManager
 
         [$minimum, $maximum] = self::sqliteIntegerBounds($type, !empty($definition['unsigned']));
 
-        $notNumbers = 0;
-        $fractions = 0;
-        $outside = 0;
+        $counts = ['not_number' => 0, 'fraction' => 0, 'out_of_range' => 0];
 
         $query = $db->write_query("SELECT {$column} AS stored FROM {$tableName} WHERE {$column} IS NOT NULL");
 
         while ($row = $db->fetch_array($query)) {
-            $value = trim((string)($row['stored'] ?? ''));
+            $value = (string)($row['stored'] ?? '');
 
-            if ($integer && preg_match('/^[+-]?\d+$/', $value) === 1) {
-                if (self::compareIntegers($value, $minimum) < 0 || self::compareIntegers($value, $maximum) > 0) {
-                    ++$outside;
-                }
-            } elseif (!is_numeric($value)) {
-                ++$notNumbers;
-            } elseif ($integer) {
-                ++$fractions;
+            $kind = $integer
+                ? self::integerValueLoss($value, $minimum, $maximum)
+                : (self::isNumericText($value) ? null : 'not_number');
+
+            if ($kind !== null) {
+                ++$counts[$kind];
             }
         }
 
         self::free($query);
 
-        if ($notNumbers > 0) {
-            return self::translatedWarning('myshowcase_admin_warning_column_loss_not_number', [$notNumbers]);
+        // The same wording as the MySQL and PostgreSQL branch (English, hard-coded there too).
+        if ($counts['not_number'] > 0) {
+            return "{$counts['not_number']} row(s) hold a value that is not a number of the new type";
         }
 
-        if ($fractions > 0) {
-            return "{$fractions} row(s) hold a fractional value that an integer would round";
+        if ($counts['fraction'] > 0) {
+            return "{$counts['fraction']} row(s) hold a fractional value that an integer would round";
         }
 
-        if ($outside > 0) {
-            return self::translatedWarning('myshowcase_admin_warning_column_loss_out_of_range', [$outside]);
+        if ($counts['out_of_range'] > 0) {
+            return "{$counts['out_of_range']} row(s) hold a value outside the range of the new type";
         }
 
         return null;
@@ -1559,6 +1554,87 @@ final class SchemaManager
             'bigint' => ['-9223372036854775808', '9223372036854775807'],
             default => ['-2147483648', '2147483647'],
         };
+    }
+
+    /**
+     * Pure: whether a stored text is a decimal number (optional sign, digits, optional fraction, optional exponent).
+     * A blank text is not a number.
+     */
+    public static function isNumericText(string $value): bool
+    {
+        return self::parseDecimal($value) !== null;
+    }
+
+    /**
+     * Pure: what storing a stored text in an integer column of the given bounds would lose (decision D140):
+     * 'not_number' (not a number at all, a blank text included), 'fraction' (a value that is not integral, judged
+     * exactly on the digits, so no float rounding), 'out_of_range', or null when the value is an integer in range
+     * (a text such as "1.0", "1e3" or "-0.0" is that integer).
+     */
+    public static function integerValueLoss(string $value, string $minimum, string $maximum): ?string
+    {
+        $parts = self::parseDecimal($value);
+
+        if ($parts === null) {
+            return 'not_number';
+        }
+
+        [$sign, $digits, $shift] = $parts;
+
+        // a shift that moves the decimal point beyond the digits of the widest integer type is out of range
+        if ($digits === '') {
+            return null;
+        }
+
+        if ($shift >= 0) {
+            if (strlen($digits) + $shift > 40) {
+                return 'out_of_range';
+            }
+
+            $digits .= str_repeat('0', $shift);
+        } else {
+            $cut = -$shift;
+
+            if (strlen($digits) < $cut || trim(substr($digits, -$cut), '0') !== '') {
+                return 'fraction';
+            }
+
+            $digits = ltrim(substr($digits, 0, strlen($digits) - $cut), '0');
+
+            if ($digits === '') {
+                return null;
+            }
+        }
+
+        $integer = ($sign === '-' ? '-' : '') . $digits;
+
+        return self::compareIntegers($integer, $minimum) < 0 || self::compareIntegers($integer, $maximum) > 0
+            ? 'out_of_range'
+            : null;
+    }
+
+    /**
+     * Pure: a decimal text as [sign, digits without leading zeros, power of ten to multiply the digits with], or null
+     * when the text is not a decimal number. The digits are exact; no float is used.
+     */
+    private static function parseDecimal(string $value): ?array
+    {
+        $value = trim($value);
+
+        if (preg_match('/^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d{1,6}))?$/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        $whole = $matches[2] ?? '';
+        $fraction = $matches[3] ?? '';
+
+        if ($whole === '' && $fraction === '') {
+            return null;
+        }
+
+        $shift = (int)($matches[4] ?? 0) - strlen($fraction);
+
+        return [$matches[1] ?? '', ltrim($whole . $fraction, '0'), $shift];
     }
 
     /** Pure: compares two decimal integers given as strings (any length), returns -1, 0 or 1. */
