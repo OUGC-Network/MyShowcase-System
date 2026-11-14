@@ -87,7 +87,7 @@ function importHeader(array $overrides = []): array
 {
     return array_replace([
         'format' => 'myshowcase-entries',
-        'format_version' => 1,
+        'format_version' => 3,
         'showcase' => ['route_identifier' => 'blog', 'name' => 'Blog'],
         'collection' => ['name' => 'Blog'],
         'entry_count' => 1,
@@ -102,6 +102,7 @@ function importTarget(array $overrides = []): array
         'known_keys' => ['category', 'summary', 'cover_image', 'picture'],
         'fillable_keys' => ['category', 'summary', 'cover_image'],
         'file_keys' => ['picture'],
+        'option_keys' => ['category'],
         'maximum_entries' => 5000,
         'subject_enabled' => true,
         'message_enabled' => true,
@@ -114,13 +115,26 @@ function problemCodes(array $problems): array
     return array_map(static fn(array $problem): string => $problem['code'], $problems);
 }
 
-$good = ['header' => importHeader(), 'entries' => [['subject' => 'A', 'message' => 'B', 'fields' => ['category' => 1, 'summary' => '']]]];
+$good = ['header' => importHeader(['format_version' => 3]), 'entries' => [['subject' => 'A', 'message' => 'B', 'fields' => ['category' => 1, 'summary' => '']]]];
 
 check(ImportFileCheck::problems($good, importTarget()) === [], 'a valid file has no structural problems');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format' => 'x'])] + $good, importTarget())) === ['format'], 'a wrong format is refused');
-check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2])] + $good, importTarget())) === [], 'format version 2 is accepted');
+check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 2]), 'entries' => [['subject' => 'A', 'message' => 'B', 'fields' => ['summary' => '']]]], importTarget())) === [], 'format version 2 is accepted without option values');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 3])] + $good, importTarget())) === [], 'format version 3 is accepted');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 4])] + $good, importTarget())) === ['version'], 'a higher format version is refused');
+
+// Format 1 and 2 files with option values are refused as a whole (decision D128); without option values they import.
+$withOptionFile = fn(int $version, array $fields): array => [
+    'header' => importHeader(['format_version' => $version, 'entry_count' => 1]),
+    'entries' => [['subject' => 'a', 'fields' => $fields]],
+];
+check(problemCodes(ImportFileCheck::problems($withOptionFile(2, ['category' => '1']), importTarget())) === ['option_version'], 'a format 2 file with an option value is refused');
+check(problemCodes(ImportFileCheck::problems($withOptionFile(1, ['category' => '1']), importTarget())) === ['option_version'], 'a format 1 file with an option value is refused');
+check(problemCodes(ImportFileCheck::problems($withOptionFile(2, ['category' => '0']), importTarget())) === [], 'a format 2 file with a blank option (0) imports');
+check(problemCodes(ImportFileCheck::problems($withOptionFile(2, ['category' => '']), importTarget())) === [], 'a format 2 file with an empty option imports');
+check(problemCodes(ImportFileCheck::problems($withOptionFile(2, []), importTarget())) === [], 'a format 2 file without option values imports');
+check(problemCodes(ImportFileCheck::problems($withOptionFile(3, ['category' => '1']), importTarget())) === [], 'a format 3 file with option values imports');
+check(ImportFileCheck::problems($withOptionFile(2, ['category' => '1']), importTarget())[0]['args'] === ['2', 1, 1], 'the option refusal counts the values and the entries');
 check(problemCodes(ImportFileCheck::problems(['header' => importHeader(['format_version' => 0])] + $good, importTarget())) === ['version'], 'a format version of 0 is refused');
 
 $foreign = ImportFileCheck::problems(['header' => importHeader(['showcase' => ['route_identifier' => 'gallery']])] + $good, importTarget());
@@ -216,6 +230,20 @@ check(MyShowcase\Service\AttachmentAccess::joinUrl('ftp://forum.example.com', '/
 check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', 'a/b') === '', 'a path that is not absolute gives no URL');
 check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', '/a b') === '', 'a path with a space gives no URL');
 check(MyShowcase\Service\AttachmentAccess::joinUrl('https://forum.example.com', "/a\nb") === '', 'a path with a line break gives no URL');
+
+// --- Option tokens of an import (decision D128) -----------------------------------------------------------------------
+
+use MyShowcase\Service\EntriesImporter;
+
+$lookup = ['1' => 11, '2' => 12, 'restricted' => 13];
+check(EntriesImporter::optionPostedValue('1', false, $lookup) === '11', 'a value_id is translated to its field_data_id');
+check(EntriesImporter::optionPostedValue('restricted', true, $lookup) === '13', 'a non-numeric value_id is translated');
+check(EntriesImporter::optionPostedValue('', false, $lookup) === '0', 'an empty value of an optional field is the blank 0');
+check(EntriesImporter::optionPostedValue('0', false, $lookup) === '0', 'a 0 of an optional field is the blank 0');
+check(EntriesImporter::optionPostedValue('', true, $lookup) === '', 'an empty value of a required field stays empty for the validator to refuse');
+check(EntriesImporter::optionPostedValue('99', false, $lookup) === null, 'an unknown token is refused');
+check(EntriesImporter::optionPostedValue('12', false, ['1' => 11]) === null, 'a token of another field is refused (it is not in this field lookup)');
+check(EntriesImporter::optionPostedValue('11', false, $lookup) === null, 'a field_data_id that is no value_id of the field is refused, not used as one');
 
 // --- Upload -------------------------------------------------------------------------------------------------------------
 

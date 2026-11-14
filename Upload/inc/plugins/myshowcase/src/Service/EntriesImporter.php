@@ -21,6 +21,7 @@ use RuntimeException;
 use Throwable;
 
 use function MyShowcase\Plugin\Functions\collectionGet;
+use function MyShowcase\Plugin\Functions\fieldDataGet;
 
 /**
  * Imports the entries of an export file into the showcase (design doc, section 6 and decisions T1 to T7, T20 to T27).
@@ -47,16 +48,21 @@ class EntriesImporter
      * The fields the importing user may use in a file: their keys (every field of the collection, file fields included)
      * and the ones they may fill.
      *
-     * @return array{known_keys: string[], fillable_keys: string[], file_keys: string[]}
+     * @return array{known_keys: string[], fillable_keys: string[], file_keys: string[], option_keys: string[]}
      */
     public function keys(): array
     {
         $known = [];
         $fillable = [];
         $files = [];
+        $options = [];
 
         foreach ($this->context->custom_fields_collection as $field) {
             $known[] = $field->field_key;
+
+            if (in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true)) {
+                $options[] = $field->field_key;
+            }
 
             // A file field the user may not fill is known but not fillable, so a file that names it is refused.
             if (!$field->canFill()) {
@@ -70,7 +76,7 @@ class EntriesImporter
             }
         }
 
-        return ['known_keys' => $known, 'fillable_keys' => $fillable, 'file_keys' => $files];
+        return ['known_keys' => $known, 'fillable_keys' => $fillable, 'file_keys' => $files, 'option_keys' => $options];
     }
 
     /**
@@ -101,6 +107,7 @@ class EntriesImporter
             'known_keys' => $keys['known_keys'],
             'fillable_keys' => $keys['fillable_keys'],
             'file_keys' => $keys['file_keys'],
+            'option_keys' => $keys['option_keys'],
             'maximum_entries' => (new EntriesExporter($this->context))->maximumEntries(),
             'subject_enabled' => (bool)$this->context->showcase->entries_enable_subject,
             'message_enabled' => (bool)$this->context->showcase->entries_enable_message,
@@ -148,9 +155,27 @@ class EntriesImporter
 
         $failures = [];
 
+        $option_lookup = $this->optionLookup();
+
         try {
             foreach ($entries as $index => $raw) {
                 $position = $index + 1;
+
+                // The option values are translated first, from value_id to field_data_id (decision D128): an unknown token
+                // refuses the entry before any file of it is taken.
+                $option_errors = [];
+
+                $posted = $this->postedValues($raw, $option_lookup, $position, $option_errors);
+
+                if ($option_errors !== []) {
+                    $failures[] = [
+                        'position' => $position,
+                        'subject' => (string)($raw['subject'] ?? ''),
+                        'errors' => $option_errors,
+                    ];
+
+                    continue;
+                }
 
                 $prepared = $this->prepareFiles($raw, $temp, $budget);
 
@@ -170,7 +195,7 @@ class EntriesImporter
 
                 $entry_data = array_merge(
                     (array)$entry,
-                    $manager->allowedEntryInput($this->postedValues($raw)),
+                    $manager->allowedEntryInput($posted),
                     [
                         'entry_id' => $entry->entry_id,
                         'user_id' => (int)$this->context->current_user->uid,
@@ -480,12 +505,98 @@ class EntriesImporter
     }
 
     /**
+     * The option values of each option field of the showcase: value_id => field_data_id, by field key. A value_id that
+     * two options of one field share is taken from the option that comes first (display order, then field_data_id).
+     * A blank value_id is not a token and is left out.
+     *
+     * @return array<string, array<string, int>>
+     */
+    private function optionLookup(): array
+    {
+        $lookup = [];
+
+        foreach ($this->context->custom_fields_collection as $field) {
+            if (!in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true)) {
+                continue;
+            }
+
+            $lookup[$field->field_key] = [];
+
+            $options = fieldDataGet(
+                ["field_id='" . (int)$field->field_id . "'"],
+                ['field_data_id', 'value_id'],
+                ['order_by' => 'display_order, field_data_id']
+            );
+
+            foreach ($options as $option_id => $option) {
+                $token = (string)$option['value_id'];
+
+                if ($token === '' || $token === '0' || isset($lookup[$field->field_key][$token])) {
+                    continue;
+                }
+
+                $lookup[$field->field_key][$token] = (int)$option_id;
+            }
+        }
+
+        return $lookup;
+    }
+
+    /**
+     * The value of an option field as the validator takes it: the field_data_id of the option whose value_id the file
+     * gives (decision D128). A blank is written as the form writes it: 0 for an optional field (T26), '' for a required one,
+     * which the validator then refuses. A token that is no value_id of an option of this field is an error of the entry.
+     *
+     * @param array<string, int> $lookup value_id => field_data_id, for this field
+     * @param string[] $errors
+     */
+    private function optionPosted(CustomFieldEntity $field, mixed $value, array $lookup, int $position, array &$errors): string
+    {
+        $token = $this->scalarText($value);
+
+        $posted = self::optionPostedValue($token, (bool)$field->is_required, $lookup);
+
+        if ($posted === null) {
+            $language = $this->context->language;
+
+            $errors[] = $language->sprintf(
+                $language->myshowcase_import_export_error_option_token,
+                $position,
+                $token,
+                $this->context->entries_manager->fieldLabel($field)
+            );
+
+            return '';
+        }
+
+        return $posted;
+    }
+
+    /**
+     * The posted value of one option token: the field_data_id of the option with that value_id, or the blank the form posts
+     * (0 for an optional field, '' for a required one). Null when the token is no value_id of the field's options.
+     *
+     * @param array<string, int> $lookup value_id => field_data_id, for this field
+     */
+    public static function optionPostedValue(string $token, bool $required, array $lookup): ?string
+    {
+        if ($token === '' || $token === '0') {
+            return $required ? '' : '0';
+        }
+
+        return isset($lookup[$token]) ? (string)$lookup[$token] : null;
+    }
+
+    /**
      * The values of one entry as the form would post them: the subject and message as given, and every fillable field:
      * the value of the file, or the field's default when the file leaves it out (T20). A file value of null is an absent one.
+     * An option value is translated from its value_id (optionPosted()); an unknown token is added to $errors.
      *
+     * @param array<string, array<string, int>> $option_lookup
+     * @param string[] $errors
      * @return array<string, mixed>
      */
-    private function postedValues(array $raw): array
+    private function postedValues(array $raw, array $option_lookup, int $position, array &$errors): array
     {
         $posted = [];
 
@@ -513,6 +624,18 @@ class EntriesImporter
             }
 
             $value = $values[$field->field_key] ?? null;
+
+            if ($value !== null && in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true)) {
+                $posted[$field->field_key] = $this->optionPosted(
+                    $field,
+                    $value,
+                    $option_lookup[$field->field_key] ?? [],
+                    $position,
+                    $errors
+                );
+
+                continue;
+            }
 
             $posted[$field->field_key] = $value === null ? $this->defaultValue($field) : $this->scalarText($value);
         }
