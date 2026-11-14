@@ -264,6 +264,7 @@ def run():
     section_option_tokens()
     section_files()
     section_option_numbering()
+    section_option_portability()
     section_logs()
 
 
@@ -998,6 +999,59 @@ def section_option_numbering():
                f'downloads {key}: the stored id is the field_data_id of its value 1 option ({stored_value} / {expected})')
     else:
         not_run('downloads option assertions: the downloads showcase is not on this board')
+
+
+def section_option_portability():
+    """Step 4, decision D128 and D137: the option values travel between numberings. The entries are imported with value ids
+    1 to 4, the options of the category are then copied (a second numbering of the same options, as another board built from
+    the same collection would have), and a file in the export layout with the same value ids is imported. Each copy must hold
+    the field_data_id of the option with its value id in the second numbering, and that option must have the label of the
+    original. This is an option-only check on one board: it is not a second board and not a whole-file move (the users,
+    groups and file URLs of a file are not compared)."""
+    print('--- option portability: the same options under a second numbering (decisions D128, D137)')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    table = data_table()
+    field = f"(select field_id from mybb_myshowcase_fields where field_key='category' and collection_id={cid()})"
+    CTX.execute('update mybb_myshowcase_config set import_export_flood_seconds=0 where route_identifier=\'blog\'')
+
+    body = import_into(member, 'blog', write_file('portability-first.xml', xml_file(
+        [good_entry(70 + i, category=str(i + 1)) for i in range(4)])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed', 'the first numbering: four entries with value ids 1 to 4 import')
+    first = db(f"select category from {table} where user_id={uid} and subject like 'Import entry 7%' order by entry_id")
+    first_labels = {}
+    for (stored_id,) in first:
+        value_id, label = db(f"select value_id, value from mybb_myshowcase_field_data where field_data_id={stored_id}")[0]
+        first_labels[str(value_id)] = (str(stored_id), str(label))
+    ok(sorted(first_labels) == ['1', '2', '3', '4'], f'the first entries hold the four options: {sorted(first_labels)}')
+
+    # the second numbering: the same value ids and labels, new field_data_ids. The copies are inserted before the old
+    # rows are deleted: on SQLite a deleted newest id is handed out again, which would keep the numbering.
+    originals = db(f"select value_id, value, allowed_groups_fill from mybb_myshowcase_field_data where field_id={field} "
+                   "order by field_data_id")
+    old_ids = [str(i) for (i,) in db(f"select field_data_id from mybb_myshowcase_field_data where field_id={field}")]
+    for value_id, label, groups in originals:
+        CTX.execute('insert into mybb_myshowcase_field_data (collection_id, field_id, field_key, value_id, value, '
+                    f"allowed_groups_fill) select collection_id, field_id, field_key, '{value_id}', '{label}', '{groups}' "
+                    f"from mybb_myshowcase_fields where field_id={field}")
+    CTX.execute(f"delete from mybb_myshowcase_field_data where field_data_id in ({', '.join(old_ids)})")
+    second = {str(v): str(i) for v, i in db(f"select value_id, field_data_id from mybb_myshowcase_field_data "
+                                              f"where field_id={field}")}
+    ok(all(second[v] != first_labels[v][0] for v in first_labels),
+       f"the second numbering differs from the first: {[(v, first_labels[v][0], second[v]) for v in sorted(first_labels)]}")
+
+    body = import_into(member, 'blog', write_file('portability-second.xml', xml_file(
+        [good_entry(80 + i, category=str(i + 1)) for i in range(4)])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed', 'the file with value ids 1 to 4 imports into the second numbering')
+    copies = db(f"select category from {table} where user_id={uid} and subject like 'Import entry 8%' order by entry_id")
+    by_value = {}
+    for (stored_id,) in copies:
+        value_id, label = db(f"select value_id, value from mybb_myshowcase_field_data where field_data_id={stored_id}")[0]
+        by_value[str(value_id)] = (str(stored_id), str(label))
+    ok(sorted(by_value) == ['1', '2', '3', '4'] and all(by_value[v][0] == second[v] for v in by_value),
+       f'each copy holds the field_data_id of its value id in the second numbering: {sorted(by_value.items())}')
+    ok(all(by_value[v][1] == first_labels[v][1] for v in by_value),
+       f"each copy holds the label of its original: {[(v, by_value[v][1], first_labels[v][1]) for v in sorted(by_value)]}")
 
 
 def page_has_label(page, label):

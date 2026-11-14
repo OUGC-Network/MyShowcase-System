@@ -25,6 +25,10 @@ twice: `section_option_tokens` (format 3, a format 2 file with an option value r
 its value_id; the export holds the value_id, the import stores the field_data_id of the option with that value_id and the
 entry page shows its label; a field_data_id used as a token, a value of another field's option and a blank required value
 are refused; the shipped downloads entries hold the value 1 option of their category, platform and license fields.
+`section_option_portability` (decisions D128, D137) copies the category options to a second numbering on the same board and
+imports a file with the same value ids: each copy holds the field_data_id of its value id in the second numbering and the
+label of the original. This is an option-only check on one board. It is not a second board and it does not compare the
+users, groups or file URLs of a file, so it does not show whole-file portability.
 Not covered here: a blank optional option value and a format 2 file with only blanks (the blog and downloads options are
 all required; the field matrix covers the optional select at stage `c`). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
