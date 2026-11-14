@@ -19,7 +19,14 @@ python3 tests/import/http/run.py --engine sqlite|mysql --mybb <source tree> --sc
 
 It installs a scratch board for one engine, creates the blog, gallery and downloads showcases through the ACP, creates
 entries through the forum form, exports them and imports them back, and checks the refusals, the permissions, the
-setting (default no), the single rule set for attachment access and the stored-file guard. The PHP binary is the one
+setting (default no), the single rule set for attachment access and the stored-file guard. The option tokens are checked
+twice: `section_option_tokens` (format 3, a format 2 file with an option value refused whole, an unknown token) and
+`section_option_numbering` (decision D128): the blog's category options are copied so that each field_data_id differs from
+its value_id; the export holds the value_id, the import stores the field_data_id of the option with that value_id and the
+entry page shows its label; a field_data_id used as a token, a value of another field's option and a blank required value
+are refused; the shipped downloads entries hold the value 1 option of their category, platform and license fields.
+Not covered here: a blank optional option value and a format 2 file with only blanks (the blog and downloads options are
+all required; the field matrix covers the optional select at stage `c`). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
 
 Use `--port` when another server uses the default port (18092 for SQLite, 18091 for MySQL). Exit code 1 if a check fails.

@@ -263,6 +263,7 @@ def run():
     section_flood_and_limit()
     section_option_tokens()
     section_files()
+    section_option_numbering()
     section_logs()
 
 
@@ -913,6 +914,94 @@ def section_files():
         ok(report is not None and report['status'] == 'failed' and 'not an allowed type' in report['text'] and
            int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore,
            'a PNG in the downloads field is refused by its type, and nothing is stored')
+
+
+def section_option_numbering():
+    """Decision D128, the option token with differing numberings: the blog's category options are copied, so each
+    field_data_id differs from its value_id; the export holds the value_id; the import stores the field_data_id of the option
+    with that value_id and the entry page shows its label. An unknown token, the field_data_id of an option used as a token,
+    a token of another field's option and a blank required value are refused. The shipped downloads entries hold the
+    field_data_id of the value 1 option of each of their three fields."""
+    print('--- option numbering: field_data_id against value_id (decision D128)')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    table = data_table()
+    field = f"(select field_id from mybb_myshowcase_fields where field_key='category' and collection_id={cid()})"
+
+    # copy the options: the copies get new field_data_ids, above their value ids (the same value ids and labels)
+    originals = db(f"select value_id, value, allowed_groups_fill from mybb_myshowcase_field_data where field_id={field} "
+                   "order by field_data_id")
+    CTX.execute(f"delete from mybb_myshowcase_field_data where field_id={field}")
+    for value_id, label, groups in originals:
+        CTX.execute('insert into mybb_myshowcase_field_data (collection_id, field_id, field_key, value_id, value, '
+                    f"allowed_groups_fill) select collection_id, field_id, field_key, '{value_id}', '{label}', '{groups}' "
+                    f"from mybb_myshowcase_fields where field_id={field}")
+    numbering = db(f"select value_id, field_data_id from mybb_myshowcase_field_data where field_id={field} order by value_id")
+    ok(len(numbering) == len(originals) and all(str(v) != str(i) for v, i in numbering),
+       f'the category options have numberings that differ: {numbering}')
+    option = {str(v): str(i) for v, i in numbering}
+    label_of = {str(v): str(l) for v, l, _ in originals}
+    CTX.execute('update mybb_myshowcase_config set import_export_flood_seconds=0 where route_identifier=\'blog\'')
+
+    body = import_into(member, 'blog', write_file('numbering-valid.xml', xml_file([good_entry(60, category='2')])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed', 'a format 3 file with value_id 2 imports')
+    stored = one(f"select category from {table} where user_id={uid} order by entry_id desc limit 1")
+    ok(str(stored) == option['2'], f'the stored option is the field_data_id of the option with value_id 2 (stored {stored}, '
+                                   f"field_data_id {option['2']}, value_id 2)")
+    pid, slug = db(f"select public_id, entry_slug_custom from {table} where user_id={uid} order by entry_id desc limit 1")[0]
+    page = member.get(f'{SHOWCASE}/view/{pid}/{slug}')['body']
+    ok(page_has_label(page, label_of['2']), f"the entry page shows the option's label {label_of['2']!r}")
+
+    # the export of the member's entries holds value ids, never field_data_ids
+    export_form = member.get(f'{SHOWCASE}/export')
+    member.post(f'{SHOWCASE}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                      'order_dir': 'asc', 'submit': 'Export'})
+    export_id = one(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    download = member.get(f'{SHOWCASE}/export/{export_id}/download')
+    export_path = os.path.join(SCRATCH, 'numbering-export.xml')
+    with open(export_path, 'wb') as handle:
+        handle.write(download['raw'])
+    tokens = set(re.findall(r'<key>category</key>\s*<value>([^<]*)</value>', download['raw'].decode('utf-8', 'replace')))
+    ok('2' in tokens and tokens <= set(option.keys()) | {''},
+       f'the export holds the value id 2 and no field_data_id (category values in the file: {sorted(tokens)})')
+
+    # refusals: an unknown token, the field_data_id of an option as a token, a value of another field, a blank required value
+    unknown = str(max(int(i) for i in option.values()) + 1000)
+    body = import_into(member, 'blog', write_file('numbering-unknown.xml', xml_file([good_entry(61, category='9')])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'failed' and 'is not an option of this field' in text(body),
+       'an unknown token fails the import with the report line')
+    body = import_into(member, 'blog', write_file('numbering-fid.xml', xml_file([good_entry(62, category=option['2'])])))['body']
+    ok(option['2'] not in option and report_of(body) is not None and report_of(body)['status'] == 'failed' and
+       'is not an option of this field' in text(body),
+       f"the field_data_id {option['2']} of an option is not a token: it is refused as unknown (unknown guard {unknown})")
+    other = one("select d.value_id from mybb_myshowcase_field_data d, mybb_myshowcase_fields f where d.field_id=f.field_id "
+                f"and f.field_key='category' and f.collection_id<>{cid()} and d.value_id not in "
+                f"(select value_id from mybb_myshowcase_field_data where field_id={field}) limit 1")
+    if other:
+        body = import_into(member, 'blog', write_file('numbering-other.xml', xml_file([good_entry(63, category=str(other))])))['body']
+        ok(report_of(body) is not None and report_of(body)['status'] == 'failed' and 'is not an option of this field' in text(body),
+           f'the value id {other} of an option of another field is refused for this field')
+    else:
+        not_run('a token of another field: the board has no option of another field with a value id the blog does not use')
+    body = import_into(member, 'blog', write_file('numbering-blank.xml', xml_file([good_entry(64, category='')])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'failed', 'a blank required option value fails the entry')
+
+    # the shipped downloads entries (value id 1 in each of the three option fields)
+    downloads_sid = one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'")
+    if downloads_sid:
+        for key in ('category', 'platform', 'license'):
+            field_of = f"(select field_id from mybb_myshowcase_fields where field_key='{key}' and collection_id=" \
+                       f"(select collection_id from mybb_myshowcase_collections where name='Downloads'))"
+            expected = one(f"select field_data_id from mybb_myshowcase_field_data where field_id={field_of} and value_id='1'")
+            stored_value = one(f"select {key} from mybb_myshowcase_data{downloads_sid} order by entry_id desc limit 1")
+            ok(expected != '' and str(stored_value) == str(expected),
+               f'downloads {key}: the stored id is the field_data_id of its value 1 option ({stored_value} / {expected})')
+    else:
+        not_run('downloads option assertions: the downloads showcase is not on this board')
+
+
+def page_has_label(page, label):
+    return text(page).find(label) >= 0 if label else False
 
 
 def section_logs():
