@@ -43,6 +43,9 @@ $l = [
     'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The field sets were not migrated to collections; merge the two tables manually and activate the plugin again.',
     'myshowcase_admin_warning_column_conversion_failed' => 'MyShowcase: the column {2} of table {1} could not be changed from {3} to {4} and was left as it is ({5}). No data was changed. Fix the data and rebuild the table or activate the plugin again to retry.',
     'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be dropped ({3}). Its values were copied to {4}.',
+    'myshowcase_admin_warning_column_loss_not_number' => '{1} row(s) hold a value that is not a number of the new type.',
+    'myshowcase_admin_warning_column_loss_out_of_range' => '{1} row(s) hold a value outside the range of the new type.',
+    'myshowcase_admin_warning_column_loss_table_rebuild' => 'another column of the same table would lose data, and on SQLite a table is changed as one unit.',
 
     'report_content_showcase_comments' => 'Showcase comments',
 

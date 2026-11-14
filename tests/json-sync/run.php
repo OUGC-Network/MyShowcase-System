@@ -360,6 +360,15 @@ check(paths(JsonValidator::validate($oneField(['html_type' => 'date', 'field_typ
 check(paths(JsonValidator::validate($oneField(['html_type' => 'week', 'field_type' => 'varchar', 'maximum_value' => '2026-W54']))) === ['$.fields[0].maximum_value'], 'a week bound that the year does not have is refused');
 check(JsonValidator::validate($oneField(['html_type' => 'time', 'field_type' => 'time', 'minimum_value' => '09:00', 'maximum_value' => '18:00:00'])) === [], 'a time with HH:MM and HH:MM:SS bounds is valid');
 
+// SQLite type-change loss check (decision D116): the integer bounds and their comparison are pure
+check(\MyShowcase\Service\SchemaManager::compareIntegers('-5', '3') < 0 && \MyShowcase\Service\SchemaManager::compareIntegers('10', '9') > 0, 'integers compare by sign and magnitude');
+check(\MyShowcase\Service\SchemaManager::compareIntegers('000', '0') === 0 && \MyShowcase\Service\SchemaManager::compareIntegers('-0', '0') === 0, 'zero compares equal with leading zeros and a minus sign');
+check(\MyShowcase\Service\SchemaManager::compareIntegers('9223372036854775808', '9223372036854775807') > 0, 'integers beyond the PHP int range compare as strings');
+check(\MyShowcase\Service\SchemaManager::compareIntegers('-9223372036854775809', '-9223372036854775808') < 0, 'negative integers beyond the PHP int range compare as strings');
+check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('tinyint', false) === ['-128', '127'] && \MyShowcase\Service\SchemaManager::sqliteIntegerBounds('tinyint', true) === ['0', '255'], 'tinyint bounds, signed and unsigned');
+check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('int', false) === ['-2147483648', '2147483647'], 'int bounds are signed 32 bit by default');
+check(\MyShowcase\Service\SchemaManager::sqliteIntegerBounds('bigint', true) === ['0', '18446744073709551615'], 'unsigned bigint bounds');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

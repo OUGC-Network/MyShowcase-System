@@ -19,11 +19,6 @@
    "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
    "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
    "classification": "repair in Part 2"
-  },
-  "fk_text_req|h": {
-   "reason": "a varchar shrink that loses values (VARCHAR(20) to VARCHAR(3), a stored value of 4 characters) is accepted: the column is rebuilt and the stored value is kept longer than its type",
-   "cause": "src/Service/SchemaManager.php:1401-1403 (conversionLoss returns null on SQLite, so no value is checked before the change)",
-   "classification": "repair in Part 2"
   }
  },
  "mysql": {

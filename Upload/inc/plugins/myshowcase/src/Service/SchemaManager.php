@@ -746,6 +746,10 @@ final class SchemaManager
             . ' table or activate the plugin again to retry.',
         'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be'
             . ' dropped ({3}). Its values were copied to {4}.',
+        'myshowcase_admin_warning_column_loss_not_number' => '{1} row(s) hold a value that is not a number of the new type.',
+        'myshowcase_admin_warning_column_loss_out_of_range' => '{1} row(s) hold a value outside the range of the new type.',
+        'myshowcase_admin_warning_column_loss_table_rebuild' => 'another column of the same table would lose data, and on'
+            . ' SQLite a table is changed as one unit.',
     ];
 
     /** Pure: the English text of a warning that has a language key. */
@@ -1344,6 +1348,31 @@ final class SchemaManager
         $prefix = $db->table_prefix;
 
         if ($engine === self::ENGINE_SQLITE) {
+            // The rebuild changes the table as one unit, so a column that would lose data refuses the whole table
+            // (MySQL and PostgreSQL refuse only that column). Nothing is rebuilt and nothing is changed.
+            $losses = [];
+
+            foreach ($plan as $column => $change) {
+                $loss = $change['type'] ? self::conversionLoss($table, $column, $columns[$column], $actual[$column], $engine) : null;
+
+                if ($loss !== null) {
+                    $losses[$column] = $loss;
+                }
+            }
+
+            if ($losses !== []) {
+                foreach ($plan as $column => $change) {
+                    self::columnFailed(
+                        $table,
+                        $column,
+                        $change,
+                        $losses[$column] ?? self::translatedWarning('myshowcase_admin_warning_column_loss_table_rebuild', [])
+                    );
+                }
+
+                return;
+            }
+
             try {
                 self::rebuildSqliteTable($table, $actual, $columns, $plan);
 
@@ -1399,7 +1428,7 @@ final class SchemaManager
         global $db;
 
         if ($engine === self::ENGINE_SQLITE) {
-            return null;
+            return self::sqliteConversionLoss($table, $column, $definition);
         }
 
         $quote = static fn(string $name): string => $engine === self::ENGINE_MYSQL ? "`{$name}`" : $name;
@@ -1439,6 +1468,127 @@ final class SchemaManager
         }
 
         return null;
+    }
+
+    /**
+     * SQLite: the checks of the MySQL and PostgreSQL branch, run on the stored values, because SQLite keeps whatever it
+     * is given in a column of any type. A character column loses values when one is longer than the new size (length()
+     * counts characters). A number type loses values when one is not a number of that type, is a fraction for an
+     * integer type, or is outside the range of an integer type. Reads only (decision D116).
+     */
+    private static function sqliteConversionLoss(string $table, string $column, array $definition): ?string
+    {
+        global $db;
+
+        $tableName = $db->table_prefix . $table;
+
+        $type = strtolower(trim((string)($definition['type'] ?? '')));
+
+        if (in_array($type, ['varchar', 'char'], true) && (int)($definition['size'] ?? 0) > 0) {
+            $size = (int)$definition['size'];
+
+            $count = (int)(self::queryRow(
+                "SELECT COUNT(*) AS total FROM {$tableName} WHERE length({$column}) > {$size}"
+            )['total'] ?? 0);
+
+            return $count > 0 ? "{$count} row(s) hold a value longer than {$size} characters" : null;
+        }
+
+        $integer = in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'bigint'], true);
+
+        if (!$integer && !in_array($type, self::FAMILY_FRACTION, true)) {
+            return null;
+        }
+
+        [$minimum, $maximum] = self::sqliteIntegerBounds($type, !empty($definition['unsigned']));
+
+        $notNumbers = 0;
+        $fractions = 0;
+        $outside = 0;
+
+        $query = $db->write_query("SELECT {$column} AS stored FROM {$tableName} WHERE {$column} IS NOT NULL");
+
+        while ($row = $db->fetch_array($query)) {
+            $value = trim((string)($row['stored'] ?? ''));
+
+            if ($integer && preg_match('/^[+-]?\d+$/', $value) === 1) {
+                if (self::compareIntegers($value, $minimum) < 0 || self::compareIntegers($value, $maximum) > 0) {
+                    ++$outside;
+                }
+            } elseif (!is_numeric($value)) {
+                ++$notNumbers;
+            } elseif ($integer) {
+                ++$fractions;
+            }
+        }
+
+        self::free($query);
+
+        if ($notNumbers > 0) {
+            return self::translatedWarning('myshowcase_admin_warning_column_loss_not_number', [$notNumbers]);
+        }
+
+        if ($fractions > 0) {
+            return "{$fractions} row(s) hold a fractional value that an integer would round";
+        }
+
+        if ($outside > 0) {
+            return self::translatedWarning('myshowcase_admin_warning_column_loss_out_of_range', [$outside]);
+        }
+
+        return null;
+    }
+
+    /** Pure: the smallest and the largest value of an integer type on SQLite (as decimal strings). */
+    public static function sqliteIntegerBounds(string $type, bool $unsigned): array
+    {
+        if ($unsigned) {
+            return ['0', match ($type) {
+                'tinyint' => '255',
+                'smallint' => '65535',
+                'mediumint' => '16777215',
+                'bigint' => '18446744073709551615',
+                default => '4294967295',
+            }];
+        }
+
+        return match ($type) {
+            'tinyint' => ['-128', '127'],
+            'smallint' => ['-32768', '32767'],
+            'mediumint' => ['-8388608', '8388607'],
+            'bigint' => ['-9223372036854775808', '9223372036854775807'],
+            default => ['-2147483648', '2147483647'],
+        };
+    }
+
+    /** Pure: compares two decimal integers given as strings (any length), returns -1, 0 or 1. */
+    public static function compareIntegers(string $a, string $b): int
+    {
+        $negativeA = str_starts_with($a, '-');
+        $negativeB = str_starts_with($b, '-');
+
+        $digitsA = ltrim(ltrim($a, '+-'), '0');
+        $digitsB = ltrim(ltrim($b, '+-'), '0');
+
+        if ($digitsA === '') {
+            $negativeA = false;
+        }
+
+        if ($digitsB === '') {
+            $negativeB = false;
+        }
+
+        if ($negativeA !== $negativeB) {
+            return $negativeA ? -1 : 1;
+        }
+
+        $magnitude = strlen($digitsA) <=> strlen($digitsB);
+
+        if ($magnitude === 0) {
+            $magnitude = strcmp($digitsA, $digitsB) <=> 0;
+        }
+
+        return $negativeA ? -$magnitude : $magnitude;
     }
 
     /**
