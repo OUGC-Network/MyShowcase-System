@@ -143,7 +143,7 @@ def xml_node(key, value):
     return f'<element><key>{xml_escape(key)}</key>{xml_value(value)}</element>'
 
 
-def xml_file(entries, route='blog', collection='Blog', format_version=1, entry_count=None, header_extra=None, raw_entries=None):
+def xml_file(entries, route='blog', collection='Blog', format_version=3, entry_count=None, header_extra=None, raw_entries=None):
     """An entries export written by hand, in the layout the export writes (design doc, section 1)."""
     count = len(entries) if entry_count is None else entry_count
     header = {
@@ -261,6 +261,7 @@ def run():
     section_security()
     section_permissions()
     section_flood_and_limit()
+    section_option_tokens()
     section_files()
     section_logs()
 
@@ -439,7 +440,7 @@ def section_scope():
        and entry_count(uid) == before + 1, 'a file of another collection imports, with its warning in the report (T3)')
     before = entry_count(uid)
     refused('unknown.xml', xml_file([{'fields': {'legacy_tag': 'x'}}]), 'is not a field of this showcase')
-    refused('version.xml', xml_file([good_entry(1)], format_version=3), 'format version 3')
+    refused('version.xml', xml_file([good_entry(1)], format_version=4), 'format version 4')
     refused('count.xml', xml_file([good_entry(1)], entry_count=3), 'says it has 3 entries')
     refused('zero.xml', xml_file([]), 'The file has no entries')
     refused('notxml.xml', 'hello, not XML', 'does not start with an XML document')
@@ -613,6 +614,38 @@ class Listener:
         self.server.server_close()
 
 
+def section_option_tokens():
+    """Decision D128: an option field is exported and imported as the option's value_id (format 3); a format 2 file with an
+    option value is refused as a whole; an unknown token fails its entry. The stored id is the option's field_data_id."""
+    print('--- option tokens (decision D128)')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    table = data_table()
+    before = int(one(f'select count(*) from {table} where user_id={uid}') or 0)
+    category_id = one(
+        "select field_data_id from mybb_myshowcase_field_data where value_id='1' and field_id=("
+        "select field_id from mybb_myshowcase_fields where field_key='category' and collection_id=("
+        "select collection_id from mybb_myshowcase_collections where name='Blog'))"
+    )
+    unknown_entry = good_entry(40, category='9')
+
+    body = import_into(member, 'blog', write_file('token-v2.xml', xml_file([good_entry(41, category='1')], format_version=2)))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'failed' and 'exported before the option token changed' in text(body),
+       'a format 2 file with an option value is refused with the message to export again')
+    ok(int(one(f'select count(*) from {table} where user_id={uid}') or 0) == before, 'the refused format 2 file stores nothing')
+
+    body = import_into(member, 'blog', write_file('token-unknown.xml', xml_file([unknown_entry])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'failed' and 'is not an option of this field' in text(body),
+       'an unknown option token fails the import with the report line')
+    ok(int(one(f'select count(*) from {table} where user_id={uid}') or 0) == before, 'the unknown token stores nothing')
+
+    body = import_into(member, 'blog', write_file('token-valid.xml', xml_file([good_entry(42, category='1')])))['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed', 'a format 3 file with the value_id of an option imports')
+    stored = one(f"select category from {table} where user_id={uid} order by entry_id desc limit 1")
+    ok(category_id != '' and str(stored) == str(category_id),
+       f'the stored option is the field_data_id of the option with value_id 1 (stored {stored}, field_data_id {category_id or "none"})')
+
+
 def section_files():
     print('--- F file fields by URL')
     fixture('files-setup', 'import-test-uploads')
@@ -683,7 +716,7 @@ def section_files():
         return
     download = member.get(f'/showcase.php/gallery/export/{export_id}/download')
     exported = download['raw'].decode('utf-8', errors='replace')
-    ok('<value type="INT">2</value>' in exported and 'format_version' in exported, 'the export is format version 2')
+    ok('<value type="INT">3</value>' in exported and 'format_version' in exported, 'the export is format version 3')
     attach_urls = re.findall(r'https?://127\.0\.0\.1:\d+/(?:showcase\.php/)?gallery/attachment/[^<\s]+', exported)
     ok(len(attach_urls) >= 2 and all(CTX.url in u for u in attach_urls), f'the export holds the public URL of each image ({len(attach_urls)})')
     if attach_urls:
@@ -860,7 +893,7 @@ def section_files():
         zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
         dbefore = int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0)
         started = time.time()
-        path = write_file('downloads-zip.xml', xml_file([downloads_entry(1, zip_url)], route='downloads', collection='Downloads', format_version=2))
+        path = write_file('downloads-zip.xml', xml_file([downloads_entry(1, zip_url)], route='downloads', collection='Downloads', format_version=3))
         body = import_into(member, 'downloads', path)['body']
         dump('downloads-zip', body)
         elapsed = time.time() - started
@@ -874,7 +907,7 @@ def section_files():
                f'the stored ZIP is the archive of GitHub ({len(fetched_zip)} bytes)')
         # A PNG in the downloads field: the board allows only ZIP there, so the file is refused by its type.
         dbefore = int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0)
-        path = write_file('downloads-png.xml', xml_file([downloads_entry(2, 'https://placehold.co/600x450.png?text=Not%20a%20zip')], route='downloads', collection='Downloads', format_version=2))
+        path = write_file('downloads-png.xml', xml_file([downloads_entry(2, 'https://placehold.co/600x450.png?text=Not%20a%20zip')], route='downloads', collection='Downloads', format_version=3))
         body = import_into(member, 'downloads', path)['body']
         report = report_of(body)
         ok(report is not None and report['status'] == 'failed' and 'not an allowed type' in report['text'] and
