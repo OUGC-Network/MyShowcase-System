@@ -330,6 +330,10 @@ def badge_texts(path):
 def section_c(cid, sid, fcat):
     print('--- C. update to 1.2.0')
     tbl = f'mybb_myshowcase_data{sid}'
+    # identity (decision D147 and the previous_keys rule): the file's keys are the rows they name, before and after the apply
+    ids_before = {'tags': one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='tags'"),
+                  'category': str(fcat)}
+    count_before = one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid}")
     for i in (1, 2, 3):
         dbx(f"insert into {tbl} (public_id, dateline, update_dateline, category, summary, tags, reading_time, cover_image, series, series_part, meta_description, source_url) values ('e{i}', '2026-01-01 00:00:00', '2026-01-01 00:00:00', 1, 's{i}', 't{i}', {i * 4}, 'http://x/{i}.png', '', 0, '', '')")
     c = read_board_file('collections/blog.json'); c['version'] = '1.2.0'
@@ -350,6 +354,12 @@ def section_c(cid, sid, fcat):
     ok(one("select count(*) from mybb_myshowcase_fields where field_key='author_note'") == '0', 'preview wrote nothing')
     r = jsync({'action': 'run', 'mode': 'apply', 'type': 'collection', 'id': str(cid), 'file': 'collections/blog.json'})
     ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'apply update ran')
+    ids_after = {'topics': one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='topics'"),
+                 'category': one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='category'")}
+    ok(ids_after['topics'] == ids_before['tags'] != '', f"the renamed field keeps its row: tags ({ids_before['tags']}) is topics ({ids_after['topics']}) through previous_keys")
+    ok(ids_after['category'] == ids_before['category'], f"a key that the file names keeps its row: category ({ids_before['category']} -> {ids_after['category']})")
+    count_after = one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid}")
+    ok(count_after == str(int(count_before) + 1), f'the apply adds no duplicate field: {count_before} fields before, {count_after} after (author_note is added; cover_image, no longer named by the file, stays as a field of its own)')
     c1 = cols(tbl)
     ok('author_note' in c1 and 'topics' in c1 and 'tags' not in c1 and 'cover_image' in c1, 'columns: added, renamed, removed field keeps its column')
     ok(one(f"select topics from {tbl} where public_id='e2'") == 't2' and one(f"select count(*) from {tbl}") == '3', 'entries preserved through the rename')
