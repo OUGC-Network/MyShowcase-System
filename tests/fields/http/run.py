@@ -988,6 +988,19 @@ def stage_m(cells, users, restricted, fixture, radio_option):
     fixture('rebuild')
 
 
+def stage_x(cells, ctx, member):
+    """Stage x (decision D146): a request that no route matches is answered with the page-not-found sentence (the handler of
+    the entry script, after the showcase exists), never an empty message, a 503 or an internal error page."""
+    page = member.get(f'/showcase.php/{ROUTE}/no-such-page/')
+    text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', page['body']))
+    open(os.path.join(a.scratch, 'container-failure.html'), 'w', encoding='utf-8').write(page['body'])
+    ok = page['status'] == 200 and 'does not exist in this showcase' in text and 'unknown error' not in text.lower() \
+        and 'Internal Error' not in text
+    check(cells, 'place:page-not-found', 'x', 'pass' if ok else 'fail',
+          f"answers {page['status']}; the page-not-found sentence shown: {'does not exist in this showcase' in text}; "
+          f"no unknown error or internal error page: {'unknown error' not in text.lower() and 'Internal Error' not in text}")
+
+
 def cid_of_fieldkit():
     return query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
 
@@ -1103,6 +1116,7 @@ def main():
         stage_l(member, cells, DATA)
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
+        stage_x(cells, ctx, member)
     finally:
         ctx.stop()
         if a.engine == 'mysql':

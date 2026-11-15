@@ -388,6 +388,17 @@ check(\MyShowcase\Service\SchemaManager::isNumericText('1.5') && \MyShowcase\Ser
 check(\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'date') && \MyShowcase\Plugin\Functions\isNullDateTypeValue('  ', 'time') && \MyShowcase\Plugin\Functions\isNullDateTypeValue(null, 'datetime'), 'a blank date, time or datetime value is NULL');
 check(!\MyShowcase\Plugin\Functions\isNullDateTypeValue('2026-01-01', 'date') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('0', 'datetime') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'varchar') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'int'), 'a value of a date type, and a blank of another type, is not NULL');
 
+// Decision D146: the error sentence falls back to the global language, then to the English text
+require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
+$sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };
+$sentenceGlobal = new class { public string $myshowcase_error_unexpected = 'global sentence'; };
+$sentenceEmpty = new class { public string $myshowcase_error_unexpected = ''; };
+$sentenceNone = new stdClass();
+check(\MyShowcase\Plugin\ErrorSentence\errorSentence($sentenceCtx, $sentenceGlobal, 'myshowcase_error_unexpected', 'english') === 'context sentence', 'an error sentence comes from the plugin context first');
+check(\MyShowcase\Plugin\ErrorSentence\errorSentence(null, $sentenceGlobal, 'myshowcase_error_unexpected', 'english') === 'global sentence', 'without a context, the global language gives the sentence');
+check(\MyShowcase\Plugin\ErrorSentence\errorSentence($sentenceEmpty, null, 'myshowcase_error_unexpected', 'english') === 'english', 'a blank key falls back to the English text');
+check(\MyShowcase\Plugin\ErrorSentence\errorSentence(null, 'not an object', 'myshowcase_error_unexpected', 'english') === 'english' && \MyShowcase\Plugin\ErrorSentence\errorSentence($sentenceNone, null, 'missing_key', 'english') === 'english', 'no object or key gives the English text, and no error');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);

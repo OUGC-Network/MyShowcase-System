@@ -136,17 +136,16 @@ chdir($currentWorkingDirectoryPath);
 hooksRun('script_file_intermediate');
 
 /** @var Showcase $showcase */
+// Decision D146: the error sentences come from the plugin's error sentence function, which has no dependency: the handler
+// below may run before the plugin's context exists.
+require_once MYBB_ROOT . 'inc/plugins/myshowcase/Plugin/ErrorSentence.php';
+
 try {
     $showcase = (new Container())->container->get('showcase');
-} catch (Exception $e) {
-    error($e->getMessage());
+} catch (Throwable $e) {
+    error_log('MyShowcase: ' . get_class($e) . ': ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')');
+    error(DEBUG ? $e->getMessage() : \MyShowcase\Plugin\ErrorSentence\errorSentence(null, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'));
 }
-
-/*
-$showcase->event_dispatcher->addListener(
-    RouteMatchedEvent::NAME,
-    new RouteMatchedListener(RouteMatchedEvent $comments_repository)
-);*/
 
 if (!$showcase->data_table_exists || !$showcase->context->showcase->collection_id) {
     error('This showcase has not been installed or activated yet.');
@@ -169,17 +168,17 @@ try {
 } catch (Throwable $e) {
     // A request that no route matches is a page that does not exist. Any other failure is written to the error log with
     // its cause; the page never answers an empty message, which MyBB shows as "an unknown error" (decision D144).
-    $language = $showcase->context->language;
+    $context_language = isset($showcase) ? $showcase->context?->language : null;
 
     if ($e instanceof \Symfony\Component\Routing\Exception\ResourceNotFoundException) {
-        error($language->myshowcase_error_page_not_found);
+        error(\MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_page_not_found', 'The page you asked for does not exist in this showcase.'));
     }
 
     error_log(
         'MyShowcase: ' . get_class($e) . ': ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')'
     );
 
-    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : $language->myshowcase_error_unexpected);
+    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : \MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'));
 }
 
 exit;
