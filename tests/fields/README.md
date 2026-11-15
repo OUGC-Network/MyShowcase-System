@@ -66,7 +66,8 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `f` main list. Not automated yet (`notrun`).
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
 * `h` delete and data type change, on throwaway data (run last, after stage `l`): an entry is deleted through the forum's
-  inline moderation (cell `place:entry-delete|h`); an option that entries use is deleted in the ACP (`fk_select|h`); the
+  inline moderation at the URL the form posts to, with the trailing slash (cell `place:entry-delete|h`: the row and its attachments
+  go); a user without the delete permission is refused with a real message and the entry stays (`place:entry-delete-refused|h`); an option that entries use is deleted in the ACP (`fk_select|h`); the
   ACP refuses to delete a field that a JSON file manages, and the same field, unmanaged as data, is deleted and its column
   dropped (`fk_text_opt|h`); the types are changed through the JSON sync: a shrink that loses values, a text-to-number change
   that loses values (both must be refused as a whole) and a number-to-text change that loses nothing (`fk_text_req|h`,
@@ -91,8 +92,11 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   refused (`place:update-e|m`); an insert with the not-allowed option is refused (`place:insert-denied|m`). The XML case proves
   only that the whole file is refused: the import summary does not name the option.
 
-A cell that cannot run is `notrun` with its reason and the remaining steps. The place cell `place:entry-delete|h` is not a
-field cell: it records the forum's answer to the entry delete.
+A cell that cannot run is `notrun` with its reason and the remaining steps. The place cells `place:entry-delete|h` and `place:entry-delete-refused|h` are not
+field cells: they record the forum's answers to the entry delete.
+
+Blank values (decision D129): a blank optional date, time or datetime value is stored as NULL, and its column is nullable
+(a required field never stores a blank: the validator refuses it first). The stage `c` cells of those fields check it.
 
 The inventory of the properties is in `inventory.md`.
 
