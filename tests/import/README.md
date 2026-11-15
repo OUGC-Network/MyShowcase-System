@@ -29,8 +29,12 @@ are refused; the shipped downloads entries hold the value 1 option of their cate
 imports a file with the same value ids: each copy holds the field_data_id of its value id in the second numbering and the
 label of the original. This is an option-only check on one board. It is not a second board and it does not compare the
 users, groups or file URLs of a file, so it does not show whole-file portability.
-Not covered here: a blank optional option value and a format 2 file with only blanks (the blog and downloads options are
-all required; the field matrix covers the optional select at stage `c`). The PHP binary is the one
+`section_downloads_round_trip` (decision D142) exports the downloads entries and imports the file into the same board: each copy holds the
+field_data_id of the option with the value id of the file for category, platform and license, and the same file name and size. Then the
+entries are removed as data and the same file is imported: it is refused as a whole, because the own-board file of a removed entry has no
+visible entry (decision D58), and nothing is stored. The fresh entry is imported from the GitHub ZIP of dev-1.9 (network needed; a slow
+download fails the check, as section F6 does).
+The blank optional option values and the format 2 file with only blanks are covered by the field matrix (stage `i`, decision D142). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
 
 Use `--port` when another server uses the default port (18092 for SQLite, 18091 for MySQL). Exit code 1 if a check fails.

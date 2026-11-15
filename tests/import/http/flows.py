@@ -265,6 +265,7 @@ def run():
     section_files()
     section_option_numbering()
     section_option_portability()
+    section_downloads_round_trip()
     section_four_byte_subject()
     section_logs()
 
@@ -574,9 +575,10 @@ def gallery_entry(i, image):
 
 
 def downloads_entry(i, archive):
-    # Select values are the option ids of the shipped downloads collection (Tools, Any, Freeware).
-    return {'fields': {'archive': archive, 'category': 1, 'version': f'1.9.{i}', 'release_date': '2026-11-01',
-                       'platform': 1, 'license': 1, 'sha256': '0' * 64}}
+    # Select values are the option ids of the shipped downloads collection (Tools, Any, Freeware). The showcase requires a
+    # subject (entries_enable_subject), so every entry has one.
+    return {'subject': f'Download {i}', 'fields': {'archive': archive, 'category': 1, 'version': f'1.9.{i}',
+                                                  'release_date': '2026-11-01', 'platform': 1, 'license': 1, 'sha256': '0' * 64}}
 
 
 def sha256_of(path):
@@ -1053,6 +1055,85 @@ def section_option_portability():
        f'each copy holds the field_data_id of its value id in the second numbering: {sorted(by_value.items())}')
     ok(all(by_value[v][1] == first_labels[v][1] for v in by_value),
        f"each copy holds the label of its original: {[(v, by_value[v][1], first_labels[v][1]) for v in sorted(by_value)]}")
+
+
+def section_downloads_round_trip():
+    """Decision D142 (b): the downloads entries of the board are exported and imported back. Two fresh entries are imported first,
+    from the GitHub ZIP of the branch dev-1.9 (as section F6 does), each with a value other than 1 in category, platform and license.
+    (1) The export is imported into the same board: each copy holds the field_data_id of the option with the value id the file
+    holds, and its file has the same stored name and size as the original. (2) The entries are removed as data and the same file
+    is imported: the own-board file of a removed entry is refused (decision D58: its entry must be visible), and nothing is stored."""
+    print('--- downloads export and re-import (decision D142)')
+    fixture('files-setup', 'import-test-uploads')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    did = int(one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'") or 0)
+    if not did:
+        not_run('downloads round trip: the downloads showcase is not on this board')
+        return
+    table = f'mybb_myshowcase_data{did}'
+    zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
+    picks = {91: {'category': 2, 'platform': 3, 'license': 2}}
+    for index, pick in picks.items():
+        entry = downloads_entry(index, zip_url)
+        entry['fields'].update(pick)
+        body = import_into(member, 'downloads', write_file(f'downloads-fresh-{index}.xml', xml_file([entry], route='downloads', collection='Downloads', format_version=3)))['body']
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'completed', f'a fresh downloads entry (1.9.{index}) imports from the GitHub ZIP')
+    cols = ['version', 'category', 'platform', 'license']
+    field_data = lambda key, value_id: one(
+        f"select field_data_id from mybb_myshowcase_field_data where value_id='{value_id}' and field_id=("
+        f"select field_id from mybb_myshowcase_fields where field_key='{key}' and collection_id=("
+        "select collection_id from mybb_myshowcase_collections where name='Downloads'))")
+
+    def snapshot():
+        rows = {}
+        for row in db(f"select entry_id, {', '.join(cols)} from {table} where user_id={uid} order by entry_id"):
+            entry_id, values = row[0], dict(zip(cols, row[1:]))
+            files = db(f"select attachment_name, file_size from mybb_myshowcase_attachments where showcase_id={did} and entry_id={entry_id} "
+                       "and field_id is not null order by attachment_id")
+            values['files'] = [tuple(f) for f in files]
+            rows.setdefault(values['version'], []).append(values)
+        return rows
+
+    before = snapshot()
+    ok(len(before.get('1.9.91', [])) == 1, f'the fresh entry is stored once before the export ({sorted(before)})')
+    export_form = member.get('/showcase.php/downloads/export')
+    member.post('/showcase.php/downloads/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                                   'order_dir': 'asc', 'submit': 'Export'})
+    export_id = one(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    download = member.get(f'/showcase.php/downloads/export/{export_id}/download')
+    export_path = os.path.join(SCRATCH, 'downloads-export.xml')
+    with open(export_path, 'wb') as handle:
+        handle.write(download['raw'])
+    ok(download['status'] == 200 and b'myshowcase-entries' in download['raw'], 'the downloads entries export as an entries file')
+
+    # (1) the export imported into the same board: copies, each with the options of its value ids and the same file
+    body = import_into(member, 'downloads', export_path)['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'completed', f"the export imports back into the same board ({report['text'][:160] if report else 'no report'})")
+    after = snapshot()
+    for version, pick_index in (('1.9.91', 91),):
+        if len(after.get(version, [])) != 2:
+            ok(False, f'{version}: two entries after the import (found {len(after.get(version, []))})')
+            continue
+        original, copy = after[version][0], after[version][1]
+        for key in ('category', 'platform', 'license'):
+            value_id = picks[pick_index][key]
+            ok(str(copy[key]) == str(original[key]) == str(field_data(key, value_id)),
+               f'{version} {key}: the copy holds the field_data_id {copy[key]} of value id {value_id}, as the original does')
+        # the stored file name is generated again for each copy; the name the file was uploaded with and its size are compared
+        ok(copy['files'] == original['files'] and len(copy['files']) == 1,
+           f"{version} file: the copy has the same file name and size ({original['files']} -> {copy['files']})")
+
+    # (2) the entries removed as data, the same file imported: refused as a whole (the own-board files have no visible entry)
+    CTX.execute(f"delete from {table} where user_id={uid}")
+    stored_before = int(one(f'select count(*) from {table}') or 0)
+    body = import_into(member, 'downloads', export_path)['body']
+    report = report_of(body)
+    refused = report is not None and report['status'] == 'failed' and 'may not download' in text(body)
+    ok(refused and int(one(f'select count(*) from {table}') or 0) == stored_before,
+       'after the entries are removed, the file of an own-board entry is refused as a whole (decision D58) and nothing is stored')
 
 
 def section_four_byte_subject():
