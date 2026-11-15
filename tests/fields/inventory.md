@@ -101,3 +101,35 @@ accepted even when its group may no longer fill it or the option is deleted; a c
 ## Reserved HTML types (poll and rating)
 
 `poll` and `rating` are reserved for later features (`fieldHtmlTypes()` leaves them out; `reservedHtmlTypes()` lists them). The ACP field form does not offer them, the field service and the JSON validator refuse a file or a form that names them with the reason, and the FieldKit collection does not carry them. The matrix has no cells for them: they are not failures and not known failures (`na` by design).
+
+## Field keys: SQL words (decision D152)
+
+A field key is refused when it is an SQL word of the list below, on every engine (`FieldService::SQL_RESERVED_KEYS`, used by the
+ACP field form and the JSON validator). The list was taken from the matrix's stage `k` run on each engine: a word that fails on
+any engine is refused on all of them. The engines in the table are where the word failed when it was tried (a table that was not
+created, an entry that did not show or sort, or an export or delete that failed). Failures were checked with the real pipeline.
+
+| Word | SQLite | MySQL | PostgreSQL |
+|---|---|---|---|
+| check | fails | fails | fails |
+| column | works | fails | fails |
+| constraint | fails | fails | fails |
+| default | fails | fails | fails |
+| desc | works | fails | fails |
+| from | fails | fails | fails |
+| group | fails | fails | fails |
+| index | fails | fails | works |
+| key | works | fails | works |
+| limit | fails | fails | fails |
+| order | fails | fails | fails |
+| primary | fails | fails | fails |
+| references | fails | fails | fails |
+| select | fails | fails | fails |
+| table | fails | fails | fails |
+| union | fails | fails | fails |
+| user | works | works | fails |
+| values | fails | fails | works |
+| where | fails | fails | fails |
+
+A 30-character key works on every engine (stage `k`, `word-longkey`). Every listed word is refused on every engine, with its message.
+

@@ -211,6 +211,10 @@ switch ($switch) {
         $out(['gid' => $groupId($argv[2])]);
         break;
 
+    case 'reserved-keys':
+        // decision D152: the names a field key can not have, read from the code (the entries table's columns and the SQL words)
+        $out(\MyShowcase\Service\FieldService::reservedFieldKeys());
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);

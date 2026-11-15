@@ -48,9 +48,6 @@ ROUTE = 'fieldkit'
 FIELDKIT = json.load(open(os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')))
 FIELDS = {f['field_key']: f for f in FIELDKIT['fields']}
 NOT_RUN = {
-    'a': 'ACP definition stage not automated yet (remaining step: read each field through the ACP edit screens and save one property)',
-    'f': 'main list stage not automated yet (remaining step: sort and filter on each offered field)',
-    'k': 'reserved and long key stage not automated yet (remaining step: JSON-sync preview and run for each key on each engine)',
 }
 LONG = 'x' * 21
 # the HTML types whose input has a min and a max (decision D124): number, range, date, datetime-local, month, week, time
@@ -1059,6 +1056,359 @@ def stage_y(cells, member):
               f'the list answers {page["status"]} and the order is {seen} (expected {order}); entries: {made}')
 
 
+def key_check(cells, name, ok, detail):
+    check(cells, f'place:key-{name}', 'k', 'pass' if ok else 'fail', detail)
+
+
+def stage_k_acp_and_json(acp, cells, ctx, fixture):
+    """Stage k (decision D152), the key rules through the ACP field form and through the JSON validator. Every case is a place
+    cell: a refused key must be refused with its message, and no field row may be stored; an accepted key must be stored."""
+    reserved = fixture('reserved-keys')
+    ctx.execute("insert into mybb_myshowcase_collections (name) values ('KeyCases')")
+    kcid = query("select collection_id from mybb_myshowcase_collections where name='KeyCases'")[0][0]
+
+    def acp_save(key):
+        data = {'field_key': key, 'label': 'Key case', 'html_type': 'text', 'field_type': 'varchar', 'is_enabled': 1,
+                'display_in_create_update_page': 1, 'display_in_view_page': 1, 'display_in_main_page': 1,
+                'allowed_groups_fill_type': 'all', 'allowed_groups_view_type': 'all'}
+        return acp.post(f'/admin/index.php?module=myshowcase-fields&action=newField&collection_id={kcid}', data)
+
+    def stored_key(key):
+        # an exact comparison in Python: a SQL comparison is case-insensitive on MySQL
+        return any(row[0] == key for row in query(f"select field_key from mybb_myshowcase_fields where collection_id={kcid}"))
+
+    # ACP, the reserved names: every column of the entries table and every SQL word of the list in the code
+    for name in reserved:
+        r = acp_save(name)
+        refused = 'is a reserved name' in r['body'] and not stored_key(name)
+        key_check(cells, f'reserved-{name}', refused, f'ACP: refused as a reserved name, nothing stored: {refused}')
+
+    # ACP, the format, the length, the empty key and the duplicates
+    acp_cases = [
+        ('acp-length31', 'a' * 31, 'longer than 30 characters', False),
+        ('acp-length30', 'a' * 30, None, True),
+        ('acp-upper', 'Bad_Key', 'must start with a lower case letter', False),
+        ('acp-hyphen', 'bad-key', 'must start with a lower case letter', False),
+        ('acp-space', 'bad key', 'must start with a lower case letter', False),
+        ('acp-leading-digit', '1abc', 'must start with a lower case letter', False),
+        ('acp-non-ascii', 'caf\u00e9x', 'must start with a lower case letter', False),
+        ('acp-empty', '', 'Some required fields are missing', False),
+        ('acp-double-underscore', 'a__b', 'must start with a lower case letter', False),
+        ('acp-trailing-underscore', 'a_', 'must start with a lower case letter', False),
+    ]
+    for name, key, message, accepted in acp_cases:
+        r = acp_save(key)
+        open(os.path.join(a.scratch, f'key-{name}.html'), 'w', encoding='utf-8').write(r['body'])
+        if accepted:
+            ok = stored_key(key)
+            key_check(cells, name, ok, f'ACP: the key is stored: {ok}')
+        else:
+            shown = message in r['body']
+            stored = stored_key(key)
+            ok = shown and not stored
+            excerpt = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', r['body']))
+            at = max(excerpt.find('rror'), 0)
+            key_check(cells, name, ok, f'ACP: refused with "{message}": message shown {shown}, stored {stored}; answer {r["status"]}; text: {excerpt[at:at+200]}')
+    acp_save('dup_one')
+    r = acp_save('dup_one')
+    ok = 'already in use' in r['body']
+    key_check(cells, 'acp-duplicate', ok, f'ACP: the same key in the same collection is refused ("already in use"): {ok}')
+    r = acp_save('Dup_One')
+    ok = 'must start with a lower case letter' in r['body'] and not stored_key('Dup_One')
+    key_check(cells, 'acp-same-key-other-case', ok, f'ACP: the same key in another case is refused: {ok}')
+
+    # JSON validator: each case is a collection file, previewed, and its problem must be listed
+    imp = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'collections')
+    base_field = {'label': 'Key case', 'html_type': 'text', 'field_type': 'varchar', 'is_enabled': 1, 'display_order': 1,
+                  'render_order': 1, 'display_in_create_update_page': 1, 'display_in_view_page': 1,
+                  'display_in_main_page': 1, 'allowed_groups_fill': 'all', 'allowed_groups_view': 'all'}
+
+    def json_case(name, fields, message):
+        content = {'type': 'collection', 'version': '1.0.0', 'name': 'KeyCase', 'fields': [dict(base_field, **f) for f in fields]}
+        file_name = f'kc_{name.replace("-", "_")}.json'
+        with open(os.path.join(imp, file_name), 'w', encoding='utf-8') as handle:
+            json.dump(content, handle)
+        body = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'preview', 'mode': 'create', 'type': 'collection',
+                                                                       'file': f'collections/{file_name}', 'name': 'KeyCase'})['body']
+        ok = message in body
+        key_check(cells, name, ok, f'JSON: the preview lists "{message}": {ok}')
+
+    json_case('json-upper', [{'field_key': 'Bad_Key'}], 'must start with a lower case letter')
+    json_case('json-hyphen', [{'field_key': 'bad-key'}], 'must start with a lower case letter')
+    json_case('json-space', [{'field_key': 'bad key'}], 'must start with a lower case letter')
+    json_case('json-leading-digit', [{'field_key': '1abc'}], 'must start with a lower case letter')
+    json_case('json-non-ascii', [{'field_key': 'caf\u00e9x'}], 'must start with a lower case letter')
+    json_case('json-empty', [{'field_key': ''}], 'is required')
+    json_case('json-length31', [{'field_key': 'a' * 31}], 'is longer than 30 characters')
+    json_case('json-reserved', [{'field_key': 'subject'}], 'is a reserved name')
+    json_case('json-sql-word', [{'field_key': 'select'}], 'is a reserved name')
+    json_case('json-same-key-twice', [{'field_key': 'dup_one'}, {'field_key': 'dup_one'}], 'is used by field')
+    json_case('json-previous-key-of-other', [{'field_key': 'new_one', 'previous_keys': ['old_one']},
+                                             {'field_key': 'old_one'}], 'is the key of another field in this file')
+
+
+SQL_KEY_WORDS = ['select', 'order', 'group', 'user', 'table', 'index', 'desc', 'key', 'limit', 'default', 'from', 'where',
+                 'primary', 'check', 'column', 'constraint', 'references', 'union', 'values']
+
+
+def stage_k_words(acp, member, cells, ctx, fixture, users):
+    """Stage k, the SQL words and the longest key (decision D152): each word, and a key of 30 characters, is a field of its own
+    showcase (created through the JSON sync), and then: an entry with a value is stored, shown on its page, sorted by the field,
+    exported, and the field is deleted through the ACP. A word that is a reserved name is not created: its cell is the refusal."""
+    reserved = set(fixture('reserved-keys'))
+    imp = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON')
+    with open(os.path.join(imp, 'showcases', 'fieldkit.json'), encoding='utf-8') as handle:
+        showcase_template = json.load(handle)
+    q = '`' if a.engine == 'mysql' else '"'
+    words = [('word-' + w, w) for w in SQL_KEY_WORDS] + [('len30', 'longkey_' + 'a' * 22)]
+    uid = users['users']['fkmember']['uid']
+    for index, (name, word) in enumerate(words):
+        if word in reserved:
+            key_check(cells, f'word-{word}', True, f'refused as a reserved name (see place:key-reserved-{word}|k)')
+            continue
+        route = f'kw{index}'
+        steps = []
+        collection_file = f'kw{index}.json'
+        field = {'field_key': word, 'label': word, 'description': '', 'html_type': 'text', 'field_type': 'varchar',
+                 'is_enabled': 1, 'is_required': 0, 'display_order': 1, 'render_order': 1,
+                 'display_in_create_update_page': 1, 'display_in_view_page': 1, 'display_in_main_page': 1,
+                 'allowed_groups_fill': 'all', 'allowed_groups_view': 'all', 'maximum_length': 40, 'enable_subject': 0,
+                 'enable_slug': 0, 'enable_search': 0}
+        with open(os.path.join(imp, 'collections', collection_file), 'w', encoding='utf-8') as handle:
+            json.dump({'type': 'collection', 'version': '1.0.0', 'name': f'KW{index}', 'fields': [field]}, handle)
+        showcase = dict(showcase_template, collection=f'kw{index}', entries_enable_message=0)
+        with open(os.path.join(imp, 'showcases', f'kw{index}.json'), 'w', encoding='utf-8') as handle:
+            json.dump(showcase, handle)
+        apply_text = ''
+        for action in ('preview', 'run'):
+            answer = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': action, 'mode': 'create', 'type': 'showcase',
+                                                                              'file': f'showcases/kw{index}.json', 'name': f'KW{index}',
+                                                                              'route_identifier': route, 'custom_template_prefix': ''})
+            apply_text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', answer['body']))
+        fixture('showcase-permissions', route)
+        created = query(f"select count(*) from mybb_myshowcase_fields where field_key='{word}'")[0][0]
+        steps.append(('field created', created == '1'))
+        try:
+            sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{route}'")
+            if sid:
+                sid = sid[0][0]
+                ctx.execute(f"update mybb_myshowcase_permissions set entries_can_export=1, entries_can_delete=1 where showcase_id={sid} and group_id=2")
+                fixture('rebuild')
+                value = 'v' + str(index) + 'x'
+                token = f'KWTOK{index}'
+                form = member.get(f'/showcase.php/{route}/create')
+                data = {'subject': token, 'message': 'k', 'post_hash': form_fields(form['body']), 'my_post_key': post_key(form['body']),
+                        'submit': 'Post', word: value}
+                response = member.post(f'/showcase.php/{route}/create', data)
+                rows = query(f"select {q}{word}{q} from mybb_myshowcase_data{sid} where subject='{token}'")
+                stored = bool(rows) and str(rows[0][0]) == value
+                excerpt = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', response['body']))
+                at = excerpt.find('created') if 'created' in excerpt else max(excerpt.find('rror'), 0)
+                steps.append((f"entry stored with the value (answer {response['status']}: {excerpt[at:at+120]})", stored))
+                if rows:
+                    pid, slug = query(f"select public_id, entry_slug_custom from mybb_myshowcase_data{sid} where subject='{token}'")[0]
+                    page = member.get(f'/showcase.php/{route}/view/{pid}/{slug}')
+                    steps.append(('entry page shows the value', page['status'] == 200 and value in page['body']))
+                listing = member.get(f'/showcase.php/{route}/?order_by={word}&order_dir=asc')
+                steps.append(('list sorted by the field answers 200', listing['status'] == 200 and 'Internal Error' not in listing['body']
+                              and token in listing['body']))
+                export_form = member.get(f'/showcase.php/{route}/export')
+                member.post(f'/showcase.php/{route}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0',
+                                                             'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+                export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+                exported = ''
+                if export_id:
+                    exported = member.get(f'/showcase.php/{route}/export/{export_id[0][0]}/download')['raw'].decode('utf-8', 'replace')
+                steps.append(('export holds the value', f'<key>{word}</key>' in exported and value in exported))
+                field_id = query(f"select field_id from mybb_myshowcase_fields where field_key='{word}'")
+                if field_id:
+                    cid_w = query(f"select collection_id from mybb_myshowcase_fields where field_key='{word}'")[0][0]
+                    # the field is managed by its JSON file, which the ACP refuses to delete: it is detached as data (as stage h does)
+                    ctx.execute(f"update mybb_myshowcase_fields set json_file='' where field_key='{word}'")
+                    fixture('rebuild')
+                    acp.get(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={field_id[0][0]}&collection_id={cid_w}')
+                    acp.post(f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={field_id[0][0]}&collection_id={cid_w}', {'yes': '1'})
+                gone = query(f"select count(*) from mybb_myshowcase_fields where field_key='{word}'")[0][0] == '0'
+                steps.append(('field deleted through the ACP', gone))
+        except Exception as exc:  # a failed request or a missing table is a failed step, with its cause
+            at = apply_text.find('Run') if 'Run' in apply_text else 0
+            steps.append((f'the cycle failed: {str(exc)[:120]}; the JSON sync answer of the run: {apply_text[at:at+200]}', False))
+        failed = [text for text, ok in steps if not ok]
+        key_check(cells, f'word-{word}', bool(steps) and not failed,
+                  f"{len(steps)} steps, failed: {failed or 'none'}")
+
+
+def list_parts(body, first, second):
+    """The part of a list page that belongs to each of two entries: from the entry's subject to the other entry's subject
+    (the list puts the newer entry first, so the parts are taken in the order the subjects appear)."""
+    i1 = body.find(first)
+    i2 = body.find(second)
+    if i1 < 0 or i2 < 0:
+        return {}
+    if i1 < i2:
+        return {first: body[i1:i2], second: body[i2:]}
+    return {second: body[i2:i1], first: body[i1:]}
+
+
+def stage_f_list(member, cells, users, ctx):
+    """Stage f (the main list): the list of the FieldKit showcase shows each field the way the list template does (the span
+    thread__field--<key> with the label and the value; options as their label; a file field as the template's main image).
+    With display_in_main_page = 1 the value is in the list of its entry; with 0 it is absent; a field the member's group may
+    not view is absent for the member and present for the restricted user; a blank optional value is absent, with no error.
+    Each entry is looked up in its own part of the list (the part from its subject to the next entry's subject)."""
+    CTX.execute(f"delete from {DATA}")
+    uploads = {'fk_file_req': True, 'fk_file': False}
+    create(member, {}, 'FLIST1', uploads)
+    blank = {key: '' for key, f in FIELDS.items() if not f['is_required'] and f['html_type'] in
+             ('text', 'textarea', 'email', 'url', 'tel', 'search', 'password', 'number', 'range', 'date', 'datetime-local',
+              'time', 'month', 'week', 'color') and not key.startswith('fk_file') and key != 'fk_text_group'}
+    create(member, blank, 'FLIST2', uploads)
+    # the member may not fill the restricted field: its value is set as data, so that the list has a value to show
+    ctx.execute(f"update {DATA} set fk_text_group='Group value' where subject='FLIST1'")
+    stored1 = stored_row('FLIST1')
+    stored2 = stored_row('FLIST2')
+    listing = member.get(f'/showcase.php/{ROUTE}/')
+    body = listing['body']
+    page_ok = listing['status'] == 200 and 'Internal Error' not in body and 'Board Message' not in body
+    parts = list_parts(body, 'FLIST1', 'FLIST2')
+    part1 = parts.get('FLIST1', '')
+    part2 = parts.get('FLIST2', '')
+    restricted_body = Front(ctx.url)
+    restricted_body.login('fkrestricted', users['users']['fkrestricted']['password'])
+    restricted_page = restricted_body.get(f'/showcase.php/{ROUTE}/')['body']
+    restricted_part = list_parts(restricted_page, 'FLIST1', 'FLIST2').get('FLIST1', '')
+    open(os.path.join(a.scratch, 'list-restricted.html'), 'w', encoding='utf-8').write(restricted_page)
+
+    def span(part, key):
+        m = re.search(rf'<span class="thread__field thread__field--{re.escape(key)}">(.*?)</span>\s*</span>', part, re.S)
+        return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', m.group(1))).strip() if m else None
+
+    for key, f in FIELDS.items():
+        if stored1 is None or stored2 is None:
+            check(cells, key, 'f', 'fail', 'the two list entries were not created')
+            continue
+        if f['html_type'] == 'file':
+            check(cells, key, 'f', 'pass' if page_ok else 'fail', 'a file field: the list page answers without error (the main image rule of the template is not compared)')
+            continue
+        shown = span(part1, key)
+        if key == 'fk_text_group':
+            hidden = shown is None and span(part2, key) is None
+            visible_to_restricted = span(restricted_part, key) is not None
+            check(cells, key, 'f', 'pass' if (page_ok and hidden and visible_to_restricted) else 'fail',
+                  f'hidden from the member: {hidden}; shown to the restricted user: {visible_to_restricted}')
+            continue
+        value = stored1.get(key) or ''
+        if not f.get('display_in_main_page'):
+            ok = page_ok and shown is None
+            check(cells, key, 'f', 'pass' if ok else 'fail', f'display_in_main_page is off: absent {shown is None}')
+            continue
+        if f['html_type'] in ('select', 'radio', 'checkbox'):
+            labels = {str(o['value_id']): o['value'] for o in f['options']}
+            ids = re.findall(r'\d+', value)
+            expected = [labels.get(str(
+                i), '') for i in ids]
+            expected = [x for x in expected if x]
+        else:
+            expected = [value] if value else []
+        shown_ok = all((esc(x) in (shown or '')) or (x in (shown or '')) for x in expected)
+        # a blank optional value: absent (a number stores 0, and a field with a default stores the default: not a blank case)
+        if key not in blank or f.get('default_value') or f.get('default_type') in (2, 3):
+            blank_ok = True
+        elif f['html_type'] in ('number', 'range'):
+            blank_ok = (span(part2, key) or '').endswith(': 0')
+        else:
+            blank_ok = span(part2, key) is None
+        ok = page_ok and (not expected or (shown is not None and shown_ok)) and blank_ok
+        check(cells, key, 'f', 'pass' if ok else 'fail',
+              f'the list shows {shown!r} for the stored {value!r}; the blank entry shows {span(part2, key)!r}; no error: {page_ok}')
+
+
+def form_data(body):
+    """The values a browser sends for the form of a page: inputs (not disabled, not buttons), the checked boxes, the selected
+    options (the first option when none is selected) and the text areas."""
+    data = {}
+    for tag in re.findall(r'<input\b[^>]*>', body):
+        if re.search(r'\bdisabled\b', tag):
+            continue
+        name_m = re.search(r'\bname="([^"]+)"', tag)
+        if not name_m:
+            continue
+        name = htmllib.unescape(name_m.group(1))
+        type_m = re.search(r'\btype="([^"]+)"', tag)
+        kind = type_m.group(1).lower() if type_m else 'text'
+        value_m = re.search(r'\bvalue="([^"]*)"', tag)
+        value = htmllib.unescape(value_m.group(1)) if value_m else ''
+        if kind in ('submit', 'button', 'file', 'reset', 'image'):
+            continue
+        if kind in ('checkbox', 'radio'):
+            if re.search(r'\bchecked\b', tag):
+                if name.endswith('[]'):
+                    data.setdefault(name, []).append(value)
+                else:
+                    data[name] = value
+            continue
+        data[name] = value
+    for select in re.finditer(r'<select\b[^>]*name="([^"]+)"[^>]*>(.*?)</select>', body, re.S):
+        name = htmllib.unescape(select.group(1))
+        options = re.findall(r'<option\b([^>]*)>', select.group(2))
+        values = [htmllib.unescape(re.search(r'\bvalue="([^"]*)"', o).group(1)) if re.search(r'\bvalue="', o) else '' for o in options]
+        selected = [v for v, o in zip(values, options) if re.search(r'\bselected\b', o)]
+        if name.endswith('[]'):
+            data[name] = selected
+        else:
+            data[name] = selected[0] if selected else (values[0] if values else '')
+    for area in re.finditer(r'<textarea\b[^>]*name="([^"]+)"[^>]*>(.*?)</textarea>', body, re.S):
+        data[htmllib.unescape(area.group(1))] = htmllib.unescape(area.group(2))
+    return data
+
+
+def stage_a_acp(acp, cells, ctx, fixture):
+    """Stage a (the ACP definition): the edit form of each field of an unmanaged copy of the FieldKit collection is loaded,
+    sent back unchanged, and no stored property of the field changes. The copy is the collection file under another name, detached
+    from its file (the ACP shows a managed field read-only; the managed FieldKit is not changed by this stage). The copy is removed at the end."""
+    managed_page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={query("select collection_id from mybb_myshowcase_collections where name=" + chr(39) + "FieldKit" + chr(39))[0][0]}&field_id={FIELD_IDS["fk_text_req"]}')['body']
+    shows_managed = 'is managed by' in managed_page or 'disabled' in managed_page
+    check(cells, 'place:acp-managed-edit', 'a', 'pass' if shows_managed else 'fail',
+          f'the edit form of a managed field (fk_text_req) shows it read-only or names its file: {shows_managed}')
+    source = os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')
+    with open(source, encoding='utf-8') as handle:
+        content = json.load(handle)
+    content['name'] = 'FieldKitCopy'
+    imp = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'collections')
+    with open(os.path.join(imp, 'fieldkitcopy.json'), 'w', encoding='utf-8') as handle:
+        json.dump(content, handle)
+    for action in ('preview', 'run'):
+        acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': action, 'mode': 'create', 'type': 'collection',
+                                                                'file': 'collections/fieldkitcopy.json', 'name': 'FieldKitCopy'})
+    cid = query("select collection_id from mybb_myshowcase_collections where name='FieldKitCopy'")[0][0]
+    ctx.execute(f"update mybb_myshowcase_fields set json_file='' where collection_id={cid}")
+    ctx.execute(f"update mybb_myshowcase_collections set json_file='' where collection_id={cid}")
+    fixture('rebuild')
+    props = [p for p in PROPERTY_COLUMNS if p not in ('json_file', 'json_version', 'json_synced_at', 'json_hash')]
+    for key, f in FIELDS.items():
+        fid = query(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='{key}'")
+        if not fid:
+            check(cells, key, 'a', 'fail', 'the field is not in the copy of the collection')
+            continue
+        fid = fid[0][0]
+        before = query(f"select {', '.join(props)} from mybb_myshowcase_fields where field_id={fid}")
+        url = f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={fid}'
+        page = acp.get(url)
+        pre_filled = page['status'] == 200 and htmllib.escape(f['label']) in page['body']
+        data = form_data(page['body'])
+        data.update({'field_id': str(fid)})
+        saved = acp.post(url, data)
+        after = query(f"select {', '.join(props)} from mybb_myshowcase_fields where field_id={fid}")
+        changed = [p for p, x, y in zip(props, before[0] if before else [], after[0] if after else []) if x != y]
+        ok = page['status'] == 200 and pre_filled and before == after
+        check(cells, key, 'a', 'pass' if ok else 'fail',
+              f"the form loads (answer {page['status']}, label pre-filled {pre_filled}); sent back, answer {saved['status']}; "
+              f"stored properties changed: {changed or 'none'}")
+    ctx.execute(f"delete from mybb_myshowcase_fields where collection_id={cid}")
+    ctx.execute(f"delete from mybb_myshowcase_collections where collection_id={cid}")
+    fixture('rebuild')
+
+
 def cid_of_fieldkit():
     return query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
 
@@ -1178,10 +1528,14 @@ def main():
         base_text_cases(member, cells)
         ctx.execute(f"update mybb_myshowcase_config set entries_enable_message=0 where route_identifier='{ROUTE}'")
         fixture('rebuild')
+        stage_f_list(member, cells, users, ctx)
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
+        stage_a_acp(acp, cells, ctx, fixture)
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
         stage_x(cells, ctx, member)
         stage_y(cells, member)
+        stage_k_acp_and_json(acp, cells, ctx, fixture)
+        stage_k_words(acp, member, cells, ctx, fixture, users)
     finally:
         ctx.stop()
         if a.engine == 'mysql':
@@ -1194,6 +1548,8 @@ def main():
     for key in FIELDS:
         for stage, reason in NOT_RUN.items():
             check(cells, key, stage, 'notrun', reason)
+        # decision D152 and stage k: the key rules are tested by place:key cells, not per field
+        check(cells, key, 'k', 'na', 'stage k tests the key rules of the form and the JSON validator, see the place:key cells')
     return cells
 
 

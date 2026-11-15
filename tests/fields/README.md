@@ -55,15 +55,20 @@ The run prints the counts per result, the distinct PHP messages of the run's err
 Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not applicable: for example no entry was stored) or
 `notrun` (the stage is not automated yet; the reason is written with the cell).
 
-* `a` definition: the ACP edit form of the stored definition. The matrix does not automate it (`notrun`); the bounds
-  are covered by `http/acp_bounds_test.py`.
+* `a` definition: the ACP edit form of each field of an unmanaged copy of the FieldKit
+  collection (the copy is the collection file under another name, detached from its file, and removed at the end) is loaded,
+  its inputs are sent back unchanged, and no stored property of the field changes (cell `<field>|a`). The cell `place:acp-managed-edit|a`
+  shows that the edit form of a managed field names its file or is read-only. The bounds of the number, range, date, time and
+  week fields are covered by `http/acp_bounds_test.py`.
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
   pre-filled default (as defined or generated), and the visibility for a user outside the restricted group. The emoji case of stage `c` (decision D103) accepts a stored value or a refusal that names the field: a MySQL connection that is not utf8mb4 refuses a four-byte character with the field's label.
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
   option ids that do not belong to the field, several checked boxes, markup, multibyte text, emoji, overlong values.
 * `d` storage: the value that the database holds after the create.
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
-* `f` main list. Not automated yet (`notrun`).
+* `f` the main list (cell `<field>|f`): the list's span of the field (`thread__field--<key>`) shows the value of the entry with
+  `display_in_main_page` on (an option as its label), is absent with the flag off, is absent for a blank optional value (a number shows 0),
+  is hidden from the member and shown to the restricted user for the restricted field, and a file field answers without error.
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
 * `h` delete and data type change, on throwaway data (run last, after stage `l`): an entry is deleted through the forum's
   inline moderation at the URL the form posts to, with the trailing slash (cell `place:entry-delete|h`: the row and its attachments
@@ -79,7 +84,15 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `j` JSON-sync round trip: the ACP exports the collection, the exported file replaces the collection file and is applied
   again; every stored property is compared before and after. The export leaves out the properties that hold the column
   default, which the importer takes as the default.
-* `k` reserved and long keys. Not automated yet (`notrun`).
+* `k` the key rules (decision D152), as place cells `place:key-<case>|k`, not per field (each `<field>|k` is `na`):
+  `reserved-<name>` (the ACP refuses every column of the entries table and every SQL word of the list, read from the code by
+  `fixture.php reserved-keys`); `acp-*` (the ACP field form: a key of 31 characters is too long, a key of 30 is stored, uppercase,
+  hyphen, space, a leading digit, a non-ASCII letter, doubled or trailing underscores, an empty key, a duplicate in the collection
+  and the same key in another case are refused with their message); `json-*` (the same cases through the JSON validator, previewed);
+  `word-<word>` (each SQL word that is not refused, and the 30-character key: a showcase of its own is created through the JSON sync,
+  an entry is stored with a value, shown on its page, the list is sorted by the field, the export holds it, and the field is deleted
+  through the ACP); a word that the list refuses is recorded by its `reserved-` cell.
+  The four-byte cases of the subject and the message are `place:subject-four-byte|c` and `place:message-four-byte|c` (decision D150).
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
 * `m` the update rule (decision D122), over HTTP, on the select field `fk_select`, with throwaway options and entries of the
