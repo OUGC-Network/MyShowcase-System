@@ -52,7 +52,7 @@ imports/
 * `options` (select, radio and checkbox fields only) is a list of `{"value_id", "value"}` plus `display_order` and
   `display_style`.
 * `previous_keys` is an optional list of earlier `field_key`s of the field (see Identity).
-* `allowed_groups_fill` and `allowed_groups_view` can only be `"all"` (stored as `-1`).
+* `allowed_groups_fill` and `allowed_groups_view` can only be `"all"` (stored as `-1`), or be left out. A group restriction is board-local (decision D148): a file never names a group, and a restricted field is written without the key. Applying a file never changes the groups of a field the board already has; a new field takes "all" or the unrestricted default. The export message counts the restricted fields and options that its file leaves out.
 * Property names are the column names of the table; an unknown property is an error. Never allowed: `field_id`,
   `collection_id` and the `json_*` columns.
 * The bounds are `minimum_value` and `maximum_value`, texts of up to 32 characters, and only for the types number,

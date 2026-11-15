@@ -218,6 +218,30 @@ final class JsonSync
         );
     }
 
+    /**
+     * Decision D148: the fields and options of a collection whose group restriction keeps them out of the file as a group
+     * (the file names no group, only "all"). The export message counts them; they are board-local.
+     */
+    public function groupRestrictionCount(int $collectionId): int
+    {
+        $count = 0;
+
+        foreach (fieldsGet(["collection_id='{$collectionId}'"], ['allowed_groups_fill', 'allowed_groups_view']) as $field) {
+            if (JsonExporter::isRestricted((string)$field['allowed_groups_fill']) ||
+                JsonExporter::isRestricted((string)$field['allowed_groups_view'])) {
+                ++$count;
+            }
+        }
+
+        foreach (fieldDataGet(["collection_id='{$collectionId}'"], ['allowed_groups_fill']) as $option) {
+            if (JsonExporter::isRestricted((string)$option['allowed_groups_fill'])) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
     public function exportShowcase(int $showcaseId): ?array
     {
         $rows = showcaseGet(["showcase_id='{$showcaseId}'"], JsonState::columnNames('myshowcase_config'), [], false);

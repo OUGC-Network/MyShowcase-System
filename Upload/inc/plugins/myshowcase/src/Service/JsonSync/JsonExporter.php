@@ -42,6 +42,12 @@ final class JsonExporter
         ];
     }
 
+    /** Decision D148: a stored group list restricts the item unless it is empty or lists -1 (all groups). */
+    public static function isRestricted(string $groups): bool
+    {
+        return $groups !== '' && !in_array('-1', explode(',', $groups), true);
+    }
+
     /** @param string $collectionName Basename of the collection file ("blog"), or the collection name to slugify */
     public static function showcase(array $showcase, string $collectionName): array
     {
@@ -76,6 +82,7 @@ final class JsonExporter
             }
 
             if (in_array($name, JsonSchema::GROUP_COLUMNS, true)) {
+                // decision D148: "all" for a field open to all groups; a restricted field is written without a group key
                 if (in_array('-1', explode(',', (string)$field[$name]), true)) {
                     $entry[$name] = 'all';
                 }

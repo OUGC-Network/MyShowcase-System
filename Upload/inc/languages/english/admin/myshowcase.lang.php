@@ -43,6 +43,7 @@ $l = [
     'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The field sets were not migrated to collections; merge the two tables manually and activate the plugin again.',
     'myshowcase_admin_warning_column_conversion_failed' => 'MyShowcase: the column {2} of table {1} could not be changed from {3} to {4} and was left as it is ({5}). No data was changed. Fix the data and rebuild the table or activate the plugin again to retry.',
     'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be dropped ({3}). Its values were copied to {4}.',
+    'myshowcase_json_sync_group_restrictions_not_exported' => '{1} field or option of this collection has a group restriction. The collection file does not carry group restrictions, so the restriction stays on this board.',
     'myshowcase_admin_warning_column_loss_table_rebuild' => 'another column of the same table would lose data, and on SQLite a table is changed as one unit.',
 
     'report_content_showcase_comments' => 'Showcase comments',

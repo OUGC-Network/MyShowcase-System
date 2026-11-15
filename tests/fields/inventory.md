@@ -43,6 +43,7 @@ listed in `fieldTypesGet()`; the JSON validator (`JsonValidator.php`) checks the
 | step_size | range `step` attribute | verified |
 | input_size | `size` attribute (`:92`, `:475`, `:525`, `:543`) | read, not exercised |
 | allowed_groups_fill, allowed_groups_view | `FieldTrait`, `EntriesManager` (`is_member`) | verified (hidden from the other group, shown to its members) |
+| allowed_groups_fill, allowed_groups_view in the JSON file | `JsonExporter`, `JsonApplier`, `JsonValidator` (D148) | verified by stage `j`: a restricted field is written without a key and counted; an unchanged apply keeps the board's groups; "all" round-trips |
 | default_value | form pre-fill, validator default substitution (`EntriesManager.php:1129`) | verified; the substitution also replaces a value of `"0"` (`empty()`) |
 | default_type | `FieldDefaultUtil::valueFor` (importer, `EntriesImporter.php:532`), `EntriesController.php:1005-1022` | AsDefined live in the form; IsNull, CurrentTimestamp and UUID are commented out there (the UUID default is missing: defect) |
 | display_order, render_order | order of the form; `render_order` in `pageMainEntry.twig:65` | read, not exercised |
@@ -60,7 +61,7 @@ listed in `fieldTypesGet()`; the JSON validator (`JsonValidator.php`) checks the
 | enable_editor | editor for text, search and textarea (`:9`) | read, not exercised |
 | read_only | form `readonly`, validator skip (`EntriesManager.php:~1092`) | verified (the sent value is ignored) |
 | json_file, json_version, json_synced_at, json_hash | JSON sync (managed) | not part of the field matrix |
-| options (`myshowcase_field_data`): value_id, value, display_style, display_order, allowed_groups_fill, allowed_groups_view | form options, entry page label (`FieldTrait.php`) | verified (labels and order); `display_style` read, not exercised |
+| options (`myshowcase_field_data`): value_id, value, display_style, display_order (group restrictions are board-local: not in the file, counted by the export message) | form options, entry page label (`FieldTrait.php`) | verified (labels and order); `display_style` read, not exercised |
 
 ## Properties stored but read nowhere (or only dead code)
 

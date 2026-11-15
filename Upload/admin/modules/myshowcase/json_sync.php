@@ -247,6 +247,13 @@ switch ($action) {
             $fail('error_invalid_row');
         }
 
+        // decision D148: the file names no group restriction; the count is shown on the next ACP page, as the export is a download
+        $restricted = $type === 'collection' ? $sync->groupRestrictionCount((int)$id) : 0;
+
+        if ($restricted > 0) {
+            flash_message($lang->sprintf($lang->myshowcase_json_sync_group_restrictions_not_exported, my_number_format($restricted)), 'error');
+        }
+
         log_admin_action(['type' => $type, 'id' => $id, 'action' => 'export']);
 
         header('Content-Type: application/json; charset=utf-8');

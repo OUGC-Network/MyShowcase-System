@@ -173,7 +173,8 @@ final class JsonValidator
 
             if (in_array($name, JsonSchema::GROUP_COLUMNS, true)) {
                 if ($entry[$name] !== 'all') {
-                    $errors[] = self::error("{$path}.{$name}", 'can only be "all"');
+                    // decision D148: a file names no group; the restrictions of a board are board-local
+                    $errors[] = self::error("{$path}.{$name}", 'can only be "all": group restrictions are board-local and are not written to a collection file');
                 }
 
                 continue;
