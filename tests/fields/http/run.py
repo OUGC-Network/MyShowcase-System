@@ -1019,6 +1019,15 @@ def stage_y(cells, member):
     for token, value in (('SRTA', '2026-03-01'), ('SRTB', '2026-01-01'), ('SRTC', '')):
         response = create(member, {'fk_date': value, 'fk_select': existing}, token, uploads)
         made.append(f"{token}: answers {response['status']} {(response['error'] or '')[:160]}")
+    # decision D110: the IP address of an entry (stored as binary) is shown as the visitor's address on the entry page
+    entry = query(f"select public_id, entry_slug_custom from {DATA} where subject='SRTA'")
+    if entry:
+        view = member.get(f'/showcase.php/{ROUTE}/view/{entry[0][0]}/{entry[0][1]}')
+        shown_ip = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', view['body']))
+        check(cells, 'place:entry-ip', 'y', 'pass' if (view['status'] == 200 and '127.0.0.1' in shown_ip) else 'fail',
+              f"the entry page answers {view['status']} and shows the IP address 127.0.0.1: {'127.0.0.1' in shown_ip}")
+    else:
+        check(cells, 'place:entry-ip', 'y', 'fail', 'the entry of the IP check was not stored')
     expected = {'asc': ['SRTB', 'SRTA', 'SRTC'], 'desc': ['SRTA', 'SRTB', 'SRTC']}
     for direction, order in expected.items():
         page = member.get(f'/showcase.php/{ROUTE}/?order_by=fk_date&order_dir={direction}')
