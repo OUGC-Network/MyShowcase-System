@@ -1535,6 +1535,24 @@ final class SchemaManager
             return $count > 0 ? "{$count} row(s) hold a value longer than {$size} characters" : null;
         }
 
+        // Decision D116: a date, time or datetime target refuses a stored text that is not a value of it on any engine
+        // (see isInvalidDateValue); the blank text is one of them.
+        if (in_array($type, ['date', 'time', 'datetime', 'timestamp'], true)) {
+            $invalid = 0;
+
+            $query = $db->write_query("SELECT {$column} AS stored FROM {$tableName} WHERE {$column} IS NOT NULL");
+
+            while ($row = $db->fetch_array($query)) {
+                if (self::isInvalidDateValue((string)($row['stored'] ?? ''), $type)) {
+                    ++$invalid;
+                }
+            }
+
+            self::free($query);
+
+            return $invalid > 0 ? "{$invalid} row(s) hold a value that is not a {$type} value" : null;
+        }
+
         $integer = in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'bigint'], true);
 
         if (!$integer && !in_array($type, self::FAMILY_FRACTION, true)) {
@@ -1575,6 +1593,52 @@ final class SchemaManager
         }
 
         return null;
+    }
+
+    /**
+     * Pure (decision D116): whether a stored text is not a value of a date, time or datetime type on the engines. The text is
+     * trimmed first, as the engines do. A date is YYYY-MM-DD of a real calendar day. A time is H:MM, HH:MM or HH:MM:SS with
+     * optional fractions of a second: hours 00 to 23, or 24:00 (24:00:00) only. A datetime is a date, or a date and a time
+     * joined by T or a space; a date with a time is a value of the date type too. The rule is the one both MySQL and
+     * PostgreSQL apply to every case the tests of decision D116 measured: MySQL accepts a blank time and 25:00 as a time, and
+     * PostgreSQL refuses both, so both are refused here; a blank text is refused by both for dates and datetimes.
+     */
+    public static function isInvalidDateValue(string $value, string $type): bool
+    {
+        $value = trim($value);
+
+        if ($type === 'time') {
+            return !self::isTimeText($value);
+        }
+
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](.+))?$/', $value, $parts) !== 1) {
+            return true;
+        }
+
+        if (!checkdate((int)$parts[2], (int)$parts[3], (int)$parts[1])) {
+            return true;
+        }
+
+        return isset($parts[4]) && !self::isTimeText($parts[4]);
+    }
+
+    private static function isTimeText(string $value): bool
+    {
+        if (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/', $value, $parts) !== 1) {
+            return false;
+        }
+
+        $hour = (int)$parts[1];
+
+        $minute = (int)$parts[2];
+
+        $second = (int)($parts[3] ?? 0);
+
+        if ($hour === 24) {
+            return $minute === 0 && $second === 0;
+        }
+
+        return $hour <= 23 && $minute <= 59 && $second <= 59;
     }
 
     /** Pure: the smallest and the largest value of an integer type on SQLite (as decimal strings). */
