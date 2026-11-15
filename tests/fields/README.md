@@ -58,7 +58,7 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `a` definition: the ACP edit form of the stored definition. The matrix does not automate it (`notrun`); the bounds
   are covered by `http/acp_bounds_test.py`.
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
-  pre-filled default (as defined or generated), and the visibility for a user outside the restricted group.
+  pre-filled default (as defined or generated), and the visibility for a user outside the restricted group. The emoji case of stage `c` (decision D103) accepts a stored value or a refusal that names the field: a MySQL connection that is not utf8mb4 refuses a four-byte character with the field's label.
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
   option ids that do not belong to the field, several checked boxes, markup, multibyte text, emoji, overlong values.
 * `d` storage: the value that the database holds after the create.
