@@ -388,6 +388,12 @@ check(\MyShowcase\Service\SchemaManager::isNumericText('1.5') && \MyShowcase\Ser
 check(\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'date') && \MyShowcase\Plugin\Functions\isNullDateTypeValue('  ', 'time') && \MyShowcase\Plugin\Functions\isNullDateTypeValue(null, 'datetime'), 'a blank date, time or datetime value is NULL');
 check(!\MyShowcase\Plugin\Functions\isNullDateTypeValue('2026-01-01', 'date') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('0', 'datetime') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'varchar') && !\MyShowcase\Plugin\Functions\isNullDateTypeValue('', 'int'), 'a value of a date type, and a blank of another type, is not NULL');
 
+// Decision D148: group restrictions are board-local. A file names "all" or no group key; a restriction is counted, not written
+check(JsonValidator::validate($oneField(['allowed_groups_fill' => 'all'])) === [], 'a field group of "all" is valid in a file');
+$groupErrors = JsonValidator::validate($oneField(['allowed_groups_fill' => '2']));
+check(paths($groupErrors) === ['$.fields[0].allowed_groups_fill'] && str_contains((string)json_encode($groupErrors), 'board-local'), 'a group list in a file is refused, and the message says the restriction is board-local');
+check(\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('2,3') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('-1') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('-1,2'), 'a group list restricts unless it is empty or lists -1 (all groups)');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };

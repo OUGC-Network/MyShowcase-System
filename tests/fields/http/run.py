@@ -687,8 +687,11 @@ def stage_j(acp, cells):
     open(os.path.join(a.scratch, 'collection-export.json'), 'w').write(exported['body'])
     if exported_ok:
         open(file_path, 'w').write(exported['body'])
-    acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
-                                                              'id': str(cid), 'file': 'collections/fieldkit.json'})
+    applied = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
+                                                                       'id': str(cid), 'file': 'collections/fieldkit.json'})
+    # decision D148: the export message counts the restricted fields and options; the ACP page after the download shows it
+    check(cells, 'place:group-restriction-message', 'j', 'pass' if 'has a group restriction' in applied['body'] else 'fail',
+          f"the ACP page after the export shows the count of restricted items: {'has a group restriction' in applied['body']}")
     after = snapshot()
     for key in FIELDS:
         if not exported_ok:
@@ -696,12 +699,16 @@ def stage_j(acp, cells):
             continue
         diffs = [f'{p}: {before.get(key, {}).get(p)!r} -> {after.get(key, {}).get(p)!r}'
                  for p in props if before.get(key, {}).get(p) != after.get(key, {}).get(p)]
-        # the export writes a group restriction only as "all": a restriction to other groups is not in the file
+        # decision D148: a group restriction is board-local. The file names no group for a restricted field (no key), "all"
+        # for a field open to all groups, and the board keeps its own restriction when the file is applied (checked above).
         exported_entry = next((f for f in json.loads(exported['body'])['fields'] if f['field_key'] == key), {})
         for column in ('allowed_groups_fill', 'allowed_groups_view'):
             stored = before.get(key, {}).get(column)
-            if stored not in (None, '-1', 'all') and exported_entry.get(column) != 'all':
-                diffs.append(f'{column} {stored!r} is not in the exported file (it would be lost on another board)')
+            restricted = stored not in (None, '', '-1', 'all')
+            if restricted and column in exported_entry:
+                diffs.append(f'{column} {stored!r} is restricted, but the file names a group key for it (decision D148)')
+            if not restricted and stored in ('-1',) and exported_entry.get(column) != 'all':
+                diffs.append(f'{column} {stored!r} is open to all groups, but the file does not say "all"')
         check(cells, key, 'j', 'pass' if not diffs else 'fail', '; '.join(diffs) or 'every stored property is unchanged')
 
 
