@@ -94,9 +94,12 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   through the ACP); a word that the list refuses is recorded by its `reserved-` cell.
   The four-byte cases of the subject and the message are `place:subject-four-byte|c` and `place:message-four-byte|c` (decision D150).
   `place:sync-table-failure|k` (decision D154): a JSON sync whose entries table cannot be created names the failed step and the engine's
-  reason, and removes the showcase row that the same run wrote, so no showcase is left without its table. The trigger is the key `join`,
-  which the engine refuses as a column name on SQLite and PostgreSQL; MySQL quotes the identifier and creates the table, so the cell is `na`
-  there.
+  reason, and removes the showcase row that the same run wrote, so no showcase is left without its table. The seam is a view that already
+  holds the name of the entries table that the showcase is about to get (test-only, created and dropped by the cell): SQLite and MySQL name
+  the view in their answer, and PostgreSQL gives its own refusal of the ALTER it attempts. The cell runs on all three engines.
+  `place:key-sql-words-create|k` (decision D153): each of the 338 candidate words of the three engines' keyword sources
+  (`sql_keyword_sources.json`) is created as an unquoted column on the engine under test, and every word the engine refuses must be
+  refused by the key rule (the names of `fixture('reserved-keys')`). The list and the counts are in `inventory.md`.
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
 * `m` the update rule (decision D122), over HTTP, on the select field `fk_select`, with throwaway options and entries of the

@@ -102,12 +102,35 @@ accepted even when its group may no longer fill it or the option is deleted; a c
 
 `poll` and `rating` are reserved for later features (`fieldHtmlTypes()` leaves them out; `reservedHtmlTypes()` lists them). The ACP field form does not offer them, the field service and the JSON validator refuse a file or a form that names them with the reason, and the FieldKit collection does not carry them. The matrix has no cells for them: they are not failures and not known failures (`na` by design).
 
-## Field keys: SQL words (decision D152)
+## Field keys: SQL words (decisions D152 and D153)
 
-A field key is refused when it is an SQL word of the list below, on every engine (`FieldService::SQL_RESERVED_KEYS`, used by the
-ACP field form and the JSON validator). The list was taken from the matrix's stage `k` run on each engine: a word that fails on
-any engine is refused on all of them. The engines in the table are where the word failed when it was tried (a table that was not
-created, an entry that did not show or sort, or an export or delete that failed). Failures were checked with the real pipeline.
+A field key is refused when it is an SQL word of `FieldService::SQL_RESERVED_KEYS`, on every engine. The ACP field form and the JSON
+validator use that one list. It holds 298 words, sorted, with no repeats (the check is in `tests/json-sync/run.php`). It is the union of:
+
+* the words that an engine refuses as an unquoted column name, among the candidates of the three engines' own keyword sources in
+  `tests/fields/sql_keyword_sources.json`: MySQL 8.4.7 `information_schema.KEYWORDS` with `RESERVED = 1` (259 words), PostgreSQL 18.1
+  `pg_get_keywords()` with category `R` or `T` (101 words), and the SQLite documented keyword list (147 words); 338 distinct candidates;
+* the 19 words that the full pipeline proved (decision D152, the table below).
+
+The candidate probe (stage `k`, cell `place:key-sql-words-create|k`, one cell per engine) creates each of the 338 candidates as an
+unquoted column of a probe table and drops the table when the engine accepts it. Every word that an engine refuses is refused by the key
+rule, so the list covers the probe on every engine:
+
+| Engine | Candidates refused by the engine | Of them refused by the key rule |
+|---|---|---|
+| SQLite 3.43.2 (the library the harness uses) | 58 | 58 |
+| MySQL 8.4.7 | 260 | 260 |
+| PostgreSQL 18.1 | 101 | 101 |
+
+The union of the refused words is 298 words, which is the list. MySQL refuses one word that its own `RESERVED` column does not mark
+(`tablesample`), so the reserved column alone is not enough. MariaDB is not installed on the test machine, so its reserved words are not
+probed; a word that only MariaDB reserves is not refused by this list.
+
+### The 19 words of the full pipeline (decision D152)
+
+These 19 words are also proved through the whole pipeline (stage `k`, `word-<word>`: a showcase of their own, an entry, its page, the
+sort, the export and the delete). The engines in the table are where each word failed when it was tried (a table that was not created,
+an entry that did not show or sort, or an export or delete that failed).
 
 | Word | SQLite | MySQL | PostgreSQL |
 |---|---|---|---|

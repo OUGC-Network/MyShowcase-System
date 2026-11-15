@@ -1151,15 +1151,16 @@ SQL_KEY_WORDS = ['select', 'order', 'group', 'user', 'table', 'index', 'desc', '
                  'primary', 'check', 'column', 'constraint', 'references', 'union', 'values']
 
 
-def stage_k_sync_table(acp, cells, ctx, trigger):
-    """Decision D154: a JSON sync whose entries table cannot be created reports the failed step with the engine's reason,
-    and the showcase row that the same run wrote is removed again, so no showcase is left without its table. The trigger is
-    a key that the engine refuses as a column name (`trigger`, not yet in the reserved list). The collection that the run
-    created stays: it is complete and matches its file."""
+def stage_k_sync_table(acp, cells, ctx, key):
+    """Decision D154: a JSON sync whose entries table cannot be created reports the failed step with its reason, and removes the
+    showcase row that the same run wrote, so no showcase is left without its table. The seam is a test-only view that already holds
+    the name of the entries table that the showcase is about to get (created and dropped by this cell). CREATE TABLE IF NOT EXISTS does
+    nothing for a name that another object holds, so the reason is the holder that the code names ("already used by a view"). The
+    collection that the run created stays: it is complete and matches its file."""
     imp = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON')
     with open(os.path.join(imp, 'showcases', 'fieldkit.json'), encoding='utf-8') as handle:
         template = json.load(handle)
-    field = {'field_key': trigger, 'label': trigger, 'description': '', 'html_type': 'text', 'field_type': 'varchar',
+    field = {'field_key': key, 'label': key, 'description': '', 'html_type': 'text', 'field_type': 'varchar',
              'is_enabled': 1, 'is_required': 0, 'display_order': 1, 'render_order': 1,
              'display_in_create_update_page': 1, 'display_in_view_page': 1, 'display_in_main_page': 1,
              'allowed_groups_fill': 'all', 'allowed_groups_view': 'all', 'maximum_length': 40, 'enable_subject': 0,
@@ -1168,26 +1169,52 @@ def stage_k_sync_table(acp, cells, ctx, trigger):
         json.dump({'type': 'collection', 'version': '1.0.0', 'name': 'SyncTable', 'fields': [field]}, handle)
     with open(os.path.join(imp, 'showcases', 'synctable.json'), 'w', encoding='utf-8') as handle:
         json.dump(dict(template, collection='synctable', entries_enable_message=0), handle)
-    answer = None
-    for action in ('preview', 'run'):
-        answer = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': action, 'mode': 'create', 'type': 'showcase',
-                                                                          'file': 'showcases/synctable.json', 'name': 'Sync table',
-                                                                          'route_identifier': 'synctable', 'custom_template_prefix': ''})
+    last = int(query('select coalesce(max(showcase_id), 0) from mybb_myshowcase_config')[0][0])
+    seam = [f'mybb_myshowcase_data{sid}' for sid in range(last + 1, last + 11)]
+    for view in seam:
+        ctx.execute(f'create view {view} as select 1 as x')
+    try:
+        for action in ('preview', 'run'):
+            answer = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': action, 'mode': 'create', 'type': 'showcase',
+                                                                              'file': 'showcases/synctable.json', 'name': 'Sync table',
+                                                                              'route_identifier': 'synctable', 'custom_template_prefix': ''})
+    finally:
+        for view in seam:
+            ctx.execute(f'drop view if exists {view}')
     text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', answer['body']))
     at = text.find('The file was ')
     excerpt = text[at:at + 400] if at >= 0 else text[:200]
-    if 'The file was applied' in excerpt:
-        # MySQL quotes every identifier with backticks, so the key is a valid column there and the table is created
-        check(cells, 'place:sync-table-failure', 'k', 'na',
-              'the engine creates the table (its identifiers are quoted): the trigger does not apply here. Answer: ' + excerpt)
-        return
     step_named = 'Create the entries table' in excerpt
-    engine_reason = bool(re.search(r'syntax', excerpt, re.I))
+    # SQLite and PostgreSQL name the view; the engine's own answer is kept where it gives one (PostgreSQL refuses the ALTER)
+    holder = 'already used by a view' in excerpt or 'not supported for views' in excerpt
     removed = 'was removed again' in excerpt
     no_row = query("select count(*) from mybb_myshowcase_config where route_identifier='synctable'")[0][0] == '0'
-    ok = step_named and engine_reason and removed and no_row
+    ok = step_named and holder and removed and no_row
     check(cells, 'place:sync-table-failure', 'k', 'pass' if ok else 'fail',
-          f'step named {step_named}, engine reason {engine_reason}, removed {removed}, no row {no_row}: {excerpt}')
+          f'step named {step_named}, reason named {holder}, removed {removed}, no row {no_row}: {excerpt}')
+
+
+def stage_k_word_create(cells, ctx, fixture):
+    """Decision D153: every candidate word of the three keyword sources (tests/fields/sql_keyword_sources.json) is created as an
+    unquoted column of a probe table on the engine under test, and dropped again when the engine accepts it. Every word the engine
+    refuses must be refused by the key rule (a name of fixture('reserved-keys')). One cell per engine, with the counts."""
+    with open(os.path.join(HERE, '..', 'sql_keyword_sources.json'), encoding='utf-8') as handle:
+        sources = json.load(handle)
+    words = sorted({w for name, group in sources.items() if not name.startswith('_') for w in group})
+    refused = []
+    for word in words:
+        try:
+            ctx.execute(f'CREATE TABLE msc_word_probe ({word} VARCHAR(40))')
+        except Exception:
+            refused.append(word)
+            continue
+        ctx.execute('DROP TABLE msc_word_probe')
+    reserved = set(fixture('reserved-keys'))
+    not_refused_by_key_rule = [w for w in refused if w not in reserved]
+    check(cells, 'place:key-sql-words-create', 'k', 'pass' if not not_refused_by_key_rule else 'fail',
+          f'{len(words)} candidate words created unquoted, {len(refused)} refused by the engine, '
+          f'{len(refused) - len(not_refused_by_key_rule)} of them refused by the key rule; refused by the engine but not by the key rule: '
+          f'{not_refused_by_key_rule}')
 
 
 def stage_k_words(acp, member, cells, ctx, fixture, users):
@@ -1575,7 +1602,8 @@ def main():
         stage_y(cells, member)
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_words(acp, member, cells, ctx, fixture, users)
-        stage_k_sync_table(acp, cells, ctx, 'join')
+        stage_k_sync_table(acp, cells, ctx, 'summary_sync')
+        stage_k_word_create(cells, ctx, fixture)
     finally:
         ctx.stop()
         if a.engine == 'mysql':

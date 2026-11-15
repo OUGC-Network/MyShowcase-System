@@ -413,6 +413,15 @@ check($fk('a__b') === 'format' && $fk('a_') === 'format' && $fk('_a') === 'forma
 check($fk('subject') === 'reserved' && $fk('keys') === 'reserved', 'an entries column name is reserved');
 check(\MyShowcase\Service\FieldService::reservedFieldKeys() === array_values(array_unique(array_merge(\MyShowcase\Service\FieldService::reservedKeys(), \MyShowcase\Service\FieldService::SQL_RESERVED_KEYS))), 'the reserved names are the table columns plus the SQL list');
 
+// Decision D153: the SQL list is one sorted list without repeats, and holds a word of each engine's own keyword source
+$sqlList = \MyShowcase\Service\FieldService::SQL_RESERVED_KEYS;
+$sortedList = $sqlList;
+sort($sortedList, SORT_STRING);
+check($sqlList === $sortedList && count($sqlList) === count(array_unique($sqlList)), 'the SQL list is sorted and has no repeats');
+$keywordSources = json_decode((string)file_get_contents(dirname(__DIR__) . '/fields/sql_keyword_sources.json'), true);
+check(in_array('accessible', $keywordSources['mysql_8_4_reserved'], true) && in_array('analyse', $keywordSources['postgresql_R_T'], true) && in_array('autoincrement', $keywordSources['sqlite_documented'], true), 'the keyword sources hold a word of each engine for the check below');
+check($fk('accessible') === 'reserved' && $fk('analyse') === 'reserved' && $fk('autoincrement') === 'reserved', 'a word of the MySQL, PostgreSQL and SQLite sources is refused as a key');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };
