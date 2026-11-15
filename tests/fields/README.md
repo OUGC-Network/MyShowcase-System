@@ -95,6 +95,10 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 A cell that cannot run is `notrun` with its reason and the remaining steps. The place cells `place:entry-delete|h` and `place:entry-delete-refused|h` are not
 field cells: they record the forum's answers to the entry delete.
 
+* `x` and `y` (run last): `x` (decision D146) a request that matches no route is answered with the page-not-found sentence
+  (`place:page-not-found|x`); `y` (decision D145) the list sorted by a date field, in both directions, puts the blank date last
+  (`place:sort-blank-last-asc|y`, `place:sort-blank-last-desc|y`).
+
 Blank values (decision D129): a blank optional date, time or datetime value is stored as NULL, and its column is nullable
 (a required field never stores a blank: the validator refuses it first). The stage `c` cells of those fields check it.
 

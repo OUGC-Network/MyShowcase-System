@@ -1008,6 +1008,26 @@ def stage_x(cells, ctx, member):
           f"no unknown error or internal error page: {'unknown error' not in text.lower() and 'Internal Error' not in text}")
 
 
+def stage_y(cells, member):
+    """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
+    The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""
+    CTX.execute(f"delete from {DATA}")
+    uploads = {'fk_file_req': True, 'fk_file': False}
+    made = []
+    # the stage h deleted an option of fk_select: the form's first option may be gone, so an existing one is posted
+    existing = query("select field_data_id from mybb_myshowcase_field_data where field_key='fk_select' order by field_data_id limit 1")[0][0]
+    for token, value in (('SRTA', '2026-03-01'), ('SRTB', '2026-01-01'), ('SRTC', '')):
+        response = create(member, {'fk_date': value, 'fk_select': existing}, token, uploads)
+        made.append(f"{token}: answers {response['status']} {(response['error'] or '')[:160]}")
+    expected = {'asc': ['SRTB', 'SRTA', 'SRTC'], 'desc': ['SRTA', 'SRTB', 'SRTC']}
+    for direction, order in expected.items():
+        page = member.get(f'/showcase.php/{ROUTE}/?order_by=fk_date&order_dir={direction}')
+        positions = {token: page['body'].find(token) for token in order}
+        seen = [t for t in sorted(order, key=lambda t: positions[t]) if positions[t] >= 0]
+        check(cells, f'place:sort-blank-last-{direction}', 'y', 'pass' if (page['status'] == 200 and seen == order) else 'fail',
+              f'the list answers {page["status"]} and the order is {seen} (expected {order}); entries: {made}')
+
+
 def cid_of_fieldkit():
     return query("select collection_id from mybb_myshowcase_collections where name='FieldKit'")[0][0]
 
@@ -1124,6 +1144,7 @@ def main():
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
         stage_x(cells, ctx, member)
+        stage_y(cells, member)
     finally:
         ctx.stop()
         if a.engine == 'mysql':
