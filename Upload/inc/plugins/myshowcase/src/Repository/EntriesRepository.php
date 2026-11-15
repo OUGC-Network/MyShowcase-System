@@ -406,7 +406,17 @@ class EntriesRepository
         );
         $order_dir = $query_options['order_dir'];
 
-        $query_options['order_by'] = "entry_data.{$order_field} {$order_dir}"
+        // Decision D145: a blank date, time or datetime value is NULL, and sorts last in both directions on every engine
+        // (a key of "IS NULL" in ascending order, before the column's own order). Other columns are sorted as before.
+        $blank_last = '';
+
+        foreach ($collection_fields as $field) {
+            if ($field->field_key === $order_field && fieldTypeMatchDateTime($field->field_type)) {
+                $blank_last = "entry_data.{$order_field} IS NULL, ";
+            }
+        }
+
+        $query_options['order_by'] = $blank_last . "entry_data.{$order_field} {$order_dir}"
             . ", entry_data.is_sticky {$order_dir}"
             . ', entry_data.entry_id';
 
