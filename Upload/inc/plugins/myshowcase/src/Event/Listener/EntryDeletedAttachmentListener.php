@@ -22,12 +22,12 @@ readonly class EntryDeletedAttachmentListener
         // The ids are read first: the attachments are deleted while the list would still be open.
         $attachment_ids = [];
 
-        foreach ($this->attachments_repository->queryAttachments(["entry_id='{$entry_id}'"]) as $attachment_data) {
+        foreach ($this->context->attachments_repository->queryAttachments(["entry_id='{$entry_id}'"]) as $attachment_data) {
             $attachment_ids[] = (int)$attachment_data['attachment_id'];
         }
 
         foreach ($attachment_ids as $attachment_id) {
-            $this->attachments_repository->deleteAttachment($attachment_id);
+            $this->context->attachments_repository->deleteAttachment($attachment_id);
         }
     }
 }
