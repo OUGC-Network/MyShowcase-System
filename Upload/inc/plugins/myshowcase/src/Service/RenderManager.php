@@ -962,10 +962,9 @@ class RenderManager
             ->setExtraData('can_edit', false);
 
         if ($this->context->mybb->settings['logip'] !== 'no' && !empty($entry->ipaddress)) {
-            $entry->setExtraData(
-                'ip_address',
-                my_inet_ntop($this->context->database->unescape_binary($entry->ipaddress))
-            );
+            // The column comes back as its binary value on every engine (PostgreSQL's driver decodes a bytea column itself):
+            // it is not unescaped again, which turned the 4 bytes of an IPv4 address into nothing on PostgreSQL.
+            $entry->setExtraData('ip_address', my_inet_ntop($entry->ipaddress));
 
             if ($this->context->mybb->settings['logip'] === 'show') {
                 $entry->setExtraData('show_ip', true);

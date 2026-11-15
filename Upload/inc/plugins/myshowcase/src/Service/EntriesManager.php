@@ -25,7 +25,6 @@ use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\FieldDefaultUtil;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\Util\UuidUtil;
-use MyShowcase\Util\ValidationHelpers;
 use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
 
@@ -1224,12 +1223,12 @@ class EntriesManager
             );
         }
 
+        // The entry's address is written once, on insert, as the binary address (packedip), as the column holds it: the text
+        // address is not stored in it (the comments and the attachments store the packed address too). No form sets it on an
+        // update, and an update does not compare it: the engines read the stored value in different forms.
         if ($this->validation_method === self::VALIDATION_METHOD_INSERT && !isset($this->validation_entry->ipaddress)) {
-            $this->validation_entry->ipaddress = $this->context->mybb->session->ipaddress;
+            $this->validation_entry->ipaddress = $this->context->mybb->session->packedip;
             unset($this->validation_entry->last_comment_id);
-        } elseif (isset($this->validation_entry->ipaddress) && $this->changedOnUpdate('ipaddress') &&
-            !((new ValidationHelpers())->validateIpAddress($this->validation_entry->ipaddress, false))) {
-            $this->validateSetError($this->context->language->myshowcase_validation_errors_entry_invalid_ipaddress);
         }
 
         $entry_slug_custom = [];

@@ -655,7 +655,6 @@ $l = array_merge($l, [
     'myshowcase_validation_errors_entry_invalid_last_comment_user' => 'The last comment user does not exist.',
     'myshowcase_validation_errors_entry_invalid_signature_status' => 'The selected entry signature status is invalid.',
     'myshowcase_validation_errors_entry_invalid_smilies_status' => 'The selected entry smilies status is invalid.',
-    'myshowcase_validation_errors_entry_invalid_ipaddress' => 'The entry ipaddress is invalid.',
 
     'myshowcase_validation_errors_comment_invalid_subject_length' => 'Please make sure the subject is between {1} and {2} characters long.',
     'myshowcase_validation_errors_comment_invalid_message_length' => 'Please make sure the message is between {1} and {2} characters long.',
