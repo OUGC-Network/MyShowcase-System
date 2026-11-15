@@ -14,11 +14,6 @@
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
    "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
    "classification": "needs decision (the collection file format cannot name groups)"
-  },
-  "place:entry-delete|h": {
-   "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
-   "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
-   "classification": "repair in Part 2"
   }
  },
  "mysql": {
@@ -41,11 +36,6 @@
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
    "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
    "classification": "needs decision (the collection file format cannot name groups)"
-  },
-  "place:entry-delete|h": {
-   "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
-   "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
-   "classification": "repair in Part 2"
   }
  },
  "pgsql": {
@@ -63,11 +53,6 @@
    "reason": "the JSON export writes a group restriction only as \"all\": a restriction to a group id is left out of the file, so another board that applies the file loses it (the board keeps its own value, so the file and the board differ)",
    "cause": "Service/JsonSync/JsonExporter.php:78-83 (group columns: only \"-1\" becomes \"all\"); JsonValidator.php (group columns can only be \"all\")",
    "classification": "needs decision (the collection file format cannot name groups)"
-  },
-  "place:entry-delete|h": {
-   "reason": "deleting an entry through the forum inline moderation (the owner, with the delete permission) answers \"An unknown error has occurred.\" and the entry and its attachments stay",
-   "cause": "src/Controller/BaseController.php:598-606 (error() with an empty message answers \"An unknown error has occurred.\"; the caller that passes the empty message was not identified in this run)",
-   "classification": "repair in Part 2"
   }
  }
 }

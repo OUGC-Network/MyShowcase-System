@@ -736,8 +736,9 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{ROUTE}'")[0][0]
         ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=1 where showcase_id={sid} and group_id=2")
         fixture('rebuild')
-        listing = member.get(f'/showcase.php/{ROUTE}')
-        deleted = member.post(f'/showcase.php/{ROUTE}?action=inline_moderation', {
+        # the list's own URL (url.main, with its trailing slash: the form posts there; the URL without the slash is no route)
+        listing = member.get(f'/showcase.php/{ROUTE}/')
+        deleted = member.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
             'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
             'selected_entries': json.dumps([first['public_id']]), 'unselected_entries': '[]'})
         open(os.path.join(a.scratch, 'entry-delete.html'), 'w').write(f"list {listing['status']}; delete {deleted['status']}\n" + deleted['body'])
@@ -749,6 +750,21 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         check(cells, 'place:entry-delete', 'h', 'pass' if (gone and kept and left == '0') else 'fail',
               f'delete answered {deleted["status"]}: {message.group(1) if message else "no board message"}; '
               f'first entry gone: {gone}; its attachments left: {left}; second entry unchanged: {kept}')
+
+        # ---- A2: the same request without the delete permission is refused with a real message; the entry stays
+        ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=0 where showcase_id={sid} and group_id=2")
+        fixture('rebuild')
+        refusal = member.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
+            'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
+            'selected_entries': json.dumps([second['public_id']]), 'unselected_entries': '[]'})
+        refusal_text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', refusal['body']))
+        ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=1 where showcase_id={sid} and group_id=2")
+        fixture('rebuild')
+        kept_refused = stored_row('H2') == second
+        real_message = 'unknown error' not in refusal_text.lower() and 'permission' in refusal_text.lower()
+        check(cells, 'place:entry-delete-refused', 'h', 'pass' if (kept_refused and real_message) else 'fail',
+              f'without the delete permission the request answers {refusal["status"]} with a real message: {real_message}; '
+              f'the entry stays: {kept_refused}')
 
         # ---- B: delete an option the second entry uses ----
         opt = query(f"select field_data_id, value from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
@@ -929,6 +945,7 @@ def stage_m(cells, users, restricted, fixture, radio_option):
                                                 'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
     export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
     summary = 'no export was stored'
+    refused = {}
     if export_id:
         download = owner.get(f'/showcase.php/{ROUTE}/export/{export_id[0][0]}/download')
         path = os.path.join(a.scratch, 'update-rule-export.xml')
@@ -936,12 +953,18 @@ def stage_m(cells, users, restricted, fixture, radio_option):
         import_form = owner.get(f'/showcase.php/{ROUTE}/import')
         reply = owner.upload(f'/showcase.php/{ROUTE}/import', {'my_post_key': post_key(import_form['body']), 'action': 'import'},
                              'entries_file', path)
+        open(os.path.join(a.scratch, 'update-rule-import-reply.html'), 'w', encoding='utf-8').write(reply['body'])
         report = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', reply['body']))
         found = re.search(r'Entries imported \d+|Failed: [^.]{0,120}|Problems with the file [^.]{0,200}', report)
         summary = found.group(0) if found else 'no import report found'
+        # decision D143: the report lists each refused entry with its position, subject and the validator's message
+        refused = {m.group(1): m.group(2) for m in re.finditer(r'Entry \d+: (UR\d+) (The field "[^"]+" has an invalid value)', htmllib.unescape(report))}
     copies = {k: len(stored_rows(t)) for k, t in tokens.items()}
-    record('xml-import', bool(export_id) and all(c == 1 for c in copies.values()),
-           f'the file with the option is refused as a whole: copies {copies}; reply: {summary}')
+    # the entries the owner may no longer fill are refused by the validator: UR1, UR2, UR4, UR5, UR6 (UR3 holds an open option)
+    listed = all(refused.get(t, '').startswith('The field "Select" has an invalid value') for t in ('UR1', 'UR2', 'UR4', 'UR5', 'UR6'))
+    record('xml-import', bool(export_id) and all(c == 1 for c in copies.values()) and listed,
+           f'the file with the option is refused as a whole: copies {copies}; reply: {summary}; the report lists the refused '
+           f'entries with the validator message: {sorted(refused)}')
     fixture('external-setting', 0)
     CTX.execute(f"update mybb_myshowcase_permissions set entries_can_export=0, entries_can_import=0 where group_id={restricted}")
     fixture('rebuild')
