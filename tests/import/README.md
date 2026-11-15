@@ -34,6 +34,11 @@ field_data_id of the option with the value id of the file for category, platform
 entries are removed as data and the same file is imported: it is refused as a whole, because the own-board file of a removed entry has no
 visible entry (decision D58), and nothing is stored. The fresh entry is imported from the GitHub ZIP of dev-1.9 (network needed; a slow
 download fails the check, as section F6 does).
+`tests/import/http/second_board.py` (decision D142, c) is a real second board: board A exports its blog entries, and board B, a second
+install where the gallery collection is created first and five extra options are added before the blog's options (so collection, field and
+option ids differ), imports the file as another user. Per entry: each option holds B's field_data_id of the option with the exported value id,
+the label shown on B's entry page is the one of A, and the text fields are equal. Users, groups and file URLs are not compared (D137).
+It runs on SQLite and MySQL, two installs per run: `python3 tests/import/http/second_board.py --engine sqlite|mysql --mybb DIR --scratch DIR`.
 The blank optional option values and the format 2 file with only blanks are covered by the field matrix (stage `i`, decision D142). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
 
