@@ -125,8 +125,6 @@ def cases():
                           ('above maximum', '11', 'refuse', None), ('valid', '5', 'accept', None)],
         'fk_range': [('valid', '50', 'accept', None), ('at the minimum', '0', 'accept', None), ('above maximum', '55', 'refuse', None),
                      ('below the minimum', '-1', 'refuse', None), ('blank optional', '', 'accept', '')],
-        'fk_rating': [('valid', '5', 'accept', None), ('not a number', 'abc', 'refuse', None)],
-        'fk_poll': [('valid', '5', 'accept', None)],
         'fk_date': [('valid', '2026-11-13', 'accept', None), ('invalid date', '2026-13-45', 'refuse', None), ('a day that does not exist', '2026-02-30', 'refuse', None),
                 ('blank optional', '', 'accept', '')],
         'fk_datetime': [('valid', '2026-11-13T10:00', 'accept', None), ('invalid', 'garbage', 'refuse', None),
@@ -183,7 +181,7 @@ RESTRICTED_OPTION = {}
 BASE = {'fk_text_req': 'Base', 'fk_number_req': '5', 'fk_text_pattern': 'abc', 'fk_text_min1': 'Series', 'fk_text_opt': 'Opt',
         'fk_date': '2026-11-13', 'fk_datetime': '2026-11-13T10:00', 'fk_time': '10:30', 'fk_month': '2026-11',
         'fk_week': '2026-W46', 'fk_color': '#ff0000', 'fk_email': 'a@example.com', 'fk_url': 'https://example.com/b',
-        'fk_number': '7', 'fk_range': '10', 'fk_rating': '4', 'fk_poll': '4', 'fk_tel': '+1 555-0100',
+        'fk_number': '7', 'fk_range': '10', 'fk_tel': '+1 555-0100',
         'fk_date_bounded': '2026-06-01', 'fk_datetime_bounded': '2026-06-01T10:00', 'fk_time_bounded': '10:00',
         'fk_month_bounded': '2026-06', 'fk_week_bounded': '2026-W20'}
 

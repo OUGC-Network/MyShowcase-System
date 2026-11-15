@@ -7,7 +7,7 @@ only while the failing cells are exactly that list.
 
 ## What is in this folder
 
-* `collections/fieldkit.json` is the FieldKit collection: 41 fields, one for every HTML type the plugin offers, with the
+* `collections/fieldkit.json` is the FieldKit collection: 39 fields, one for every selectable HTML type (poll and rating are reserved for later features and are not in the file), with the
   variants of the matrix (required and optional, defaults as defined and generated, minimum and maximum lengths, a
   validation pattern, the bounds of number, range, date, datetime-local, time, month and week, read-only, a fill and view
   restriction, parser settings on and off, select, radio and checkbox options). The bounds are the value properties

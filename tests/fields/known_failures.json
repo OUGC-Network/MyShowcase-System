@@ -1,38 +1,5 @@
 {
- "sqlite": {
-  "fk_poll|b": {
-   "reason": "the create form has no control for the poll type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
-   "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_rating|b": {
-   "reason": "the create form has no control for the rating type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
-   "classification": "needs decision (rating is not a form control)"
-  }
- },
- "mysql": {
-  "fk_poll|b": {
-   "reason": "the create form has no control for the poll type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
-   "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_rating|b": {
-   "reason": "the create form has no control for the rating type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
-   "classification": "needs decision (rating is not a form control)"
-  }
- },
- "pgsql": {
-  "fk_poll|b": {
-   "reason": "the create form has no control for the poll type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for poll)",
-   "classification": "needs decision (poll is not a form control)"
-  },
-  "fk_rating|b": {
-   "reason": "the create form has no control for the rating type: the container is empty",
-   "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
-   "classification": "needs decision (rating is not a form control)"
-  }
- }
+ "sqlite": {},
+ "mysql": {},
+ "pgsql": {}
 }

@@ -97,3 +97,7 @@ the attributes, stage c for the bounds and lengths) and the ACP test.
 
 The cells of stage `m` in `README.md` (decision D122) check which option values an update accepts: an unchanged stored option is
 accepted even when its group may no longer fill it or the option is deleted; a changed value is checked as on insert.
+
+## Reserved HTML types (poll and rating)
+
+`poll` and `rating` are reserved for later features (`fieldHtmlTypes()` leaves them out; `reservedHtmlTypes()` lists them). The ACP field form does not offer them, the field service and the JSON validator refuse a file or a form that names them with the reason, and the FieldKit collection does not carry them. The matrix has no cells for them: they are not failures and not known failures (`na` by design).

@@ -399,6 +399,11 @@ check(\MyShowcase\Plugin\Functions\containsFourByteCharacter("a \u{1F600} b") &&
 check(\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'mysql', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'mysql', 'utf8mb4'), 'MySQL refuses a four-byte character on a utf8 connection and accepts it on utf8mb4');
 check(!\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'pgsql', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'sqlite', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("abc", 'mysql', 'utf8'), 'PostgreSQL and SQLite store it, and plain text is never refused');
 
+// Reserved HTML types (poll and rating): not selectable, and a file that names them is refused with the reason
+check(!isset(\MyShowcase\Plugin\Functions\fieldHtmlTypes()['poll']) && !isset(\MyShowcase\Plugin\Functions\fieldHtmlTypes()['rating']) && isset(\MyShowcase\Plugin\Functions\fieldHtmlTypes()['text']), 'poll and rating are left out of the selectable HTML types');
+$reservedErrors = JsonValidator::validate(['type' => 'collection', 'version' => '1.0.0', 'name' => 'Reserved', 'fields' => [['field_key' => 'r', 'label' => 'R', 'html_type' => 'rating', 'field_type' => 'int']]]);
+check(paths($reservedErrors) === ['$.fields[0].html_type'] && str_contains((string)json_encode($reservedErrors), 'reserved for a later feature'), 'a file that names the rating type is refused, with the reason');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };
