@@ -480,6 +480,26 @@ def update_post(client, row, overrides):
     return client.post(f'/showcase.php/{ROUTE}/update/{row["public_id"]}', data)
 
 
+def base_text_cases(client, cells):
+    """Decision D150: an emoji in the subject or the message is stored as sent, or the entry is refused with a real message
+    that names the input (the label of the input). The entry is found by an ASCII prefix: a query with an emoji could not
+    be sent on a utf8 MySQL connection."""
+    uploads = {'fk_file_req': True, 'fk_file': False}
+    for name, label, column in (('subject', 'Post Subject', 'subject'), ('message', 'Your Message', 'message')):
+        prefix = 'EMOSUB' if name == 'subject' else 'EMOMSG'
+        value = prefix + '\U0001F600\U0001F600'
+        overrides = {name: value}
+        if name == 'message':
+            overrides['subject'] = 'EMOMSGS'
+        response = create(client, overrides, 'EMOTOK' if name == 'subject' else 'EMOMTOK', uploads)
+        stored = query(f"select count(*) from {DATA} where {column} like '{prefix}%'")[0][0] != '0'
+        open(os.path.join(a.scratch, f'four-byte-{name}.html'), 'w', encoding='utf-8').write(response['body'])
+        named = (not stored) and 'unknown error' not in (response['error'] or '').lower() and label in htmllib.unescape(response['error'] or '')
+        check(cells, f'place:{name}-four-byte', 'c', 'pass' if (stored or named) else 'fail',
+              f"a four-byte character in the {name}: stored {stored}; refused with the input's label {label!r}: {named}; "
+              f"answer {response['status']} {(response['error'] or '')[:140]}")
+
+
 def edit_round_trip(client, cells, row):
     """Stage g: every field is pre-filled with its stored value, and a save without change keeps every value."""
     edit = client.get(f'/showcase.php/{ROUTE}/update/{row["public_id"]}')
@@ -1152,6 +1172,12 @@ def main():
         time.sleep(3)
         stage_j(acp, cells)
         stage_l(member, cells, DATA)
+        # the FieldKit showcase keeps no message (entries_enable_message = 0): the message case turns it on for its own run
+        ctx.execute(f"update mybb_myshowcase_config set entries_enable_message=1 where route_identifier='{ROUTE}'")
+        fixture('rebuild')
+        base_text_cases(member, cells)
+        ctx.execute(f"update mybb_myshowcase_config set entries_enable_message=0 where route_identifier='{ROUTE}'")
+        fixture('rebuild')
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
         stage_x(cells, ctx, member)

@@ -265,6 +265,7 @@ def run():
     section_files()
     section_option_numbering()
     section_option_portability()
+    section_four_byte_subject()
     section_logs()
 
 
@@ -1052,6 +1053,28 @@ def section_option_portability():
        f'each copy holds the field_data_id of its value id in the second numbering: {sorted(by_value.items())}')
     ok(all(by_value[v][1] == first_labels[v][1] for v in by_value),
        f"each copy holds the label of its original: {[(v, by_value[v][1], first_labels[v][1]) for v in sorted(by_value)]}")
+
+
+def section_four_byte_subject():
+    """Decision D150: the XML import goes through the same validator as the form. An emoji in an entry's subject is stored
+    where the database stores it (SQLite); on MySQL utf8 the entry is refused and the report names the subject's input."""
+    print('--- four-byte character in the subject (decision D150)')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    table = data_table()
+    before = int(one(f'select count(*) from {table} where user_id={uid}') or 0)
+    entry = good_entry(95)
+    entry['subject'] = 'Emoji \U0001F600 subject'
+    body = import_into(member, 'blog', write_file('four-byte-subject.xml', xml_file([entry])))['body']
+    report = report_of(body)
+    after = int(one(f'select count(*) from {table} where user_id={uid}') or 0)
+    if ENGINE == 'mysql':
+        ok(report is not None and report['status'] == 'failed' and 'Post Subject' in text(body) and 'cannot store' in text(body),
+           'MySQL utf8: the import refuses an emoji subject, and the report names the input')
+        ok(after == before, 'MySQL utf8: the refused subject stores nothing')
+    else:
+        ok(report is not None and report['status'] == 'completed' and after == before + 1,
+           f'{ENGINE}: an emoji subject imports as sent')
 
 
 def page_has_label(page, label):
