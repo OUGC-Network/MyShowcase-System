@@ -69,11 +69,18 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   option ids that do not belong to the field, several checked boxes, markup, multibyte text, emoji, overlong values.
 * `d` storage: the value that the database holds after the create.
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
+  The IP address of an entry (`ipaddress`): an entry created from the IPv6 loopback (a second PHP server on `[::1]`, when the machine has
+  one) is stored as the 16 packed bytes of `::1` (`place:ip-ipv6-stored|e`), its page shows the address after the IP label
+  (`place:ip-ipv6-entry-page|e`; the IPv4 entry of stage `y`, `place:entry-ip|y`, is checked the same way), and the main list
+  (`place:ip-list-absent|e`) and the export (`place:ip-export-absent|e`) do not carry it. The moderation pages use the main list. Without
+  an IPv6 loopback the cells are `na`.
 * `f` the main list (cell `<field>|f`): the list's span of the field (`thread__field--<key>`) shows the value of the entry with
   `display_in_main_page` on (an option as its label), is absent with the flag off, is absent for a blank optional value (a number shows 0),
   is hidden from the member and shown to the restricted user for the restricted field, and a file field is checked against the list template (`pageMainEntry.twig`):
   the row shows the entry's first image (`thread__image`) and the file field has no span. `place:stage-f-control|f` is the negative control
   of the span check: a value that was never stored is not found in the span of a stored one.
+  The entries search (`EntriesController`) matches option labels, text and character fields and numbers exactly; it has no rule for the date,
+  time and datetime types, so no search cell for a date value is written.
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
 * `h` delete and data type change, on throwaway data (run last, after stage `l`): an entry is deleted through the forum's
   inline moderation at the URL the form posts to, with the trailing slash (cell `place:entry-delete|h`: the row and its attachments
@@ -82,6 +89,11 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   dropped (`fk_text_opt|h`); the types are changed through the JSON sync: a shrink that loses values, a text-to-number change
   that loses values (both must be refused as a whole) and a number-to-text change that loses nothing (`fk_text_req|h`,
   `fk_text_pattern|h`, `fk_number|h`). The original definition is applied again after each change.
+  Moderation (decision D147): a moderator (the Moderators group, a moderator of the showcase, with the delete permission) deletes an entry of
+  another user through the inline moderation of the list (`place:entry-delete-moderator|h`); a plain member, without the delete permission,
+  is refused for another user's entry with a real message and the entry stays (`place:entry-delete-other-refused|h`).
+  Dates (decision D116): a stored blank text, changed to a date field, refuses the change as a whole with the reason (`place:type-change-date-blank|h`);
+  the same field with valid dates is accepted and keeps its values (`place:type-change-date-valid|h`).
 * `i` XML export and import: the entries of valid values are exported and imported into the same showcase (the import of
   files from URLs is switched on through the fixture for the run, with the wait the server's opcache needs); every copy must
   hold the stored value. The file fields are compared through the download route: the stored bytes, name, MIME type and size,
@@ -107,6 +119,8 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   reason, and removes the showcase row that the same run wrote, so no showcase is left without its table. The seam is a view that already
   holds the name of the entries table that the showcase is about to get (test-only, created and dropped by the cell): SQLite and MySQL name
   the view in their answer, and PostgreSQL gives its own refusal of the ALTER it attempts. The cell runs on all three engines.
+  `place:reserved-type-form|k` and `place:reserved-type-post|k` (the reserved HTML types poll and rating): the new-field form offers neither,
+  and a post that names either is refused with the reserved-type message and stores no field.
   `place:key-sql-words-create|k` (decision D153): each of the 338 candidate words of the three engines' keyword sources
   (`sql_keyword_sources.json`) is created as an unquoted column on the engine under test, and every word the engine refuses must be
   refused by the key rule (the names of `fixture('reserved-keys')`). The list and the counts are in `inventory.md`.

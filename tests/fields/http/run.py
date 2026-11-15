@@ -14,7 +14,7 @@ named by PGHOST, PGPORT and PGUSER, the client by PSQL_BIN. The database msc_tes
 Exit code 0 only when the failing cells equal known_failures.json. A new failing cell, or a listed cell that passes, exits 1.
 Stages a, f, h and k are not automated yet: their cells are written as NOT RUN with the reason.
 """
-import argparse, hashlib, html as htmllib, json, os, random, re, shutil, sqlite3, string, struct, subprocess, sys, time, zlib
+import argparse, hashlib, html as htmllib, json, os, random, re, shutil, socket, sqlite3, string, struct, subprocess, sys, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -43,6 +43,21 @@ if not os.path.isfile(PL_FILE):
 
 os.makedirs(a.scratch, exist_ok=True)
 PORT = a.port or {'sqlite': 18390, 'mysql': 18391, 'pgsql': 18392}[a.engine]
+
+
+def ipv6_loopback():
+    """Whether this machine can listen on the IPv6 loopback address (::1)."""
+    probe = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        probe.bind(('::1', 0))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+IPV6_LOOPBACK = ipv6_loopback()
 DBNAME = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
 ROUTE = 'fieldkit'
 FIELDKIT = json.load(open(os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')))
@@ -932,13 +947,14 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
                                                                              'id': str(cid), 'file': 'collections/fieldkit.json'})
             open(os.path.join(a.scratch, f'apply-{field_key}.html'), 'w').write(reply['body'])
             message = re.sub(r'\s+', ' ', re.sub(r'<script.*?</script>', ' ', re.sub(r'<[^>]+>', ' ', reply['body']), flags=re.S))
-            found = re.search(r'(loss|lost|cannot|not allowed|refus|problem|Problem|error[^a-z][^|]{0,160}|The field[^|]{0,160}|could not[^|]{0,160}|Saved|Updated|applied)', message)
+            loss_text = re.search(r'[^.]{0,160}row\(s\) hold[^.]{0,120}', message)
+            found = loss_text or re.search(r'(could not be changed[^|]{0,240}|The file was not[^|]{0,240}|not fully applied[^|]{0,240}|loss|lost|cannot|not allowed|refus|problem|Problem|error[^a-z][^|]{0,160}|The field[^|]{0,160}|could not[^|]{0,160}|Saved|Updated|applied)', message)
             after_type = columns_now().get(field_key)
             after_values = {t: stored_row(t) for t in before_values}
             unchanged = before_values == after_values
             accepted = 'was applied' in message
             return {'label': label, 'before_type': before_type, 'after_type': after_type, 'unchanged': unchanged,
-                    'accepted': accepted, 'message': found.group(0)[:220] if found else message[:160]}
+                    'accepted': accepted, 'message': (found.group(0) if found else message)[:220]}
 
         plans = [
             ('fk_text_req', {'maximum_length': 3}, 'D1 varchar(20) to varchar(3) with stored values of 4 characters (a loss)', True),
@@ -979,6 +995,32 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
                           f"{restore_note}; message: {result['message']}")
             ok = ok and started_from_original and restored
             note(field_key, 'D type change', ok, detail)
+        # ---- D4 and D5: text to date (decision D116) on the stored text of fk_text_opt. A blank stored text is refused as a whole
+        # (MySQL and PostgreSQL refuse it too); the same field with valid dates is accepted and keeps its values.
+        # case A removed H1, so the blank and the valid text are put on a third entry (H3) and on H2
+        date_props = {'field_type': 'date', 'html_type': 'date'}
+        live = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} order by field_data_id limit 1")[0][0]
+        create(member, {'fk_select': live}, 'H3', {'fk_file_req': True, 'fk_file': False})
+        ctx.execute(f"update {DATA} set fk_text_opt='' where subject='H3'")
+        ctx.execute(f"update {DATA} set fk_text_opt='2026-01-05' where subject='H2'")
+        blank_change = change('fk_text_opt', date_props, 'D4 text to date with a blank stored text')
+        apply_file(original_text)
+        blank_restored = columns_now().get('fk_text_opt') == original_types.get('fk_text_opt')
+        blank_ok = (not blank_change['accepted']) and blank_change['unchanged'] and \
+            blank_change['after_type'] == blank_change['before_type'] and blank_restored
+        check(cells, 'place:type-change-date-blank', 'h', 'pass' if blank_ok else 'fail',
+              f"{blank_change['label']}: the apply {'accepted it' if blank_change['accepted'] else 'refused it'}; type "
+              f"{blank_change['before_type']} -> {blank_change['after_type']}; entries unchanged: {blank_change['unchanged']}; "
+              f'original definition restored: {blank_restored}; message: {blank_change["message"]}')
+        ctx.execute(f"update {DATA} set fk_text_opt='2026-01-04' where subject='H3'")
+        valid_change = change('fk_text_opt', date_props, 'D5 text to date with valid dates')
+        apply_file(original_text)
+        valid_restored = columns_now().get('fk_text_opt') == original_types.get('fk_text_opt')
+        valid_ok = valid_change['accepted'] and str(valid_change['after_type']).lower() == 'date' and valid_change['unchanged'] and valid_restored
+        check(cells, 'place:type-change-date-valid', 'h', 'pass' if valid_ok else 'fail',
+              f"{valid_change['label']}: the apply {'accepted it' if valid_change['accepted'] else 'refused it'}; type "
+              f"{valid_change['before_type']} -> {valid_change['after_type']}; entries unchanged: {valid_change['unchanged']}; "
+              f'original definition restored: {valid_restored}; message: {valid_change["message"]}')
         open(collection_file, 'w').write(original_text)
 
         # ---- C: delete a field: refused while a JSON file manages it, then deleted once unmanaged ----
@@ -1051,10 +1093,13 @@ def stage_m(cells, users, restricted, fixture, radio_option):
 
     def update(name, key, value, accepted):
         before = rows[key]['fk_select']
-        update_post(owner, rows[key], {'fk_select': str(value)})
+        answer = update_post(owner, rows[key], {'fk_select': str(value)})
         now = (stored_row(tokens[key]) or {}).get('fk_select')
         expected = str(value) if accepted else before
-        record(name, now == expected, f"{'accepted' if accepted else 'refused'} expected; stored {before} -> {now}")
+        said = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', answer['body']))
+        found = re.search(r'errors before continuing[^|]{0,200}|Board Message[^|]{0,160}|unknown error[^|]{0,60}', said)
+        record(name, now == expected, f"{'accepted' if accepted else 'refused'} expected; stored {before} -> {now}; "
+               f"answer {answer['status']}: {found.group(0) if found else said[:120]}")
 
     update('update-a', 'a', stored, True)
     update('update-b', 'b', denied, False)
@@ -1115,6 +1160,128 @@ def stage_m(cells, users, restricted, fixture, radio_option):
     fixture('rebuild')
 
 
+def stage_h_moderation(cells, ctx, fixture, users):
+    """Stage h, moderation (decision D147): a moderator (the Moderators group, with the delete permission of the showcase) deletes an
+    entry of another user through the inline moderation of the list; a plain member (the registered group, without the delete
+    permission) is refused for another user's entry with a real message and the entry stays. The entries are of the restricted
+    user, and the setting is restored afterwards. Throwaway data."""
+    owner = Front(CTX.url)
+    owner.login('fkrestricted', users['users']['fkrestricted']['password'])
+    moderator = Front(CTX.url)
+    moderator.login('fkmoderator', users['users']['fkmoderator']['password'])
+    plain = Front(CTX.url)
+    plain.login('fkmember', users['users']['fkmember']['password'])
+    sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{ROUTE}'")[0][0]
+    ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=0 where showcase_id={sid} and group_id=2")
+    fixture('rebuild')
+    uploads = {'fk_file_req': True, 'fk_file': False}
+    # the option the form posts by default was deleted in case B above: a live option of the same field is posted instead
+    live = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} order by field_data_id limit 1")[0][0]
+    made = [create(owner, {'fk_select': live}, 'HOTHER1', uploads), create(owner, {'fk_select': live}, 'HOTHER2', uploads)]
+    def public_id_of(token):
+        rows = query(f"select public_id from {DATA} where subject='{token}'")
+        return rows[0][0] if rows else None
+
+    first, second = public_id_of('HOTHER1'), public_id_of('HOTHER2')
+    if first is None or second is None:
+        for name in ('entry-delete-moderator', 'entry-delete-other-refused'):
+            check(cells, f'place:{name}', 'h', 'fail', 'the two entries of the restricted user were not created: '
+                  + ' | '.join(f"{r['status']} {r['error'][:160]}" for r in made))
+    else:
+        first_id = entry_ids('HOTHER1')[0]
+        listing = moderator.get(f'/showcase.php/{ROUTE}/')
+        deleted = moderator.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
+            'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
+            'selected_entries': json.dumps([first]), 'unselected_entries': '[]'})
+        gone = public_id_of('HOTHER1') is None
+        left = query(f"select count(*) from mybb_myshowcase_attachments where entry_id={first_id}")[0][0]
+        kept = public_id_of('HOTHER2') == second
+        answer = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', deleted['body']))
+        message = re.search(r'Board Message (.{0,120})', answer)
+        check(cells, 'place:entry-delete-moderator', 'h', 'pass' if (gone and kept and left == '0') else 'fail',
+              f'the moderator answers {deleted["status"]}: {message.group(1) if message else "no board message"}; another user\'s entry gone: {gone}; '
+              f"its attachments left: {left}; the other entry unchanged: {kept}")
+        listing = plain.get(f'/showcase.php/{ROUTE}/')
+        refused = plain.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
+            'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
+            'selected_entries': json.dumps([second]), 'unselected_entries': '[]'})
+        refusal_text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', refused['body']))
+        real_message = 'unknown error' not in refusal_text.lower() and 'permission' in refusal_text.lower()
+        kept_refused = public_id_of('HOTHER2') == second
+        check(cells, 'place:entry-delete-other-refused', 'h', 'pass' if (real_message and kept_refused) else 'fail',
+              f'a plain member answers {refused["status"]} for another user\'s entry with a real message: {real_message}; the entry stays: {kept_refused}')
+    ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=1 where showcase_id={sid} and group_id=2")
+    fixture('rebuild')
+
+
+def ip_after_label(body, address):
+    """The address is shown after the entry page's IP label (the post line), not merely somewhere on the page."""
+    text = html_text(body)
+    at = text.find('IP Address')
+    return at >= 0 and address in text[at:at + 80]
+
+
+def stage_ip_ipv6(cells, ctx, fixture, users):
+    """IP addresses (the entry's ipaddress column): an entry created from the IPv6 loopback is stored as the 16
+    bytes of ::1, which hold zero bytes; the entry page shows the address as text (RenderManager), while the main list and the export
+    do not carry it (the export has no ipaddress column). A second PHP server listens on [::1] for the visitor. The export grant is
+    given to the registered group for this check only, and taken back."""
+    if not IPV6_LOOPBACK:
+        for name in ('ip-ipv6-stored', 'ip-ipv6-entry-page', 'ip-list-absent', 'ip-export-absent'):
+            check(cells, f'place:{name}', 'e', 'na', 'this machine has no IPv6 loopback: only the code check applies (RenderManager shows the address on the entry page)')
+        return
+    port6 = PORT + 100
+    log6 = os.path.join(a.scratch, f'php_{a.engine}_ipv6_errors.log')
+    server6 = subprocess.Popen(['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1', '-d', f'error_log={log6}',
+                                '-S', f'[::1]:{port6}', '-t', CTX.board],
+                               stdout=open(os.path.join(a.scratch, f'php_{a.engine}_ipv6.log'), 'w'), stderr=subprocess.STDOUT)
+    time.sleep(1.5)
+    sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{ROUTE}'")[0][0]
+    try:
+        visitor = Front(f'http://[::1]:{port6}')
+        visitor.login('fkmember', users['users']['fkmember']['password'])
+        uploads = {'fk_file_req': True, 'fk_file': False}
+        CTX.execute(f"delete from {DATA} where subject='IPV6ENTRY'")
+        live = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} order by field_data_id limit 1")[0][0]
+        made = create(visitor, {'fk_select': live}, 'IPV6ENTRY', uploads)
+        expression = {'sqlite': 'hex(ipaddress)', 'mysql': 'HEX(ipaddress)', 'pgsql': "encode(ipaddress, 'hex')"}[a.engine]
+        rows = query(f"select {expression}, public_id, entry_slug_custom from {DATA} where subject='IPV6ENTRY'")
+        if not rows or not rows[0][0]:
+            for name in ('ip-ipv6-stored', 'ip-ipv6-entry-page', 'ip-list-absent', 'ip-export-absent'):
+                check(cells, f'place:{name}', 'e', 'fail', f"the entry from the IPv6 loopback was not stored: answer {made['status']} {made['error'][:200]}")
+            return
+        stored = bytes.fromhex(rows[0][0])
+        zero_bytes = stored.count(0)
+        check(cells, 'place:ip-ipv6-stored', 'e', 'pass' if (len(stored) == 16 and zero_bytes > 0) else 'fail',
+              f'the entry stores the 16 bytes of the address ({len(stored)} bytes, {zero_bytes} of them zero): {stored.hex()}')
+        page = visitor.get(f'/showcase.php/{ROUTE}/view/{rows[0][1]}/{rows[0][2]}')
+        shown = ip_after_label(page['body'], '::1')
+        check(cells, 'place:ip-ipv6-entry-page', 'e', 'pass' if (page['status'] == 200 and shown) else 'fail',
+              f'the entry page ({page["status"]}) shows the address ::1 after its IP label: {shown}')
+        listing = visitor.get(f'/showcase.php/{ROUTE}/')
+        in_list = '::1' in html_text(listing['body'])
+        check(cells, 'place:ip-list-absent', 'e', 'pass' if (listing['status'] == 200 and not in_list) else 'fail',
+              f'the main list ({listing["status"]}) does not show the address: {not in_list}')
+        ctx_grant = f"update mybb_myshowcase_permissions set entries_can_export=1 where showcase_id={sid} and group_id=2"
+        CTX.execute(ctx_grant)
+        fixture('rebuild')
+        try:
+            export_form = visitor.get(f'/showcase.php/{ROUTE}/export')
+            visitor.post(f'/showcase.php/{ROUTE}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0',
+                                                           'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+            export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={users['users']['fkmember']['uid']} order by export_id desc limit 1")[0][0]
+            download = visitor.get(f'/showcase.php/{ROUTE}/export/{export_id}/download')['raw'].decode('utf-8', 'replace')
+            in_export = '::1' in download or stored.hex() in download.lower()
+            check(cells, 'place:ip-export-absent', 'e', 'pass' if (b'myshowcase-entries' in download.encode() and not in_export) else 'fail',
+                  f'the export of the entries does not carry the address: {not in_export}')
+        finally:
+            CTX.execute(f"update mybb_myshowcase_permissions set entries_can_export=0 where showcase_id={sid} and group_id=2")
+            fixture('rebuild')
+    finally:
+        server6.terminate()
+        server6.wait()
+
+
 def stage_x(cells, ctx, member):
     """Stage x (decision D146): a request that no route matches is answered with the page-not-found sentence (the handler of
     the entry script, after the showcase exists), never an empty message, a 503 or an internal error page."""
@@ -1144,8 +1311,9 @@ def stage_y(cells, member):
     if entry:
         view = member.get(f'/showcase.php/{ROUTE}/view/{entry[0][0]}/{entry[0][1]}')
         shown_ip = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', view['body']))
-        check(cells, 'place:entry-ip', 'y', 'pass' if (view['status'] == 200 and '127.0.0.1' in shown_ip) else 'fail',
-              f"the entry page answers {view['status']} and shows the IP address 127.0.0.1: {'127.0.0.1' in shown_ip}")
+        after_label = ip_after_label(view['body'], '127.0.0.1')
+        check(cells, 'place:entry-ip', 'y', 'pass' if (view['status'] == 200 and after_label) else 'fail',
+              f"the entry page answers {view['status']} and shows the IP address 127.0.0.1 after its label: {after_label}")
     else:
         check(cells, 'place:entry-ip', 'y', 'fail', 'the entry of the IP check was not stored')
     expected = {'asc': ['SRTB', 'SRTA', 'SRTC'], 'desc': ['SRTA', 'SRTB', 'SRTC']}
@@ -1316,6 +1484,32 @@ def stage_k_word_create(cells, ctx, fixture):
           f'{len(words)} candidate words created unquoted, {len(refused)} refused by the engine, '
           f'{len(refused) - len(not_refused_by_key_rule)} of them refused by the key rule; refused by the engine but not by the key rule: '
           f'{not_refused_by_key_rule}')
+
+
+def stage_k_reserved_types(acp, cells, ctx):
+    """Reserved HTML types (poll and rating, reserved for later features): the ACP new-field form offers neither type, and a post
+    that names one is refused with the reserved-type message and stores no field (cells place:reserved-type-form|k and
+    place:reserved-type-post|k). Runs on the KeyCases collection that stage k creates."""
+    kcid = query("select collection_id from mybb_myshowcase_collections where name='KeyCases'")[0][0]
+    url = f'/admin/index.php?module=myshowcase-fields&action=newField&collection_id={kcid}'
+    page = acp.get(url)['body']
+    select = re.search(r'<select[^>]*name="html_type"[^>]*>(.*?)</select>', page, re.S)
+    offered = re.findall(r'<option value="([^"]*)"', select.group(1)) if select else []
+    form_ok = bool(offered) and 'poll' not in offered and 'rating' not in offered and 'text' in offered
+    check(cells, 'place:reserved-type-form', 'k', 'pass' if form_ok else 'fail',
+          f'the type list of the new-field form has {len(offered)} types; poll and rating are not among them: {form_ok}')
+    refusals = []
+    for html_type in ('poll', 'rating'):
+        data = {'field_key': f'probe_{html_type}', 'label': 'Reserved type', 'html_type': html_type, 'field_type': 'varchar',
+                'is_enabled': 1, 'display_in_create_update_page': 1, 'display_in_view_page': 1, 'display_in_main_page': 1,
+                'allowed_groups_fill_type': 'all', 'allowed_groups_view_type': 'all'}
+        answer = acp.post(url, data)
+        shown = 'The HTML type is reserved for a later feature and cannot be used yet.' in answer['body']
+        stored = query(f"select count(*) from mybb_myshowcase_fields where collection_id={kcid} and field_key='probe_{html_type}'")[0][0]
+        refusals.append((html_type, shown, stored == '0'))
+    post_ok = all(shown and stored_ok for _, shown, stored_ok in refusals)
+    check(cells, 'place:reserved-type-post', 'k', 'pass' if post_ok else 'fail',
+          '; '.join(f'{name}: refused with the message {shown}, nothing stored {stored_ok}' for name, shown, stored_ok in refusals))
 
 
 def stage_k_words(acp, member, cells, ctx, fixture, users):
@@ -1752,12 +1946,15 @@ def main():
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_a_acp(acp, cells, ctx, fixture)
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
+        stage_h_moderation(cells, ctx, fixture, users)
         stage_x(cells, ctx, member)
         stage_y(cells, member)
         stage_k_acp_and_json(acp, cells, ctx, fixture)
+        stage_k_reserved_types(acp, cells, ctx)
         stage_k_words(acp, member, cells, ctx, fixture, users)
         stage_k_sync_table(acp, cells, ctx, 'summary_sync')
         stage_k_word_create(cells, ctx, fixture)
+        stage_ip_ipv6(cells, ctx, fixture, users)
     finally:
         ctx.stop()
         if a.engine == 'mysql':

@@ -79,7 +79,10 @@ switch ($switch) {
 
         $users = [];
 
-        foreach (['fkmember' => 2, 'fkrestricted' => $restricted] as $username => $group) {
+        // fkmoderator is in the Moderators group: its showcase row (case showcase-permissions) lets it delete entries of others
+        $moderators = $groupId('Moderators');
+
+        foreach (['fkmember' => 2, 'fkrestricted' => $restricted, 'fkmoderator' => $moderators] as $username => $group) {
             $password = bin2hex(random_bytes(10));
             $existing = get_user_by_username($username);
 
@@ -157,6 +160,11 @@ switch ($switch) {
         $grantShowcaseRow($showcase, 1, $view);
         $grantShowcaseRow($showcase, 2, array_merge($view, ['entries_can_post', 'entries_can_update', 'attachments_can_upload', 'attachments_can_download', 'entries_can_export', 'entries_can_import']));
         $grantShowcaseRow($showcase, $restricted_gid, array_merge($view, ['entries_can_post', 'entries_can_update', 'attachments_can_upload', 'attachments_can_download']));
+        $grantShowcaseRow($showcase, $groupId('Moderators'), array_merge($view, ['entries_can_delete']));
+        // The Moderators group is a moderator of this showcase (moderator type group, MODERATOR_TYPE_GROUP = 1): its members may
+        // moderate entries of others when the group has the permission.
+        $db->delete_query('myshowcase_moderators', "showcase_id='{$showcase}'");
+        $db->insert_query('myshowcase_moderators', ['showcase_id' => $showcase, 'user_id' => $groupId('Moderators'), 'group_id' => 1]);
 
         $rebuild();
 
