@@ -154,7 +154,12 @@ final class FieldService
             ];
         }
 
-        if (isset($data['html_type']) && !isset(fieldHtmlTypes()[(string)$data['html_type']])) {
+        if (isset($data['html_type']) && in_array((string)$data['html_type'], \MyShowcase\Plugin\Functions\reservedHtmlTypes(), true)) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_reserved_html_type',
+                'message' => 'The HTML type is reserved for a later feature and cannot be used yet.'
+            ];
+        } elseif (isset($data['html_type']) && !isset(fieldHtmlTypes()[(string)$data['html_type']])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_invalid_html_type',
                 'message' => 'The HTML type is not one of the supported types.'

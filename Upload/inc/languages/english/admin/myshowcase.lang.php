@@ -31,6 +31,7 @@ $l = [
     'myshowcase_admin_error_field_key_too_long' => 'The field key can not be longer than 30 characters.',
     'myshowcase_admin_error_field_key_reserved' => 'The field key is the name of a column the entries table already has.',
     'myshowcase_admin_error_invalid_html_type' => 'The HTML type is not one of the supported types.',
+    'myshowcase_admin_error_reserved_html_type' => 'The HTML type is reserved for a later feature and cannot be used yet.',
     'myshowcase_admin_error_invalid_field_type' => 'The database type is not one of the supported types.',
     'myshowcase_admin_error_field_delete_managed' => 'This field is managed by a JSON file. Remove it from the file and apply the file, or detach the collection from the file.',
     'myshowcase_admin_error_regular_expression' => 'The selected regular expression seems to be invalid.',

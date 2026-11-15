@@ -847,9 +847,19 @@ function fileCaptureTypes(): array
     ];
 }
 
+/**
+ * The HTML types a field can be given: every constant of FieldHtmlTypes except the reserved ones. The reserved types (poll
+ * and rating) are for later features: they cannot be selected in the ACP and a file that names them is refused.
+ */
 function fieldHtmlTypes(): array
 {
-    return array_flip((new ReflectionClass(FieldHtmlTypes::class))->getConstants());
+    return array_flip(array_diff((new ReflectionClass(FieldHtmlTypes::class))->getConstants(), reservedHtmlTypes()));
+}
+
+/** The HTML types reserved for later features (decision on poll and rating): not selectable, not accepted. */
+function reservedHtmlTypes(): array
+{
+    return [FieldHtmlTypes::Poll, FieldHtmlTypes::Rating];
 }
 
 function fieldDefaultTypes(): array

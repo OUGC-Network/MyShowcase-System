@@ -157,7 +157,9 @@ final class JsonValidator
             }
         }
 
-        if (isset($entry['html_type']) && is_string($entry['html_type']) && !isset(fieldHtmlTypes()[$entry['html_type']])) {
+        if (isset($entry['html_type']) && is_string($entry['html_type']) && in_array($entry['html_type'], \MyShowcase\Plugin\Functions\reservedHtmlTypes(), true)) {
+            $errors[] = self::error("{$path}.html_type", 'is reserved for a later feature and cannot be used yet');
+        } elseif (isset($entry['html_type']) && is_string($entry['html_type']) && !isset(fieldHtmlTypes()[$entry['html_type']])) {
             $errors[] = self::error("{$path}.html_type", 'is not a supported HTML type');
         }
 
