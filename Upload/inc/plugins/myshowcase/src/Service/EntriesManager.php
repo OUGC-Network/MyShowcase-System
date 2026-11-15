@@ -855,6 +855,12 @@ class EntriesManager
      * Some callers pass the finished text, others the short name of a data handler message ('required_field',
      * 'invalid_value1'). The short names live in datahandler_myshowcase.lang.php, so that is where they are read.
      */
+    /** Decision D103 and D150: a four-byte character the database connection cannot store (see fourByteCharacterRefused()). */
+    private function fourByteCharacterIsRefused(string $value): bool
+    {
+        return fourByteCharacterRefused($value, \MyShowcase\Service\SchemaManager::engine(), (string)($this->context->database->db_encoding ?? 'utf8'));
+    }
+
     private function validationErrorText(string $message): string
     {
         if (!preg_match('/^[a-z_]+\d*$/', $message)) {
@@ -1053,6 +1059,11 @@ class EntriesManager
                     ]
                 );
             }
+
+            // Decision D150: the same rule as for the custom text fields, named by the input's label
+            if ($this->fourByteCharacterIsRefused((string)$this->validation_entry->subject)) {
+                $this->validateSetError('four_byte_character', [$this->context->language->myshowcase_new_edit_form_entry_subject]);
+            }
         }
 
         if (!$this->context->showcase->entries_enable_message) {
@@ -1078,6 +1089,11 @@ class EntriesManager
                         my_number_format($message_length),
                     ]
                 );
+            }
+
+            // Decision D150: the same rule as for the custom text fields, named by the input's label
+            if ($this->fourByteCharacterIsRefused((string)$this->validation_entry->message)) {
+                $this->validateSetError('four_byte_character', [$this->context->language->myshowcase_create_update_entry_your_message]);
             }
         }
 
@@ -1353,11 +1369,7 @@ class EntriesManager
 
             // Decision D103: a four-byte character that the database connection cannot store is refused with the field's name,
             // instead of a database error.
-            if (is_scalar($field_value) && fourByteCharacterRefused(
-                (string)$field_value,
-                \MyShowcase\Service\SchemaManager::engine(),
-                (string)($this->context->database->db_encoding ?? 'utf8')
-            )) {
+            if (is_scalar($field_value) && $this->fourByteCharacterIsRefused((string)$field_value)) {
                 $this->validateSetError('four_byte_character', [$field_label]);
 
                 continue;
