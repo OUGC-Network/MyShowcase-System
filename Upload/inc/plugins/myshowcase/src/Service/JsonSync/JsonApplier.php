@@ -141,21 +141,30 @@ final class JsonApplier
 
     private function removeCreatedShowcase(): string
     {
+        global $db;
+
         $showcaseId = (int)$this->context['showcase_id'];
 
+        // showcaseDelete reads the entries table first. When the engine holds that name with another object (a view on
+        // PostgreSQL, which the table check counts as a table), reading it fails: then the row this run wrote is deleted
+        // directly. A create writes no other row for the showcase (no permission, no moderator).
         try {
             showcaseDelete($showcaseId);
-
-            $this->cacheManager->update(CacheDataTypes::Config);
-
-            $this->cacheManager->update(CacheDataTypes::Permissions);
         } catch (\Throwable) {
-            return JsonUi::text('showcase_not_removed');
+            // the row is deleted below
         }
 
-        $remaining = showcaseGet(["showcase_id='{$showcaseId}'"], [], ['limit' => 1]);
+        if (showcaseGet(["showcase_id='{$showcaseId}'"], [], ['limit' => 1])) {
+            $db->delete_query('myshowcase_config', "showcase_id='{$showcaseId}'");
+        }
 
-        return $remaining ? JsonUi::text('showcase_not_removed') : JsonUi::text('showcase_removed');
+        $this->cacheManager->update(CacheDataTypes::Config);
+
+        $this->cacheManager->update(CacheDataTypes::Permissions);
+
+        return showcaseGet(["showcase_id='{$showcaseId}'"], [], ['limit' => 1])
+            ? JsonUi::text('showcase_not_removed')
+            : JsonUi::text('showcase_removed');
     }
 
     private function resolveContext(array $plan): void

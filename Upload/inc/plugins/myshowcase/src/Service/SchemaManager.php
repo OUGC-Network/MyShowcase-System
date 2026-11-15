@@ -480,8 +480,8 @@ final class SchemaManager
 
     /**
      * Decision D154: the kind of database object (view, index, sequence) that holds the name of a table that does not
-     * exist, or null when no object holds it. CREATE TABLE IF NOT EXISTS does nothing when such an object exists, so
-     * this tells a caller why a table is missing. MySQL lists a view as a table, so it never gets here.
+     * exist, or null when no table or no object holds it. CREATE TABLE IF NOT EXISTS does nothing when such an object
+     * exists, so this tells a caller why a table is missing. Read from each engine's own catalogue.
      */
     public static function nameHolder(string $table): ?string
     {
@@ -491,32 +491,34 @@ final class SchemaManager
 
         $engine = self::engine();
 
-        if ($engine === self::ENGINE_SQLITE) {
-            $row = $db->fetch_array($db->query("SELECT type FROM sqlite_master WHERE name='{$name}'"));
-        } elseif ($engine === self::ENGINE_PGSQL) {
-            $row = $db->fetch_array($db->query("SELECT relkind FROM pg_class WHERE relname='{$name}' LIMIT 1"));
-        } else {
+        $kind = match ($engine) {
+            self::ENGINE_SQLITE => self::firstValue("SELECT type FROM sqlite_master WHERE name='{$name}'"),
+            self::ENGINE_PGSQL => self::firstValue("SELECT relkind FROM pg_class WHERE relname='{$name}' LIMIT 1"),
+            self::ENGINE_MYSQL => self::firstValue("SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{$name}'"),
+            default => null,
+        };
+
+        if ($kind === null) {
             return null;
         }
 
-        if (!$row) {
-            return null;
-        }
+        return match ($kind) {
+            'table', 'BASE TABLE', 'r', 'p' => null,
+            'view', 'VIEW', 'SYSTEM VIEW', 'v' => 'view',
+            'm' => 'materialized view',
+            'index', 'i' => 'index',
+            'S' => 'sequence',
+            default => 'object',
+        };
+    }
 
-        $kind = (string)reset($row);
+    private static function firstValue(string $sql): ?string
+    {
+        global $db;
 
-        if ($engine === self::ENGINE_PGSQL) {
-            return match ($kind) {
-                'r', 'p' => null,
-                'v' => 'view',
-                'm' => 'materialized view',
-                'i' => 'index',
-                'S' => 'sequence',
-                default => 'object',
-            };
-        }
+        $row = $db->fetch_array($db->query($sql));
 
-        return $kind === 'table' ? null : $kind;
+        return $row ? (string)reset($row) : null;
     }
 
     private static function escaper(): callable
