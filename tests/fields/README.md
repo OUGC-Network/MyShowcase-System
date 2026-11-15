@@ -86,6 +86,11 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   files from URLs is switched on through the fixture for the run, with the wait the server's opcache needs); every copy must
   hold the stored value. The file fields are compared through the download route: the stored bytes, name, MIME type and size,
   and the entry page shows the file. With the setting off the same file is refused as a whole (decision D57).
+  The option cases of decision D142 (`place:option-blank-roundtrip|i`, `place:option-format2-blank|i`, `place:option-format2-value|i`):
+  two entries with blank optional options are exported (the export writes each blank option empty) and imported as they were stored; the
+  same export as a format 2 file with every option 0 is not refused as a whole, and each entry is refused only for the required select
+  `fk_select_req` (a required 0 is a missing value; FieldKit has no showcase without one); the format 2 file with one option value is refused
+  as a whole with the "export the entries again" message, and nothing is stored.
 * `j` JSON-sync round trip: the ACP exports the collection, the exported file replaces the collection file and is applied
   again; every stored property is compared before and after. The export leaves out the properties that hold the column
   default, which the importer takes as the default.

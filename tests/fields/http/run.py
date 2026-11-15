@@ -664,6 +664,107 @@ def stage_i(member, cells, users, uid, fixture):
             cells[f'{key}|i']['result'] = 'fail'
 
 
+OPTION_KEYS = ['fk_select', 'fk_select_req', 'fk_radio', 'fk_checkbox']
+
+
+def stage_option_proofs(member, cells, uid, fixture):
+    """Runs option_cases with the import of files from URLs switched on (the entries of the export hold file URLs), and switches
+    it off again, as stage i leaves it."""
+    fixture('external-setting', 1)
+    time.sleep(3)
+    try:
+        option_cases(member, cells, uid, fixture)
+    finally:
+        fixture('external-setting', 0)
+        time.sleep(3)
+
+
+def option_cases(member, cells, uid, fixture):
+    """Decision D142, the option fields of the XML file (format 3 and the format 2 rule of ImportFileCheck), over HTTP:
+    (i) two entries with blank optional options (select, radio, checkbox; the form stores a blank option as 0) are exported: the
+    export writes each blank option empty, and the import stores the same blanks; (ii) a file of format 2 whose option fields are
+    all blank or 0 is accepted (no refusal as a whole); (iii) the same file with one option value is refused as a whole, with the
+    'export the entries again' message, and nothing is stored. Throwaway data: the entries of the matrix are removed first."""
+    CTX.execute(f"delete from {DATA}")
+    tokens = ['XB1', 'XB2']
+    for token in tokens:
+        create(member, {'fk_select': '', 'fk_radio': '', 'fk_checkbox': []}, token, {'fk_file_req': True, 'fk_file': False})
+    if not all(len(stored_rows(t)) == 1 for t in tokens):
+        for name in ('option-blank-roundtrip', 'option-format2-blank', 'option-format2-value'):
+            check(cells, f'place:{name}', 'i', 'fail', 'the entries with blank options were not created')
+        return
+    originals = {t: stored_rows(t)[0] for t in tokens}
+    export_form = member.get(f'/showcase.php/{ROUTE}/export')
+    member.post(f'/showcase.php/{ROUTE}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0',
+                                                 'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+    export_id = query(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    download = member.get(f'/showcase.php/{ROUTE}/export/{export_id[0][0]}/download')
+    xml = download['raw'].decode('utf-8', 'replace')
+    empty_values = sum(len(re.findall(rf'<key>{k}</key>\s*<value\s*(?:/>|></value>)', xml)) for k in OPTION_KEYS if k != 'fk_select_req')
+    path = os.path.join(a.scratch, 'option-export.xml')
+    open(path, 'w', encoding='utf-8').write(xml)
+    import_form = member.get(f'/showcase.php/{ROUTE}/import')
+
+    def run_import(file_path):
+        reply = member.upload(f'/showcase.php/{ROUTE}/import', {'my_post_key': post_key(import_form['body']), 'action': 'import'},
+                              'entries_file', file_path)
+        report = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', reply['body']))
+        open(os.path.join(a.scratch, f'option-reply-{os.path.basename(file_path)}.html'), 'w', encoding='utf-8').write(reply['body'])
+        found = re.search(r'Entries imported \d+|Failed: [^.]{0,120}|Problems with the file [^.]{0,200}', report)
+        return (found.group(0) if found else 'no import report found'), report
+
+    # (i) the blank options are written empty (3 options x 2 entries) and imported as the form stores them
+    summary, _ = run_import(path)
+    copies = {t: stored_rows(t) for t in tokens}
+    problems = []
+    if empty_values != 2 * 3:
+        problems.append(f'the export holds {empty_values} empty option values, expected {2 * 3} (fk_select_req is required and not blank)')
+    for token in tokens:
+        if len(copies[token]) != 2:
+            problems.append(f'{token}: {len(copies[token])} copies after the import')
+            continue
+        for key in OPTION_KEYS:
+            if (copies[token][1].get(key) or '') != (originals[token].get(key) or ''):
+                problems.append(f'{token} {key}: {originals[token].get(key)!r} became {copies[token][1].get(key)!r}')
+    check(cells, 'place:option-blank-roundtrip', 'i', 'pass' if not problems else 'fail',
+          '; '.join(problems) or f'{empty_values} empty option values in the export; each copy holds the stored blank as the original does; {summary}')
+
+    # (ii) and (iii): the same export as a format 2 file, its option values all blank or 0
+    as_format2 = re.sub(r'(<key>format_version</key>\s*<value type="INT">)3(</value>)', r'\g<1>2\g<2>', xml)
+    if as_format2 == xml:
+        check(cells, 'place:option-format2-blank', 'i', 'fail', 'the export has no format version 3 to change')
+        check(cells, 'place:option-format2-value', 'i', 'fail', 'the export has no format version 3 to change')
+        return
+    zeros = as_format2
+    for key in OPTION_KEYS:
+        zeros = re.sub(rf'(<key>{key}</key>\s*<value>)[^<]*(</value>)', r'\g<1>0\g<2>', zeros)
+    zeros_path = os.path.join(a.scratch, 'option-format2-blank.xml')
+    open(zeros_path, 'w', encoding='utf-8').write(zeros)
+    # FieldKit's select fk_select_req is required, so its 0 is a missing value: the entries are refused one by one, for that field only
+    before = {t: len(stored_rows(t)) for t in tokens}
+    summary, report = run_import(zeros_path)
+    after = {t: len(stored_rows(t)) for t in tokens}
+    file_accepted = 'Problems with the file' not in report and 'export the entries again' not in report
+    refusals = re.findall(r'Entry \d+: \w+ (A required field is missing: [^.]*\.)', report)
+    only_required = bool(refusals) and all('Select required' in r for r in refusals) and len(refusals) == 2
+    check(cells, 'place:option-format2-blank', 'i', 'pass' if file_accepted and only_required and after == before else 'fail',
+          f'the file is not refused as a whole (every option 0 or blank: {file_accepted}); each entry is refused only for its required '
+          f'select ({refusals}); copies {before} -> {after}; reply: {summary}')
+
+    # (iii) one option value in the same file: refused as a whole, nothing stored
+    one_value = as_format2
+    for key in OPTION_KEYS:
+        one_value = re.sub(rf'(<key>{key}</key>\s*<value>)[^<]*(</value>)', r'\g<1>1\g<2>', one_value, count=1)
+    value_path = os.path.join(a.scratch, 'option-format2-value.xml')
+    open(value_path, 'w', encoding='utf-8').write(one_value)
+    before_value = {t: len(stored_rows(t)) for t in tokens}
+    summary, report = run_import(value_path)
+    after_value = {t: len(stored_rows(t)) for t in tokens}
+    refused = after_value == before_value and 'export the entries again' in report
+    check(cells, 'place:option-format2-value', 'i', 'pass' if refused else 'fail',
+          f'a format 2 file with an option value: refused as a whole and nothing stored ({before_value} -> {after_value}); reply: {summary}')
+
+
 # a bare apostrophe is in every page's scripts, so only the two markup payloads are searched raw
 PAYLOADS = ['<script>alert(1)</script>', '"><img src=x onerror=alert(1)>']
 
@@ -1636,6 +1737,7 @@ def main():
         fixture('external-setting', 1)
         time.sleep(3)
         stage_i(member, cells, users, users['users']['fkmember']['uid'], fixture)
+        stage_option_proofs(member, cells, users['users']['fkmember']['uid'], fixture)
         fixture('external-setting', 0)
         time.sleep(3)
         stage_j(acp, cells)
