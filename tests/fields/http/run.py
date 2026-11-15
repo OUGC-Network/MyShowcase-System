@@ -1151,6 +1151,45 @@ SQL_KEY_WORDS = ['select', 'order', 'group', 'user', 'table', 'index', 'desc', '
                  'primary', 'check', 'column', 'constraint', 'references', 'union', 'values']
 
 
+def stage_k_sync_table(acp, cells, ctx, trigger):
+    """Decision D154: a JSON sync whose entries table cannot be created reports the failed step with the engine's reason,
+    and the showcase row that the same run wrote is removed again, so no showcase is left without its table. The trigger is
+    a key that the engine refuses as a column name (`trigger`, not yet in the reserved list). The collection that the run
+    created stays: it is complete and matches its file."""
+    imp = os.path.join(CTX.board, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON')
+    with open(os.path.join(imp, 'showcases', 'fieldkit.json'), encoding='utf-8') as handle:
+        template = json.load(handle)
+    field = {'field_key': trigger, 'label': trigger, 'description': '', 'html_type': 'text', 'field_type': 'varchar',
+             'is_enabled': 1, 'is_required': 0, 'display_order': 1, 'render_order': 1,
+             'display_in_create_update_page': 1, 'display_in_view_page': 1, 'display_in_main_page': 1,
+             'allowed_groups_fill': 'all', 'allowed_groups_view': 'all', 'maximum_length': 40, 'enable_subject': 0,
+             'enable_slug': 0, 'enable_search': 0}
+    with open(os.path.join(imp, 'collections', 'synctable.json'), 'w', encoding='utf-8') as handle:
+        json.dump({'type': 'collection', 'version': '1.0.0', 'name': 'SyncTable', 'fields': [field]}, handle)
+    with open(os.path.join(imp, 'showcases', 'synctable.json'), 'w', encoding='utf-8') as handle:
+        json.dump(dict(template, collection='synctable', entries_enable_message=0), handle)
+    answer = None
+    for action in ('preview', 'run'):
+        answer = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': action, 'mode': 'create', 'type': 'showcase',
+                                                                          'file': 'showcases/synctable.json', 'name': 'Sync table',
+                                                                          'route_identifier': 'synctable', 'custom_template_prefix': ''})
+    text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', answer['body']))
+    at = text.find('The file was ')
+    excerpt = text[at:at + 400] if at >= 0 else text[:200]
+    if 'The file was applied' in excerpt:
+        # MySQL quotes every identifier with backticks, so the key is a valid column there and the table is created
+        check(cells, 'place:sync-table-failure', 'k', 'na',
+              'the engine creates the table (its identifiers are quoted): the trigger does not apply here. Answer: ' + excerpt)
+        return
+    step_named = 'Create the entries table' in excerpt
+    engine_reason = bool(re.search(r'syntax', excerpt, re.I))
+    removed = 'was removed again' in excerpt
+    no_row = query("select count(*) from mybb_myshowcase_config where route_identifier='synctable'")[0][0] == '0'
+    ok = step_named and engine_reason and removed and no_row
+    check(cells, 'place:sync-table-failure', 'k', 'pass' if ok else 'fail',
+          f'step named {step_named}, engine reason {engine_reason}, removed {removed}, no row {no_row}: {excerpt}')
+
+
 def stage_k_words(acp, member, cells, ctx, fixture, users):
     """Stage k, the SQL words and the longest key (decision D152): each word, and a key of 30 characters, is a field of its own
     showcase (created through the JSON sync), and then: an entry with a value is stored, shown on its page, sorted by the field,
@@ -1536,6 +1575,7 @@ def main():
         stage_y(cells, member)
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_words(acp, member, cells, ctx, fixture, users)
+        stage_k_sync_table(acp, cells, ctx, 'join')
     finally:
         ctx.stop()
         if a.engine == 'mysql':

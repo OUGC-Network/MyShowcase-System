@@ -93,6 +93,10 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   an entry is stored with a value, shown on its page, the list is sorted by the field, the export holds it, and the field is deleted
   through the ACP); a word that the list refuses is recorded by its `reserved-` cell.
   The four-byte cases of the subject and the message are `place:subject-four-byte|c` and `place:message-four-byte|c` (decision D150).
+  `place:sync-table-failure|k` (decision D154): a JSON sync whose entries table cannot be created names the failed step and the engine's
+  reason, and removes the showcase row that the same run wrote, so no showcase is left without its table. The trigger is the key `join`,
+  which the engine refuses as a column name on SQLite and PostgreSQL; MySQL quotes the identifier and creates the table, so the cell is `na`
+  there.
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).
 * `m` the update rule (decision D122), over HTTP, on the select field `fk_select`, with throwaway options and entries of the

@@ -478,6 +478,47 @@ final class SchemaManager
     // Executors
     // ------------------------------------------------------------------------------------------------------------
 
+    /**
+     * Decision D154: the kind of database object (view, index, sequence) that holds the name of a table that does not
+     * exist, or null when no object holds it. CREATE TABLE IF NOT EXISTS does nothing when such an object exists, so
+     * this tells a caller why a table is missing. MySQL lists a view as a table, so it never gets here.
+     */
+    public static function nameHolder(string $table): ?string
+    {
+        global $db;
+
+        $name = $db->escape_string($db->table_prefix . $table);
+
+        $engine = self::engine();
+
+        if ($engine === self::ENGINE_SQLITE) {
+            $row = $db->fetch_array($db->query("SELECT type FROM sqlite_master WHERE name='{$name}'"));
+        } elseif ($engine === self::ENGINE_PGSQL) {
+            $row = $db->fetch_array($db->query("SELECT relkind FROM pg_class WHERE relname='{$name}' LIMIT 1"));
+        } else {
+            return null;
+        }
+
+        if (!$row) {
+            return null;
+        }
+
+        $kind = (string)reset($row);
+
+        if ($engine === self::ENGINE_PGSQL) {
+            return match ($kind) {
+                'r', 'p' => null,
+                'v' => 'view',
+                'm' => 'materialized view',
+                'i' => 'index',
+                'S' => 'sequence',
+                default => 'object',
+            };
+        }
+
+        return $kind === 'table' ? null : $kind;
+    }
+
     private static function escaper(): callable
     {
         global $db;

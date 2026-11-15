@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service\JsonSync;
 
+use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\CollectionService;
 use MyShowcase\Service\FieldService;
@@ -25,6 +26,8 @@ use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldsGet;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
+use function MyShowcase\Plugin\Functions\showcaseDelete;
+use function MyShowcase\Plugin\Functions\showcaseGet;
 
 /**
  * Applies a plan step by step with the shared write services. Stops at the first step that fails and then does not
@@ -43,6 +46,9 @@ final class JsonApplier
     private ShowcaseService $showcases;
 
     private array $context = [];
+
+    /** True when this run created the showcase row (and not when it updated one). */
+    private bool $createdShowcase = false;
 
     public function __construct(private readonly CacheManager $cacheManager)
     {
@@ -69,6 +75,8 @@ final class JsonApplier
             'old_version' => '',
             'new_version' => $plan['version'],
         ];
+
+        $this->createdShowcase = false;
 
         $result = ['ok' => true, 'done' => [], 'failed' => null, 'error' => null, 'collection_id' => null, 'showcase_id' => null];
 
@@ -116,11 +124,38 @@ final class JsonApplier
             }
         }
 
+        // Decision D154: a create that fails after its row exists removes the row again with its entries table, so no
+        // showcase is left without its table. The collection and the rows an update changed are not touched.
+        if (!$result['ok'] && $this->createdShowcase) {
+            $result['error'] .= ' ' . $this->removeCreatedShowcase();
+
+            $this->context['showcase_id'] = null;
+        }
+
         $result['collection_id'] = $this->context['collection_id'];
 
         $result['showcase_id'] = $this->context['showcase_id'];
 
         return $result;
+    }
+
+    private function removeCreatedShowcase(): string
+    {
+        $showcaseId = (int)$this->context['showcase_id'];
+
+        try {
+            showcaseDelete($showcaseId);
+
+            $this->cacheManager->update(CacheDataTypes::Config);
+
+            $this->cacheManager->update(CacheDataTypes::Permissions);
+        } catch (\Throwable) {
+            return JsonUi::text('showcase_not_removed');
+        }
+
+        $remaining = showcaseGet(["showcase_id='{$showcaseId}'"], [], ['limit' => 1]);
+
+        return $remaining ? JsonUi::text('showcase_not_removed') : JsonUi::text('showcase_removed');
     }
 
     private function resolveContext(array $plan): void
@@ -370,7 +405,12 @@ final class JsonApplier
         }
 
         if (!showcaseDataTableExists($showcaseId, true)) {
-            throw new \RuntimeException('The entries table was not created.');
+            // The engine does nothing for a name that another object holds (CREATE TABLE IF NOT EXISTS): the holder is named.
+            $holder = SchemaManager::nameHolder("myshowcase_data{$showcaseId}");
+
+            throw new \RuntimeException($holder !== null
+                ? "The name of the entries table is already used by a {$holder} of the database, so the table cannot be created."
+                : 'The entries table was not created.');
         }
     }
 
@@ -422,6 +462,8 @@ final class JsonApplier
         $this->checked($this->showcases->validate($identity));
 
         $this->context['showcase_id'] = $this->showcases->save($columns + $identity, 0, true);
+
+        $this->createdShowcase = true;
     }
 
     private function writeShowcaseVersion(string $version, string $hash): void
