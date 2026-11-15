@@ -166,8 +166,20 @@ try {
     unset($parameters['_controller'], $parameters['_route']);
 
     $controller($parameters);
-} catch (Exception $e) {
-    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : '');
+} catch (Throwable $e) {
+    // A request that no route matches is a page that does not exist. Any other failure is written to the error log with
+    // its cause; the page never answers an empty message, which MyBB shows as "an unknown error" (decision D144).
+    $language = $showcase->context->language;
+
+    if ($e instanceof \Symfony\Component\Routing\Exception\ResourceNotFoundException) {
+        error($language->myshowcase_error_page_not_found);
+    }
+
+    error_log(
+        'MyShowcase: ' . get_class($e) . ': ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')'
+    );
+
+    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : $language->myshowcase_error_unexpected);
 }
 
 exit;

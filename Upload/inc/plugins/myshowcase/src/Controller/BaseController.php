@@ -597,6 +597,15 @@ abstract class BaseController
     #[NoReturn]
     public function error(string $error = '', int $status_code = 500): void
     {
+        // An empty message would answer MyBB's "unknown error" and hide the cause: the caller gets a real sentence and the
+        // call is written to the error log with its origin (decision D144).
+        if ($error === '') {
+            $caller = debug_backtrace()[0] ?? [];
+
+            error_log('MyShowcase: an error page was asked for without a message, from ' . ($caller['file'] ?? '?') . ':' . ($caller['line'] ?? '?'));
+            $error = $this->context->language->myshowcase_error_unexpected;
+        }
+
         if ($this->is_api_request) {
             header("Content-type: application/json; charset={$this->context->language->settings['charset']}");
 
