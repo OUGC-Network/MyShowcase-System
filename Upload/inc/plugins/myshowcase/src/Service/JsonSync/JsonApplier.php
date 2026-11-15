@@ -281,6 +281,12 @@ final class JsonApplier
             return;
         }
 
+        // Decision D148: group restrictions are board-local. An item the board already has keeps its own groups, whatever the
+        // file says; only a new item takes the groups of the file (or the unrestricted default).
+        foreach (JsonSchema::GROUP_COLUMNS as $groupColumn) {
+            unset($columns[$groupColumn]);
+        }
+
         $this->checked($this->fields->validate($columns + ['field_key' => $key], $this->collectionId(), (int)$row['field_id'], $key));
 
         $this->fields->save($columns, $this->collectionId(), (int)$row['field_id'], $labels, true);
