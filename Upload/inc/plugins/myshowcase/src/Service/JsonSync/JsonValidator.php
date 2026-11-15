@@ -141,14 +141,17 @@ final class JsonValidator
 
         $key = $entry['field_key'] ?? null;
 
-        if (!is_string($key) || $key === '') {
+        // decision D152: the same key rule as the ACP field form (FieldService::fieldKeyProblem)
+        $keyProblem = is_string($key) ? FieldService::fieldKeyProblem($key) : 'missing';
+
+        if ($keyProblem === 'missing') {
             $errors[] = self::error("{$path}.field_key", 'is required');
-        } elseif ($key !== FieldService::normalizeKey($key)) {
-            $errors[] = self::error("{$path}.field_key", 'may only hold lower case letters, digits and "_"');
-        } elseif (strlen($key) > FieldService::KEY_MAXIMUM_LENGTH) {
+        } elseif ($keyProblem === 'format') {
+            $errors[] = self::error("{$path}.field_key", 'must start with a lower case letter and hold only lower case letters, digits and single "_" between them');
+        } elseif ($keyProblem === 'length') {
             $errors[] = self::error("{$path}.field_key", 'is longer than ' . FieldService::KEY_MAXIMUM_LENGTH . ' characters');
-        } elseif (in_array($key, FieldService::reservedKeys(), true)) {
-            $errors[] = self::error("{$path}.field_key", "\"{$key}\" is a column the entries table already has");
+        } elseif ($keyProblem === 'reserved') {
+            $errors[] = self::error("{$path}.field_key", "\"{$key}\" is a reserved name: a column of the entries table or a word of SQL");
         }
 
         foreach (['html_type', 'field_type'] as $required) {
@@ -242,7 +245,7 @@ final class JsonValidator
                 $errors[] = self::error("{$path}.previous_keys", 'must be a list of field keys');
             } else {
                 foreach ($entry['previous_keys'] as $position => $previous) {
-                    if (!is_string($previous) || $previous === '' || $previous !== FieldService::normalizeKey($previous)) {
+                    if (!is_string($previous) || FieldService::fieldKeyProblem($previous) === 'missing' || FieldService::fieldKeyProblem($previous) === 'format') {
                         $errors[] = self::error("{$path}.previous_keys[{$position}]", 'must be a field key');
                     }
                 }

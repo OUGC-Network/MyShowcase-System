@@ -46,6 +46,10 @@ imports/
 ```
 
 * `type`, `version` (`x.y.z`), `name` and `fields` are required.
+* A `field_key` is 1 to 30 characters: a lower case letter first, then lower case letters and digits, with single underscores
+  between them (no uppercase, hyphen, space, leading digit, non-ASCII letter, doubled or trailing underscore). It is not a column
+  of the entries table and not an SQL word of the list in `tests/fields/inventory.md` (decision D152); a file that breaks one of
+  these rules is refused as a whole, with the reason.
 * A field has `field_key`, `label`, `html_type` and `field_type`, plus any column of `myshowcase_fields` listed
   below. `field_type` is the database type of the column in the entries table (`int`, `varchar`, `text`, ...).
 * `label` is a text of up to 30 characters, or a map of language directory to text (`{"english": "Category"}`).

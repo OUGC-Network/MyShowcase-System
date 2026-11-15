@@ -404,6 +404,15 @@ check(!isset(\MyShowcase\Plugin\Functions\fieldHtmlTypes()['poll']) && !isset(\M
 $reservedErrors = JsonValidator::validate(['type' => 'collection', 'version' => '1.0.0', 'name' => 'Reserved', 'fields' => [['field_key' => 'r', 'label' => 'R', 'html_type' => 'rating', 'field_type' => 'int']]]);
 check(paths($reservedErrors) === ['$.fields[0].html_type'] && str_contains((string)json_encode($reservedErrors), 'reserved for a later feature'), 'a file that names the rating type is refused, with the reason');
 
+// Decision D152: a field key is refused as typed when it is not in the database's form, when it is too long, or when reserved
+$fk = static fn(string $key): ?string => \MyShowcase\Service\FieldService::fieldKeyProblem($key);
+check($fk('abc') === null && $fk('a1_b2') === null && $fk(str_repeat('a', 30)) === null, 'a key of letters, digits and single underscores is accepted, up to 30 characters');
+check($fk(str_repeat('a', 31)) === 'length' && $fk('') === 'missing', 'a key of 31 characters is too long, and an empty key is missing');
+check($fk('Abc') === 'format' && $fk('a-b') === 'format' && $fk('a b') === 'format' && $fk('1abc') === 'format' && $fk("caf\u{E9}x") === 'format', 'uppercase, hyphen, space, a leading digit and a non-ASCII letter are refused, not converted');
+check($fk('a__b') === 'format' && $fk('a_') === 'format' && $fk('_a') === 'format', 'doubled and leading or trailing underscores are refused');
+check($fk('subject') === 'reserved' && $fk('keys') === 'reserved', 'an entries column name is reserved');
+check(\MyShowcase\Service\FieldService::reservedFieldKeys() === array_values(array_unique(array_merge(\MyShowcase\Service\FieldService::reservedKeys(), \MyShowcase\Service\FieldService::SQL_RESERVED_KEYS))), 'the reserved names are the table columns plus the SQL list');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };

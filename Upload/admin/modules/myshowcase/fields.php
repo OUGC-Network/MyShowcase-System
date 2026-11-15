@@ -308,9 +308,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             }
         })();
 
-        if (isset($insertData['field_key'])) {
-            $insertData['field_key'] = $fieldService->normalizeKey($insertData['field_key']);
-        }
+        // decision D152: a key is validated as typed; it is refused when it is not in the form the database holds, never converted
 
         $errorMessages = [];
 

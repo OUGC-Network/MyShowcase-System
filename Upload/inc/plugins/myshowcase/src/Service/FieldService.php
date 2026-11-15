@@ -60,6 +60,64 @@ final class FieldService
     }
 
     /**
+     * Words of SQL that a field key can not be, because a word that fails on any database engine is refused on all of them
+     * (decision D152). The list is the result of the matrix's key cases (stage k).
+     */
+    public const SQL_RESERVED_KEYS = [
+        'check',
+        'column',
+        'constraint',
+        'default',
+        'desc',
+        'from',
+        'group',
+        'index',
+        'key',
+        'limit',
+        'order',
+        'primary',
+        'references',
+        'select',
+        'table',
+        'union',
+        'user',
+        'values',
+        'where',
+    ];
+
+    /** The names a field key can not have: the columns of the entries table and the SQL words of SQL_RESERVED_KEYS. */
+    public static function reservedFieldKeys(): array
+    {
+        return array_values(array_unique(array_merge(self::reservedKeys(), self::SQL_RESERVED_KEYS)));
+    }
+
+    /**
+     * Pure: the problem with a field key, or null when it is a key the board can use (decision D152). The key must already be
+     * in the form the database holds: a lower case letter first, then lower case letters and digits, with single "_" between
+     * them; at most KEY_MAXIMUM_LENGTH characters; not a reserved name. Nothing is changed: a key is refused, never converted.
+     */
+    public static function fieldKeyProblem(string $key): ?string
+    {
+        if ($key === '') {
+            return 'missing';
+        }
+
+        if (preg_match('/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/', $key) !== 1) {
+            return 'format';
+        }
+
+        if (strlen($key) > self::KEY_MAXIMUM_LENGTH) {
+            return 'length';
+        }
+
+        if (in_array($key, self::reservedFieldKeys(), true)) {
+            return 'reserved';
+        }
+
+        return null;
+    }
+
+    /**
      * @param array $data The field columns being saved. field_key must already be normalized; columns that are not
      *                    present are not checked.
      * @param string|null $currentKey The key the field has now (null for a new field). The reserved-name check only
@@ -80,17 +138,26 @@ final class FieldService
                 'message' => 'A required field is missing.'
             ];
         } else {
-            if (strlen($fieldKey) > self::KEY_MAXIMUM_LENGTH) {
+            $keyProblem = self::fieldKeyProblem($fieldKey);
+
+            if ($keyProblem === 'format') {
+                $errors[] = [
+                    'key' => 'myshowcase_admin_error_field_key_format',
+                    'message' => 'The field key must start with a lower case letter and hold only lower case letters, digits and single underscores between them.'
+                ];
+            }
+
+            if ($keyProblem === 'length') {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_field_key_too_long',
                     'message' => 'The field key can not be longer than ' . self::KEY_MAXIMUM_LENGTH . ' characters.'
                 ];
             }
 
-            if ($fieldKey !== $currentKey && in_array($fieldKey, self::reservedKeys(), true)) {
+            if ($keyProblem === 'reserved' && $fieldKey !== $currentKey) {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_field_key_reserved',
-                    'message' => "The field key {$fieldKey} is a column the entries table already has."
+                    'message' => "The field key {$fieldKey} is a reserved name: a column of the entries table or a word of SQL."
                 ];
             }
 
