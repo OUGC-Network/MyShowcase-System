@@ -58,7 +58,10 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `a` definition: the ACP edit form of each field of an unmanaged copy of the FieldKit
   collection (the copy is the collection file under another name, detached from its file, and removed at the end) is loaded,
   its inputs are sent back unchanged, and no stored property of the field changes (cell `<field>|a`). The cell `place:acp-managed-edit|a`
-  shows that the edit form of a managed field names its file or is read-only. The bounds of the number, range, date, time and
+  shows that the edit form of a managed field names its file in the JSON file row, shows the managed note on its inputs and disables them;
+  `place:acp-managed-control|a` shows that the detached copy's form has none of this (so the first cell cannot pass on any page), and
+  `place:stage-a-control|a` is the negative control of the comparison: one changed form value (the description) is the one property the
+  comparison reports, and the value is restored. The bounds of the number, range, date, time and
   week fields are covered by `http/acp_bounds_test.py`.
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
   pre-filled default (as defined or generated), and the visibility for a user outside the restricted group. The emoji case of stage `c` (decision D103) accepts a stored value or a refusal that names the field: a MySQL connection that is not utf8mb4 refuses a four-byte character with the field's label.
@@ -68,7 +71,9 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
 * `f` the main list (cell `<field>|f`): the list's span of the field (`thread__field--<key>`) shows the value of the entry with
   `display_in_main_page` on (an option as its label), is absent with the flag off, is absent for a blank optional value (a number shows 0),
-  is hidden from the member and shown to the restricted user for the restricted field, and a file field answers without error.
+  is hidden from the member and shown to the restricted user for the restricted field, and a file field is checked against the list template (`pageMainEntry.twig`):
+  the row shows the entry's first image (`thread__image`) and the file field has no span. `place:stage-f-control|f` is the negative control
+  of the span check: a value that was never stored is not found in the span of a stored one.
 * `g` edit round trip: every field is pre-filled with its stored value, and a save without change keeps every value.
 * `h` delete and data type change, on throwaway data (run last, after stage `l`): an entry is deleted through the forum's
   inline moderation at the URL the form posts to, with the trailing slash (cell `place:entry-delete|h`: the row and its attachments

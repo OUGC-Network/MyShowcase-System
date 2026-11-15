@@ -1316,6 +1316,16 @@ def list_parts(body, first, second):
     return {second: body[i2:i1], first: body[i1:]}
 
 
+def row_image(body, subject, other):
+    """Whether the row of an entry shows the main image. The template prints the image before the row's title, so the image
+    belongs to the entry when it lies after the other entry's subject (or from the top) and before this entry's subject."""
+    i, j = body.find(subject), body.find(other)
+    if i < 0:
+        return False
+    k = body.rfind('class="thread__image"', 0, i)
+    return k >= 0 and (j < 0 or j > i or k > j)
+
+
 def stage_f_list(member, cells, users, ctx):
     """Stage f (the main list): the list of the FieldKit showcase shows each field the way the list template does (the span
     thread__field--<key> with the label and the value; options as their label; a file field as the template's main image).
@@ -1353,10 +1363,15 @@ def stage_f_list(member, cells, users, ctx):
         if stored1 is None or stored2 is None:
             check(cells, key, 'f', 'fail', 'the two list entries were not created')
             continue
-        if f['html_type'] == 'file':
-            check(cells, key, 'f', 'pass' if page_ok else 'fail', 'a file field: the list page answers without error (the main image rule of the template is not compared)')
-            continue
         shown = span(part1, key)
+        if f['html_type'] == 'file':
+            # pageMainEntry.twig shows the first image of the entry's file fields as the row's image and then omits the spans of
+            # its file fields (EntriesController::mainImage): the row shows the image, and the file field has no span
+            image_shown = row_image(body, 'FLIST1', 'FLIST2')
+            span_omitted = shown is None
+            check(cells, key, 'f', 'pass' if (page_ok and image_shown and span_omitted) else 'fail',
+                  f'the row shows the main image: {image_shown}; the file field has no span: {span_omitted}')
+            continue
         if key == 'fk_text_group':
             hidden = shown is None and span(part2, key) is None
             visible_to_restricted = span(restricted_part, key) is not None
@@ -1387,6 +1402,13 @@ def stage_f_list(member, cells, users, ctx):
         ok = page_ok and (not expected or (shown is not None and shown_ok)) and blank_ok
         check(cells, key, 'f', 'pass' if ok else 'fail',
               f'the list shows {shown!r} for the stored {value!r}; the blank entry shows {span(part2, key)!r}; no error: {page_ok}')
+    # Negative control of the span check (decision D155): a value that was never stored is not in the span, so the check would fail
+    never = 'msc-never-stored-value'
+    shown_text = span(part1, 'fk_text_req') or ''
+    never_found = never in shown_text or esc(never) in shown_text
+    stored_found = bool(stored1.get('fk_text_req')) and (stored1['fk_text_req'] in shown_text or esc(stored1['fk_text_req']) in shown_text)
+    check(cells, 'place:stage-f-control', 'f', 'pass' if (not never_found and stored_found) else 'fail',
+          f'a never-stored value is not in the span ({not never_found}); the stored value is ({stored_found})')
 
 
 def form_data(body):
@@ -1433,9 +1455,10 @@ def stage_a_acp(acp, cells, ctx, fixture):
     sent back unchanged, and no stored property of the field changes. The copy is the collection file under another name, detached
     from its file (the ACP shows a managed field read-only; the managed FieldKit is not changed by this stage). The copy is removed at the end."""
     managed_page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={query("select collection_id from mybb_myshowcase_collections where name=" + chr(39) + "FieldKit" + chr(39))[0][0]}&field_id={FIELD_IDS["fk_text_req"]}')['body']
-    shows_managed = 'is managed by' in managed_page or 'disabled' in managed_page
+    shows_managed = managed_notice(managed_page, 'collections/fieldkit.json')
     check(cells, 'place:acp-managed-edit', 'a', 'pass' if shows_managed else 'fail',
-          f'the edit form of a managed field (fk_text_req) shows it read-only or names its file: {shows_managed}')
+          'the edit form of a managed field (fk_text_req) names its file in the JSON file row, carries the managed note on its '
+          f'inputs and disables them: {shows_managed}')
     source = os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')
     with open(source, encoding='utf-8') as handle:
         content = json.load(handle)
@@ -1451,6 +1474,12 @@ def stage_a_acp(acp, cells, ctx, fixture):
     ctx.execute(f"update mybb_myshowcase_collections set json_file='' where collection_id={cid}")
     fixture('rebuild')
     props = [p for p in PROPERTY_COLUMNS if p not in ('json_file', 'json_version', 'json_synced_at', 'json_hash')]
+    # Negative control of the managed notice (decision D155): the same form of the detached copy shows no managed notice
+    copy_fid = query(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='fk_text_req'")[0][0]
+    copy_page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={copy_fid}')['body']
+    unmanaged_clear = not managed_notice(copy_page, 'collections/fieldkit.json')
+    check(cells, 'place:acp-managed-control', 'a', 'pass' if unmanaged_clear else 'fail',
+          f'the edit form of the detached copy shows no managed notice (so the check above is not satisfied by any ACP page): {unmanaged_clear}')
     for key, f in FIELDS.items():
         fid = query(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='{key}'")
         if not fid:
@@ -1470,9 +1499,32 @@ def stage_a_acp(acp, cells, ctx, fixture):
         check(cells, key, 'a', 'pass' if ok else 'fail',
               f"the form loads (answer {page['status']}, label pre-filled {pre_filled}); sent back, answer {saved['status']}; "
               f"stored properties changed: {changed or 'none'}")
+    # Negative control of the form comparison (decision D155): one changed form value is the only changed property, and is restored
+    control_fid = query(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='fk_text_opt'")[0][0]
+    control_url = f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={control_fid}'
+
+    def control_row():
+        return query(f"select {', '.join(props)} from mybb_myshowcase_fields where field_id={control_fid}")[0]
+
+    before_control = control_row()
+    data = form_data(acp.get(control_url)['body'])
+    data.update({'field_id': str(control_fid), 'description': 'Control change'})
+    acp.post(control_url, data)
+    changed_by_control = [p for p, x, y in zip(props, before_control, control_row()) if x != y]
+    data = form_data(acp.get(control_url)['body'])
+    data.update({'field_id': str(control_fid), 'description': before_control[props.index('description')]})
+    acp.post(control_url, data)
+    restored = control_row() == before_control
+    check(cells, 'place:stage-a-control', 'a', 'pass' if changed_by_control == ['description'] and restored else 'fail',
+          f'one changed form value (description) is the one property the comparison reports: {changed_by_control}; restored: {restored}')
     ctx.execute(f"delete from mybb_myshowcase_fields where collection_id={cid}")
     ctx.execute(f"delete from mybb_myshowcase_collections where collection_id={cid}")
     fixture('rebuild')
+
+
+def managed_notice(body, file):
+    """The ACP shows a managed field as managed: the JSON file row names the file, the managed note is shown and the managed inputs are disabled."""
+    return f'Managed by {file}.' in body and 'Managed by JSON' in body and 'disabled="disabled"' in body
 
 
 def cid_of_fieldkit():
