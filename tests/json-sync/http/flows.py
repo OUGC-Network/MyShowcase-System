@@ -138,9 +138,14 @@ def section_a():
     submit(f'myshowcase-fields&action=edit&collection_id={cid}', 'action=edit', {'name': 'Plain two'})
     ok(one(f"select name from mybb_myshowcase_collections where collection_id={cid}") == 'Plain two', 'edit collection name')
     base = {'html_type': 'text', 'field_type': 'varchar', 'maximum_length': '40', 'minimum_length': '0', 'allowed_groups_fill_type': 'all', 'allowed_groups_view_type': 'all'}
+    # decision D152: a key is refused as typed, never converted: "Model Name" is not stored, the valid key is
     submit(f'myshowcase-fields&action=newField&collection_id={cid}', 'action=newField', {**base, 'field_key': 'Model Name', 'field_label': 'Model'})
+    ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid} and field_key='Model Name'") == '0'
+       and one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid} and field_key='model_name'") == '0',
+       'a key with a space is refused as typed, not stored as a converted key')
+    submit(f'myshowcase-fields&action=newField&collection_id={cid}', 'action=newField', {**base, 'field_key': 'model_name', 'field_label': 'Model'})
     fid = int(one(f"select field_id from mybb_myshowcase_fields where collection_id={cid} and field_key='model_name'") or 0)
-    ok(fid > 0, f'create field (id {fid}, key normalised)')
+    ok(fid > 0, f'create field (id {fid}) with a valid key')
     ok(one(f"select max(field_id) from mybb_myshowcase_fields") == str(fid), 'new field id is the real id')
     page(f'myshowcase-fields&action=newField&collection_id={cid}', {**base, 'field_key': 'model_name'})
     ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={cid}") == '1', 'duplicate field key refused')
