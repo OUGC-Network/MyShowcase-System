@@ -96,7 +96,7 @@ def cases():
                         ('too short', 'a', 'refuse', None), ('too long', LONG, 'refuse', None),
                         ('multibyte UTF-8', 'héllo wörld', 'accept', None),
                         ('markup and quotes', '<b>a</b>"\'\\', 'accept', None),
-                        ('emoji (4-byte UTF-8)', '😀😀😀😀', 'accept', None),
+                        ('emoji (4-byte UTF-8)', '😀😀😀😀', 'named_or_stored', None),
                         ('leading and trailing spaces', '  pad  ', 'either', None),
                         ('longer than the maximum, with markup', PAYLOAD, 'refuse', None)],
         'fk_text_opt': [('blank optional', '', 'accept', ''), ('valid', 'Hello', 'accept', None),
@@ -353,6 +353,10 @@ def record_case(key, name, expectation, extra, value, accepted, row, extra_error
         ok = accepted and stored not in (None, '')
     elif expectation == 'multi':
         ok = (not accepted) or stored == ','.join(value)
+    elif expectation == 'named_or_stored':
+        # decision D103: the value is stored as sent, or the entry is refused with a real message that names the field
+        named = (not accepted) and 'unknown error' not in (extra_error or '').lower() and FIELDS[key]['label'] in htmllib.unescape(extra_error or '')
+        ok = (accepted and stored == value) or named
     elif expectation == 'refuse_not_missing':
         ok = not accepted and 'is missing' not in extra_error
     else:

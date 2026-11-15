@@ -35,6 +35,7 @@ use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchText;
+use function MyShowcase\Plugin\Functions\fourByteCharacterRefused;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\optionGroupsAllow;
 
@@ -1346,6 +1347,18 @@ class EntriesManager
             // The value must have the format the HTML input of its type sends (the stored format is not changed).
             if (is_scalar($field_value) && !$this->fieldFormatIsValid($field->html_type, (string)$field_value)) {
                 $this->validateSetError('invalid_value', [$field_label]);
+
+                continue;
+            }
+
+            // Decision D103: a four-byte character that the database connection cannot store is refused with the field's name,
+            // instead of a database error.
+            if (is_scalar($field_value) && fourByteCharacterRefused(
+                (string)$field_value,
+                \MyShowcase\Service\SchemaManager::engine(),
+                (string)($this->context->database->db_encoding ?? 'utf8')
+            )) {
+                $this->validateSetError('four_byte_character', [$field_label]);
 
                 continue;
             }

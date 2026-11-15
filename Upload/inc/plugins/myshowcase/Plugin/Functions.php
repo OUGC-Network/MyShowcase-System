@@ -960,6 +960,21 @@ function isNullDateTypeValue(mixed $value, string $fieldType): bool
     return fieldTypeMatchDateTime($fieldType) && trim((string)$value) === '';
 }
 
+/** Pure: whether a text holds a four-byte UTF-8 character (an emoji, for example). */
+function containsFourByteCharacter(string $value): bool
+{
+    return preg_match('/[\x{10000}-\x{10FFFF}]/u', $value) === 1;
+}
+
+/**
+ * Pure: whether the database refuses the text for its encoding (decision D103). MySQL stores a four-byte character only in
+ * a utf8mb4 connection and table; MyBB's database encoding setting chooses the connection's encoding.
+ */
+function fourByteCharacterRefused(string $value, string $engine, string $db_encoding): bool
+{
+    return $engine === 'mysql' && $db_encoding !== 'utf8mb4' && containsFourByteCharacter($value);
+}
+
 function attachmentLogInsert(array $logData, bool $isUpdate = false, int $logID = 0)
 {
     global $db;

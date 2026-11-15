@@ -394,6 +394,11 @@ $groupErrors = JsonValidator::validate($oneField(['allowed_groups_fill' => '2'])
 check(paths($groupErrors) === ['$.fields[0].allowed_groups_fill'] && str_contains((string)json_encode($groupErrors), 'board-local'), 'a group list in a file is refused, and the message says the restriction is board-local');
 check(\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('2,3') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('-1') && !\MyShowcase\Service\JsonSync\JsonExporter::isRestricted('-1,2'), 'a group list restricts unless it is empty or lists -1 (all groups)');
 
+// Decision D103: a four-byte character is refused only where the connection cannot store it (MySQL on a utf8 connection)
+check(\MyShowcase\Plugin\Functions\containsFourByteCharacter("a \u{1F600} b") && !\MyShowcase\Plugin\Functions\containsFourByteCharacter("caf\u{E9} \u{20AC}"), 'a four-byte character is found, and accented or euro text is not');
+check(\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'mysql', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'mysql', 'utf8mb4'), 'MySQL refuses a four-byte character on a utf8 connection and accepts it on utf8mb4');
+check(!\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'pgsql', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("\u{1F600}", 'sqlite', 'utf8') && !\MyShowcase\Plugin\Functions\fourByteCharacterRefused("abc", 'mysql', 'utf8'), 'PostgreSQL and SQLite store it, and plain text is never refused');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };

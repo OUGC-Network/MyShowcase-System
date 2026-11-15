@@ -21,11 +21,6 @@
    "reason": "the create form has no control for the rating type: the container is empty",
    "cause": "view/templates/pageEntryCreateUpdateField.twig (no branch for rating)",
    "classification": "needs decision (rating is not a form control)"
-  },
-  "fk_text_req|c": {
-   "reason": "on MySQL the emoji (4-byte UTF-8) is refused without a message: the connection charset is 3-byte utf8 (to confirm)",
-   "cause": "MyBB db_encoding (inc/db_mysqli.php:307); data table charset",
-   "classification": "needs decision (utf8mb4 is a schema and connection change)"
   }
  },
  "pgsql": {
