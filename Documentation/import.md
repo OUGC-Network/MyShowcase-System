@@ -84,9 +84,14 @@ The export writes each field as its stored value. The import reads the same valu
 | Text, text area, URL, e-mail, telephone, colour, date and time fields | the stored string | the string, checked by the validator as the form checks it |
 | Number fields (integer column) | an integer, `type="INT"` | the number as a string, checked by the validator |
 | Select, radio and checkbox fields | the option's **value id** (`value_id`), not its label and not its id on the board | the option of the field that has that value id, stored as the form stores it (see [Option values](#option-values)) |
-| Empty value | an empty element | the empty string: an optional field is stored empty |
+| Empty value | an empty element | the empty string: an optional field is stored empty; a blank optional date, time or datetime field is stored as NULL and sorts last (D129, D145) |
 | A null value | the marker of a null (see `XmlFile`) | treated as absent (see [Absent fields](#absent-fields)) |
 | File fields (format version 2) | the public URL of the file, or an empty element when the exporting user may not download the file | the URL is downloaded and checked (see [File fields](#file-fields)) |
+
+The validator checks the bounds of each field (D124): `minimum_value` and `maximum_value` bound the value of the number, range,
+date, time, datetime-local, month and week types (a whole number for number and range; the format of the type for the others);
+`minimum_size` and `maximum_size` bound the size of a file, and `minimum_length` and `maximum_length` the length of a text. A value
+outside its bounds fails its entry, and the report names the field.
 
 ## Option values
 
@@ -290,6 +295,10 @@ Moderation applies as it does to the form: an entry of a user whose group modera
 There is no duplicate detection. Importing the same file twice creates its entries twice, as posting the same entry
 twice in the form does.
 
+On MySQL, a connection that cannot store a four-byte character (an emoji, for example) refuses the value: the entry is refused with the
+name of the field, or of the subject or the message, and nothing is stored (decisions D103 and D150). PostgreSQL and SQLite store
+such a character as sent.
+
 ## All or nothing
 
 An import writes every entry or none.
@@ -334,7 +343,7 @@ The report shows the status of the request and its numbers:
 * **Completed**: every entry was imported. The report shows how many.
 * **Validated**: "Validate only" was used and every entry passed. Nothing was written.
 * **Failed**: nothing was written. The report lists the problems of the file (for example an unknown field, with the
-  entries that use it), the refused entries with their messages, or the reason the file could not be read.
+  entries that use it), the refused entries, each with its position, its subject and the validator's message for the field that failed (D143), or the reason the file could not be read.
 
 A message about the file never shows a path, and the text of the XML is not shown: a parse error gives the line number.
 

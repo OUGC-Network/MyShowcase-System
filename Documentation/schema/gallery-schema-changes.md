@@ -129,6 +129,8 @@ Conventions in the existing schema that the new columns follow:
   * `JsonExporter` writes `"all"` when the stored list contains `-1` and omits the key otherwise;
   * on options (`myshowcase_field_data`) both group columns are excluded from `JsonSchema::optionColumns()`, and an
     option whose group list is empty follows its field.
+* **Group restrictions are board-local (D148).** A JSON file carries `"all"` or no group key for these columns and never a group id.
+  A restricted field is written without the key, and the export's count of restricted fields is shown on the ACP's JSON page.
 
 ---
 

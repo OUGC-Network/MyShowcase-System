@@ -63,8 +63,9 @@ The file sets only these keys. Every other setting keeps its value on the board 
 | `meta_description` | text / varchar(160) | Sentence for search engines and link previews | Optional; at most 160 characters | no | yes | empty |
 | `source_url` | url / varchar(255) | Original article of a translation or repost | Optional; `http://` or `https://` without spaces | no | yes | empty |
 
-Every field is open to every group for filling in and for viewing (`allowed_groups_fill` and `allowed_groups_view` are
-`all`). The "Default" column is the value a new entry gets when the form leaves the field empty.
+In the shipped file every field is open to every group for filling in and for viewing: `allowed_groups_fill` and
+`allowed_groups_view` are `"all"`. A file never names a group; a board may restrict a field itself, and that restriction is its own
+(decision D148). The "Default" column is the value a new entry gets when the form leaves the field empty.
 
 The optional patterns accept an empty value: a pattern is checked for optional fields too, so each one allows nothing
 for an empty field.
@@ -84,7 +85,7 @@ entries.
 * A field removed from the file keeps its column and entries and becomes a custom field ("Custom, not in JSON"). It is
   not deleted.
 * A renamed field keeps its data when `previous_keys` lists its old key.
-* A field whose type changes is refused when the data does not fit.
+* A field whose type changes is refused when a stored value would be lost, on every database engine: a text that is not a value of the new date, time or datetime type, a text that is not a whole number for an integer type, or a number outside the new range (decisions D116 and D140). The refusal says why.
 
 ## Tests
 

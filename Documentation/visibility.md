@@ -42,6 +42,11 @@ The moderation permissions (`entries_can_approve`, `entries_can_open`, and the o
 run, not which entries they may see. `BaseController::mayModerateEntry()` checks an action: the permission, and either
 the entry is the user's own or the user is a moderator (`isModerator()`).
 
+The list's inline moderation runs the action named in its form (`EntriesController::INLINE_MODERATION_PERMISSIONS`). Its delete
+needs `entries_can_delete` and the same moderator rule. A request that matches no route shows the page-not-found error; any other
+failure shows its cause in the error sentence and in the error log. A page never shows an empty message (decisions D144 and D146).
+The sentence comes from the plugin's language, then the global language, then the English text.
+
 ## Comments
 
 Comments follow the entry rule with their own permissions. The rule is `EntriesManager::commentStatusViewScope()` and
