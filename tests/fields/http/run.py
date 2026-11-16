@@ -796,7 +796,8 @@ def stage_l(member, cells, data_table):
             check(cells, f'place:{place}', 'l', 'fail', 'the payload entry was not created')
         return
     edit = member.get(f'/showcase.php/{ROUTE}/update/{row["public_id"]}')
-    main = member.get(f'/showcase.php/{ROUTE}')
+    # the main page's route is /{showcase}/ (with its slash; a request without it matches no route)
+    main = member.get(f'/showcase.php/{ROUTE}/')
     for place, page in (('edit-form', edit), ('main-list', main)):
         body = page['body']
         raw = [p for p in PAYLOADS if p in body]
@@ -1288,7 +1289,8 @@ def stage_x(cells, ctx, member):
     page = member.get(f'/showcase.php/{ROUTE}/no-such-page/')
     text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', page['body']))
     open(os.path.join(a.scratch, 'container-failure.html'), 'w', encoding='utf-8').write(page['body'])
-    ok = page['status'] == 200 and 'does not exist in this showcase' in text and 'unknown error' not in text.lower() \
+    # error() answers with its status (MyBB's default is 400): the sentence and no empty or internal error page are the checks
+    ok = page['status'] == 400 and 'does not exist in this showcase' in text and 'unknown error' not in text.lower() \
         and 'Internal Error' not in text
     check(cells, 'place:page-not-found', 'x', 'pass' if ok else 'fail',
           f"answers {page['status']}; the page-not-found sentence shown: {'does not exist in this showcase' in text}; "
