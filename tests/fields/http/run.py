@@ -12,7 +12,7 @@ MySQL: MYSQL_* variables (tests/json-sync/README.md). PostgreSQL: a server the r
 named by PGHOST, PGPORT and PGUSER, the client by PSQL_BIN. The database msc_test_<random> is dropped at the end.
 
 Exit code 0 only when the failing cells equal known_failures.json. A new failing cell, or a listed cell that passes, exits 1.
-Stages a, f, h and k are not automated yet: their cells are written as NOT RUN with the reason.
+Every stage runs its cells; a cell that cannot run in the engine under test is written as notrun with the reason.
 """
 import argparse, hashlib, html as htmllib, json, os, random, re, shutil, socket, sqlite3, string, struct, subprocess, sys, time, zlib
 
