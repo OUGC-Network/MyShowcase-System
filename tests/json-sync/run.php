@@ -360,6 +360,31 @@ check(paths(JsonValidator::validate($oneField(['html_type' => 'date', 'field_typ
 check(paths(JsonValidator::validate($oneField(['html_type' => 'week', 'field_type' => 'varchar', 'maximum_value' => '2026-W54']))) === ['$.fields[0].maximum_value'], 'a week bound that the year does not have is refused');
 check(JsonValidator::validate($oneField(['html_type' => 'time', 'field_type' => 'time', 'minimum_value' => '09:00', 'maximum_value' => '18:00:00'])) === [], 'a time with HH:MM and HH:MM:SS bounds is valid');
 
+// Decision D124, one list: FieldBoundUtil::BOUNDED_HTML_TYPES is the seven types with a min and a max. Each of them takes a
+// valid bound (no bound error), each other HTML type refuses a bound, and the message names the same list.
+$boundSamples = [
+    'number' => '5', 'range' => '5', 'date' => '2026-01-01', 'datetime-local' => '2026-01-01T09:00', 'month' => '2026-01',
+    'week' => '2026-W01', 'time' => '09:00',
+];
+$allHtmlTypes = array_values((new ReflectionClass(\MyShowcase\Enum\FieldHtmlTypes::class))->getConstants());
+$sortList = static function (array $list): array {
+    sort($list);
+
+    return $list;
+};
+check($sortList(\MyShowcase\Util\FieldBoundUtil::BOUNDED_HTML_TYPES) === $sortList(array_keys($boundSamples)), 'the bounded types are the seven of decision D124');
+check(\MyShowcase\Util\FieldBoundUtil::typeNames() === 'number, range, date, datetime-local, month, week and time', 'the bounded types are named in the message in the list order');
+foreach ($allHtmlTypes as $htmlType) {
+    $bound = $boundSamples[$htmlType] ?? '1';
+    $errors = paths(JsonValidator::validate($oneField(['html_type' => $htmlType, 'field_type' => 'varchar', 'minimum_value' => $bound])));
+    $refused = in_array('$.fields[0].minimum_value', $errors, true);
+    if (array_key_exists($htmlType, $boundSamples)) {
+        check(!$refused && \MyShowcase\Util\FieldBoundUtil::isBoundedType($htmlType), "a {$htmlType} field takes a minimum_value");
+    } else {
+        check($refused && !\MyShowcase\Util\FieldBoundUtil::isBoundedType($htmlType), "a {$htmlType} field refuses a minimum_value");
+    }
+}
+
 // SQLite type-change loss check (decision D116): the integer bounds and their comparison are pure
 check(\MyShowcase\Service\SchemaManager::compareIntegers('-5', '3') < 0 && \MyShowcase\Service\SchemaManager::compareIntegers('10', '9') > 0, 'integers compare by sign and magnitude');
 check(\MyShowcase\Service\SchemaManager::compareIntegers('000', '0') === 0 && \MyShowcase\Service\SchemaManager::compareIntegers('-0', '0') === 0, 'zero compares equal with leading zeros and a minus sign');
