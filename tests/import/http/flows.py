@@ -238,6 +238,31 @@ def report_of(body):
     return {'status': status, 'text': text(segment)}
 
 
+# The GitHub ZIP checks (section F6 and the round trip). A reason of the import report that comes from the network (the
+# server could not be reached, the secure connection could not be verified, the file took too long to download) is
+# named NETWORK. The last one is also the reason of the import's own time budget, so the elapsed time is printed too.
+# Any other reason is a rejection by the plugin and is named PLUGIN. Both stay failures.
+NETWORK_REASONS = (
+    'the server could not be reached',
+    'the secure connection could not be verified',
+    'the file took too long to download',
+)
+
+
+def zip_check(label, body, elapsed, zip_url):
+    report = report_of(body)
+    if report is not None and report['status'] == 'completed':
+        ok(True, f'{label} ({elapsed:.1f} s)')
+        return
+    report_text = report['text'] if report is not None else 'no import report in the response'
+    kind = 'NETWORK' if any(reason in report_text for reason in NETWORK_REASONS) else 'PLUGIN'
+    try:
+        size = str(len(fetch_bytes(zip_url)))
+    except OSError as error:
+        size = f'unavailable ({type(error).__name__})'
+    ok(False, f'{label} [{kind}] after {elapsed:.1f} s; archive {size} bytes; report: {report_text}')
+
+
 def entry_rows(user_id):
     return db(
         'select subject, message, category, summary, tags, cover_image, reading_time, series, series_part, meta_description, source_url '
@@ -905,7 +930,7 @@ def section_files():
         dump('downloads-zip', body)
         elapsed = time.time() - started
         report = report_of(body)
-        ok(report is not None and report['status'] == 'completed', f'a downloads file with the GitHub ZIP imports ({elapsed:.1f} s)')
+        zip_check('a downloads file with the GitHub ZIP imports', body, elapsed, zip_url)
         ok(int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore + 1, 'the GitHub ZIP entry is stored')
         zipped = one(f"select file_name from mybb_myshowcase_attachments where showcase_id={did} and user_id={uid} and field_id is not null order by attachment_id desc limit 1") or ''
         if zipped:
@@ -1079,9 +1104,10 @@ def section_downloads_round_trip():
     for index, pick in picks.items():
         entry = downloads_entry(index, zip_url)
         entry['fields'].update(pick)
+        started = time.time()
         body = import_into(member, 'downloads', write_file(f'downloads-fresh-{index}.xml', xml_file([entry], route='downloads', collection='Downloads', format_version=3)))['body']
         report = report_of(body)
-        ok(report is not None and report['status'] == 'completed', f'a fresh downloads entry (1.9.{index}) imports from the GitHub ZIP')
+        zip_check(f'a fresh downloads entry (1.9.{index}) imports from the GitHub ZIP', body, time.time() - started, zip_url)
     cols = ['version', 'category', 'platform', 'license']
     field_data = lambda key, value_id: one(
         f"select field_data_id from mybb_myshowcase_field_data where value_id='{value_id}' and field_id=("
