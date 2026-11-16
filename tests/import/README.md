@@ -14,7 +14,7 @@ resolver: no network is used. Run both on PHP 8.2 and on the highest PHP the boa
 ## HTTP suite (a real board, one database engine)
 
 ```
-python3 tests/import/http/run.py --engine sqlite|mysql --mybb <source tree> --scratch <directory>
+python3 tests/import/http/run.py --engine sqlite|mysql|pgsql --mybb <source tree> --scratch <directory>
 ```
 
 It installs a scratch board for one engine, creates the blog, gallery and downloads showcases through the ACP, creates
@@ -38,11 +38,15 @@ download fails the check, as section F6 does).
 install where the gallery collection is created first and five extra options are added before the blog's options (so collection, field and
 option ids differ), imports the file as another user. Per entry: each option holds B's field_data_id of the option with the exported value id,
 the label shown on B's entry page is the one of A, and the text fields are equal. Users, groups and file URLs are not compared (D137).
-It runs on SQLite and MySQL, two installs per run: `python3 tests/import/http/second_board.py --engine sqlite|mysql --mybb DIR --scratch DIR`.
+It runs on SQLite, MySQL and PostgreSQL, two installs per run: `python3 tests/import/http/second_board.py --engine sqlite|mysql|pgsql --mybb DIR --scratch DIR`.
 The blank optional option values and the format 2 file with only blanks are covered by the field matrix (stage `i`, decision D142). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
 
-Use `--port` when another server uses the default port (18092 for SQLite, 18091 for MySQL). Exit code 1 if a check fails.
+Use `--port` when another server uses the default port (18092 for SQLite, 18091 for MySQL, 18093 for PostgreSQL). Exit code 1 if a check fails.
+
+PostgreSQL (`--engine pgsql`): the database `msc_test_<random>` is created with `PSQL_BIN` on the server named by `PGHOST`, `PGPORT`
+and `PGUSER`, and dropped at the end, as for MySQL. Every section runs on it. The fixture's check constraint is dropped with `DROP
+CONSTRAINT` there (MySQL and MariaDB: `DROP CHECK`), and the defaults section reads the schema with `current_schema()`.
 
 ## Access matrix (users, attachments and modes of the download route)
 

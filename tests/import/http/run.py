@@ -3,14 +3,15 @@
 the blog showcase through the ACP's JSON sync, creates entries through the forum form, exports them and imports them
 back, and checks the refusals, the security measures and the permissions.
 
-    python3 tests/import/http/run.py --engine sqlite|mysql --mybb /path/to/mybb-1.9 --scratch DIR
+    python3 tests/import/http/run.py --engine sqlite|mysql|pgsql --mybb /path/to/mybb-1.9 --scratch DIR
                                      [--port N] [--pluginlibrary-file FILE] [--keep]
 
 The MyBB tree must have its Composer dependencies (vendor/); the plugin's own dependencies are installed by the board
 builder of tests/json-sync/http/board.py (in the plugin's ignored vendor/ folder). MySQL: the database msc_test_<random>
-is created for the run and dropped at the end; MYSQL_* variables as described in tests/json-sync/README.md. The
-PluginLibrary file is taken from --pluginlibrary-file, else the PLUGINLIBRARY variable, else ../_deps next to the
-worktree. PostgreSQL is not part of this suite yet (see the report of the batch).
+is created for the run and dropped at the end; MYSQL_* variables as described in tests/json-sync/README.md. PostgreSQL
+(pgsql): the database msc_test_<random> is created with psql (PSQL_BIN, PGHOST, PGPORT, PGUSER) and dropped at the end.
+The PluginLibrary file is taken from --pluginlibrary-file, else the PLUGINLIBRARY variable, else ../_deps next to the
+worktree.
 
 Exit code 1 if any check fails.
 """
@@ -26,7 +27,7 @@ import board  # noqa: E402  (tests/json-sync/http/board.py)
 import flows  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument('--engine', required=True, choices=['sqlite', 'mysql'])
+p.add_argument('--engine', required=True, choices=['sqlite', 'mysql', 'pgsql'])
 p.add_argument('--mybb', default=os.environ.get('MYBB_SOURCE', ''), help='a MyBB 1.9 source tree (copied, never modified)')
 p.add_argument('--scratch', required=True, help='the scratch directory of the run (never removed by this script)')
 p.add_argument('--port', type=int, default=0)
@@ -44,7 +45,7 @@ if not os.path.isfile(pl_file):
 
 os.makedirs(a.scratch, exist_ok=True)
 
-port = a.port or {'sqlite': 18092, 'mysql': 18091}[a.engine]
+port = a.port or {'sqlite': 18092, 'mysql': 18091, 'pgsql': 18093}[a.engine]
 
 dbname = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
 
@@ -88,13 +89,8 @@ try:
 finally:
     ctx.stop()
 
-    if a.engine == 'mysql':
-        env = board.db_env()
-        subprocess.run(
-            [env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
-            ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {dbname}'],
-            check=False,
-        )
+    if a.engine in ('mysql', 'pgsql'):
+        board.drop_database(a.engine, dbname)
         print(f'dropped database {dbname}')
 
 sys.exit(1 if flows.FAILS else 0)

@@ -5,7 +5,7 @@ option ids differ from A's), imports the file as another user. Per entry the che
 of the option with the value id of the file; the label of that option is shown on B's entry page; the text fields are equal.
 Users, groups and file URLs of the file are not compared (decision D137).
 
-    python3 tests/import/http/second_board.py --engine sqlite|mysql --mybb /path/to/mybb-1.9 --scratch DIR
+    python3 tests/import/http/second_board.py --engine sqlite|mysql|pgsql --mybb /path/to/mybb-1.9 --scratch DIR
                                               [--port-a N] [--port-b N] [--pluginlibrary-file FILE]
 
 Both boards are installed in DIR (board_a and board_b for SQLite; one msc_test_ database each for MySQL, both dropped at the end).
@@ -25,7 +25,7 @@ import flows  # noqa: E402
 TEXT_COLUMNS = ['subject', 'summary', 'tags', 'cover_image', 'reading_time', 'series', 'series_part', 'meta_description', 'source_url']
 
 p = argparse.ArgumentParser()
-p.add_argument('--engine', required=True, choices=['sqlite', 'mysql'])
+p.add_argument('--engine', required=True, choices=['sqlite', 'mysql', 'pgsql'])
 p.add_argument('--mybb', default=os.environ.get('MYBB_SOURCE', ''))
 p.add_argument('--scratch', required=True)
 p.add_argument('--port-a', type=int, default=0)
@@ -70,11 +70,8 @@ def start(ctx, scratch, port, label):
 
 def finish(ctx):
     ctx.stop()
-    if a.engine == 'mysql':
-        env = board.db_env()
-        subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
-                       ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {ctx.dbname}'],
-                       check=False)
+    if a.engine in ('mysql', 'pgsql'):
+        board.drop_database(a.engine, ctx.dbname)
         print(f'dropped database {ctx.dbname}')
 
 

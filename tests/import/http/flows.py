@@ -277,9 +277,11 @@ def section_defaults():
         ok(bool(re.search(r'entries_can_import\s+\w+[^,]*?DEFAULT\s+0', sql or '', re.I | re.S)),
            'entries_can_import defaults to 0 in the permissions table (sqlite)')
     else:
-        column_default = one("select column_default from information_schema.columns where table_schema=database() "
+        # the schema of the database: database() on MySQL, current_schema() on PostgreSQL
+        schema = 'current_schema()' if ENGINE == 'pgsql' else 'database()'
+        column_default = one(f"select column_default from information_schema.columns where table_schema={schema} "
                              "and table_name='mybb_myshowcase_permissions' and column_name='entries_can_import'")
-        ok(column_default == '0', f'entries_can_import defaults to 0 in the permissions table (mysql: {column_default!r})')
+        ok(column_default == '0', f'entries_can_import defaults to 0 in the permissions table ({ENGINE}: {column_default!r})')
     ok(one("select import_export_flood_seconds from mybb_myshowcase_config where route_identifier='blog'") == '60',
        'the import flood check defaults to 60 seconds')
 

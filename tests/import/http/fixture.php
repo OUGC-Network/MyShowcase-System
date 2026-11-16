@@ -197,7 +197,9 @@ switch ($switch) {
         } elseif ($argv[3] === 'add') {
             $db->write_query("ALTER TABLE {$db->table_prefix}{$table} ADD CONSTRAINT import_test_no_boom CHECK (subject NOT LIKE 'BOOM%')");
         } else {
-            $db->write_query("ALTER TABLE {$db->table_prefix}{$table} DROP CHECK import_test_no_boom");
+            // PostgreSQL names the drop of a check constraint DROP CONSTRAINT (MySQL: DROP CHECK)
+            $drop = $db->type === 'pgsql' ? 'DROP CONSTRAINT' : 'DROP CHECK';
+            $db->write_query("ALTER TABLE {$db->table_prefix}{$table} {$drop} import_test_no_boom");
         }
 
         $out(['check' => $argv[3]]);
@@ -246,7 +248,8 @@ switch ($switch) {
         } elseif ($argv[2] === 'add') {
             $db->write_query("ALTER TABLE {$table} ADD CONSTRAINT import_test_no_boom_title CHECK (title NOT LIKE 'BOOM%')");
         } else {
-            $db->write_query("ALTER TABLE {$table} DROP CHECK import_test_no_boom_title");
+            $drop = $db->type === 'pgsql' ? 'DROP CONSTRAINT' : 'DROP CHECK';
+            $db->write_query("ALTER TABLE {$table} {$drop} import_test_no_boom_title");
         }
         $out(['check' => $argv[2]]);
         break;
