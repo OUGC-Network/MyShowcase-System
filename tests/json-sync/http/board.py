@@ -96,12 +96,37 @@ def pluginlibrary(scratch, mode, given=None):
     return code
 
 
+def _ignore_source():
+    """What is not copied from the MyBB tree: VCS and test folders, and any MyShowcase or PluginLibrary file of its own.
+    The board gets its MyShowcase files from this working tree (make_board links them), so an install in the source
+    tree must not collide with them."""
+    base = shutil.ignore_patterns('.git', 'tests', 'node_modules', '.claude')
+
+    def ignore(directory, names):
+        skipped = set(base(directory, names))
+        skipped |= {n for n in names if 'myshowcase' in n.lower() or n == 'pluginlibrary.php'}
+        return skipped
+
+    return ignore
+
+
+def drop_database(engine, dbname):
+    """Drops the scratch database of a MySQL or PostgreSQL run (SQLite keeps its file in the board folder)."""
+    env = db_env()
+    if engine == 'mysql':
+        subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
+                       ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-e', f'DROP DATABASE IF EXISTS {dbname}'], check=False)
+    elif engine == 'pgsql':
+        subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres', '-q',
+                        '-c', f'DROP DATABASE IF EXISTS {dbname}'], check=False, env={**os.environ, 'LC_ALL': 'en_US.UTF-8'})
+
+
 def make_board(engine, mybb, scratch, port, pl_mode='real', pl_file=None, dbname=None, database_server='mysql'):
     env = db_env()
     dbname = dbname or f'myshowcase_verify_{engine}'
     board = os.path.join(scratch, f'board_{engine}')
     shutil.rmtree(board, ignore_errors=True)
-    shutil.copytree(mybb, board, ignore=shutil.ignore_patterns('.git', 'tests', 'node_modules', '.claude'), symlinks=True)
+    shutil.copytree(mybb, board, ignore=_ignore_source(), symlinks=True)
     for f in ('inc/config.php', 'inc/settings.php', 'install/lock'):
         p = os.path.join(board, f)
         if os.path.exists(p): os.remove(p)
