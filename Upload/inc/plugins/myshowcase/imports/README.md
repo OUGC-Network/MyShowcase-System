@@ -53,6 +53,7 @@ imports/
 * A field has `field_key`, `label`, `html_type` and `field_type`, plus any column of `myshowcase_fields` listed
   below. `field_type` is the database type of the column in the entries table (`int`, `varchar`, `text`, ...).
 * `label` is a text of up to 30 characters, or a map of language directory to text (`{"english": "Category"}`).
+* `html_type` `poll` and `rating` are reserved for later features: a file that names one is refused, and the ACP form does not offer them.
 * `options` (select, radio and checkbox fields only) is a list of `{"value_id", "value"}` plus `display_order` and
   `display_style`.
 * `previous_keys` is an optional list of earlier `field_key`s of the field (see Identity).
