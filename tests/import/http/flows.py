@@ -745,6 +745,7 @@ def section_files():
     export_id = one(f'select export_id from mybb_myshowcase_exports where user_id={uid} and showcase_id={gid} order by export_id desc limit 1')
     ok(export_id != '', 'the gallery export is stored')
     if export_id == '':
+        not_run('the rest of section F (the export checks, F4, F5 and F6 with the GitHub ZIP): the gallery export is missing')
         return
     download = member.get(f'/showcase.php/gallery/export/{export_id}/download')
     exported = download['raw'].decode('utf-8', errors='replace')
