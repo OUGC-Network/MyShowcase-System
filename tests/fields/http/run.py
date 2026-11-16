@@ -65,8 +65,8 @@ FIELDS = {f['field_key']: f for f in FIELDKIT['fields']}
 NOT_RUN = {
 }
 LONG = 'x' * 21
-# the HTML types whose input has a min and a max (decision D124): number, range, date, datetime-local, month, week, time
-BOUNDED_TYPES = ('number', 'range', 'date', 'datetime-local', 'month', 'week', 'time')
+# the HTML types whose input has a min and a max (decision D124); read from the code by the fixture in main() (case bounded-types)
+BOUNDED_TYPES = ()
 PAYLOAD = '<script>alert(1)</script>'
 CTX = None  # the board context, set by main()
 PROPERTY_COLUMNS = ['field_label', 'description', 'placeholder', 'html_type', 'field_type', 'file_capture', 'allow_multiple_values',
@@ -1827,7 +1827,7 @@ def cid_of_fieldkit():
 
 
 def main():
-    global CTX, DATA, PNG
+    global CTX, DATA, PNG, BOUNDED_TYPES
     PNG = png_bytes()
     env = board.db_env()
     ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
@@ -1866,6 +1866,7 @@ def main():
 
         users_file = os.path.join(a.scratch, 'users.json')
         fixture('setup', users_file)
+        BOUNDED_TYPES = tuple(fixture('bounded-types'))
         users = json.load(open(users_file))
         restricted = users['restricted']
 

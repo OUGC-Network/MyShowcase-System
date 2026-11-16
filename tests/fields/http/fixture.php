@@ -219,6 +219,10 @@ switch ($switch) {
         $out(['gid' => $groupId($argv[2])]);
         break;
 
+    case 'bounded-types':
+        // decision D124: the HTML types whose input has a min and a max, read from the code (FieldBoundUtil)
+        $out(\MyShowcase\Util\FieldBoundUtil::BOUNDED_HTML_TYPES);
+        break;
     case 'reserved-keys':
         // decision D152: the names a field key can not have, read from the code (the entries table's columns and the SQL words)
         $out(\MyShowcase\Service\FieldService::reservedFieldKeys());
