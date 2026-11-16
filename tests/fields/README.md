@@ -117,8 +117,8 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   the view in their answer, and PostgreSQL gives its own refusal of the ALTER it attempts. The cell runs on all three engines.
   `place:reserved-type-form|k` and `place:reserved-type-post|k` (the reserved HTML types poll and rating): the new-field form offers neither,
   and a post that names either is refused with the reserved-type message and stores no field.
-  `place:key-sql-words-create|k` (decision D153): each of the 338 candidate words of the three engines' keyword sources
-  (`sql_keyword_sources.json`) is created as an unquoted column on the engine under test, and every word the engine refuses must be
+  `place:key-sql-words-create|k` (decision D153): each of the 347 candidate words of the four keyword sources
+  (`sql_keyword_sources.json`: the three engines' and the MariaDB 13.0.2 source, decision D158) is created as an unquoted column on the engine under test, and every word the engine refuses must be
   refused by the key rule (the names of `fixture('reserved-keys')`). The list and the counts are in `inventory.md`.
 * `l` escaping: a value with markup is never printed raw. The entry page is checked per field (stage `e`); the edit form and
   the main list are checked with the payloads of one entry (cells `place:edit-form|l` and `place:main-list|l`).

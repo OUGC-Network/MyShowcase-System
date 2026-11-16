@@ -114,7 +114,7 @@ validator use that one list. It holds 307 words, sorted, with no repeats (the ch
   server refuses as an unquoted column; nine of them are in no other source and are added to the list;
 * the 19 words that the full pipeline proved (decision D152, the table below).
 
-The candidate probe (stage `k`, cell `place:key-sql-words-create|k`, one cell per engine) creates each of the 338 candidates as an
+The candidate probe (stage `k`, cell `place:key-sql-words-create|k`, one cell per engine) creates each of the 347 candidates (the four sources together) as an
 unquoted column of a probe table and drops the table when the engine accepts it. Every word that an engine refuses is refused by the key
 rule, so the list covers the probe on every engine:
 
