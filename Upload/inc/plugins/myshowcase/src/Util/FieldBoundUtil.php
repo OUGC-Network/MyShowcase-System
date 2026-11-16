@@ -29,6 +29,15 @@ final class FieldBoundUtil
         return in_array($html_type, self::BOUNDED_HTML_TYPES, true);
     }
 
+    /** The bounded types as a message names them: "number, range, ... and time". */
+    public static function typeNames(): string
+    {
+        $names = self::BOUNDED_HTML_TYPES;
+        $last = array_pop($names);
+
+        return implode(', ', $names) . ' and ' . $last;
+    }
+
     /** Whether a non-empty bound has the format its HTML type uses (a whole number for number and range). */
     public static function formatIsValid(string $html_type, string $value): bool
     {

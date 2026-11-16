@@ -200,7 +200,7 @@ final class JsonValidator
 
         if ($boundNames !== [] && !FieldBoundUtil::isBoundedType($htmlType)) {
             foreach ($boundNames as $name) {
-                $errors[] = self::error("{$path}.{$name}", 'is only for the number, range, date, datetime-local, month, week and time types');
+                $errors[] = self::error("{$path}.{$name}", 'is only for the ' . FieldBoundUtil::typeNames() . ' types');
             }
         } elseif ($boundNames !== []) {
             $minimum = (string)($entry['minimum_value'] ?? '');

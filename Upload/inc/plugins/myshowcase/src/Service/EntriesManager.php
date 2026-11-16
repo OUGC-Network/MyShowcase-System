@@ -51,14 +51,6 @@ class EntriesManager
     public const STATUS_STICKY = 1;
     public const SIGNATURE_DISABLED = 0;
     public const SIGNATURE_ALLOW = 1;
-    /** The HTML types with a min and a max that are not numbers (their bounds are minimum_value and maximum_value). */
-    private const BOUNDED_HTML_TYPES = [
-        FieldHtmlTypes::Date,
-        FieldHtmlTypes::DateTimeLocal,
-        FieldHtmlTypes::Month,
-        FieldHtmlTypes::Week,
-        FieldHtmlTypes::Time,
-    ];
     /** The HTML types whose input takes the minlength and maxlength of the field (the length properties). */
     private const TEXT_LIKE_HTML_TYPES = [
         FieldHtmlTypes::Text,
@@ -1346,7 +1338,7 @@ class EntriesManager
 
             // Date, month, week, time and datetime-local bounds: compared in one normalized form (see boundKey()). A value
             // whose format is wrong is refused by the format check below, so only well-formed values are compared here.
-            if (in_array($field->html_type, self::BOUNDED_HTML_TYPES, true) && is_scalar($field_value) &&
+            if (FieldBoundUtil::isBoundedType($field->html_type) && is_scalar($field_value) &&
                 (string)$field_value !== '' && $this->fieldFormatIsValid($field->html_type, (string)$field_value)) {
                 $value_key = $this->boundKey($field->html_type, (string)$field_value);
 
