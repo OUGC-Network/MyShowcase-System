@@ -18,10 +18,6 @@ only while the failing cells are exactly that list.
 * `showcases/fieldkit.json` is the showcase created from it (route `fieldkit`; the name and route are supplied at creation).
 * `http/run.py` installs the board, creates the showcase through the ACP's JSON sync, creates and edits entries through the
   forum form, and writes one cell per field and stage into `matrix-<engine>.json` in the scratch directory.
-* `http/upgrade_test.py` (stage `u`, one run per engine) installs a board with the BASE commit's plugin, stores a
-  collection and two fields, then activates the working tree's plugin through the ACP and checks that the columns
-  `minimum_value` and `maximum_value` exist with the empty default, the stored rows are unchanged, and a second activation
-  changes nothing. The base commit is `--base` (default `16e928c`, the commit this part starts from).
 * `http/acp_bounds_test.py` (stage `a`, the bounds through the ACP) saves number, range, date, time and week fields
   through the field screens with a valid pair, a non-integer bound, a minimum above the maximum, a range without a
   maximum, an invalid calendar date, a week the year does not have, and a text field with bounds (saved empty); then it
