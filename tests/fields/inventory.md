@@ -105,11 +105,13 @@ accepted even when its group may no longer fill it or the option is deleted; a c
 ## Field keys: SQL words (decisions D152 and D153)
 
 A field key is refused when it is an SQL word of `FieldService::SQL_RESERVED_KEYS`, on every engine. The ACP field form and the JSON
-validator use that one list. It holds 298 words, sorted, with no repeats (the check is in `tests/json-sync/run.php`). It is the union of:
+validator use that one list. It holds 307 words, sorted, with no repeats (the check is in `tests/json-sync/run.php`). It is the union of:
 
 * the words that an engine refuses as an unquoted column name, among the candidates of the three engines' own keyword sources in
   `tests/fields/sql_keyword_sources.json`: MySQL 8.4.7 `information_schema.KEYWORDS` with `RESERVED = 1` (259 words), PostgreSQL 18.1
   `pg_get_keywords()` with category `R` or `T` (101 words), and the SQLite documented keyword list (147 words); 338 distinct candidates;
+* the MariaDB 13.0.2 source (decision D158, `mariadb_13_0_2_probe`): 240 candidates of the MariaDB reserved-word documentation that the
+  server refuses as an unquoted column; nine of them are in no other source and are added to the list;
 * the 19 words that the full pipeline proved (decision D152, the table below).
 
 The candidate probe (stage `k`, cell `place:key-sql-words-create|k`, one cell per engine) creates each of the 338 candidates as an
@@ -121,10 +123,15 @@ rule, so the list covers the probe on every engine:
 | SQLite 3.43.2 (the library the harness uses) | 58 | 58 |
 | MySQL 8.4.7 | 260 | 260 |
 | PostgreSQL 18.1 | 101 | 101 |
+| MariaDB 13.0.2 (candidates from its documentation, 252 distinct) | 240 | 240 (the MariaDB source, the nine words above included) |
 
-The union of the refused words is 298 words, which is the list. MySQL refuses one word that its own `RESERVED` column does not mark
-(`tablesample`), so the reserved column alone is not enough. MariaDB is not installed on the test machine, so its reserved words are not
-probed; a word that only MariaDB reserves is not refused by this list.
+The union of the refused words is 307 words, which is the list. MySQL refuses one word that its own `RESERVED` column does not mark
+(`tablesample`), so the reserved column alone is not enough.
+
+MariaDB was built from its 13.0.2 source (the Homebrew source tarball, compiled in the scratch root) and run on a throwaway port. Its
+candidate list is typed from the MariaDB reserved-word documentation, so a MariaDB word missing from that list is not probed. Five
+words of the documentation sample in the batch brief (`position`, `slow`, `general`, `ignore_server_ids`, `master_heartbeat_period`)
+are accepted by MariaDB 13.0.2 as column names, so they are not in the list; the probe decides, not the sample.
 
 ### The 19 words of the full pipeline (decision D152)
 

@@ -48,7 +48,7 @@ imports/
 * `type`, `version` (`x.y.z`), `name` and `fields` are required.
 * A `field_key` is 1 to 30 characters: a lower case letter first, then lower case letters and digits, with single underscores
   between them (no uppercase, hyphen, space, leading digit, non-ASCII letter, doubled or trailing underscore). It is not a column
-  of the entries table and not an SQL word of `FieldService::SQL_RESERVED_KEYS` (298 words, decisions D152 and D153; the sources and the probe are in `tests/fields/inventory.md`); a file that breaks one of
+  of the entries table and not an SQL word of `FieldService::SQL_RESERVED_KEYS` (307 words, decisions D152, D153 and D158; the sources and the probe are in `tests/fields/inventory.md`); a file that breaks one of
   these rules is refused as a whole, with the reason.
 * A field has `field_key`, `label`, `html_type` and `field_type`, plus any column of `myshowcase_fields` listed
   below. `field_type` is the database type of the column in the entries table (`int`, `varchar`, `text`, ...).

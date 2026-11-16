@@ -458,6 +458,12 @@ $keywordSources = json_decode((string)file_get_contents(dirname(__DIR__) . '/fie
 check(in_array('accessible', $keywordSources['mysql_8_4_reserved'], true) && in_array('analyse', $keywordSources['postgresql_R_T'], true) && in_array('autoincrement', $keywordSources['sqlite_documented'], true), 'the keyword sources hold a word of each engine for the check below');
 check($fk('accessible') === 'reserved' && $fk('analyse') === 'reserved' && $fk('autoincrement') === 'reserved', 'a word of the MySQL, PostgreSQL and SQLite sources is refused as a key');
 
+// Decision D158: every word of the MariaDB source is refused as a key, and the list has the MariaDB-only words (ignore_domain_ids is one)
+$mariadbWords = $keywordSources['mariadb_13_0_2_probe'] ?? [];
+check(count($mariadbWords) === 240 && in_array('ignore_domain_ids', $mariadbWords, true), 'the MariaDB source holds the 240 words that MariaDB 13.0.2 refused');
+check(array_reduce($mariadbWords, static fn(bool $ok, string $word): bool => $ok && $fk($word) === 'reserved', true), 'every word of the MariaDB source is refused as a key');
+check($fk('ignore_domain_ids') === 'reserved' && $fk('stats_sample_pages') === 'reserved' && !in_array('accessible_x', $sqlList, true), 'a MariaDB-only word such as ignore_domain_ids is refused as a key');
+
 // Decision D146: the error sentence falls back to the global language, then to the English text
 require_once \MyShowcase\ROOT . '/Plugin/ErrorSentence.php';
 $sentenceCtx = new class { public string $myshowcase_error_unexpected = 'context sentence'; };

@@ -60,12 +60,14 @@ final class FieldService
     }
 
     /**
-     * Words that a field key can not be: an SQL word that an engine refuses as an unquoted column name (decision D153).
-     * Each candidate word of the three engines' own keyword sources (MySQL 8.4 information_schema.KEYWORDS with RESERVED = 1,
-     * PostgreSQL pg_get_keywords() with category R or T, and the SQLite documented keyword list) was created as an unquoted
-     * column on each engine (field matrix, stage k, cells place:key-sql-words-create|k). The list holds every word that failed
-     * on at least one engine, together with the 19 words that the full pipeline proved (decision D152). Sorted; one list for all
-     * engines. A word that an engine accepts unquoted but another refuses is refused on all of them.
+     * Words that a field key can not be: an SQL word that an engine refuses as an unquoted column name (decisions D153 and D158).
+     * Each candidate word of the engines' own keyword sources (MySQL 8.4 information_schema.KEYWORDS with RESERVED = 1,
+     * PostgreSQL pg_get_keywords() with category R or T, the SQLite documented keyword list, and the MariaDB 13.0.2
+     * reserved-word documentation) was created as an unquoted column on each engine (field matrix, stage k, cells
+     * place:key-sql-words-create|k). The list holds every word that failed on at least one engine, together with the 19 words
+     * that the full pipeline proved (decision D152). Sorted; one list for all engines. A word that an engine accepts unquoted but
+     * another refuses is refused on all of them. The MariaDB source is probed on MariaDB 13.0.2 only; the words it adds are
+     * the nine that no other source has (sources in tests/fields/sql_keyword_sources.json).
      */
     public const SQL_RESERVED_KEYS = [
         'accessible',
@@ -131,6 +133,7 @@ final class FieldService
         'deferrable',
         'delayed',
         'delete',
+        'delete_domain_id',
         'dense_rank',
         'desc',
         'describe',
@@ -139,6 +142,7 @@ final class FieldService
         'distinctrow',
         'div',
         'do',
+        'do_domain_ids',
         'double',
         'drop',
         'dual',
@@ -181,6 +185,7 @@ final class FieldService
         'hour_second',
         'if',
         'ignore',
+        'ignore_domain_ids',
         'ilike',
         'in',
         'index',
@@ -264,6 +269,8 @@ final class FieldService
         'outfile',
         'over',
         'overlaps',
+        'page_checksum',
+        'parse_vcol_expr',
         'partition',
         'percent_rank',
         'placing',
@@ -278,6 +285,7 @@ final class FieldService
         'reads',
         'real',
         'recursive',
+        'ref_system_id',
         'references',
         'regexp',
         'release',
@@ -319,6 +327,9 @@ final class FieldService
         'sqlwarning',
         'ssl',
         'starting',
+        'stats_auto_recalc',
+        'stats_persistent',
+        'stats_sample_pages',
         'stored',
         'straight_join',
         'symmetric',
