@@ -181,7 +181,7 @@ carries the collection **name** (for the warning-only name check) and the field 
 
 | Need | Column |
 |---|---|
-| Key (matching key, entries-table column) | `field_key` VARCHAR(30) |
+| Key (matching key, entries-table column) | `field_key` VARCHAR(30): a lower case letter first, then lower case letters, digits and single underscores, 1 to 30 characters; refused as typed, never converted; reserved: the names of the entries table's columns and the SQL words of `FieldService::SQL_RESERVED_KEYS` (307 words, from the MySQL 8.4, PostgreSQL, SQLite and MariaDB 13.0.2 sources; decisions D152, D153, D158) |
 | Required | `is_required` |
 | Default | `default_value` + `default_type` (`0 AsDefined`, `1 IsNull`, `2 CurrentTimestamp`, `3 UUID`) |
 | Type | `html_type`, `field_type` (`file` fields hold attachments, not column data) |
@@ -226,7 +226,7 @@ Other consequences of "same validator":
 
 Imported entry content is **`subject`, `message` and custom field values only.** Everything else is what the form gives
 the current user: `user_id`/`username` = current user, `dateline` = now, `status` = what the form path assigns (column
-default today, see Finding 4), `ipaddress` = current IP, new `public_id`/`post_hash`, counters 0, `is_closed`/`is_sticky`
+default today, see Finding 4), `ipaddress` = current IP as the packed binary address (D159; text values of older entries are not migrated), new `public_id`/`post_hash`, counters 0, `is_closed`/`is_sticky`
 defaults. The file's author, dates, status, flags, counters are neither exported nor read. **Out of scope for v1:**
 attachments that are not file fields, comments, edit history. A `file` field is imported from its URL (T28).
 
@@ -995,7 +995,7 @@ All of the following are final unless you change them.
 | T24 | **Superseded by T26.** (Stage A had used `entries_can_approve`/`entries_can_restore`.) |
 | T26 | **One moderator notion and one visibility rule** (`EntriesManager::isModerator()`, `canViewStatus()`; section 4): awaiting/deleted entries need `entries_can_view_unapproved`/`entries_can_view_deleted`, own entries for a non-moderator, any user's for a moderator; export, listing and detail agree. |
 | T25 | **Stage B import as built:** pipeline of section 6 with these points settled in code. Both the per-user limit and the validator failures are reported together (the limit is checked after validation, for the whole file); the post-insert steps of the create path are all inside `EntriesManager::validationEntryInsert()` (slug generation, the insert with its defaults and hooks, attachment linking by post hash, slug refetch, the end hook), which the import calls for every entry, so nothing else is shared or missing: there are no counters or caches to update (counts are queries). "Only check the file" is kept. A file that was imported before by the same user is flagged as a hint. |
-| T26 | **Null and empty values:** the form posts an empty optional field as `''`, which is stored as `''` (`0` for an integer column), never as NULL. The import does the same: a null or missing value takes the field's default or `''`. A NULL in the source database therefore arrives as `''`. |
+| T26 | **Null and empty values:** the form posts an empty optional field as `''`, which is stored as `''` (`0` for an integer column). The exception is a blank optional date, time or datetime field, which is stored as NULL and sorts last in both directions (D129, D145). The import does the same: a null or missing value takes the field's default, or `''` (or NULL for those three types). A NULL in the source database therefore arrives as `''`, or as NULL for a date, time or datetime field. |
 | T27 | **Rollback by entry id:** the compensating delete removes the inserted rows with a direct `DELETE ... WHERE entry_id IN (...)` (plus the post hashes the import generated, to find the one row whose id was not yet known if the request ends right after its insert), never through the controller delete path; the shutdown guard does the same after an `exit`. |
 | T28 | **File fields carry URLs (D48).** Format version 2 writes each file field as the public URL of its file, for a file the exporting user may download (the rules of the download route, in `AttachmentAccess`); any other file is written empty and counted in the export's notes, and no path is ever written. The import takes each file from its URL, checks it as an upload is checked (the board's types by extension and by the detected MIME type, the field and type sizes, a valid image), and attaches it through the form's attachment pipeline after the entry is saved. A failure of any file fails the whole import; nothing is stored. |
 | T29 | **One global setting (D51).** `myshowcase_import_external_files` (yes or no, default no), created on activation with the value no and kept on re-activation (PluginLibrary keeps the value). A missing value is read as no. When it is off, a file with any file URL is refused as a whole by the structural check, the board's own file URLs included; exports are not affected. It is read in one place, `ImportSettings`. |
