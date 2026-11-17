@@ -249,18 +249,35 @@ NETWORK_REASONS = (
 )
 
 
-def zip_check(label, body, elapsed, zip_url):
+def report_kind(body):
+    # NETWORK when the report gives a network reason, PLUGIN for any other rejection, None when the import completed.
     report = report_of(body)
     if report is not None and report['status'] == 'completed':
+        return None
+    report_text = report['text'] if report is not None else 'no import report in the response'
+    return 'NETWORK' if any(reason in report_text for reason in NETWORK_REASONS) else 'PLUGIN'
+
+
+def import_check(label, body, elapsed, archive_url=None):
+    # A completed import passes. A failure is printed with its label, the elapsed time and the full report text, and
+    # stays a failure. The archive size is printed only for a GitHub ZIP.
+    kind = report_kind(body)
+    if kind is None:
         ok(True, f'{label} ({elapsed:.1f} s)')
         return
+    report = report_of(body)
     report_text = report['text'] if report is not None else 'no import report in the response'
-    kind = 'NETWORK' if any(reason in report_text for reason in NETWORK_REASONS) else 'PLUGIN'
-    try:
-        size = str(len(fetch_bytes(zip_url)))
-    except OSError as error:
-        size = f'unavailable ({type(error).__name__})'
-    ok(False, f'{label} [{kind}] after {elapsed:.1f} s; archive {size} bytes; report: {report_text}')
+    size = ''
+    if archive_url:
+        try:
+            size = f'; archive {len(fetch_bytes(archive_url))} bytes'
+        except OSError as error:
+            size = f'; archive unavailable ({type(error).__name__})'
+    ok(False, f'{label} [{kind}] after {elapsed:.1f} s{size}; report: {report_text}')
+
+
+def zip_check(label, body, elapsed, zip_url):
+    import_check(label, body, elapsed, zip_url)
 
 
 def entry_rows(user_id):
@@ -707,10 +724,11 @@ def section_files():
     before_rows, before_files = gallery_rows(), attachment_rows()
     path = write_file('gallery-urls.xml', xml_file([gallery_entry(i + 1, url) for i, url in enumerate(urls)],
                                                    route='gallery', collection='Gallery', format_version=2))
+    started = time.time()
     body = import_into(member, 'gallery', path)['body']
     dump('gallery-urls', body)
     report = report_of(body)
-    ok(report is not None and report['status'] == 'completed', 'a gallery file with two placehold.co images imports')
+    import_check('a gallery file with two placehold.co images imports', body, time.time() - started)
     ok(gallery_rows() == before_rows + 2 and attachment_rows() == before_files + 2,
        f'two gallery entries and two attached images are stored (entries {gallery_rows() - before_rows}, files {attachment_rows() - before_files})')
     # The two newest files of the uploader, one row each (GROUP_CONCAT's separator syntax differs between the engines).
@@ -896,7 +914,8 @@ def section_files():
         dump('gallery-rollback', body)
         report = report_of(body)
         ok(report is not None and report['status'] == 'failed' and 'could not be written' in report['text'],
-           'a database refusal after a stored file fails the import with the generic report')
+           'a database refusal after a stored file fails the import with the generic report'
+           + ('' if report_kind(body) != 'NETWORK' else ' [NETWORK: a file of the import stalled, so the refusal did not happen]'))
         ok(gallery_rows() == before_rows and attachment_rows() == before_files and import_log_count() == before_logs,
            'the entries, the attachment rows and the log row of the failed import are rolled back')
         ok(set(os.listdir(uploads)) == files_before, 'the file stored before the refusal is removed from the uploads folder')
