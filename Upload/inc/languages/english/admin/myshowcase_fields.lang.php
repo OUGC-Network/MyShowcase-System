@@ -139,6 +139,8 @@ $l = array_merge([
     'myshowcase_admin_fields_create_update_form_file_capture' => 'File Capture',
     'myshowcase_admin_fields_create_update_form_file_capture_description' => 'Select a capture method for file fields.',
     'myshowcase_admin_fields_create_update_form_allow_multiple_values' => 'Allow Multiple Values',
+    'myshowcase_admin_fields_create_update_form_file_types' => 'File Types',
+    'myshowcase_admin_fields_create_update_form_file_types_description' => 'For a file field: the extensions it takes, separated by commas (for example png,jpg). Empty takes every type of the showcase.',
     'myshowcase_admin_fields_create_update_form_allow_multiple_values_description' => 'A select field with this set takes several options; a checkbox field always does. The database type of such a field must be text. Changing this setting is refused while an entry holds a value for the field.<br/>
     The values are stored in a separate table; the entry column keeps a copy of their ids.',
     'myshowcase_admin_fields_create_update_form_regular_expression' => 'Regular Expression',
