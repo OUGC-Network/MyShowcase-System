@@ -411,8 +411,11 @@ class EntriesExporter
 
         $field_keys = [];
 
+        $file_fields_by_id = [];
+
         foreach ($file_fields as $field) {
             $field_keys[(int)$field->field_id] = $field->field_key;
+            $file_fields_by_id[(int)$field->field_id] = $field;
         }
 
         $attachments = [];
@@ -423,8 +426,8 @@ class EntriesExporter
                     'entry_id IN (' . implode(',', array_map('intval', $entry_ids)) . ')',
                     'field_id IN (' . implode(',', array_map('intval', $field_ids)) . ')',
                 ],
-                ['attachment_id', 'public_id', 'attachment_name', 'user_id', 'status', 'mime_type', 'entry_id', 'field_id'],
-                ['order_by' => 'attachment_id', 'order_dir' => 'ASC']
+                ['attachment_id', 'public_id', 'attachment_name', 'user_id', 'status', 'mime_type', 'entry_id', 'field_id', 'display_order'],
+                ['order_by' => 'display_order, attachment_id', 'order_dir' => 'ASC']
             ) as $attachment
         ) {
             $attachments[(int)$attachment['entry_id']][(int)$attachment['field_id']][] = $attachment;
@@ -442,6 +445,10 @@ class EntriesExporter
 
                 $chosen = false;
 
+                // A multiple-file field exports every file it may download, in display order (decision D182); a single-file
+                // field exports its first one.
+                $several = MultipleChoiceUtil::isMultiple(FieldHtmlTypes::File, $file_fields_by_id[$field_id]->allow_multiple_values ?? 0);
+
                 foreach ($list as $attachment) {
                     if ($access->decide($attachment, false, $types) !== AttachmentAccess::ALLOWED) {
                         $result['notes']['files_without_url']++;
@@ -449,7 +456,7 @@ class EntriesExporter
                         continue;
                     }
 
-                    if ($chosen !== false) {
+                    if ($chosen !== false && !$several) {
                         $result['notes']['files_not_in_value']++;
 
                         continue;
@@ -465,7 +472,11 @@ class EntriesExporter
 
                     $chosen = $url;
 
-                    $result['urls'][$entry_id][$field_keys[$field_id]] = $url;
+                    if ($several) {
+                        $result['urls'][$entry_id][$field_keys[$field_id]][] = $url;
+                    } else {
+                        $result['urls'][$entry_id][$field_keys[$field_id]] = $url;
+                    }
                 }
             }
         }

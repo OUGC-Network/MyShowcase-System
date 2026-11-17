@@ -1859,6 +1859,13 @@ const TABLES_DATA = [
             'default' => 0,
             'input_type' => FormTypes::YesNo,
         ],
+        // The file extensions a file field takes, comma separated (decision D199); empty takes every type of the showcase.
+        'file_types' => [
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+            'input_type' => FormTypes::Text,
+        ],
         'regular_expression' => [
             'type' => 'VARCHAR',
             'size' => 500,

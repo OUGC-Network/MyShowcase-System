@@ -26,6 +26,7 @@ final  class CustomFieldEntity
         public string $field_type = '',
         public int $file_capture = 0,
         public int $allow_multiple_values = 0,
+        public string $file_types = '',
         public string $regular_expression = '',
         public string $input_pattern = '',
         public int $display_in_create_update_page = 1,

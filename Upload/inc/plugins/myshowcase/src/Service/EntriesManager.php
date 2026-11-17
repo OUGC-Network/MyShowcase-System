@@ -1629,6 +1629,17 @@ class EntriesManager
     }
 
     /**
+     * Gives the files of an entry's multiple-file fields their display order and their cache, after the files are stored (the
+     * importer stores them after the entry; the form does it inside validationEntryInsert()).
+     */
+    public function finishFiles(EntryEntity $entry): void
+    {
+        foreach ($this->multiFileFields() as $field_key => $field_id) {
+            $this->writeFileList((int)$entry->entry_id, (int)$field_id, (string)$field_key);
+        }
+    }
+
+    /**
      * The multiple-file fields of the collection: field key => field id (decision D197).
      *
      * @return array<string, int>

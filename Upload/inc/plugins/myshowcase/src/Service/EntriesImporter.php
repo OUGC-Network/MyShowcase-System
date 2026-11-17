@@ -335,6 +335,9 @@ class EntriesImporter
 
                     $external++;
                 }
+
+                // The files of each multiple-file field get their display order and the field's cache (decision D61).
+                $manager->finishFiles($saved);
             }
 
             $this->logImport($file_name, count($validated), $data, $external);
@@ -387,6 +390,13 @@ class EntriesImporter
             $fields = is_array($entry['fields'] ?? null) ? $entry['fields'] : [];
 
             foreach ($file_keys as $key) {
+                // A list of file URLs counts once per URL (decision D197: the import's file limits count every file).
+                if (isset($fields[$key]) && is_array($fields[$key])) {
+                    $count += count(array_filter($fields[$key], static fn(mixed $url): bool => $url !== '' && $url !== null));
+
+                    continue;
+                }
+
                 if (isset($fields[$key]) && $fields[$key] !== '') {
                     $count++;
                 }
@@ -423,24 +433,46 @@ class EntriesImporter
 
             $field_id = (int)$field->field_id;
 
-            try {
-                $file = $this->takeFile($this->scalarText($value), $field, $temp, $budget);
-            } catch (ExternalFileException $exception) {
+            // A multiple-file field takes an ordered list of file URLs (decision D182); each one is a file of its own.
+            $several = MultipleChoiceUtil::isMultiple(FieldHtmlTypes::File, $field->allow_multiple_values);
+            $tokens = $several && is_array($value) ? array_values($value) : [$value];
+
+            if (count($tokens) > MultipleChoiceUtil::MAX_FILES) {
+                $language->load('datahandler_myshowcase', false, true);
+
                 $result['errors'][] = $language->sprintf(
-                    $language->myshowcase_import_file_error,
+                    $language->myshowcase_datahandler_file_count_maximum,
                     $this->context->entries_manager->fieldLabel($field),
-                    $this->reasonText($exception->reason)
+                    (string)MultipleChoiceUtil::MAX_FILES
                 );
 
                 continue;
             }
 
-            $result['files'][] = $file + [
-                'field_id' => $field_id,
-                'definition' => $this->context->collection_fields[$field_id],
-            ];
+            foreach ($tokens as $token) {
+                if ($token === null || $token === '') {
+                    continue;
+                }
 
-            $result['counts'][$field_id] = ($result['counts'][$field_id] ?? 0) + 1;
+                try {
+                    $file = $this->takeFile($this->scalarText($token), $field, $temp, $budget);
+                } catch (ExternalFileException $exception) {
+                    $result['errors'][] = $language->sprintf(
+                        $language->myshowcase_import_file_error,
+                        $this->context->entries_manager->fieldLabel($field),
+                        $this->reasonText($exception->reason)
+                    );
+
+                    continue;
+                }
+
+                $result['files'][] = $file + [
+                    'field_id' => $field_id,
+                    'definition' => $this->context->collection_fields[$field_id],
+                ];
+
+                $result['counts'][$field_id] = ($result['counts'][$field_id] ?? 0) + 1;
+            }
         }
 
         return $result;
@@ -460,6 +492,17 @@ class EntriesImporter
         $url = ExternalUrl::parse($text, $access->ownPorts($text));
 
         $types = $access->attachmentTypes();
+
+        // The extensions the field takes (decision D199) narrow the types of the showcase: a file of another type is refused as
+        // a type before anything is written.
+        $field_extensions = array_values(array_filter(array_map('trim', explode(',', strtolower((string)$field->file_types)))));
+
+        if ($field_extensions !== []) {
+            $types = array_values(array_filter(
+                $types,
+                static fn(array $type): bool => in_array(strtolower((string)$type['file_extension']), $field_extensions, true)
+            ));
+        }
 
         $field_bytes = $field->maximum_size > 0 ? $field->maximum_size * 1024 : 0;
 

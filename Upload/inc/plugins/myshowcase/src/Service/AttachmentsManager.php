@@ -263,6 +263,22 @@ class AttachmentsManager
 
         $attachment_extension = my_strtolower(get_extension($attachment_data['name']));
 
+        // A file field may take only some extensions of the showcase's types (decision D199): the others are refused here.
+        $field_extensions = array_values(array_filter(array_map(
+            'trim',
+            explode(',', my_strtolower((string)($field_definition['file_types'] ?? '')))
+        )));
+
+        if ($field_extensions !== [] && !in_array($attachment_extension, $field_extensions, true)) {
+            $this->context->language->load('datahandler_myshowcase', false, true);
+
+            return ['error' => $this->context->language->sprintf(
+                $this->context->language->myshowcase_datahandler_file_type,
+                (string)($attachment_data['name'] ?? ''),
+                implode(', ', $field_extensions)
+            )];
+        }
+
         $attachment_mime = my_strtolower($attachment_data['type']);
 
         $attachment_type_data = false;
