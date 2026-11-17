@@ -139,9 +139,8 @@ $l = array_merge([
     'myshowcase_admin_fields_create_update_form_file_capture' => 'File Capture',
     'myshowcase_admin_fields_create_update_form_file_capture_description' => 'Select a capture method for file fields.',
     'myshowcase_admin_fields_create_update_form_allow_multiple_values' => 'Allow Multiple Values',
-    'myshowcase_admin_fields_create_update_form_allow_multiple_values_description' => 'If is_enabled, users will be able to input multiple values for this field.<br/>
-    For text, this means to separate values using a comma.<br/>
-    For text area, this means to separate values using per line.',
+    'myshowcase_admin_fields_create_update_form_allow_multiple_values_description' => 'A select field with this set takes several options; a checkbox field always does. The database type of such a field must be text. Changing this setting is refused while an entry holds a value for the field.<br/>
+    The values are stored in a separate table; the entry column keeps a copy of their ids.',
     'myshowcase_admin_fields_create_update_form_regular_expression' => 'Regular Expression',
     'myshowcase_admin_fields_create_update_form_regular_expression_description' => 'Enter a regular expression that should be matched to validate the user input. You must make sure the regular expression is valid and safe. Empty for anything.<br/>
     It must be a valid PHP regular expression, to be passed on to the <a href="https://www.php.net/manual/en/function.preg-match.php">`preg_match()` function as the `pattern` argument</a>.<br />

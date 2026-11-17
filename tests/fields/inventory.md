@@ -33,7 +33,7 @@ listed in `fieldTypesGet()`; the JSON validator (`JsonValidator.php`) checks the
 | html_type | create form, `FieldFactory`, validator | verified |
 | field_type | column definition (`Plugin/Functions.php:600-651`), validator (`EntriesManager.php:1139-1166`), `castTableFieldValue` (`Plugin/Functions.php:860`) | verified |
 | file_capture | create form (`:105-106`) | read, not exercised |
-| allow_multiple_values | file and other templates (`:89`, `:108`), `FieldTrait.php:361,374` | read; a checkbox is posted as an array in any case |
+| allow_multiple_values | `MultipleChoiceUtil::isMultiple()` (decision D184): checkbox always, select with the flag set, others never; the form (`pageEntryCreateUpdateField.twig`), `FieldTrait::fieldAcceptsMultipleValues()`, the validator, the sort exclusion (D181), the export and the JSON validator (a multi-valued field must be text, D187) | read; a multi-valued field keeps its values in `myshowcase_field_values` |
 | regular_expression | validator (`EntriesManager.php:1113-1115`), ACP validity (`FieldService.php`) | verified; a blank optional value is refused (defect) |
 | input_pattern | create form `pattern` attribute | verified |
 | display_in_create_update_page, display_in_view_page, display_in_main_page | `FieldTrait.php:74,87,100,379` | read; the default is verified, a hidden field is not |

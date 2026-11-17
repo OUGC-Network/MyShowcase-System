@@ -56,7 +56,7 @@ The file sets only these keys; every other setting keeps its value on the board.
 | `category` | select / int | Kind of file: Tools, Themes, Plugins, Templates, Documents, Other | Required; one of the six options | yes | yes | none |
 | `version` | text / varchar(20) | Version number | Required; `1.4.2`, `2.0.0-beta` (digits and dots, optionally followed by `-` or `.` and letters or digits) | yes | yes | none |
 | `release_date` | date / varchar(10) | Date of this version | Required; `YYYY-MM-DD` | yes | yes | none |
-| `platform` | select / int | System the file is for: Any, Windows, macOS, Linux, Web | Required; one of the five options | yes | yes | none |
+| `platform` | checkbox / text | System or systems the file is for: Any, Windows, macOS, Linux, Web | Required; one or several of the five options; the values are kept as a list of value ids (decision D182) | yes | yes | none |
 | `license` | select / int | License: Freeware, MIT, GPL-2.0-or-later, GPL-3.0, Proprietary, Other | Required; one of the six options | yes | yes | none |
 | `requirements` | text / varchar(200) | Minimum requirements, for example PHP 8.2 and MyBB 1.9 | Optional; at most 200 characters | no | yes | empty |
 | `sha256` | text / varchar(64) | SHA-256 checksum of the file, so a visitor can check it | Required; exactly 64 hexadecimal characters | no | yes | none |
@@ -70,7 +70,9 @@ that is not 64 hexadecimal characters. `release_date` is stored as text in the `
 compares as text.
 
 The options of `category` and `platform` and `license` have stable value ids (1 to 6, 1 to 5, 1 to 6). A file that
-adds an option keeps the ids of the existing ones.
+adds an option keeps the ids of the existing ones. `platform` is a multiple-choice field (decisions D184 and D187): a file
+lists its value ids in order, `<value>1</value>` for one system and an ordered list for several, and a checkbox is never
+sorted or refused for holding several values.
 
 ## Attachment types and limits
 
@@ -103,8 +105,6 @@ cannot turn them on.
 
 ## What the files cannot express yet
 
-* A multiple-choice `platform` (several systems for one file): multiple choice fields are not implemented, so `platform`
-  is a single choice.
 * Download rights, download limits, a download log, and the moderation of new entries are permissions and settings
   that the JSON format does not cover. Setting them by hand is the current way.
 * The allowed attachment types are a MyBB setting; they are not in the JSON format.

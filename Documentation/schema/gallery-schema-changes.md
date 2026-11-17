@@ -248,32 +248,34 @@ permitted groups create new options that are moderated before others see them.
 | `showcase_id` | INT UNSIGNED | NOT NULL | — | Showcase of the entry. |
 | `entry_id` | INT UNSIGNED | NOT NULL | — | Entry (row of `myshowcase_data{showcase_id}`). |
 | `field_id` | INT UNSIGNED | NOT NULL | — | Field. |
-| `field_data_id` | INT UNSIGNED | NOT NULL | — | Chosen option. |
+| `value_id` | VARCHAR(120) | NOT NULL | `''` | Value of the chosen option (decision D185: the stable token of the option, not its board-local `field_data_id`). |
 
 | Key | Columns | Kind |
 |---|---|---|
 | primary | `field_value_id` | PRIMARY KEY |
-| (new) | `(showcase_id, entry_id, field_id, field_data_id)` | UNIQUE |
-| (new) | `(field_id, field_data_id, showcase_id)` | INDEX |
+| (new) | `(showcase_id, entry_id, field_id, value_id)` | UNIQUE |
+| (new) | `(field_id, value_id, showcase_id)` | INDEX |
 
-This table is the source of truth for multi-value fields. The entry column of the field keeps a comma-separated
-copy of the `field_data_id` values for display and search only, written in the same transaction.
+This table is the source of truth for multi-value fields. The entry column of the field keeps a cache: the value ids
+of the entry joined by `,` in option order, written in the same transaction (decision D61). The cache is never read for
+permissions, validation, filtering, export or display: those read the child rows. A value id never contains `,`, because
+a value id is a whole number (the ACP and the JSON file set it so).
 
 The unique key starts with `showcase_id` because `entry_id` is only unique within one showcase, and a collection's
 fields can serve several showcases: without it, two showcases that share a collection could produce the same
 `(entry_id, field_id, field_data_id)` for different entries. The index serves filtering and counting entries by
 option within a showcase.
 
-Engine mapping: all five columns are `INT UNSIGNED` / `integer` / `INTEGER`; `field_value_id` is `serial` on
-PostgreSQL and `INTEGER PRIMARY KEY` on SQLite.
+Engine mapping: `showcase_id`, `entry_id` and `field_id` are `INT UNSIGNED` / `integer` / `INTEGER`; `value_id` is
+`VARCHAR(120)` on all engines; `field_value_id` is `serial` on PostgreSQL and `INTEGER PRIMARY KEY` on SQLite.
 
 ### `myshowcase_fields` — multiple values reuse `allow_multiple_values`
 
 Multi-select uses the existing column `allow_multiple_values TINYINT UNSIGNED NOT NULL DEFAULT 0`; no new flag is
-added. It is editable in the ACP field form and is already a JSON field key. Today select and checkbox fields
-ignore it: it is only honoured as the HTML `multiple` attribute of email and file inputs,
-`FieldTrait::fieldAcceptsMultipleValues()` returns `false` before reading it, and the entry form rejects several
-values for select and checkbox fields. Track T2 must honour it for select and checkbox fields.
+added (decision D184). It is editable in the ACP field form and is already a JSON field key. A checkbox field is always
+multi-valued; a select field is multi-valued when the flag is 1; radio and the other types are single-valued and ignore
+the flag (D131). A multi-valued field must have the database type `text` (decision D187): the field form and the JSON
+validator refuse any other type, and changing the flag of a select is refused while an entry holds a value (D180).
 
 ### `myshowcase_fields` — new columns
 
@@ -300,8 +302,7 @@ new work of track T2b.
 ### Migration and backfill
 
 * Existing option rows get `status = 1` and `user_id = 0` (column defaults).
-* Fields switched to multiple values: copy each entry's current single `field_data_id` into `myshowcase_field_values`
-  (skip empty and `0`), and keep the entry column as the comma-separated copy.
+* No migration (decision D129 A): a board with checkbox or multiple-choice columns of the old type is recreated.
 * Existing fields keep `allow_multiple_values` as it is, so nothing changes until an administrator enables it on a
   select or checkbox field.
 

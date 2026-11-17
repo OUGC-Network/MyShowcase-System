@@ -62,7 +62,8 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `b` create form: the input, its label and options, the required marker, `min`, `max`, `pattern`, `readonly`, the
   pre-filled default (as defined or generated), and the visibility for a user outside the restricted group. The emoji case of stage `c` (decision D103) accepts a stored value or a refusal that names the field: a MySQL connection that is not utf8mb4 refuses a four-byte character with the field's label.
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
-  option ids that do not belong to the field, several checked boxes, markup, multibyte text, emoji, overlong values.
+  option ids that do not belong to the field, several checked boxes (accepted as a list, decision D184), markup, multibyte text,
+  emoji, overlong values.
 * `d` storage: the value that the database holds after the create.
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
   The IP address of an entry (`ipaddress`): an entry created from the IPv6 loopback (a second PHP server on `[::1]`, when the machine has
