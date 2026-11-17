@@ -341,7 +341,7 @@ foreach ($blogFields as $key => $field) {
 }
 
 check($blogOpen, 'blog: every field is allowed for all groups to fill and view');
-check(preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'javascript:alert(1)') !== 1 && preg_match($blogFields['cover_image']['regular_expression'] ?? '', 'https://example.com/a.png') === 1, 'blog: the cover image accepts an http(s) address and refuses a javascript address');
+check(($blogFields['cover_image']['html_type'] ?? '') === 'file' && ($blogFields['cover_image']['file_types'] ?? '') === 'png,jpg,jpeg,gif' && ($blogFields['cover_image']['allow_multiple_values'] ?? 0) == 0, 'blog: the cover image is one image file (D62)');
 check(preg_match($blogFields['reading_time']['regular_expression'] ?? '', '0') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '1000') !== 1 && preg_match($blogFields['reading_time']['regular_expression'] ?? '', '999') === 1, 'blog: reading time is 1 to 999');
 
 // The bounds of a field (decision D124): the types that have them, their formats, a range with both, the order.
