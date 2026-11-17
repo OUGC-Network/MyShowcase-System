@@ -1530,6 +1530,30 @@ def stage_closure(acp, member, cells, ctx, fixture, users):
           f'a value id with a comma is refused in the ACP: the option keeps {value_before!r}, now {value_after!r}')
 
 
+def stage_field_delete(acp, member, cells, ctx, fixture):
+    """Decision D195, closure 4: a multiple-choice field deleted through the ACP removes its child rows (and its entries' values
+    with its column). The field is detached from its JSON file first, as the ACP requires for a delete (stage h, C)."""
+    cid = cid_of_fieldkit()
+    fid = FIELD_IDS['fk_checkbox_multiple']
+    live_select = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
+                        f"and value<>'Alpha' order by display_order, field_data_id limit 1")[0][0]
+    o = option_ids
+    created = create(member, {'fk_select': live_select, 'fk_checkbox_multiple': [o['fk_checkbox_multiple'][0], o['fk_checkbox_multiple'][1]]},
+                     'FD1', UP)
+    rows_before = query(f"select count(*) from mybb_myshowcase_field_values where field_id={fid} and showcase_id={SHOWCASE_ID}")[0][0]
+    ctx.execute(f"update mybb_myshowcase_fields set json_file='' where field_id={fid}")
+    fixture('rebuild')
+    url = f'/admin/index.php?module=myshowcase-fields&action=delete_field&field_id={fid}&collection_id={cid}'
+    acp.get(url)
+    answer = acp.post(url, {'yes': '1'})
+    rows_after = query(f"select count(*) from mybb_myshowcase_field_values where field_id={fid}")[0][0]
+    field_left = query(f"select count(*) from mybb_myshowcase_fields where field_id={fid}")[0][0]
+    check(cells, 'values:closure-field-delete', 'v',
+          'pass' if (created['status'] in (200, 302) and rows_before != '0' and rows_after == '0' and field_left == '0') else 'fail',
+          f'the field held {rows_before} child rows; after its ACP delete: {rows_after} rows, field rows left {field_left}; '
+          f'the delete answers {answer["status"]}: {html_text(answer["body"])[:200]!r}')
+
+
 def stage_y(cells, member):
     """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
     The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""
@@ -2223,6 +2247,7 @@ def main():
         stage_k_sync_table(acp, cells, ctx, 'summary_sync')
         stage_k_word_create(cells, ctx, fixture)
         stage_ip_ipv6(cells, ctx, fixture, users)
+        stage_field_delete(acp, member, cells, ctx, fixture)
     finally:
         ctx.stop()
         if a.engine == 'mysql':
