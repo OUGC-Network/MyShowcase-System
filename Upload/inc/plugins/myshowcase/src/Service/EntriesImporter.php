@@ -282,6 +282,9 @@ class EntriesImporter
         try {
             $transaction->begin();
 
+            // The import's transaction covers the rows and the cache of the multiple-choice fields too (decision D188).
+            $this->context->entries_repository->setCallerTransaction(true);
+
             foreach ($validated as $item) {
                 $manager->pending_file_counts = $item['counts'];
 
@@ -330,7 +333,9 @@ class EntriesImporter
             $this->logImport($file_name, count($validated), $data, $external);
 
             $transaction->commit();
+            $this->context->entries_repository->setCallerTransaction(false);
         } catch (Throwable $exception) {
+            $this->context->entries_repository->setCallerTransaction(false);
             $transaction->rollback();
 
             self::logWriteFailure($exception);

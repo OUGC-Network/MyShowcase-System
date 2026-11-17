@@ -13,7 +13,9 @@ use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldDefaultTypes;
 use MyShowcase\Enum\FilterTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
+use MyShowcase\Repository\FieldValuesRepository;
 use MyShowcase\Util\FieldBoundUtil;
+use MyShowcase\Util\MultipleChoiceUtil;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Event\Event\EntryDeletedEvent;
 use MyShowcase\Fields\FieldFactory;
@@ -894,6 +896,91 @@ class EntriesManager
     }
 
     /**
+     * A multiple-choice field: the selected options, each one an option of THIS field that the user's group may fill (decisions
+     * D122 and D50). On an update an option that is already stored is accepted even when the group may no longer fill it.
+     * Duplicates collapse; the list is kept in the option order of the field (display order, then id). A blank is no value,
+     * and a required field refuses it. The list goes to multiple_values, its cache to extra_data (decision D61).
+     */
+    private function validateMultipleValues(\MyShowcase\Entity\CustomFieldEntity $field, int $field_id, string $field_label): void
+    {
+        $key = $field->field_key;
+        $posted = $this->validation_entry->extra_data[$key];
+
+        $tokens = [];
+
+        foreach (is_array($posted) ? $posted : [$posted] as $token) {
+            if (is_scalar($token) && trim((string)$token) !== '') {
+                $tokens[] = trim((string)$token);
+            }
+        }
+
+        if ($tokens === [] && $this->validation_method === self::VALIDATION_METHOD_INSERT) {
+            $default = FieldDefaultUtil::valueFor($field);
+
+            if ($default !== null && (string)$default !== '') {
+                $tokens = [(string)$default];
+            }
+        }
+
+        if ($tokens === []) {
+            if ($field->is_required) {
+                $this->validateSetError('required_field', [$field_label]);
+            }
+
+            $this->validation_entry->multiple_values[$key] = [];
+            $this->validation_entry->extra_data[$key] = '';
+
+            return;
+        }
+
+        $options = fieldDataGet(["field_id='{$field_id}'"], ['value_id', 'allowed_groups_fill', 'display_order']);
+
+        $stored = [];
+
+        if ($this->validation_method === self::VALIDATION_METHOD_UPDATE && !empty($this->validation_entry->entry_id)) {
+            $stored = (new FieldValuesRepository($this->context->database))->valuesOf(
+                (int)$this->context->showcase->showcase_id,
+                (int)$this->validation_entry->entry_id,
+                $field_id
+            );
+        }
+
+        $chosen = [];
+
+        foreach ($tokens as $token) {
+            if (preg_match('/^\d+$/', $token) !== 1 || !isset($options[(int)$token])) {
+                $this->validateSetError('invalid_value', [$field_label]);
+
+                return;
+            }
+
+            $option = $options[(int)$token];
+
+            if (!in_array((string)$option['value_id'], $stored, true) &&
+                !optionGroupsAllow((string)$option['allowed_groups_fill'])) {
+                $this->validateSetError('invalid_value', [$field_label]);
+
+                return;
+            }
+
+            $chosen[(int)$token] = $option;
+        }
+
+        $ordered = [];
+
+        foreach ($chosen as $option_id => $option) {
+            $ordered[] = [(int)$option['display_order'], $option_id, (string)$option['value_id']];
+        }
+
+        usort($ordered, static fn(array $a, array $b): int => [$a[0], $a[1]] <=> [$b[0], $b[1]]);
+
+        $value_ids = array_column($ordered, 2);
+
+        $this->validation_entry->multiple_values[$key] = $value_ids;
+        $this->validation_entry->extra_data[$key] = FieldValuesRepository::cacheOf($value_ids);
+    }
+
+    /**
      * Whether a submitted option id belongs to the field and is an option the current user's group may fill.
      */
     private function optionUsableForField(int $field_id, mixed $option_value): bool
@@ -1239,6 +1326,13 @@ class EntriesManager
             }
 
             $field_label = $this->fieldLabel($field);
+
+            // A multiple-choice field takes a list of options (decisions D184, D122): its own rule, and the list is its value.
+            if (MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                $this->validateMultipleValues($field, (int)$field_id, $field_label);
+
+                continue;
+            }
 
             $field_value = $this->validation_entry->extra_data[$field_key];
 

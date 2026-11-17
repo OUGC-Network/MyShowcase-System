@@ -186,6 +186,9 @@ def cases():
 # the option ids of each select, radio and checkbox field, in the order of the form (set in main)
 option_ids = {}
 
+# the value_id of each option id of each field (set in main)
+option_value_ids = {}
+
 # the id of the restricted option added to the select for the run (set in main): a group outside it must be refused
 RESTRICTED_OPTION = {}
 
@@ -362,7 +365,9 @@ def record_case(key, name, expectation, extra, value, accepted, row, extra_error
     elif expectation == 'nonempty':
         ok = accepted and stored not in (None, '')
     elif expectation == 'multi':
-        ok = (not accepted) or stored == ','.join(value)
+        # decision D184: several checked boxes are accepted; the cache holds their value ids, in option order (D185)
+        expected = ','.join(option_value_ids[key][str(item)] for item in value)
+        ok = accepted and stored == expected
     elif expectation == 'named_or_stored':
         # decision D103: the value is stored as sent, or the entry is refused with a real message that names the field
         named = (not accepted) and 'unknown error' not in (extra_error or '').lower() and FIELDS[key]['label'] in htmllib.unescape(extra_error or '')
@@ -1941,6 +1946,9 @@ def main():
             else:
                 continue
             option_ids[key] = ids
+            # the value_id of each option (decision D185): the child rows and the cache hold these, not the option ids
+            option_value_ids[key] = {fid: vid for fid, vid in query(
+                f"select field_data_id, value_id from mybb_myshowcase_field_data where field_data_id in ({','.join(ids)})")} if ids else {}
             if f['html_type'] in ('select', 'radio', 'checkbox') and len(ids) < 2:
                 raise RuntimeError(f'options of {key} not found in the form')
 

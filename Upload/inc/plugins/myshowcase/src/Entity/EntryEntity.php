@@ -15,6 +15,14 @@ final class EntryEntity
     private Collection $fields;
     private Collection $custom_fields;
     public array $extra_data = [];
+
+    /**
+     * The value ids of each multiple-choice field, by field key, in the option order of the field (decisions D61, D122). A
+     * field with no value has an empty list. Written with the entry, in the same transaction (decision D188).
+     *
+     * @var array<string, string[]>
+     */
+    public array $multiple_values = [];
     public ?string $rendered_entry;
 
     public function __construct(

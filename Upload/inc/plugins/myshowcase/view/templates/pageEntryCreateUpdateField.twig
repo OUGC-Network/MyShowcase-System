@@ -623,10 +623,11 @@
                         {% if field_data.maximum_length %}maxlength="{{ field_data.maximum_length }}"{% endif %}
                 >{{ field_data.getValue() }}</textarea>
                 {% elseif field_data.html_type == 'select' %}
-                <select name="{{ field_data.field_key }}"
+                <select name="{{ field_data.field_key }}{% if field_data.fieldAcceptsMultipleValues() %}[]{% endif %}"
                         tabindex="{{ loop.index + 10 }}"
                         id="{{ field_data.field_key }}"
                         form="contentForm"
+                        {% if field_data.fieldAcceptsMultipleValues() %}multiple="multiple"{% endif %}
                         {% if field_data.is_required %}required="required"{% endif %}
                         {% if field_data.input_size %}size="{{ field_data.input_size }}"{% endif %}
                 >

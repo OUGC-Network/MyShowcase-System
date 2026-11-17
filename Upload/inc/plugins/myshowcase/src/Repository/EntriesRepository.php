@@ -11,7 +11,10 @@ use MyBB;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
+use MyShowcase\Repository\FieldValuesRepository;
 use MyShowcase\Util\FieldDefaultUtil;
+use MyShowcase\Util\MultipleChoiceUtil;
+use Throwable;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Enum\SortDirections;
 use MyShowcase\Entity\ShowcaseEntity;
@@ -21,6 +24,7 @@ use Random\RandomException;
 
 use function MyShowcase\Plugin\Functions\fieldTypeMatchBinary;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchChar;
+use function MyShowcase\Plugin\Functions\fieldsGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchDateTime;
 use function MyShowcase\Plugin\Functions\isNullDateTypeValue;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
@@ -83,9 +87,100 @@ class EntriesRepository
             error($e->getMessage());
         }
 
+        $rows = [];
+
         while ($entry = $this->database->fetch_array($query)) {
+            $rows[] = $entry;
+        }
+
+        // The values of a multiple-choice field come from its child rows, not from the cache of the entry column (decision
+        // D185): the option ids of the entry, in option order, so that the display reads them like a single value.
+        $wanted = [];
+
+        foreach ($this->multipleFieldIds() as $key => $field_id) {
+            if (preg_match('/\b' . preg_quote($key, '/') . '\b/', (string)$query_fields) === 1) {
+                $wanted[$key] = $field_id;
+            }
+        }
+
+        if ($wanted !== [] && $rows !== []) {
+            $rows = $this->withMultipleValues($rows, $wanted);
+        }
+
+        foreach ($rows as $entry) {
             yield $entry;
         }
+    }
+
+    /**
+     * The multiple-choice fields of the showcase's collection: field key => field id (decision D184).
+     *
+     * @return array<string, int>
+     */
+    private function multipleFieldIds(): array
+    {
+        if ($this->multiple_field_ids === null) {
+            $this->multiple_field_ids = [];
+
+            foreach (fieldsGet(
+                ["collection_id='" . (int)$this->showcase->collection_id . "'"],
+                ['field_key', 'html_type', 'allow_multiple_values']
+            ) as $field_id => $field) {
+                if (MultipleChoiceUtil::isMultiple((string)$field['html_type'], $field['allow_multiple_values'])) {
+                    $this->multiple_field_ids[(string)$field['field_key']] = (int)$field_id;
+                }
+            }
+        }
+
+        return $this->multiple_field_ids;
+    }
+
+    /**
+     * Replaces the cache of each multiple-choice field in the rows by the option ids of the entry's child rows, in option
+     * order and joined by the cache delimiter. A field with no value is ''.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, int> $wanted field key => field id
+     * @return array<int, array<string, mixed>>
+     */
+    private function withMultipleValues(array $rows, array $wanted): array
+    {
+        $entry_ids = [];
+
+        foreach ($rows as $row) {
+            if (isset($row['entry_id'])) {
+                $entry_ids[] = (int)$row['entry_id'];
+            }
+        }
+
+        $ids_by_entry = [];
+
+        if ($entry_ids !== []) {
+            $query = $this->database->query(
+                "SELECT v.entry_id, v.field_id, d.field_data_id FROM {$this->database->table_prefix}myshowcase_field_values v " .
+                "INNER JOIN {$this->database->table_prefix}myshowcase_field_data d ON d.field_id=v.field_id AND d.value_id=v.value_id " .
+                "WHERE v.showcase_id='" . (int)$this->showcase->showcase_id . "' AND v.entry_id IN (" . implode(',', array_unique($entry_ids)) . ") " .
+                "AND v.field_id IN (" . implode(',', array_values($wanted)) . ") " .
+                'ORDER BY v.entry_id, v.field_id, d.display_order, d.field_data_id'
+            );
+
+            while ($row = $this->database->fetch_array($query)) {
+                $ids_by_entry[(int)$row['entry_id']][(int)$row['field_id']][] = (string)$row['field_data_id'];
+            }
+        }
+
+        foreach ($rows as $index => $row) {
+            foreach ($wanted as $key => $field_id) {
+                if (!array_key_exists($key, $row)) {
+                    continue;
+                }
+
+                $ids = $ids_by_entry[(int)($row['entry_id'] ?? 0)][$field_id] ?? [];
+                $rows[$index][$key] = implode(FieldValuesRepository::CACHE_DELIMITER, $ids);
+            }
+        }
+
+        return $rows;
     }
 
     public function queryEntry(
@@ -155,7 +250,60 @@ class EntriesRepository
     /**
      * @throws RandomException
      */
+    /**
+     * Set while the caller already holds a transaction (the importer, decision D188): the repository then writes no
+     * transaction of its own.
+     */
+    private bool $caller_transaction = false;
+
+    /** @var array<string, int>|null the multiple-choice fields of the collection, see multipleFieldIds() */
+    private ?array $multiple_field_ids = null;
+
+    public function setCallerTransaction(bool $on): void
+    {
+        $this->caller_transaction = $on;
+    }
+
+    /**
+     * Writes the entry, then the rows and the cache of its multiple-choice fields (decisions D61 and D188). When the
+     * entry has such fields and no caller holds a transaction, the whole write is one transaction here: a failed write
+     * leaves neither the entry nor a row nor a cache.
+     */
     public function insertEntry(EntryEntity $entry, array $custom_fields = [], bool $is_update = false): int
+    {
+        $own_transaction = !$this->caller_transaction && $entry->multiple_values !== [];
+        $values = new FieldValuesRepository($this->database);
+
+        if ($own_transaction) {
+            $values->begin();
+        }
+
+        try {
+            $entry_id = $this->writeEntry($entry, $custom_fields, $is_update);
+
+            foreach ($entry->multiple_values as $field_key => $value_ids) {
+                foreach ($custom_fields as $field_id => $field_definition) {
+                    if ($field_definition['field_key'] === $field_key) {
+                        $values->replace((int)$this->showcase->showcase_id, $entry_id, (int)$field_id, $value_ids);
+                    }
+                }
+            }
+
+            if ($own_transaction) {
+                $values->commit();
+            }
+        } catch (Throwable $exception) {
+            if ($own_transaction) {
+                $values->rollback();
+            }
+
+            throw $exception;
+        }
+
+        return $entry_id;
+    }
+
+    private function writeEntry(EntryEntity $entry, array $custom_fields, bool $is_update): int
     {
         $this->entry = $entry;
         $this->entry_id = $entry->entry_id;
@@ -352,6 +500,9 @@ class EntriesRepository
 
     private function buildQueryFieldsAndTables(Collection $collection_fields): array
     {
+        // A multiple-choice field has no option join: its values are read from the child rows (withMultipleValues()).
+        $multiple = $this->multipleFieldIds();
+
         $query_fields = array_map(
             fn(string $name): string => str_starts_with($name, 'entry_data.') ? $name : 'entry_data.' . $name,
             array_keys(DATA_TABLE_STRUCTURE['myshowcase_data'])
@@ -361,8 +512,8 @@ class EntriesRepository
 
         /** @var CustomFieldEntity $field */
         foreach ($collection_fields as $field) {
-            if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select]
-            )) {
+            if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select], true) &&
+                !isset($multiple[$field->field_key])) {
                 $alias = "table_{$field->field_key}";
                 $query_tables[] = "myshowcase_field_data {$alias} ON ({$alias}.field_data_id = entry_data.{$field->field_key} AND {$alias}.field_id = '{$field->field_id}')";
             }
