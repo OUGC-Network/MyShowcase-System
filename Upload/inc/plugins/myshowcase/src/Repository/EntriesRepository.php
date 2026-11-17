@@ -264,6 +264,11 @@ class EntriesRepository
         $this->caller_transaction = $on;
     }
 
+    public function callerTransaction(): bool
+    {
+        return $this->caller_transaction;
+    }
+
     /**
      * Writes the entry, then the rows and the cache of its multiple-choice fields (decisions D61 and D188). When the
      * entry has such fields and no caller holds a transaction, the whole write is one transaction here: a failed write

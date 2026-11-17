@@ -8,6 +8,7 @@ use captcha;
 use DateTime;
 use Exception;
 use MyShowcase\Collection\Collection;
+use Throwable;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\FieldDefaultTypes;
@@ -120,6 +121,7 @@ class EntriesManager
      */
     public array $pending_file_counts = [];
     private ?array $stored_entry_row = null;
+    private bool $form_transaction_open = false;
 
     /** @var array<string, ?string> The stored value of each option field of the entry being updated, by field key. */
     private array $stored_option_values = [];
@@ -1583,6 +1585,52 @@ class EntriesManager
         if ($this->validation_errors) {
             die('The entry is not valid.');
         }
+
+        // An entry with several values is written as one unit: the entry, its rows and its cache, and the end hook that
+        // follows them (decision D188). A failure there, or a request that ends before COMMIT, leaves none of them.
+        $repository = $this->context->entries_repository;
+        $own_transaction = $this->validation_entry->multiple_values !== [] && !$repository->callerTransaction();
+
+        if (!$own_transaction) {
+            return $this->writeValidatedEntry();
+        }
+
+        $values = new FieldValuesRepository($this->context->database);
+        $values->begin();
+        $this->form_transaction_open = true;
+        register_shutdown_function([$this, 'rollbackOpenFormTransaction']);
+        $repository->setCallerTransaction(true);
+
+        try {
+            $entry = $this->writeValidatedEntry();
+
+            $values->commit();
+            $this->form_transaction_open = false;
+
+            return $entry;
+        } catch (Throwable $exception) {
+            $this->rollbackOpenFormTransaction();
+
+            throw $exception;
+        } finally {
+            $repository->setCallerTransaction(false);
+        }
+    }
+
+    /** Rolls back the transaction of a form write that is still open (the end of the request, or an exception). */
+    public function rollbackOpenFormTransaction(): void
+    {
+        if (!$this->form_transaction_open) {
+            return;
+        }
+
+        $this->form_transaction_open = false;
+
+        (new FieldValuesRepository($this->context->database))->rollback();
+    }
+
+    private function writeValidatedEntry(): EntryEntity
+    {
 
         hooksRun('entry_validate_insert_update_start', $this);
 
