@@ -1,6 +1,6 @@
 {
     "type": "collection",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "name": "Downloads",
     "fields": [
         {
@@ -79,10 +79,9 @@
         {
             "field_key": "platform",
             "label": "Platform",
-            "description": "The system the file is for.",
-            "html_type": "select",
-            "field_type": "int",
-            "maximum_length": 10,
+            "description": "The system or systems the file is for: one or several.",
+            "html_type": "checkbox",
+            "field_type": "text",
             "is_enabled": 1,
             "is_required": 1,
             "display_order": 5,
