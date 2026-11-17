@@ -801,7 +801,8 @@
                     "value": "Charlie",
                     "display_order": 3
                 }
-            ]
+            ],
+            "enable_search": 1
         },
         {
             "field_key": "fk_select_multiple_req",
@@ -869,7 +870,8 @@
                     "value": "Charlie",
                     "display_order": 3
                 }
-            ]
+            ],
+            "enable_search": 1
         }
     ]
 }

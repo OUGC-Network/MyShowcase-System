@@ -351,6 +351,20 @@ switch ($switch) {
             'other_field_kept' => $otherAfterField === ['2'],
         ]);
         break;
+    case 'multi-sort':
+        // decision D181: a multiple-choice field is not a sort order; a single-choice field is. The repository's sort column
+        // is read through reflection, with the three properties it reads.
+        $repository = new \MyShowcase\Repository\EntriesRepository($db, $mybb);
+        $sort = new \ReflectionMethod(\MyShowcase\Repository\EntriesRepository::class, 'sortColumn');
+        $sort->setAccessible(true);
+        $field = static fn(string $key, string $html, int $allow): object => (object)['field_key' => $key, 'html_type' => $html, 'allow_multiple_values' => $allow];
+        $collection = new \MyShowcase\Collection\Collection([$field('fk_select_multiple', 'select', 1), $field('fk_checkbox', 'checkbox', 1), $field('fk_select', 'select', 0)]);
+        $out([
+            'multiple_select' => $sort->invoke($repository, 'fk_select_multiple', $collection),
+            'checkbox' => $sort->invoke($repository, 'fk_checkbox', $collection),
+            'single_select' => $sort->invoke($repository, 'fk_select', $collection),
+        ]);
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);

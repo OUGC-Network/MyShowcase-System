@@ -56,5 +56,12 @@ $check(MultipleChoiceUtil::columnTypeFits('select', 1, 'text') === true, 'select
 $check(MultipleChoiceUtil::columnTypeFits('select', 0, 'int') === true, 'a single select keeps its int column');
 $check(MultipleChoiceUtil::columnTypeFits('radio', 1, 'int') === true, 'a radio keeps its int column whatever the flag');
 
+// D61 and the cache rule: the cache is the value ids joined by ',' in order; a value id never holds the delimiter.
+$check(MyShowcase\Repository\FieldValuesRepository::cacheOf(['1', '3']) === '1,3', 'the cache joins the value ids with the delimiter');
+$check(MyShowcase\Repository\FieldValuesRepository::cacheOf([]) === '', 'an empty list has an empty cache');
+$check(MyShowcase\Repository\FieldValuesRepository::valuesOfCache('1,3') === ['1', '3'], 'the cache is read back in its order');
+$check(MyShowcase\Repository\FieldValuesRepository::valuesOfCache('') === [], 'an empty cache is no value');
+$check(MyShowcase\Repository\FieldValuesRepository::valuesOfCache(MyShowcase\Repository\FieldValuesRepository::cacheOf(['12', '7', '40'])) === ['12', '7', '40'], 'a round trip keeps the order of the list');
+
 echo "{$passes} passed, {$failures} failed\n";
 exit($failures ? 1 : 0);

@@ -1362,7 +1362,7 @@ def cache_matches_rows(cache, rows):
     return cache == ','.join(rows)
 
 
-def stage_multi(cells, proof):
+def stage_multi(cells, proof, fixture_sort):
     """Stage v (decisions D61, D185, D193): the cache of every multiple-choice field of every entry equals its child rows; the
     detector refuses a doctored cache (negative control); the option and field deletes and a rolled-back write leave the rows
     the decisions say."""
@@ -1386,6 +1386,10 @@ def stage_multi(cells, proof):
     control = cache_matches_rows('1,2,3', ['1', '2'])
     check(cells, 'values:negative-control', 'v', 'pass' if control is False else 'fail',
           'a stale cache (3 in the cache, not in the rows) is detected: ' + str(control is False))
+
+    sort = fixture_sort
+    check(cells, 'values:not-sortable', 'v', 'pass' if sort == {'multiple_select': 'dateline', 'checkbox': 'dateline', 'single_select': 'fk_select'} else 'fail',
+          f'decision D181: a multiple-choice field is not a sort order: {sort}')
 
     expected = {'option_rows': ['1'], 'rolled_back_kept': True, 'field_rows_after_delete': [], 'other_field_kept': True}
     check(cells, 'values:option-field-delete', 'v', 'pass' if proof == expected else 'fail',
@@ -1716,6 +1720,18 @@ def row_image(body, subject, other):
         return False
     k = body.rfind('class="thread__image"', 0, i)
     return k >= 0 and (j < 0 or j > i or k > j)
+
+
+def stage_search(member, cells):
+    """Decision D185: the keyword search finds an entry by the label of one of its several values, through the child rows. The
+    entry that holds the value is listed; a blank entry of the same showcase is not."""
+    holder = create(member, {'fk_checkbox_multiple': [option_ids['fk_checkbox_multiple'][2]]}, 'SRCH1',
+                    {'fk_file_req': True, 'fk_file': False})
+    blank = create(member, {}, 'SRCH2', {'fk_file_req': True, 'fk_file': False})
+    body = member.get(f'/showcase.php/{ROUTE}/?keywords=Charlie')['body']
+    listed = [('SRCH1' in body), ('SRCH2' in body)]
+    check(cells, 'place:search-multi', 'f', 'pass' if listed == [True, False] and holder['status'] in (200, 302) and blank['status'] in (200, 302) else 'fail',
+          f'the search for "Charlie" lists the entry holding it: {listed[0]}; not the blank entry: {not listed[1]}')
 
 
 def stage_f_list(member, cells, users, ctx):
@@ -2054,6 +2070,7 @@ def main():
         ctx.execute(f"update mybb_myshowcase_config set entries_enable_message=0 where route_identifier='{ROUTE}'")
         fixture('rebuild')
         stage_f_list(member, cells, users, ctx)
+        stage_search(member, cells)
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_a_acp(acp, cells, ctx, fixture)
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
@@ -2062,7 +2079,7 @@ def main():
         stage_y(cells, member)
         stage_v(cells, fixture('field-values'))
         stage_rules(cells, fixture('field-rules'))
-        stage_multi(cells, fixture('multi-values'))
+        stage_multi(cells, fixture('multi-values'), fixture('multi-sort'))
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_reserved_types(acp, cells, ctx)
         stage_k_words(acp, member, cells, ctx, fixture, users)

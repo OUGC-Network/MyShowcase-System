@@ -113,8 +113,10 @@ class EntriesExporter
         }
 
         foreach ($this->exportableFields() as $field) {
-            // A file field is not a column of the entries table: it cannot be a sort order.
-            if ($field->html_type === FieldHtmlTypes::File) {
+            // A file field is not a column of the entries table: it cannot be a sort order. A multiple-choice field is not
+            // sortable either (decision D181).
+            if ($field->html_type === FieldHtmlTypes::File ||
+                MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
                 continue;
             }
 

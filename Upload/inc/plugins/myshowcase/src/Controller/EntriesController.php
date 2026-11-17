@@ -22,6 +22,7 @@ use MyBB;
 use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
+use MyShowcase\Util\MultipleChoiceUtil;
 use MyShowcase\Enum\{AttachmentsDisplayType,
     ContentStatuses,
     ContentTypes,
@@ -2094,7 +2095,15 @@ class EntriesController extends BaseController
                         continue;
                     }
 
-                    if (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select], true)) {
+                    if (MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                        // A multiple-choice field: its option labels, from the child rows of the entry (decision D185).
+                        $prefix = $this->context->database->table_prefix;
+                        $search_where_clauses[] = "EXISTS (SELECT 1 FROM {$prefix}myshowcase_field_values mv INNER JOIN " .
+                            "{$prefix}myshowcase_field_data md ON (md.field_id=mv.field_id AND md.value_id=mv.value_id) " .
+                            "WHERE mv.showcase_id='" . (int)$this->context->showcase->showcase_id . "' AND mv.entry_id={$alias}.entry_id " .
+                            "AND mv.field_id='" . (int)$field->field_id . "' AND (" . $match('md.value', $keyword) . ' OR ' .
+                            $match('md.display_style', $keyword) . '))';
+                    } elseif (in_array($field->html_type, [FieldHtmlTypes::CheckBox, FieldHtmlTypes::Radio, FieldHtmlTypes::Select], true)) {
                         // The option label, from the option table fetchEntries() joins.
                         $search_where_clauses[] = '(' . $match("table_{$field->field_key}.value", $keyword) . ' OR ' .
                             $match("table_{$field->field_key}.display_style", $keyword) . ')';

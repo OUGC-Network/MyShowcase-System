@@ -544,6 +544,11 @@ class EntriesRepository
 
         /** @var CustomFieldEntity $field */
         foreach ($collection_fields as $field) {
+            // A multiple-choice field is not sortable (decision D181): its column holds a cache, not one value.
+            if (MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                continue;
+            }
+
             $columns[$field->field_key] ??= $field->field_key;
         }
 
