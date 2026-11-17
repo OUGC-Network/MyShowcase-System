@@ -858,6 +858,7 @@ def stage_j(acp, cells):
         open(file_path, 'w').write(exported['body'])
     applied = acp.post('/admin/index.php?module=myshowcase-json_sync', {'action': 'run', 'mode': 'apply', 'type': 'collection',
                                                                        'id': str(cid), 'file': 'collections/fieldkit.json'})
+    open(os.path.join(a.scratch, 'collection-apply.html'), 'w', encoding='utf-8').write(applied['body'])
     # decision D148: the export message counts the restricted fields and options; the ACP page after the download shows it
     check(cells, 'place:group-restriction-message', 'j', 'pass' if 'has a group restriction' in applied['body'] else 'fail',
           f"the ACP page after the export shows the count of restricted items: {'has a group restriction' in applied['body']}")
