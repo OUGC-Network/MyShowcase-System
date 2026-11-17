@@ -115,8 +115,13 @@ final class ImportFileCheck
             foreach ($target['option_keys'] as $key) {
                 $value = $entry['fields'][$key] ?? null;
 
-                // A blank is '' or the stored 0 of a blank optional option field; neither is an option.
-                if ($value === null || !is_scalar($value) || (string)$value === '' || (string)$value === '0') {
+                // A blank is '' or the stored 0 of a blank optional option field; neither is an option. A list of values is
+                // an option when it is not empty.
+                if (is_array($value)) {
+                    if ($value === []) {
+                        continue;
+                    }
+                } elseif ($value === null || !is_scalar($value) || (string)$value === '' || (string)$value === '0') {
                     continue;
                 }
 
@@ -206,7 +211,8 @@ final class ImportFileCheck
             foreach ($fields as $key => $value) {
                 $key = (string)$key;
 
-                if ($value !== null && !is_scalar($value)) {
+                // A value is a scalar, except the list of a multiple-choice field (decision D182).
+                if ($value !== null && !is_scalar($value) && !(is_array($value) && in_array($key, $target['list_keys'] ?? [], true))) {
                     $shape_positions[$position] = true;
                 }
 

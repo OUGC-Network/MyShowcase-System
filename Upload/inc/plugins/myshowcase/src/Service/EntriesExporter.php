@@ -12,6 +12,7 @@ use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\ImportLimits;
 use MyShowcase\Util\XmlFile;
 
+use MyShowcase\Util\MultipleChoiceUtil;
 use function MyShowcase\Plugin\Functions\collectionGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
 use function MyShowcase\Plugin\Functions\fieldTypeMatchFloat;
@@ -217,6 +218,20 @@ class EntriesExporter
                 if ($field->html_type === FieldHtmlTypes::File) {
                     // A file field holds the URL of its file, or nothing when the user may not download one (section 9).
                     $entry['fields'][$field->field_key] = $files['urls'][(int)$row['entry_id']][$field->field_key] ?? '';
+
+                    continue;
+                }
+
+                if (in_array($field->html_type, self::OPTION_HTML_TYPES, true) &&
+                    MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                    // A list of several values is the ordered list of their value_ids (decision D182); no value is ''.
+                    [$list, $missing] = self::optionTokenList(
+                        (string)($row[$field->field_key] ?? ''),
+                        $option_tokens[(int)$field->field_id] ?? []
+                    );
+
+                    $options_not_exported += $missing;
+                    $entry['fields'][$field->field_key] = $list === [] ? '' : $list;
 
                     continue;
                 }
@@ -488,6 +503,37 @@ class EntriesExporter
      *
      * @param array<int, string> $tokens the value_id of each option of the field, by field_data_id
      */
+    /**
+     * The value_ids of a list of option ids (the cache of a multiple-choice field, in option order), and how many of them
+     * have no value_id: those are not exported. Blank and 0 are no value.
+     *
+     * @param array<int, string> $tokens the value_id of each option of the field, by field_data_id
+     * @return array{0: string[], 1: int}
+     */
+    public static function optionTokenList(string $stored, array $tokens): array
+    {
+        $list = [];
+        $missing = 0;
+
+        foreach (explode(',', $stored) as $id) {
+            if ($id === '' || $id === '0') {
+                continue;
+            }
+
+            $token = $tokens[(int)$id] ?? '';
+
+            if ($token === '' || $token === '0') {
+                $missing++;
+
+                continue;
+            }
+
+            $list[] = $token;
+        }
+
+        return [$list, $missing];
+    }
+
     public static function optionToken(mixed $stored, array $tokens): ?string
     {
         if ($stored === null || (string)$stored === '' || (string)$stored === '0') {

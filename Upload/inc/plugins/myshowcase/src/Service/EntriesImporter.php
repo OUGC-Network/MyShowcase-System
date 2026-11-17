@@ -49,7 +49,7 @@ class EntriesImporter
      * The fields the importing user may use in a file: their keys (every field of the collection, file fields included)
      * and the ones they may fill.
      *
-     * @return array{known_keys: string[], fillable_keys: string[], file_keys: string[], option_keys: string[]}
+     * @return array{known_keys: string[], fillable_keys: string[], file_keys: string[], option_keys: string[], list_keys: string[]}
      */
     public function keys(): array
     {
@@ -57,12 +57,18 @@ class EntriesImporter
         $fillable = [];
         $files = [];
         $options = [];
+        $lists = [];
 
         foreach ($this->context->custom_fields_collection as $field) {
             $known[] = $field->field_key;
 
             if (in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true)) {
                 $options[] = $field->field_key;
+            }
+
+            // A multiple-choice field takes an ordered list of value_ids in a file (decision D182).
+            if (MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                $lists[] = $field->field_key;
             }
 
             // A file field the user may not fill is known but not fillable, so a file that names it is refused.
@@ -77,7 +83,7 @@ class EntriesImporter
             }
         }
 
-        return ['known_keys' => $known, 'fillable_keys' => $fillable, 'file_keys' => $files, 'option_keys' => $options];
+        return ['known_keys' => $known, 'fillable_keys' => $fillable, 'file_keys' => $files, 'option_keys' => $options, 'list_keys' => $lists];
     }
 
     /**
@@ -109,6 +115,7 @@ class EntriesImporter
             'fillable_keys' => $keys['fillable_keys'],
             'file_keys' => $keys['file_keys'],
             'option_keys' => $keys['option_keys'],
+            'list_keys' => $keys['list_keys'],
             'maximum_entries' => (new EntriesExporter($this->context))->maximumEntries(),
             'subject_enabled' => (bool)$this->context->showcase->entries_enable_subject,
             'message_enabled' => (bool)$this->context->showcase->entries_enable_message,
@@ -584,6 +591,47 @@ class EntriesImporter
     }
 
     /**
+     * The value of a multiple-choice field: the list of the field_data_ids of the value_ids the file gives, in the order of
+     * the file (the validator puts them in option order). A string is one value (a file with one value stays valid). A
+     * value_id that is no option of the field is an error of the entry, with its reason (decision D182).
+     *
+     * @param array<string, int> $lookup value_id => field_data_id, for this field
+     * @param string[] $errors
+     * @return string[]
+     */
+    private function optionListPosted(CustomFieldEntity $field, mixed $value, array $lookup, int $position, array &$errors): array
+    {
+        $tokens = is_array($value) ? array_values($value) : [$value];
+
+        $posted = [];
+
+        foreach ($tokens as $token_value) {
+            $token = $this->scalarText($token_value);
+
+            if ($token === '' || $token === '0') {
+                continue;
+            }
+
+            if (!isset($lookup[$token])) {
+                $language = $this->context->language;
+
+                $errors[] = $language->sprintf(
+                    $language->myshowcase_import_export_error_option_token,
+                    $position,
+                    $token,
+                    $this->context->entries_manager->fieldLabel($field)
+                );
+
+                return [];
+            }
+
+            $posted[] = (string)$lookup[$token];
+        }
+
+        return $posted;
+    }
+
+    /**
      * The posted value of one option token: the field_data_id of the option with that value_id, or the blank the form posts
      * (0 for an optional field, '' for a required one). Null when the token is no value_id of the field's options.
      *
@@ -635,6 +683,19 @@ class EntriesImporter
             }
 
             $value = $values[$field->field_key] ?? null;
+
+            if ($value !== null && in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true) &&
+                MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+                $posted[$field->field_key] = $this->optionListPosted(
+                    $field,
+                    $value,
+                    $option_lookup[$field->field_key] ?? [],
+                    $position,
+                    $errors
+                );
+
+                continue;
+            }
 
             if ($value !== null && in_array($field->html_type, EntriesExporter::OPTION_HTML_TYPES, true)) {
                 $posted[$field->field_key] = $this->optionPosted(
