@@ -171,6 +171,12 @@ final class JsonValidator
             $errors[] = self::error("{$path}.field_type", 'is not a supported database type');
         }
 
+        // decisions D184 and D187: a field with several values (checkbox, or select with allow_multiple_values) is text
+        if (isset($entry['html_type'], $entry['field_type']) && is_string($entry['html_type']) && is_string($entry['field_type']) &&
+            !\MyShowcase\Util\MultipleChoiceUtil::columnTypeFits($entry['html_type'], $entry['allow_multiple_values'] ?? 0, $entry['field_type'])) {
+            $errors[] = self::error("{$path}.field_type", 'must be text for a field with several values');
+        }
+
         foreach ($columns as $name => $definition) {
             if (!array_key_exists($name, $entry)) {
                 continue;

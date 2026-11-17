@@ -1307,6 +1307,16 @@ def stage_v(cells, values):
           f'expected {expected}, got {values}')
 
 
+def stage_rules(cells, rules):
+    """Stage v (decisions D184, D187, D180): the rules of the field form, read through FieldService::validate(): a checkbox
+    must be text, a select can not change its several-values setting while an entry holds a value, a new select may take
+    several values, and a radio ignores the flag."""
+    expected = {'checkbox_int_refused': True, 'checkbox_text_accepted': True, 'select_toggle_refused': True,
+                'select_new_accepted': True, 'radio_ignores_flag': True}
+    check(cells, 'values:field-rules', 'v', 'pass' if rules == expected else 'fail',
+          f'expected {expected}, got {rules}')
+
+
 def stage_y(cells, member):
     """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
     The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""
@@ -1963,6 +1973,7 @@ def main():
         stage_x(cells, ctx, member)
         stage_y(cells, member)
         stage_v(cells, fixture('field-values'))
+        stage_rules(cells, fixture('field-rules'))
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_reserved_types(acp, cells, ctx)
         stage_k_words(acp, member, cells, ctx, fixture, users)

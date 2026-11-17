@@ -265,6 +265,31 @@ switch ($switch) {
         ]);
         $values->deleteForShowcase($other);
         break;
+    case 'field-rules':
+        // decisions D184, D187 and D180: the rules of the field form, read through FieldService::validate() for the FieldKit
+        // fields (the entries of the matrix exist by now): a checkbox must be text, a select can not change its
+        // several-values setting while an entry holds a value, and a new select may take several values.
+        $service = new \MyShowcase\Service\FieldService($cacheManager);
+        $collection = (int)$db->fetch_field($db->simple_select('myshowcase_collections', 'collection_id', "name='FieldKit'"), 'collection_id');
+        $fieldOf = static function (string $key) use ($db, $collection): int {
+            return (int)$db->fetch_field($db->simple_select('myshowcase_fields', 'field_id', "collection_id='{$collection}' AND field_key='{$key}'"), 'field_id');
+        };
+        $keysOf = static function (array $errors): array {
+            return array_values(array_map(static fn(array $error): string => $error['key'], $errors));
+        };
+        $checkboxInt = $keysOf($service->validate(['field_key' => 'fk_checkbox', 'html_type' => 'checkbox', 'field_type' => 'int', 'allow_multiple_values' => 1], $collection, $fieldOf('fk_checkbox')));
+        $checkboxText = $keysOf($service->validate(['field_key' => 'fk_checkbox', 'html_type' => 'checkbox', 'field_type' => 'text', 'allow_multiple_values' => 1], $collection, $fieldOf('fk_checkbox')));
+        $selectToggle = $keysOf($service->validate(['field_key' => 'fk_select', 'html_type' => 'select', 'field_type' => 'int', 'allow_multiple_values' => 1], $collection, $fieldOf('fk_select')));
+        $selectNew = $keysOf($service->validate(['field_key' => 'fk_select_new', 'html_type' => 'select', 'field_type' => 'text', 'allow_multiple_values' => 1], $collection, 0));
+        $radioInt = $keysOf($service->validate(['field_key' => 'fk_radio', 'html_type' => 'radio', 'field_type' => 'int', 'allow_multiple_values' => 1], $collection, $fieldOf('fk_radio')));
+        $out([
+            'checkbox_int_refused' => in_array('myshowcase_admin_error_multiple_column_type', $checkboxInt, true),
+            'checkbox_text_accepted' => !array_intersect(['myshowcase_admin_error_multiple_column_type', 'myshowcase_admin_error_multiple_toggle_in_use'], $checkboxText),
+            'select_toggle_refused' => in_array('myshowcase_admin_error_multiple_toggle_in_use', $selectToggle, true),
+            'select_new_accepted' => !array_intersect(['myshowcase_admin_error_multiple_column_type', 'myshowcase_admin_error_multiple_toggle_in_use'], $selectNew),
+            'radio_ignores_flag' => !array_intersect(['myshowcase_admin_error_multiple_column_type', 'myshowcase_admin_error_multiple_toggle_in_use'], $radioInt),
+        ]);
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);

@@ -652,7 +652,7 @@
             "label": "Checkbox",
             "description": "",
             "html_type": "checkbox",
-            "field_type": "int",
+            "field_type": "text",
             "is_enabled": 1,
             "is_required": 0,
             "display_order": 30,

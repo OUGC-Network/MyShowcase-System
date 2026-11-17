@@ -18,7 +18,9 @@ use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Service\JsonSync\JsonLock;
 use MyShowcase\Util\FieldBoundUtil;
+use MyShowcase\Util\MultipleChoiceUtil;
 
+use function MyShowcase\Admin\dbVerifyTables;
 use function MyShowcase\Admin\languageModify;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
 use function MyShowcase\Plugin\Functions\fieldDataGet;
@@ -28,6 +30,7 @@ use function MyShowcase\Plugin\Functions\fieldHtmlTypes;
 use function MyShowcase\Plugin\Functions\fieldsGet;
 use function MyShowcase\Plugin\Functions\fieldsInsert;
 use function MyShowcase\Plugin\Functions\fieldsUpdate;
+use function MyShowcase\Plugin\Functions\fieldTypeMatchInt;
 use function MyShowcase\Plugin\Functions\fieldTypesGet;
 use function MyShowcase\Plugin\Functions\showcaseDataTableExists;
 use function MyShowcase\Plugin\Functions\showcaseDataTableFieldExists;
@@ -534,7 +537,88 @@ final class FieldService
             ];
         }
 
+        // The rules of the multiple-choice fields (decisions D184, D187, D180), with the stored values of an update.
+        $old = $fieldId ? (fieldsGet(
+            ["field_id='{$fieldId}'"],
+            ['html_type', 'allow_multiple_values', 'field_type']
+        )[$fieldId] ?? []) : [];
+
+        $htmlType = (string)($data['html_type'] ?? $old['html_type'] ?? '');
+        $allowMultiple = $data['allow_multiple_values'] ?? $old['allow_multiple_values'] ?? 0;
+        $fieldType = (string)($data['field_type'] ?? $old['field_type'] ?? '');
+
+        if (!MultipleChoiceUtil::columnTypeFits($htmlType, $allowMultiple, $fieldType)) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_multiple_column_type',
+                'message' => 'A field with several values must have the database type text, so that its values fit.'
+            ];
+        }
+
+        if ($old && MultipleChoiceUtil::isMultiple((string)$old['html_type'], $old['allow_multiple_values']) !==
+            MultipleChoiceUtil::isMultiple($htmlType, $allowMultiple) && $this->fieldHasValues($fieldId)) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_multiple_toggle_in_use',
+                'message' => 'The several-values setting of this field cannot change while an entry holds a value for it.'
+            ];
+        }
+
         return $errors;
+    }
+
+    /**
+     * Whether an entry of any showcase holds a value of the field: a row of the child table, or a data column that is not
+     * blank (decision D180). Used to refuse changing the several-values setting of a field.
+     */
+    public function fieldHasValues(int $fieldId): bool
+    {
+        global $db;
+
+        $field = fieldsGet(["field_id='{$fieldId}'"], ['collection_id', 'field_key', 'field_type'])[$fieldId] ?? null;
+
+        if (!$field) {
+            return false;
+        }
+
+        $child = $db->fetch_array($db->simple_select('myshowcase_field_values', 'COUNT(*) AS n', "field_id='{$fieldId}'"));
+
+        if ((int)$child['n'] > 0) {
+            return true;
+        }
+
+        $key = (string)$field['field_key'];
+        $blank = fieldTypeMatchInt((string)$field['field_type']) ? "{$key}<>0" : "{$key}<>''";
+
+        foreach (array_keys(showcaseGet(["collection_id='" . (int)$field['collection_id'] . "'"])) as $showcaseID) {
+            if (!showcaseDataTableExists((int)$showcaseID) || !showcaseDataTableFieldExists((int)$showcaseID, $key)) {
+                continue;
+            }
+
+            $row = $db->fetch_array($db->simple_select(
+                'myshowcase_data' . (int)$showcaseID,
+                'COUNT(*) AS n',
+                "{$key} IS NOT NULL AND {$blank}"
+            ));
+
+            if ((int)$row['n'] > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Brings the data table of every showcase of the collection in line with the field definitions, so that a changed
+     * database type or several-values setting becomes the column type, through the same column change (with its loss check)
+     * the ACP rebuild uses.
+     */
+    public function rebuildShowcaseTables(int $collectionId): void
+    {
+        foreach (array_keys(showcaseGet(["collection_id='{$collectionId}'"])) as $showcaseID) {
+            if (showcaseDataTableExists((int)$showcaseID)) {
+                dbVerifyTables(['myshowcase_data' . (int)$showcaseID => dataTableStructureGet((int)$showcaseID)], false);
+            }
+        }
     }
 
     /**
@@ -549,7 +633,10 @@ final class FieldService
      */
     public function save(array $data, int $collectionId, int $fieldId = 0, array $labels = [], bool $fromSync = false): int
     {
-        $old = $fieldId ? (fieldsGet(["field_id='{$fieldId}'"], ['field_key', 'html_type', 'json_file'])[$fieldId] ?? []) : [];
+        $old = $fieldId ? (fieldsGet(
+            ["field_id='{$fieldId}'"],
+            ['field_key', 'html_type', 'json_file', 'field_type', 'allow_multiple_values']
+        )[$fieldId] ?? []) : [];
 
         // Only the sync writes the json_* columns; a linked field always ends up with the values of its file.
         if (!$fromSync) {
@@ -571,6 +658,16 @@ final class FieldService
             }
 
             fieldsUpdate($data, $fieldId);
+
+            // A changed database type or several-values setting changes the column (decisions D184, D187).
+            $newHtmlType = (string)($data['html_type'] ?? $old['html_type']);
+            $newAllow = $data['allow_multiple_values'] ?? $old['allow_multiple_values'];
+
+            if ($old && (($data['field_type'] ?? $old['field_type']) !== $old['field_type']) ||
+                MultipleChoiceUtil::isMultiple((string)$old['html_type'], $old['allow_multiple_values']) !==
+                MultipleChoiceUtil::isMultiple($newHtmlType, $newAllow)) {
+                $this->rebuildShowcaseTables($collectionId);
+            }
 
             if ($renamed && in_array($old['html_type'], [
                     FieldHtmlTypes::CheckBox,

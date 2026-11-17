@@ -23,6 +23,7 @@ use MyShowcase\Enum\FormatTypes;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Service\AttachmentsManager;
 use MyShowcase\Service\RenderManager;
+use MyShowcase\Util\MultipleChoiceUtil;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
@@ -366,12 +367,13 @@ trait FieldTrait
         return $fieldDescription;
     }
 
+    /** Whether the field takes several values (decision D184): the rule of MultipleChoiceUtil. */
     public function fieldAcceptsMultipleValues(): bool
     {
-        return false;
-        // todo, allow only html compatible fields
-        return fieldTypeMatchText($this->field_definition['field_type']) &&
-            $this->field_definition['allow_multiple_values'];
+        return MultipleChoiceUtil::isMultiple(
+            (string)$this->field_definition['html_type'],
+            $this->field_definition['allow_multiple_values'] ?? 0
+        );
     }
 
     public function renderMain(): string

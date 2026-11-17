@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use MyShowcase\Util\MultipleChoiceUtil;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Enum\FieldDefaultTypes;
@@ -553,6 +554,11 @@ class EntriesImporter
     private function optionPosted(CustomFieldEntity $field, mixed $value, array $lookup, int $position, array &$errors): string
     {
         $token = $this->scalarText($value);
+
+        // A multiple-choice field has no blank option: a blank is no value (decision D122), not the option 0 of T26.
+        if ($token === '' && MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+            return '';
+        }
 
         $posted = self::optionPostedValue($token, (bool)$field->is_required, $lookup);
 
