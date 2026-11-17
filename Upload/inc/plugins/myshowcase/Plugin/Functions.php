@@ -709,7 +709,8 @@ function dataTableStructureGet(int $showcase_id = 0): array
                     isset($dataTableStructure['full_keys']) || $dataTableStructure['full_keys'] = [];
 
                     $dataTableStructure['full_keys'][$field_definition['field_key']] = $field_definition['field_key'];
-                } else {
+                } elseif (!fieldTypeMatchText($field_definition['field_type'])) {
+                    // A plain key needs a key length on a TEXT column, which MySQL refuses without one: a text field gets none.
                     isset($dataTableStructure['keys']) || $dataTableStructure['keys'] = [];
 
                     $dataTableStructure['keys'][$field_definition['field_key']] = $field_definition['field_key'];
