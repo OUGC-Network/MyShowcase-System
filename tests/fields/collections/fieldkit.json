@@ -768,6 +768,108 @@
             "allowed_groups_view": "all",
             "maximum_length": 255,
             "maximum_size": 1024
+        },
+        {
+            "field_key": "fk_select_multiple",
+            "label": "Select multiple",
+            "description": "",
+            "html_type": "select",
+            "field_type": "text",
+            "is_enabled": 1,
+            "is_required": 0,
+            "display_order": 46,
+            "render_order": 46,
+            "display_in_create_update_page": 1,
+            "display_in_view_page": 1,
+            "display_in_main_page": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all",
+            "allow_multiple_values": 1,
+            "options": [
+                {
+                    "value_id": 1,
+                    "value": "Alpha",
+                    "display_order": 1
+                },
+                {
+                    "value_id": 2,
+                    "value": "Bravo",
+                    "display_order": 2
+                },
+                {
+                    "value_id": 3,
+                    "value": "Charlie",
+                    "display_order": 3
+                }
+            ]
+        },
+        {
+            "field_key": "fk_select_multiple_req",
+            "label": "Select multiple required",
+            "description": "",
+            "html_type": "select",
+            "field_type": "text",
+            "is_enabled": 1,
+            "is_required": 1,
+            "display_order": 47,
+            "render_order": 47,
+            "display_in_create_update_page": 1,
+            "display_in_view_page": 1,
+            "display_in_main_page": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all",
+            "allow_multiple_values": 1,
+            "options": [
+                {
+                    "value_id": 1,
+                    "value": "Alpha",
+                    "display_order": 1
+                },
+                {
+                    "value_id": 2,
+                    "value": "Bravo",
+                    "display_order": 2
+                },
+                {
+                    "value_id": 3,
+                    "value": "Charlie",
+                    "display_order": 3
+                }
+            ]
+        },
+        {
+            "field_key": "fk_checkbox_multiple",
+            "label": "Checkbox multiple",
+            "description": "",
+            "html_type": "checkbox",
+            "field_type": "text",
+            "is_enabled": 1,
+            "is_required": 0,
+            "display_order": 48,
+            "render_order": 48,
+            "display_in_create_update_page": 1,
+            "display_in_view_page": 1,
+            "display_in_main_page": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all",
+            "allow_multiple_values": 1,
+            "options": [
+                {
+                    "value_id": 1,
+                    "value": "Alpha",
+                    "display_order": 1
+                },
+                {
+                    "value_id": 2,
+                    "value": "Bravo",
+                    "display_order": 2
+                },
+                {
+                    "value_id": 3,
+                    "value": "Charlie",
+                    "display_order": 3
+                }
+            ]
         }
     ]
 }

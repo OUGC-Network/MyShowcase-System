@@ -62,6 +62,10 @@ DBNAME = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.dig
 ROUTE = 'fieldkit'
 FIELDKIT = json.load(open(os.path.join(REPO, 'tests', 'fields', 'collections', 'fieldkit.json')))
 FIELDS = {f['field_key']: f for f in FIELDKIT['fields']}
+
+# the multiple-choice fields (decision D184): a checkbox, or a select with allow_multiple_values. Their form name is key[]
+MULTI_KEYS = {key for key, f in FIELDS.items()
+              if f['html_type'] == 'checkbox' or (f['html_type'] == 'select' and f.get('allow_multiple_values'))}
 NOT_RUN = {
 }
 LONG = 'x' * 21
@@ -79,6 +83,8 @@ PROPERTY_COLUMNS = ['field_label', 'description', 'placeholder', 'html_type', 'f
                     'parser_allow_video_code', 'parser_affects_message_length', 'enable_search', 'enable_slug',
                     'enable_subject', 'enable_description', 'enable_editor', 'read_only']
 DATA = ''   # the data table of the showcase, set by main()
+SHOWCASE_ID = 0   # the showcase id of the FieldKit showcase, set by main()
+MULTI_FIELD_IDS = {}   # field key => field id of each multiple-choice field of FieldKit, set by main()
 PNG = None  # bytes of the upload used by the file fields
 BOARD_DIR = ''   # the scratch board of the run
 LOG_OFFSET = 0   # the size of the board's error.log when the matrix starts
@@ -172,6 +178,20 @@ def cases():
         'fk_select_req': [('blank required', '', 'refuse', None), ('valid option', o['fk_select_req'][1], 'accept', None)],
         'fk_radio': [('valid option', o['fk_radio'][0], 'accept', None), ('option id that does not exist', '999', 'refuse', None),
                      ('blank optional', '', 'accept', '')],
+        'fk_select_multiple': [('one value', [o['fk_select_multiple'][0]], 'multi', None),
+                               ('restricted option with another option, outside its group',
+                                [o['fk_select_multiple'][0], str(RESTRICTED_OPTION.get('fk_select_multiple', 0))], 'refuse', None),
+                               ('several values, in another order', [o['fk_select_multiple'][2], o['fk_select_multiple'][0]], 'multi', None),
+                               ('duplicates', [o['fk_select_multiple'][0], o['fk_select_multiple'][0], o['fk_select_multiple'][1]], 'multi', None),
+                               ('option of another field', [o['fk_radio'][0]], 'refuse', None),
+                               ('option id that does not exist', ['999'], 'refuse', None),
+                               ('blank optional', '', 'accept', '')],
+        'fk_select_multiple_req': [('blank required', '', 'refuse', None),
+                                   ('one value', [o['fk_select_multiple_req'][1]], 'multi', None)],
+        'fk_checkbox_multiple': [('one checked', [o['fk_checkbox_multiple'][0]], 'multi', None),
+                                 ('several checked', [o['fk_checkbox_multiple'][0], o['fk_checkbox_multiple'][1]], 'multi', None),
+                                 ('option id that does not exist', ['999'], 'refuse', None),
+                                 ('blank optional', '', 'accept', '')],
         'fk_checkbox': [('one checked', o['fk_checkbox'][0], 'accept', None),
                         ('several checked', [o['fk_checkbox'][0], o['fk_checkbox'][1]], 'multi', None),
                         ('option id that does not exist', '999', 'refuse', None)],
@@ -283,15 +303,18 @@ def create(client, overrides, token, uploads):
     data['fk_radio'] = option_ids['fk_radio'][0]
     data['fk_select'] = option_ids['fk_select'][0]
     data['fk_select_req'] = option_ids['fk_select_req'][0]
+    data['fk_select_multiple_req[]'] = [option_ids['fk_select_multiple_req'][0]]
     for field_key, wanted in uploads.items():
         if wanted:
             upload_status, upload_body = upload(client, post_hash, field_key)
             if upload_status != 200:
                 raise RuntimeError(f'upload to {field_key} answered {upload_status}: {upload_body[:300]}')
     for name, value in overrides.items():
-        if name == 'fk_checkbox':
-            data['fk_checkbox[]'] = value if isinstance(value, list) else [value]
-            data.pop('fk_checkbox', None)
+        if name in MULTI_KEYS:
+            # a multiple-choice field is posted as key[]: a list (blank: nothing) (decision D184)
+            values = value if isinstance(value, list) else ([] if value == '' else [value])
+            data.pop(name, None)
+            data[f'{name}[]'] = values
         else:
             data[name] = value
     r = client.post(f'/showcase.php/{ROUTE}/create', data)
@@ -366,7 +389,8 @@ def record_case(key, name, expectation, extra, value, accepted, row, extra_error
         ok = accepted and stored not in (None, '')
     elif expectation == 'multi':
         # decision D184: several checked boxes are accepted; the cache holds their value ids, in option order (D185)
-        expected = ','.join(option_value_ids[key][str(item)] for item in value)
+        in_order = sorted(set(str(item) for item in value), key=lambda item: option_ids[key].index(item))
+        expected = ','.join(option_value_ids[key][item] for item in in_order)
         ok = accepted and stored == expected
     elif expectation == 'named_or_stored':
         # decision D103: the value is stored as sent, or the entry is refused with a real message that names the field
@@ -482,6 +506,7 @@ def update_post(client, row, overrides):
     data['fk_radio'] = option_ids['fk_radio'][0]
     data['fk_select'] = option_ids['fk_select'][0]
     data['fk_select_req'] = option_ids['fk_select_req'][0]
+    data['fk_select_multiple_req[]'] = [option_ids['fk_select_multiple_req'][0]]
     data['fk_text_req'] = row['fk_text_req']
     # a browser posts every pre-filled value: the save without change posts what the form shows for each field
     for key in FIELDS:
@@ -758,6 +783,9 @@ def option_cases(member, cells, uid, fixture):
     zeros = as_format2
     for key in OPTION_KEYS:
         zeros = re.sub(rf'(<key>{key}</key>\s*<value>)[^<]*(</value>)', r'\g<1>0\g<2>', zeros)
+    # a list of several values (decision D182) is an array in the value: it becomes a 0 too
+    for key in MULTI_KEYS:
+        zeros = re.sub(rf'(<key>{key}</key>\s*<value>)\s*<array>.*?</array>\s*(</value>)', r'\g<1>0\g<2>', zeros, flags=re.S)
     zeros_path = os.path.join(a.scratch, 'option-format2-blank.xml')
     open(zeros_path, 'w', encoding='utf-8').write(zeros)
     # FieldKit's select fk_select_req is required, so its 0 is a missing value: the entries are refused one by one, for that field only
@@ -872,7 +900,8 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
 
     CTX.execute(f"delete from {DATA}")
     for token in ('H1', 'H2'):
-        create(member, {}, token, {'fk_file_req': True, 'fk_file': False})
+        overrides = {'fk_select_multiple': [option_ids['fk_select_multiple'][0], option_ids['fk_select_multiple'][1]]} if token == 'H1' else {}
+        create(member, overrides, token, {'fk_file_req': True, 'fk_file': False})
     first, second = stored_row('H1'), stored_row('H2')
     if first is None or second is None:
         for key in FIELDS:
@@ -886,6 +915,8 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         fixture('rebuild')
         # the list's own URL (url.main, with its trailing slash: the form posts there; the URL without the slash is no route)
         listing = member.get(f'/showcase.php/{ROUTE}/')
+        h1_entry = query(f"select entry_id from {DATA} where subject='H1'")
+        h1_rows_before = query(f"select count(*) from mybb_myshowcase_field_values where entry_id={h1_entry[0][0]}") if h1_entry else []
         deleted = member.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
             'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
             'selected_entries': json.dumps([first['public_id']]), 'unselected_entries': '[]'})
@@ -895,6 +926,10 @@ def stage_h(member, acp, cells, ctx, cid, fixture):
         kept = stored_row('H2') == second
         answer = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', deleted['body']))
         message = re.search(r'Board Message (.{0,120})', answer)
+        h1_rows_after = query(f"select count(*) from mybb_myshowcase_field_values where entry_id={h1_entry[0][0]}") if h1_entry else []
+        check(cells, 'place:multi-rows-entry-delete', 'h',
+              'pass' if (h1_rows_before and h1_rows_before[0][0] != '0' and h1_rows_after and h1_rows_after[0][0] == '0') else 'fail',
+              f'the entry held {h1_rows_before[0][0] if h1_rows_before else None} child rows; after the delete: {h1_rows_after[0][0] if h1_rows_after else None}')
         check(cells, 'place:entry-delete', 'h', 'pass' if (gone and kept and left == '0') else 'fail',
               f'delete answered {deleted["status"]}: {message.group(1) if message else "no board message"}; '
               f'first entry gone: {gone}; its attachments left: {left}; second entry unchanged: {kept}')
@@ -1320,6 +1355,41 @@ def stage_rules(cells, rules):
                 'select_new_accepted': True, 'radio_ignores_flag': True}
     check(cells, 'values:field-rules', 'v', 'pass' if rules == expected else 'fail',
           f'expected {expected}, got {rules}')
+
+
+def cache_matches_rows(cache, rows):
+    """Decision D61: the cache of a multiple-choice field is the value ids of its child rows, in option order, joined by ','."""
+    return cache == ','.join(rows)
+
+
+def stage_multi(cells, proof):
+    """Stage v (decisions D61, D185, D193): the cache of every multiple-choice field of every entry equals its child rows; the
+    detector refuses a doctored cache (negative control); the option and field deletes and a rolled-back write leave the rows
+    the decisions say."""
+    mismatches = []
+    checked = 0
+    for key, field_id in MULTI_FIELD_IDS.items():
+        for entry_id, cache in query(f"select entry_id, {key} from {DATA}"):
+            rows = [r[0] for r in query(f"select value_id from mybb_myshowcase_field_values where showcase_id={SHOWCASE_ID} "
+                                        f"and entry_id={entry_id} and field_id={field_id} order by field_value_id")]
+            ordered = [r[0] for r in query(
+                f"select d.value_id from mybb_myshowcase_field_values v join mybb_myshowcase_field_data d "
+                f"on d.field_id=v.field_id and d.value_id=v.value_id where v.showcase_id={SHOWCASE_ID} and v.entry_id={entry_id} "
+                f"and v.field_id={field_id} order by d.display_order, d.field_data_id")]
+            checked += 1
+            if not cache_matches_rows(cache or '', ordered):
+                mismatches.append(f'entry {entry_id} {key}: cache {cache!r}, rows {ordered}')
+    check(cells, 'values:cache-equals-rows', 'v', 'pass' if checked and not mismatches else 'fail',
+          f'{checked} multi-valued cells compared; mismatches: {mismatches[:3]}')
+
+    # negative control: a cache with a value its rows do not hold must be detected
+    control = cache_matches_rows('1,2,3', ['1', '2'])
+    check(cells, 'values:negative-control', 'v', 'pass' if control is False else 'fail',
+          'a stale cache (3 in the cache, not in the rows) is detected: ' + str(control is False))
+
+    expected = {'option_rows': ['1'], 'rolled_back_kept': True, 'field_rows_after_delete': [], 'other_field_kept': True}
+    check(cells, 'values:option-field-delete', 'v', 'pass' if proof == expected else 'fail',
+          f'expected {expected}, got {proof}')
 
 
 def stage_y(cells, member):
@@ -1854,7 +1924,7 @@ def cid_of_fieldkit():
 
 
 def main():
-    global CTX, DATA, PNG, BOUNDED_TYPES
+    global CTX, DATA, PNG, BOUNDED_TYPES, SHOWCASE_ID, MULTI_FIELD_IDS
     PNG = png_bytes()
     env = board.db_env()
     ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
@@ -1914,6 +1984,10 @@ def main():
         fixture('attach', ROUTE, 'fieldkit-uploads')
         sid = query(f"select showcase_id from mybb_myshowcase_config where route_identifier='{ROUTE}'")[0][0]
         DATA = f'mybb_myshowcase_data{sid}'
+        SHOWCASE_ID = int(sid)
+        MULTI_FIELD_IDS = {k: int(query(f"select field_id from mybb_myshowcase_fields where field_key='{k}' and collection_id="
+                                        "(select collection_id from mybb_myshowcase_collections where name='FieldKit')")[0][0])
+                           for k in sorted(MULTI_KEYS)}
 
         # test data: the group restriction of one field (the JSON file says "all"; see the report)
         ctx.execute(f"update mybb_myshowcase_fields set allowed_groups_fill='{restricted}', allowed_groups_view='{restricted}' "
@@ -1926,6 +2000,12 @@ def main():
                     f"'{restricted}' from mybb_myshowcase_fields where field_key='fk_select'")
         RESTRICTED_OPTION['fk_select'] = int(query("select field_data_id from mybb_myshowcase_field_data "
                                                    "where value='Restricted option'")[0][0])
+        # the same for the multiple-choice select (decision D122: a list is checked option by option)
+        ctx.execute(f"insert into mybb_myshowcase_field_data (collection_id, field_id, field_key, value_id, value, "
+                    f"allowed_groups_fill) select collection_id, field_id, field_key, 'restricted', 'Restricted multi', "
+                    f"'{restricted}' from mybb_myshowcase_fields where field_key='fk_select_multiple'")
+        RESTRICTED_OPTION['fk_select_multiple'] = int(query("select field_data_id from mybb_myshowcase_field_data "
+                                                            "where value='Restricted multi'")[0][0])
 
         # the field ids and the option ids the form posts, read from the form itself
         for row in query("select field_key, field_id from mybb_myshowcase_fields"):
@@ -1935,8 +2015,8 @@ def main():
         create_form = member.get(f'/showcase.php/{ROUTE}/create')['body']
         for key, f in FIELDS.items():
             if f['html_type'] == 'select':
-                block = re.search(rf'<select[^>]*name="{re.escape(key)}"[^>]*>(.*?)</select>', create_form, re.S)
-                ids = re.findall(r'value="(\d+)"', block.group(1)) if block else []
+                block = re.search(rf'<select[^>]*name="{re.escape(key)}(\[\])?"[^>]*>(.*?)</select>', create_form, re.S)
+                ids = re.findall(r'value="(\d+)"', block.group(2)) if block else []
                 ids = [i for i in ids if i != '']
             elif f['html_type'] in ('radio', 'checkbox'):
                 ids = []
@@ -1982,6 +2062,7 @@ def main():
         stage_y(cells, member)
         stage_v(cells, fixture('field-values'))
         stage_rules(cells, fixture('field-rules'))
+        stage_multi(cells, fixture('multi-values'))
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_reserved_types(acp, cells, ctx)
         stage_k_words(acp, member, cells, ctx, fixture, users)

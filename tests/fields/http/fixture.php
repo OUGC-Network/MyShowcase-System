@@ -290,6 +290,67 @@ switch ($switch) {
             'radio_ignores_flag' => !array_intersect(['myshowcase_admin_error_multiple_column_type', 'myshowcase_admin_error_multiple_toggle_in_use'], $radioInt),
         ]);
         break;
+    case 'multi-values':
+        // decisions D61 and D193: the rows of a multiple-choice field go with its option and its field (the plugin's delete
+        // functions), and a write that is rolled back leaves none. The first entry of FieldKit is used and its values are
+        // restored at the end.
+        $values = new \MyShowcase\Repository\FieldValuesRepository($db);
+        $one = static function (string $sql) use ($db): string {
+            $query = $db->query($sql);
+            $row = $db->fetch_array($query);
+
+            return $row ? (string)reset($row) : '';
+        };
+        $showcase = (int)$one("SELECT showcase_id FROM {$db->table_prefix}myshowcase_config WHERE route_identifier='fieldkit'");
+        $collection = (int)$one("SELECT collection_id FROM {$db->table_prefix}myshowcase_collections WHERE name='FieldKit'");
+        $entry = (int)$one("SELECT entry_id FROM {$db->table_prefix}myshowcase_data{$showcase} ORDER BY entry_id LIMIT 1");
+        $fieldOf = static fn(string $key): int => (int)$one("SELECT field_id FROM {$db->table_prefix}myshowcase_fields WHERE collection_id='{$collection}' AND field_key='{$key}'");
+        $multi = $fieldOf('fk_select_multiple');
+        $valuesOf = static fn(int $field): array => $values->valuesOf($showcase, $entry, $field);
+        $original = $valuesOf($multi);
+        $originalCache = $one("SELECT fk_select_multiple FROM {$db->table_prefix}myshowcase_data{$showcase} WHERE entry_id='{$entry}'");
+
+        // (a) the option is deleted: the rows that name it go, the others stay
+        $db->insert_query('myshowcase_field_data', [
+            'collection_id' => $collection, 'field_id' => $multi, 'field_key' => 'fk_select_multiple', 'value_id' => '77',
+            'value' => 'Temporary', 'display_order' => 99, 'allowed_groups_fill' => 'all', 'allowed_groups_view' => 'all',
+        ]);
+        $option = (int)$one("SELECT field_data_id FROM {$db->table_prefix}myshowcase_field_data WHERE field_id='{$multi}' AND value_id='77'");
+        $values->replace($showcase, $entry, $multi, ['1', '77']);
+        \MyShowcase\Plugin\Functions\fieldDataDelete($option);
+        $afterOption = $valuesOf($multi);
+
+        // (b) a write that is rolled back leaves no rows of its own
+        $values->replace($showcase, $entry, $multi, ['2']);
+        $before = $valuesOf($multi);
+        $values->begin();
+        $values->replace($showcase, $entry, $multi, ['3']);
+        $values->rollback();
+        $afterRollback = $valuesOf($multi);
+
+        // (c) the field is deleted: its rows go, the rows of the other field stay
+        $db->insert_query('myshowcase_fields', [
+            'collection_id' => $collection, 'field_key' => 'fk_tmp_multi', 'html_type' => 'checkbox', 'field_type' => 'text',
+            'is_enabled' => 1, 'allow_multiple_values' => 1, 'allowed_groups_fill' => 'all', 'allowed_groups_view' => 'all',
+        ]);
+        $temporary = $fieldOf('fk_tmp_multi');
+        $values->replace($showcase, $entry, $temporary, ['1']);
+        $values->replace($showcase, $entry, $multi, ['2']);
+        \MyShowcase\Plugin\Functions\fieldsDelete($temporary);
+        $afterField = $values->valuesOf($showcase, $entry, $temporary);
+        $otherAfterField = $valuesOf($multi);
+
+        // restore the values of the first entry
+        $values->replace($showcase, $entry, $multi, $original);
+        $db->update_query("myshowcase_data{$showcase}", ['fk_select_multiple' => $db->escape_string((string)$originalCache)], "entry_id='{$entry}'");
+
+        $out([
+            'option_rows' => $afterOption,
+            'rolled_back_kept' => $before === ['2'] && $afterRollback === ['2'],
+            'field_rows_after_delete' => $afterField,
+            'other_field_kept' => $otherAfterField === ['2'],
+        ]);
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);
