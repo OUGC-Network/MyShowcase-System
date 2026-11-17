@@ -56,6 +56,9 @@ imports/
 * `html_type` `poll` and `rating` are reserved for later features: a file that names one is refused, and the ACP form does not offer them.
 * `options` (select, radio and checkbox fields only) is a list of `{"value_id", "value"}` plus `display_order` and
   `display_style`.
+* `allow_multiple_values` (select fields; a checkbox always takes several values): 1 makes a select take several options.
+  A field that takes several values must have `field_type` `text` (decision D187); any other type is refused. Changing the
+  flag of a select is refused while an entry holds a value for the field (decision D180).
 * `previous_keys` is an optional list of earlier `field_key`s of the field (see Identity).
 * `allowed_groups_fill` and `allowed_groups_view` can only be `"all"` (stored as `-1`), or be left out. A group restriction is board-local (decision D148): a file never names a group, and a restricted field is written without the key. Applying a file never changes the groups of a field the board already has; a new field takes "all" or the unrestricted default. The export message counts the restricted fields and options that its file leaves out.
 * Property names are the column names of the table; an unknown property is an error. Never allowed: `field_id`,

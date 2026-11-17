@@ -105,6 +105,11 @@ on every board built from the same collection. The file itself is still meant fo
 users, groups and file URLs do not carry over to another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
 written empty, and the export counts those values in its notes (`options_not_exported`).
 
+A multiple-choice field (a checkbox, or a select whose `allow_multiple_values` is 1; decision D184) is written as an
+**ordered list** of the value ids of its selected options, in the option order of the field (decision D182): an indexed
+array of value ids. A multiple-choice field with no value is written empty, and a file with one value is a list of one
+or the single value id (both are read). Format version 3 is kept: the list is an additional shape of these fields.
+
 ## File fields
 
 An export writes each file field of an entry as the public URL of its file (format version 2). The URL is the route the

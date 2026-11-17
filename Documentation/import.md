@@ -95,7 +95,10 @@ outside its bounds fails its entry, and the report names the field.
 
 ## Option values
 
-A select, radio or checkbox field holds the **value id** of its option in the file (format version 3). The value id is
+A multiple-choice field (a checkbox, or a select with `allow_multiple_values`) holds an **ordered list** of value ids in the
+file (decision D182), and a file with one value holds that value id alone. Each value id is looked up among the options of
+the field: a value id that is no option of the field refuses the file as a whole, with the reason. The values are stored in
+the option order of the field, without duplicates, and a blank value is no value. A select, radio or checkbox field holds the **value id** of its option in the file (format version 3). The value id is
 the token the option has in the collection. The token is the same on every board built from the same collection, even where
 the option's id on a board differs, so the options survive a move to another board. The file itself is still meant for the
 same showcase on the same board (see the top of this page): it also refers to users, groups and file URLs, which only mean
