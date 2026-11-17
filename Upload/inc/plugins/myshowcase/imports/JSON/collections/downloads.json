@@ -1,6 +1,6 @@
 {
     "type": "collection",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "name": "Downloads",
     "fields": [
         {
@@ -11,11 +11,29 @@
             "field_type": "varchar",
             "maximum_length": 255,
             "maximum_size": 51200,
+            "file_types": "zip",
             "is_enabled": 1,
             "is_required": 1,
             "display_order": 1,
             "render_order": 1,
             "display_in_main_page": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all"
+        },
+        {
+            "field_key": "previews",
+            "label": "Previews",
+            "description": "Optional. Images of the file, as previews: up to ten, in order.",
+            "html_type": "file",
+            "field_type": "text",
+            "is_enabled": 1,
+            "is_required": 0,
+            "allow_multiple_values": 1,
+            "maximum_size": 2048,
+            "file_types": "png,jpg,jpeg,gif",
+            "display_order": 2,
+            "render_order": 2,
+            "display_in_main_page": 0,
             "allowed_groups_fill": "all",
             "allowed_groups_view": "all"
         },

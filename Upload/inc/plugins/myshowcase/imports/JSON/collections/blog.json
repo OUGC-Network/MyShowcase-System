@@ -1,6 +1,6 @@
 {
     "type": "collection",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "name": "Blog",
     "fields": [
         {
@@ -53,11 +53,12 @@
         {
             "field_key": "cover_image",
             "label": "Cover image",
-            "description": "Optional. The http or https address of an image shown with the post.",
-            "html_type": "url",
+            "description": "Optional. An image shown with the post: one file, an image type of the board.",
+            "html_type": "file",
             "field_type": "varchar",
             "maximum_length": 255,
-            "regular_expression": "/^(|https?:\\/\\/\\S+)$/i",
+            "maximum_size": 2048,
+            "file_types": "png,jpg,jpeg,gif",
             "is_enabled": 1,
             "display_order": 4,
             "render_order": 4,
@@ -70,13 +71,14 @@
             "description": "Optional. Whole minutes needed to read the post, 1 to 999.",
             "html_type": "number",
             "field_type": "int",
-            "maximum_length": 5,
             "regular_expression": "/^([1-9][0-9]{0,2})?$/",
             "is_enabled": 1,
             "display_order": 5,
             "render_order": 5,
             "allowed_groups_fill": "all",
-            "allowed_groups_view": "all"
+            "allowed_groups_view": "all",
+            "minimum_value": "1",
+            "maximum_value": "999"
         },
         {
             "field_key": "series",
@@ -101,14 +103,15 @@
             "description": "Optional. The position of the post in its series, 1 to 999.",
             "html_type": "number",
             "field_type": "int",
-            "maximum_length": 3,
             "regular_expression": "/^([1-9][0-9]{0,2})?$/",
             "is_enabled": 1,
             "display_order": 7,
             "render_order": 7,
             "display_in_main_page": 0,
             "allowed_groups_fill": "all",
-            "allowed_groups_view": "all"
+            "allowed_groups_view": "all",
+            "minimum_value": "1",
+            "maximum_value": "999"
         },
         {
             "field_key": "meta_description",

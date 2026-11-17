@@ -221,7 +221,7 @@ switch ($switch) {
         $png = $db->fetch_field($db->simple_select('attachtypes', 'atid', "extension='png'"), 'atid');
         $png_row = ['name' => 'PNG Image', 'mimetype' => 'image/png', 'extension' => 'png', 'maxsize' => 10240,
                     'icon' => 'images/attachtypes/image.png', 'enabled' => 1, 'forcedownload' => 0, 'groups' => '-1',
-                    'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => (string)$gallery];
+                    'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => (string)$gallery . ',' . (string)$downloads];
         if ($png) {
             $db->update_query('attachtypes', $png_row, "atid='" . (int)$png . "'");
         } else {

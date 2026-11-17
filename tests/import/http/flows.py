@@ -181,7 +181,6 @@ def good_entry(i, category=None):
             'category': category if category is not None else 1 + (i % 4),
             'summary': f'Summary {i}',
             'tags': f'tag{i}',
-            'cover_image': f'https://example.com/{i}.png',
             'reading_time': 5,
             'series': 'Series',
             'series_part': 2,
@@ -313,6 +312,7 @@ def run():
     section_option_portability()
     section_downloads_round_trip()
     section_unknown_option_value()
+    section_previews()
     section_four_byte_subject()
     section_logs()
 
@@ -341,14 +341,15 @@ def section_round_trip():
     for i in range(1, 4):
         form = member.get(f'{SHOWCASE}/create')
         m = re.search(r'name="post_hash"\s+value="([^"]+)"', form['body'])
-        member.post(f'{SHOWCASE}/create', {
+        posted = member.post(f'{SHOWCASE}/create', {
             'subject': f'Round {i} & <i>x</i>', 'message': f'Round body {i}',
             'category': option_id('News' if i == 1 else 'Tutorials') or '1',
-            'summary': f'Round summary {i}', 'tags': 'alpha,beta', 'cover_image': f'https://example.com/r{i}.png',
+            'summary': f'Round summary {i}', 'tags': 'alpha,beta',
             'reading_time': str(4 + i), 'series': 'Round', 'series_part': str(i), 'meta_description': f'Round meta {i}',
             'source_url': f'https://example.com/r/{i}', 'my_post_key': post_key(form['body']),
             'post_hash': m.group(1) if m else '', 'submit': 'Post',
         })
+    dump('blog-round-form', posted['body'])
     ok(entry_count(uid) == 3, f'three entries are created through the form (found {entry_count(uid)})')
 
     export_form = member.get(f'{SHOWCASE}/export')
@@ -390,7 +391,7 @@ def section_all_or_nothing():
 
     valid = [good_entry(i) for i in range(1, 6)]
     bad = good_entry(6)
-    bad['fields']['cover_image'] = 'javascript:alert(1)'
+    bad['fields']['category'] = 'Not a category'
 
     for label, entries in (('last', valid + [bad]), ('first', [bad] + valid)):
         report = report_of(import_file(member, write_file(f'aon-{label}.xml', xml_file(entries)))['body'])
@@ -399,7 +400,7 @@ def section_all_or_nothing():
         ok(import_log_count() == logs, f'no import log row when the invalid entry is {label}')
 
     report = report_of(import_file(member, write_file('aon-message.xml', xml_file([bad])))['body'])
-    ok(report is not None and 'Entry 1' in report['text'] and 'Cover image' in report['text'],
+    ok(report is not None and 'Entry 1' in report['text'] and 'Category' in report['text'],
        'the report names the entry and the field')
 
     # A row the database refuses and the validator lets through: a CHECK constraint (MySQL 8.0.16 or later) or a trigger
@@ -431,7 +432,6 @@ def section_validator():
     member = logged_in('member1')
     uid = USERS['member1']['uid']
     cases = [
-        ('cover image not http(s)', {'cover_image': 'ftp://example.com/a.png'}),
         ('reading time 0', {'reading_time': '0'}),
         ('reading time 1000', {'reading_time': '1000'}),
         ('series part not a number', {'series_part': 'x'}),
@@ -966,6 +966,7 @@ def section_files():
         dbefore = int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0)
         path = write_file('downloads-png.xml', xml_file([downloads_entry(2, 'https://placehold.co/600x450.png?text=Not%20a%20zip')], route='downloads', collection='Downloads', format_version=3))
         body = import_into(member, 'downloads', path)['body']
+        dump('downloads-png', body)
         report = report_of(body)
         ok(report is not None and report['status'] == 'failed' and 'not an allowed type' in report['text'] and
            int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore,
@@ -1209,6 +1210,83 @@ def section_downloads_round_trip():
     refused = report is not None and report['status'] == 'failed' and 'may not download' in text(body)
     ok(refused and int(one(f'select count(*) from {table}') or 0) == stored_before,
        'after the entries are removed, the file of an own-board entry is refused as a whole (decision D58) and nothing is stored')
+
+
+def section_previews():
+    """Decisions D197, D182 and D59 (import): a downloads entry with two preview images (a list of file URLs) is stored with
+    the files in display order and the cache of the field; exported and imported back into the same board, its copy holds the
+    same two previews; a second file that fails rolls the whole entry back, the first file included; with the setting off, a list
+    of URLs is refused as a whole."""
+    print('--- several files in a field: the previews of a downloads entry (decisions D197, D182, D59)')
+    fixture('files-setup', 'import-test-uploads')
+    fixture('external-setting', '1')
+    time.sleep(3)
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    did = int(one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'") or 0)
+    if not did:
+        not_run('previews: the downloads showcase is not on this board')
+        return
+    table = f'mybb_myshowcase_data{did}'
+    zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
+    preview_field = one("select field_id from mybb_myshowcase_fields where field_key='previews' and collection_id="
+                        "(select collection_id from mybb_myshowcase_collections where name='Downloads')")
+    previews = ['https://placehold.co/600x450.png?text=Preview%20one', 'https://placehold.co/600x450.png?text=Preview%20two']
+
+    def files_of(version):
+        rows = db(f"select a.attachment_id, a.display_order from mybb_myshowcase_attachments a join {table} d on d.entry_id=a.entry_id "
+                  f"where d.version='{version}' and d.user_id={uid} and a.field_id={preview_field} order by a.display_order")
+        cache = one(f"select previews from {table} where version='{version}' and user_id={uid} order by entry_id desc limit 1")
+        return [r[0] for r in rows], [r[1] for r in rows], cache
+
+    entry = downloads_entry(96, zip_url)
+    entry['fields']['previews'] = previews
+    body = import_into(member, 'downloads', write_file('downloads-previews.xml', xml_file([entry], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'completed', 'a downloads entry with two preview URLs is imported')
+    ids, orders, cache = files_of('1.9.96')
+    ok(len(ids) == 2 and orders == ['1', '2'] and cache == ','.join(ids),
+       f'the two previews are stored in display order {orders}, and the field holds their ids {cache!r}')
+
+    # the export carries the previews as a list, and imports back into the same board as a second copy
+    export_form = member.get('/showcase.php/downloads/export')
+    member.post('/showcase.php/downloads/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                                   'order_dir': 'asc', 'submit': 'Export'})
+    export_id = one(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+    download = member.get(f'/showcase.php/downloads/export/{export_id}/download')
+    export_path = os.path.join(SCRATCH, 'downloads-previews-export.xml')
+    open(export_path, 'wb').write(download['raw'])
+    exported_list = re.search(r'<key>previews</key>\s*<value>\s*<array>(.*?)</array>', download['raw'].decode('utf-8', 'replace'), re.S)
+    ok(exported_list is not None and len(re.findall(r'<value>', exported_list.group(1))) == 2,
+       'the export writes the previews of the entry as a list of two URLs')
+    body = import_into(member, 'downloads', export_path)['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed', 'the export of the previews imports back into the same board')
+    copies = db(f"select entry_id from {table} where version='1.9.96' and user_id={uid} order by entry_id")
+    copy_previews = [files_of('1.9.96')[0]]
+    ok(len(copies) == 2 and len(copy_previews[0]) == 4, f'the copy holds its own two previews ({len(copies)} entries, {len(copy_previews[0])} files)')
+
+    # a second file that fails rolls the first one back: nothing of the entry is stored
+    stored_before = int(one(f'select count(*) from {table} where user_id={uid}') or 0)
+    files_before = int(one(f'select count(*) from mybb_myshowcase_attachments where showcase_id={did}') or 0)
+    bad = downloads_entry(97, zip_url)
+    bad['fields']['previews'] = [previews[0], 'https://github.com/mybb/mybb/archive/refs/heads/this-branch-does-not-exist.zip']
+    body = import_into(member, 'downloads', write_file('downloads-previews-bad.xml', xml_file([bad], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and int(one(f'select count(*) from {table} where user_id={uid}') or 0) == stored_before
+       and int(one(f'select count(*) from mybb_myshowcase_attachments where showcase_id={did}') or 0) == files_before,
+       'a second file that fails rolls the whole entry back, the first file too (decision D59)')
+
+    # the setting off refuses a list of URLs as a whole
+    fixture('external-setting', '0')
+    time.sleep(3)
+    off = downloads_entry(98, zip_url)
+    off['fields']['previews'] = previews
+    body = import_into(member, 'downloads', write_file('downloads-previews-off.xml', xml_file([off], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = report_of(body)
+    ok(report is not None and report['status'] == 'failed' and int(one(f'select count(*) from {table} where user_id={uid}') or 0) == stored_before,
+       'with the setting off a list of file URLs is refused as a whole, nothing stored')
+    fixture('external-setting', '1')
+    time.sleep(3)
 
 
 def section_unknown_option_value():

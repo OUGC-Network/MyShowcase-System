@@ -251,7 +251,6 @@ category field; the field keys are those of the shipped blog collection):
                     <element><key>category</key><value type="INT">1</value></element>
                     <element><key>summary</key><value>A short summary, at most 300 characters.</value></element>
                     <element><key>tags</key><value>intro,setup</value></element>
-                    <element><key>cover_image</key><value>https://example.com/cover.png</value></element>
                     <element><key>reading_time</key><value type="INT">4</value></element>
                     <element><key>series</key><value>Starter series</value></element>
                     <element><key>series_part</key><value type="INT">1</value></element>
