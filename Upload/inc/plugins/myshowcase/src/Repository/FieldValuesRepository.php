@@ -11,6 +11,8 @@ use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 use MyShowcase\Service\SchemaManager;
 
+use function MyShowcase\Plugin\Functions\showcaseDataTableFieldExists;
+
 /**
  * Rows of myshowcase_field_values: the selected values of the multiple-choice fields (decision D61). One row per entry, field
  * and value, keyed by the option's value_id (decisions D108 and D128). The rows are the authority of the values; the entry
@@ -156,6 +158,11 @@ class FieldValuesRepository
      */
     public function rewriteCache(int $showcase_id, int $entry_id, int $field_id, string $field_key): void
     {
+        // A field whose column is gone (a field being deleted, or never created on this showcase) has no cache to write.
+        if (!showcaseDataTableFieldExists($showcase_id, $field_key)) {
+            return;
+        }
+
         $query = $this->database->query(
             "SELECT v.value_id FROM {$this->database->table_prefix}" . self::TABLE . " v " .
             "INNER JOIN {$this->database->table_prefix}myshowcase_field_data d ON (d.field_id=v.field_id AND d.value_id=v.value_id) " .
