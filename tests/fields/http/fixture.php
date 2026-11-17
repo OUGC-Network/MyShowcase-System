@@ -227,6 +227,44 @@ switch ($switch) {
         // decision D152: the names a field key can not have, read from the code (the entries table's columns and the SQL words)
         $out(\MyShowcase\Service\FieldService::reservedFieldKeys());
         break;
+    case 'field-values':
+        // decision D61: the rows of a multiple-choice field are removed with their entry, option, field and showcase. The
+        // ids are ones no board uses. The second showcase has a row of the second field, which survives the deletes of the first
+        // field and of the first showcase (a field's values go with the field, in every showcase that has it).
+        $values = new \MyShowcase\Repository\FieldValuesRepository($db);
+        $showcase = 987654;
+        $other = 987655;
+        $field = 987654;
+        $other_field = 987655;
+        $rowsOf = static function (int $showcase_id, string $where = '1=1') use ($db): int {
+            $row = $db->fetch_array($db->simple_select('myshowcase_field_values', 'COUNT(*) AS n', "showcase_id='{$showcase_id}' AND {$where}"));
+
+            return (int)$row['n'];
+        };
+        $values->replace($showcase, 1, $field, ['1', '2']);
+        $values->replace($showcase, 2, $field, ['2']);
+        $values->replace($showcase, 1, $other_field, ['5']);
+        $values->replace($other, 1, $other_field, ['5']);
+        $start = $rowsOf($showcase);
+        $values->deleteForEntry($showcase, 1);
+        $afterEntry = $rowsOf($showcase);
+        $values->replace($showcase, 1, $field, ['1', '2']);
+        $values->deleteForOption($field, '2');
+        $afterOption = $rowsOf($showcase, "value_id='2'");
+        $values->deleteForField($field);
+        $afterField = $rowsOf($showcase);
+        $values->deleteForShowcase($showcase);
+        $out([
+            'table' => $db->table_exists('myshowcase_field_values'),
+            'start' => $start,
+            'after_entry' => $afterEntry,
+            'option_rows_left' => $afterOption,
+            'after_field' => $afterField,
+            'after_showcase' => $rowsOf($showcase),
+            'other_showcase_kept' => $rowsOf($other),
+        ]);
+        $values->deleteForShowcase($other);
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);

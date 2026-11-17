@@ -299,6 +299,11 @@ class EntriesRepository
             'myshowcase_reads',
             "showcase_id='{$this->showcase->showcase_id}' AND entry_id='{$this->entry_id}'"
         );
+
+        (new FieldValuesRepository($this->database))->deleteForEntry(
+            (int)$this->showcase->showcase_id,
+            (int)$this->entry_id
+        );
     }
 
     public function shutDownQueryIncrementViews(int $entry_id): void

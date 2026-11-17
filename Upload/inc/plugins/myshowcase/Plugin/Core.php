@@ -2170,6 +2170,38 @@ const TABLES_DATA = [
         ],
         //'unique_keys' => ['set_field_value_id' => ['collection_id', 'field_id', 'value_id']]
     ],
+    // The selected values of a multiple-choice field (decision D61): one row per entry and value, the authority of the
+    // values. The entry column of the field holds a derived cache of the same values, written in the same transaction.
+    'myshowcase_field_values' => [
+        'field_value_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'auto_increment' => true,
+            'primary_key' => true
+        ],
+        'showcase_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'entry_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'field_id' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
+        'value_id' => [
+            'type' => 'VARCHAR',
+            'size' => 120,
+            'default' => '',
+        ],
+        'unique_keys' => ['entry_field_value' => ['showcase_id', 'entry_id', 'field_id', 'value_id']],
+        'keys' => ['field_value_lookup' => ['field_id', 'value_id', 'showcase_id']],
+    ],
     'myshowcase_logs' => [
         'log_id' => [
             'type' => 'INT',

@@ -1297,6 +1297,16 @@ def stage_x(cells, ctx, member):
           f"no unknown error or internal error page: {'unknown error' not in text.lower() and 'Internal Error' not in text}")
 
 
+def stage_v(cells, values):
+    """Stage v (decision D61): the child rows of a multiple-choice field (myshowcase_field_values) exist, and they are
+    removed with their entry, their option, their field and their showcase. Only the rows of the deleted showcase go."""
+    expected = {'table': True, 'start': 4, 'after_entry': 1, 'option_rows_left': 0, 'after_field': 0, 'after_showcase': 0,
+                'other_showcase_kept': 1}
+    ok = values == expected
+    check(cells, 'values:child-rows', 'v', 'pass' if ok else 'fail',
+          f'expected {expected}, got {values}')
+
+
 def stage_y(cells, member):
     """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
     The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""
@@ -1952,6 +1962,7 @@ def main():
         stage_h_moderation(cells, ctx, fixture, users)
         stage_x(cells, ctx, member)
         stage_y(cells, member)
+        stage_v(cells, fixture('field-values'))
         stage_k_acp_and_json(acp, cells, ctx, fixture)
         stage_k_reserved_types(acp, cells, ctx)
         stage_k_words(acp, member, cells, ctx, fixture, users)

@@ -28,6 +28,7 @@ use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Repository\FieldValuesRepository;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Repository\PermissionsRepository;
 use MyShowcase\Service\SchemaManager;
@@ -197,6 +198,8 @@ function showcaseDelete(int $showcase_id): bool
     }
 
     $db->delete_query('myshowcase_subscriptions', "showcase_id='{$showcase_id}'");
+
+    (new FieldValuesRepository($db))->deleteForShowcase((int)$showcase_id);
 
     if (showcaseDataTableExists($showcase_id)) {
         showcaseDataTableDrop($showcase_id);
@@ -500,6 +503,8 @@ function fieldsDelete(int $field_id): bool
         fieldDataDelete($fieldDataID);
     }
 
+    (new FieldValuesRepository($db))->deleteForField((int)$field_id);
+
     $db->delete_query('myshowcase_fields', "field_id='{$field_id}'");
 
     return true;
@@ -584,6 +589,13 @@ function fieldDataDelete(int $fieldDataID): bool
     ];
 
     $hookArguments = hooksRun('field_data_delete_start', $hookArguments);
+
+    $option = fieldDataGet(["field_data_id='{$fieldDataID}'"], ['field_id', 'value_id'])[$fieldDataID] ?? null;
+
+    if ($option) {
+        // The values that name this option go with it: a multiple-choice entry must not keep a removed value (D61).
+        (new FieldValuesRepository($db))->deleteForOption((int)$option['field_id'], (string)$option['value_id']);
+    }
 
     $db->delete_query('myshowcase_field_data', "field_data_id='{$fieldDataID}'");
 
