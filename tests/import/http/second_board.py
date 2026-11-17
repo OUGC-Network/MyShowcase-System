@@ -11,7 +11,7 @@ Users, groups and file URLs of the file are not compared (decision D137).
 Both boards are installed in DIR (board_a and board_b for SQLite; one msc_test_ database each for MySQL, both dropped at the end).
 Exit code 1 if a check fails.
 """
-import argparse, json, os, random, shutil, string, subprocess, sys, time
+import argparse, json, os, random, re, shutil, string, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -88,6 +88,8 @@ try:
     acp_a = board.activate(ctx_a)
     flows.configure(ctx_a, scratch_a, log_a)
     flows.create_blog(acp_a)
+    # the downloads showcase before the setup fixture: its import permission is granted with the others (as in run.py)
+    flows.create_showcase(acp_a, 'downloads', 'Downloads')
     flows.fixture('setup', os.path.join(scratch_a, 'users.json'))
     flows.USERS = json.load(open(os.path.join(scratch_a, 'users.json')))
     flows.fixture('showcase-setting', 'blog', 'import_export_flood_seconds', '0')
@@ -119,6 +121,38 @@ try:
         page = author.get(f'/showcase.php/blog/view/{pid}/{slug}')['body']
         flows.ok(flows.page_has_label(page, options_a[int(category)][1]), f'board A: the entry page shows the label {options_a[int(category)][1]!r} of {subject!r}')
         snapshot_a[subject] = {'value_id': value_id, 'label': options_a[int(category)][1], 'texts': texts}
+    # several platforms (decision D182): a downloads entry with two platforms, exported and imported into board B. Board A's
+    # entry holds the value ids of its platforms in option order; B must hold the same value ids with the same labels, in order.
+    flows.fixture('files-setup', 'import-test-uploads')
+    flows.fixture('external-setting', '1')
+    time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
+    zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
+    dl_entry = flows.downloads_entry(95, zip_url)
+    dl_entry['fields'].update({'category': 2, 'platform': ['1', '3'], 'license': 2})
+    body = flows.import_into(author, 'downloads', flows.write_file('second-board-downloads-a.xml', flows.xml_file([dl_entry], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = flows.report_of(body)
+    flows.ok(report is not None and report['status'] == 'completed', 'board A: the downloads entry with two platforms is created by import')
+    dl_sid_a = int(flows.one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'"))
+    dl_field_a = flows.one("select field_id from mybb_myshowcase_fields where field_key='platform' and collection_id=(select collection_id from mybb_myshowcase_collections where name='Downloads')")
+    labels_a = {str(row[0]): str(row[1]) for row in flows.db(f"select value_id, value from mybb_myshowcase_field_data where field_id={dl_field_a}")}
+    dl_export_form = author.get('/showcase.php/downloads/export')
+    author.post('/showcase.php/downloads/export', {'my_post_key': flows.post_key(dl_export_form['body']), 'limit': '0',
+                                                   'order_by': 'dateline', 'order_dir': 'asc', 'submit': 'Export'})
+    dl_export_id = flows.one(f"select export_id from mybb_myshowcase_exports where user_id={flows.USERS['member1']['uid']} order by export_id desc limit 1")
+    dl_download = author.get(f'/showcase.php/downloads/export/{dl_export_id}/download')
+    dl_export_path = os.path.join(scratch_a, 'downloads-export.xml')
+    open(dl_export_path, 'wb').write(dl_download['raw'])
+    # board A's file URLs point at its own address (a port other than 80 and 443, which board B may not fetch from, D53). The file
+    # is the GitHub archive, so the export names that archive: board B fetches the same bytes from an allowed host.
+    exported_text = open(dl_export_path, encoding='utf-8', errors='replace').read()
+    exported_text = re.sub(r'https?://127\.0\.0\.1:\d+/[^<\s"]*', zip_url, exported_text)
+    open(dl_export_path, 'w', encoding='utf-8').write(exported_text)
+    snapshot_dl = {}
+    for entry_id, subject in flows.db(f"select entry_id, subject from mybb_myshowcase_data{dl_sid_a} where user_id={flows.USERS['member1']['uid']} order by entry_id"):
+        platforms = flows.db(f"select value_id from mybb_myshowcase_field_values where showcase_id={dl_sid_a} and entry_id={entry_id} "
+                             f"and field_id={dl_field_a} order by field_value_id")
+        snapshot_dl[subject] = [(str(vid), labels_a.get(str(vid), '')) for (vid,) in platforms]
+    flows.ok(bool(snapshot_dl) and all(len(v) == 2 for v in snapshot_dl.values()), f'board A: the entry holds two platforms ({snapshot_dl})')
 finally:
     finish(ctx_a)
 
@@ -141,6 +175,7 @@ try:
                       f"select collection_id, field_id, field_key, '{900 + extra}', 'Extra {extra}', '-1' from mybb_myshowcase_fields "
                       f"where field_id={gallery_field}")
     flows.create_blog(acp_b)
+    flows.create_showcase(acp_b, 'downloads', 'Downloads')
     flows.fixture('setup', os.path.join(scratch_b, 'users.json'))
     flows.USERS = json.load(open(os.path.join(scratch_b, 'users.json')))
     flows.fixture('showcase-setting', 'blog', 'import_export_flood_seconds', '0')
@@ -176,6 +211,26 @@ try:
         differences = {c: (expected['texts'][c], texts_b[c]) for c in expected['texts'] if str(expected['texts'][c]) != str(texts_b[c])}
         flows.ok(not differences, f'board B: the text fields of {subject!r} are equal to A\'s ({differences or "all equal"})')
     flows.ok(len(snapshot_a) == 4, f'board B: the four entries of board A are on B ({len(snapshot_a)} in A)')
+    # the downloads entries of board A, on B: the same value ids, with the same labels, in the same order
+    flows.fixture('files-setup', 'import-test-uploads')
+    flows.fixture('external-setting', '1')
+    time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
+    dl_b_import = flows.import_into(member_b, 'downloads', dl_export_path)['body']
+    dl_report = flows.report_of(dl_b_import)
+    flows.ok(dl_report is not None and dl_report['status'] == 'completed', f"board B: the downloads file of board A is imported ({dl_report['text'][:600] if dl_report else 'no report'})")
+    dl_sid_b = int(flows.one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'"))
+    dl_field_b = flows.one("select field_id from mybb_myshowcase_fields where field_key='platform' and collection_id=(select collection_id from mybb_myshowcase_collections where name='Downloads')")
+    labels_b = {str(row[0]): str(row[1]) for row in flows.db(f"select value_id, value from mybb_myshowcase_field_data where field_id={dl_field_b}")}
+    for subject, expected in snapshot_dl.items():
+        rows_b = flows.db(f"select entry_id from mybb_myshowcase_data{dl_sid_b} where subject='{subject.replace(chr(39), chr(39) * 2)}' and user_id={uid2} order by entry_id")
+        if len(rows_b) != 1:
+            flows.ok(False, f'board B: one downloads entry {subject!r} after the import (found {len(rows_b)})')
+            continue
+        platforms_b = [(str(vid), labels_b.get(str(vid), '')) for (vid,) in flows.db(
+            f"select value_id from mybb_myshowcase_field_values where showcase_id={dl_sid_b} and entry_id={rows_b[0][0]} "
+            f"and field_id={dl_field_b} order by field_value_id")]
+        flows.ok(platforms_b == expected,
+                 f'board B: {subject!r} holds the platforms {platforms_b}, as A holds {expected} (value ids and labels, in order)')
 finally:
     finish(ctx_b)
 

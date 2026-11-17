@@ -136,9 +136,13 @@ def xml_value(value):
 
 
 def xml_node(key, value):
-    """One element of a PluginLibrary export: a scalar, or a nested array for a dict."""
+    """One element of a PluginLibrary export: a scalar, a nested array for a dict, or an indexed array for a list (the
+    ordered value_ids of a multiple-choice field, decision D182)."""
     if isinstance(value, dict):
         inner = ''.join(xml_node(k, v) for k, v in value.items())
+        return f'<element><key>{xml_escape(key)}</key><value><array>{inner}</array></value></element>'
+    if isinstance(value, list):
+        inner = ''.join(f'<element><key type="INT">{index}</key>{xml_value(item)}</element>' for index, item in enumerate(value))
         return f'<element><key>{xml_escape(key)}</key><value><array>{inner}</array></value></element>'
     return f'<element><key>{xml_escape(key)}</key>{xml_value(value)}</element>'
 
@@ -308,6 +312,7 @@ def run():
     section_option_numbering()
     section_option_portability()
     section_downloads_round_trip()
+    section_unknown_option_value()
     section_four_byte_subject()
     section_logs()
 
@@ -1045,6 +1050,11 @@ def section_option_numbering():
                        f"(select collection_id from mybb_myshowcase_collections where name='Downloads'))"
             expected = one(f"select field_data_id from mybb_myshowcase_field_data where field_id={field_of} and value_id='1'")
             stored_value = one(f"select {key} from mybb_myshowcase_data{downloads_sid} order by entry_id desc limit 1")
+            if key == 'platform':
+                # a multiple-choice field: its column is the cache of the value ids (decision D185); value 1 is among them
+                ok(expected != '' and '1' in str(stored_value).split(','),
+                   f'downloads {key}: the cache holds the value id 1 of the option ({stored_value})')
+                continue
             ok(expected != '' and str(stored_value) == str(expected),
                f'downloads {key}: the stored id is the field_data_id of its value 1 option ({stored_value} / {expected})')
     else:
@@ -1120,7 +1130,8 @@ def section_downloads_round_trip():
         return
     table = f'mybb_myshowcase_data{did}'
     zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
-    picks = {91: {'category': 2, 'platform': 3, 'license': 2}}
+    # entry 91 holds one platform (a format-3 file with a single value); entry 92 holds two, as an ordered list of value ids
+    picks = {91: {'category': 2, 'platform': 3, 'license': 2}, 92: {'category': 4, 'platform': ['1', '3'], 'license': 3}}
     for index, pick in picks.items():
         entry = downloads_entry(index, zip_url)
         entry['fields'].update(pick)
@@ -1141,11 +1152,22 @@ def section_downloads_round_trip():
             files = db(f"select attachment_name, file_size from mybb_myshowcase_attachments where showcase_id={did} and entry_id={entry_id} "
                        "and field_id is not null order by attachment_id")
             values['files'] = [tuple(f) for f in files]
+            values['platform'] = platform_tokens(entry_id)
             rows.setdefault(values['version'], []).append(values)
         return rows
 
+    # the platform of an entry is its child rows (decision D185): the value ids, in option order
+    platform_field = one("select field_id from mybb_myshowcase_fields where field_key='platform' and collection_id="
+                         "(select collection_id from mybb_myshowcase_collections where name='Downloads')")
+
+    def platform_tokens(entry_id):
+        return ','.join(row[0] for row in db(
+            f"select value_id from mybb_myshowcase_field_values where showcase_id={did} and entry_id={entry_id} "
+            f"and field_id={platform_field} order by field_value_id"))
+
     before = snapshot()
-    ok(len(before.get('1.9.91', [])) == 1, f'the fresh entry is stored once before the export ({sorted(before)})')
+    ok(len(before.get('1.9.91', [])) == 1 and len(before.get('1.9.92', [])) == 1,
+       f'each fresh entry is stored once before the export ({sorted(before)})')
     export_form = member.get('/showcase.php/downloads/export')
     member.post('/showcase.php/downloads/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
                                                    'order_dir': 'asc', 'submit': 'Export'})
@@ -1161,15 +1183,20 @@ def section_downloads_round_trip():
     report = report_of(body)
     ok(report is not None and report['status'] == 'completed', f"the export imports back into the same board ({report['text'][:160] if report else 'no report'})")
     after = snapshot()
-    for version, pick_index in (('1.9.91', 91),):
+    for version, pick_index in (('1.9.91', 91), ('1.9.92', 92)):
         if len(after.get(version, [])) != 2:
             ok(False, f'{version}: two entries after the import (found {len(after.get(version, []))})')
             continue
         original, copy = after[version][0], after[version][1]
-        for key in ('category', 'platform', 'license'):
+        for key in ('category', 'license'):
             value_id = picks[pick_index][key]
             ok(str(copy[key]) == str(original[key]) == str(field_data(key, value_id)),
                f'{version} {key}: the copy holds the field_data_id {copy[key]} of value id {value_id}, as the original does')
+        # several platforms: the child rows of the copy hold the same value ids, in the same order (decisions D182, D137)
+        platforms = picks[pick_index]['platform']
+        expected = ','.join(platforms if isinstance(platforms, list) else [str(platforms)])
+        ok(copy['platform'] == original['platform'] == expected,
+           f"{version} platform: the copy holds the value ids {copy['platform']!r}, the original {original['platform']!r}, expected {expected!r}")
         # the stored file name is generated again for each copy; the name the file was uploaded with and its size are compared
         ok(copy['files'] == original['files'] and len(copy['files']) == 1,
            f"{version} file: the copy has the same file name and size ({original['files']} -> {copy['files']})")
@@ -1182,6 +1209,27 @@ def section_downloads_round_trip():
     refused = report is not None and report['status'] == 'failed' and 'may not download' in text(body)
     ok(refused and int(one(f'select count(*) from {table}') or 0) == stored_before,
        'after the entries are removed, the file of an own-board entry is refused as a whole (decision D58) and nothing is stored')
+
+
+def section_unknown_option_value():
+    """Decision D182: a value_id of a multiple-choice field that is no option of the field is refused as a whole, with the reason
+    (the entry, the value and the field); nothing is stored."""
+    print('--- an unknown value of a multiple-choice field (decision D182)')
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    did = int(one("select showcase_id from mybb_myshowcase_config where route_identifier='downloads'") or 0)
+    if not did:
+        not_run('unknown value: the downloads showcase is not on this board')
+        return
+    table = f'mybb_myshowcase_data{did}'
+    before = int(one(f'select count(*) from {table} where user_id={uid}') or 0)
+    entry = downloads_entry(93, 'https://placehold.co/600x450.png?text=Unknown%20value')
+    entry['fields']['platform'] = ['1', '99']
+    body = import_into(member, 'downloads', write_file('downloads-unknown-value.xml', xml_file([entry], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = report_of(body)
+    reason = 'the value "99" of the field "Platform" is not an option of this field' in html.unescape(text(body))
+    ok(report is not None and report['status'] == 'failed' and reason and int(one(f'select count(*) from {table} where user_id={uid}') or 0) == before,
+       'a file with a value that is no option of the field is refused as a whole, with the reason, and nothing is stored')
 
 
 def section_four_byte_subject():
