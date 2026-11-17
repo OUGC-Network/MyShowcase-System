@@ -118,12 +118,61 @@ class FieldValuesRepository
         $this->database->delete_query(self::TABLE, "field_id='{$field_id}'");
     }
 
-    /** Removes the values that name one option of a field (the option is deleted). */
+    /**
+     * Removes the values that name one option of a field (the option is deleted), and rewrites the cache of every entry that
+     * held it, so that the cache keeps equal to the rows (decision D61).
+     */
     public function deleteForOption(int $field_id, string $value_id): void
     {
-        $this->database->delete_query(
-            self::TABLE,
-            "field_id='{$field_id}' AND value_id='" . $this->database->escape_string($value_id) . "'"
+        $escaped = $this->database->escape_string($value_id);
+
+        $affected = [];
+
+        $query = $this->database->simple_select(self::TABLE, 'showcase_id, entry_id', "field_id='{$field_id}' AND value_id='{$escaped}'");
+
+        while ($row = $this->database->fetch_array($query)) {
+            $affected[(int)$row['showcase_id'] . ':' . (int)$row['entry_id']] = [(int)$row['showcase_id'], (int)$row['entry_id']];
+        }
+
+        $this->database->delete_query(self::TABLE, "field_id='{$field_id}' AND value_id='{$escaped}'");
+
+        if ($affected === []) {
+            return;
+        }
+
+        $field = $this->database->fetch_array($this->database->simple_select('myshowcase_fields', 'field_key', "field_id='{$field_id}'"));
+
+        if (!$field) {
+            return;
+        }
+
+        foreach ($affected as [$showcase_id, $entry_id]) {
+            $this->rewriteCache($showcase_id, $entry_id, $field_id, (string)$field['field_key']);
+        }
+    }
+
+    /**
+     * Writes the cache of one field of one entry from its rows, in option order (decision D61).
+     */
+    public function rewriteCache(int $showcase_id, int $entry_id, int $field_id, string $field_key): void
+    {
+        $query = $this->database->query(
+            "SELECT v.value_id FROM {$this->database->table_prefix}" . self::TABLE . " v " .
+            "INNER JOIN {$this->database->table_prefix}myshowcase_field_data d ON (d.field_id=v.field_id AND d.value_id=v.value_id) " .
+            "WHERE v.showcase_id='{$showcase_id}' AND v.entry_id='{$entry_id}' AND v.field_id='{$field_id}' " .
+            'ORDER BY d.display_order, d.field_data_id'
+        );
+
+        $value_ids = [];
+
+        while ($row = $this->database->fetch_array($query)) {
+            $value_ids[] = (string)$row['value_id'];
+        }
+
+        $this->database->update_query(
+            'myshowcase_data' . $showcase_id,
+            [$field_key => $this->database->escape_string(self::cacheOf($value_ids))],
+            "entry_id='{$entry_id}'"
         );
     }
 
