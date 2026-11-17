@@ -65,7 +65,7 @@ try:
     ctx.stop()
     log = os.path.join(a.scratch, f'php_{a.engine}_errors.log')
     ctx.server = subprocess.Popen(
-        ['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1', '-d', f'error_log={log}',
+        ['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1', '-d', f'error_log={log}', '-d', 'max_execution_time=120',
          '-S', f'127.0.0.1:{port}', '-t', ctx.board],
         stdout=open(os.path.join(a.scratch, f'php_{a.engine}.log'), 'w'), stderr=subprocess.STDOUT,
     )
