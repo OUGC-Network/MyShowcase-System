@@ -97,6 +97,12 @@ A download is never a link to a stored file. The link carries only the export id
 `12-gallery-20261112-093015-0c1f...e9.xml`. Nothing in the name comes from a request: the route identifier keeps only
 the characters `a-z 0-9 _ -`. The name is never shown to a user; the download name is built separately.
 
+## File fields
+
+A file field writes the public URL of its file, as before. A file field that takes several files (decision D197) writes the
+list of the URLs of the files the exporting user may download, in display order (decision D182); a file field with one file
+keeps its single URL. A file the user may not download is not written, and it is counted in the export's notes.
+
 ## Option fields
 
 An export writes each select, radio and checkbox field as the **value id** of the chosen option (format version 3), which

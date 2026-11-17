@@ -22,7 +22,8 @@ package.zip
 ### `entry.xml`
 
 The entries format of [import.md](import.md), with `format_version` 2 and exactly one entry. The header names the showcase
-and the collection exactly as an entries file does. A file field holds either a URL (fetched under the rules of
+and the collection exactly as an entries file does. A file field that takes several files holds one reference per file, in
+order (decision D182). A file field holds either a URL (fetched under the rules of
 [File fields](import.md#file-fields)) or a package reference:
 
 ```

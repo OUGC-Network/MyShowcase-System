@@ -269,6 +269,18 @@ option within a showcase.
 Engine mapping: `showcase_id`, `entry_id` and `field_id` are `INT UNSIGNED` / `integer` / `INTEGER`; `value_id` is
 `VARCHAR(120)` on all engines; `field_value_id` is `serial` on PostgreSQL and `INTEGER PRIMARY KEY` on SQLite.
 
+### Several files in one field (decisions D61, D197, D199)
+
+A file field with `allow_multiple_values` = 1 takes up to ten files. The files are the rows of `myshowcase_attachments` with
+their `field_id` and `entry_id`; the new column `display_order` (INT UNSIGNED, default 0) gives their order, 1 upwards, in
+upload order. The data column of such a field holds only a cache: the ids of its files in display order, joined by `,`,
+written in the same transaction as the links and the order. The cache is never read for logic. The rule is one util,
+`MultipleChoiceUtil` (`MAX_FILES` = 10 is its one cap, because the plugin has no per-field file count). No migration is written
+(decision D129 A): a board created before this change is recreated.
+
+The new field property `file_types` (VARCHAR(120), default `''`) names the extensions a file field takes; empty takes every
+type of the showcase. It is refused at the upload and at the import before anything is written.
+
 ### `myshowcase_fields` — multiple values reuse `allow_multiple_values`
 
 Multi-select uses the existing column `allow_multiple_values TINYINT UNSIGNED NOT NULL DEFAULT 0`; no new flag is

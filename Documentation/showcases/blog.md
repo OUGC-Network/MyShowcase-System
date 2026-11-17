@@ -56,7 +56,7 @@ The file sets only these keys. Every other setting keeps its value on the board 
 | `category` | select / int | Section of the blog | Required; one of News, Tutorials, Opinion, Announcements | yes | yes | none |
 | `summary` | textarea / text | Introduction shown in the list | At most 300 characters | yes | yes | empty |
 | `tags` | text / varchar(120) | Comma-separated keywords, searchable | At most 120 characters | yes | yes | empty |
-| `cover_image` | url / varchar(255) | Picture shown with the post | Optional; must be an `http://` or `https://` address without spaces | yes | yes | empty |
+| `cover_image` | file / varchar(255) | Picture shown with the post: one file of an image type (png, jpg, jpeg or gif), at most 2 MB | Optional; one file | yes | yes | none |
 | `reading_time` | number / int | Minutes needed to read | Optional; a whole number from 1 to 999 | yes | yes | empty |
 | `series` | text / varchar(80) | Name of a series of posts | Optional; 1 to 80 characters | no | yes | empty |
 | `series_part` | number / int | Position of the post in its series | Optional; a whole number from 1 to 999 | no | yes | empty |

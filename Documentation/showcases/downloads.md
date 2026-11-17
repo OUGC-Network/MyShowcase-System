@@ -52,7 +52,8 @@ The file sets only these keys; every other setting keeps its value on the board.
 
 | Key | Type (html / db) | Purpose | Validation | List | Entry page | Default |
 |---|---|---|---|---|---|---|
-| `archive` | file / varchar(255) | The downloadable file | Required; at most 50 MB (51,200 KB), and the board's limit for the file's type | yes | yes | none |
+| `archive` | file / varchar(255) | The downloadable file | Required; one ZIP file (`file_types` is `zip`), at most 50 MB (51,200 KB), and the board's limit for the file's type | yes | yes | none |
+| `previews` | file / text | Images of the file, shown as previews, in order | Optional; up to ten images (png, jpg, jpeg or gif), at most 2 MB each (decisions D197 and D198) | yes | yes | none |
 | `category` | select / int | Kind of file: Tools, Themes, Plugins, Templates, Documents, Other | Required; one of the six options | yes | yes | none |
 | `version` | text / varchar(20) | Version number | Required; `1.4.2`, `2.0.0-beta` (digits and dots, optionally followed by `-` or `.` and letters or digits) | yes | yes | none |
 | `release_date` | date / varchar(10) | Date of this version | Required; `YYYY-MM-DD` | yes | yes | none |

@@ -57,6 +57,9 @@ imports/
 * `options` (select, radio and checkbox fields only) is a list of `{"value_id", "value"}` plus `display_order` and
   `display_style`.
 * `allow_multiple_values` (select fields; a checkbox always takes several values): 1 makes a select take several options.
+* `file_types` (file fields): the extensions the field takes, comma separated (for example `png,jpg`); empty takes every type of the
+  showcase (decision D199). A file field with `allow_multiple_values` 1 takes up to ten files (decision D197).
+* `minimum_value` and `maximum_value` (number fields) bound the value; the blog's `reading_time` and `series_part` take 1 to 999 (decision D120).
   A field that takes several values must have `field_type` `text` (decision D187); any other type is refused. Changing the
   flag of a select is refused while an entry holds a value for the field (decision D180).
 * `previous_keys` is an optional list of earlier `field_key`s of the field (see Identity).

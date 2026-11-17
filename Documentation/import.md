@@ -73,7 +73,7 @@ the forum (see [Status](#status)).
 
 Field keys match exactly (case-sensitive). A key that is not a field of the collection is refused. A key of a field the
 user may not fill (not enabled for the user's group, or read only) is refused. A key of a file field holds the URL of
-its file, see [File fields](#file-fields).
+its file (or, for a field that takes several files, an ordered list of URLs), see [File fields](#file-fields).
 
 ### Values by field type
 
@@ -122,6 +122,12 @@ references); characters that XML 1.0 cannot hold were removed when the file was 
 A file field holds the URL of its file. The URL is the public address the board serves the file at, so a browser can
 open it. An export writes it for every file the exporting user could download, by the rules of the download route; any
 other file is written empty and counted in the export's notes. No filesystem path is ever written.
+
+A file field that takes several files (its `allow_multiple_values` is 1; decision D197) holds an **ordered list** of URLs,
+one per file, in display order (decision D182). A file with one URL is still valid. A list of more than ten URLs is refused
+as a whole, and each URL counts toward the import's file limits: a stored file, its thumbnail and the rollback of the whole
+entry if a later file fails are the same as for one file (decision D59). A file field also names the extensions it takes
+(`file_types`, decision D199); a file of another extension is refused before anything is written.
 
 An import takes each file from its URL and attaches it through the same pipeline as the form: the board's attachment
 types, the sizes of the field and of the type, the thumbnails of images and the checks of a valid image all apply, and the
