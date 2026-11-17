@@ -560,7 +560,7 @@ def section_h():
     r = jsync({'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/downloads.json'})
     ok(errors_in(r) is None and 'The file was applied' in text(r['body']), 'downloads collection created from its file')
     did = int(one("select collection_id from mybb_myshowcase_collections where name='Downloads'") or 0)
-    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={did}") == [('collections/downloads.json', '1.0.0')], 'downloads collection linked at 1.0.0')
+    ok(db(f"select json_file, json_version from mybb_myshowcase_collections where collection_id={did}") == [('collections/downloads.json', '1.1.0')], 'downloads collection linked at 1.1.0')
     ok(one(f"select count(*) from mybb_myshowcase_fields where collection_id={did} and json_file='collections/downloads.json'") == '10', 'downloads: ten fields linked')
     ok(one(f"select count(*) from mybb_myshowcase_field_data where collection_id={did}") == '17', 'downloads: 17 options (category 6, platform 5, license 6)')
     r = jsync({'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/downloads.json', 'name': 'Downloads', 'route_identifier': 'downloads'})
