@@ -128,7 +128,8 @@ try:
     time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
     zip_url = 'https://github.com/mybb/mybb/archive/refs/heads/dev-1.9.zip'
     dl_entry = flows.downloads_entry(95, zip_url)
-    dl_entry['fields'].update({'category': 2, 'platform': ['1', '3'], 'license': 2})
+    dl_entry['fields'].update({'category': 2, 'platform': ['1', '3'], 'license': 2,
+                               'previews': ['https://placehold.co/600x450.png?text=Preview%20one', 'https://placehold.co/600x450.png?text=Preview%20two']})
     body = flows.import_into(author, 'downloads', flows.write_file('second-board-downloads-a.xml', flows.xml_file([dl_entry], route='downloads', collection='Downloads', format_version=3)))['body']
     report = flows.report_of(body)
     flows.ok(report is not None and report['status'] == 'completed', 'board A: the downloads entry with two platforms is created by import')
@@ -145,7 +146,10 @@ try:
     # board A's file URLs point at its own address (a port other than 80 and 443, which board B may not fetch from, D53). The file
     # is the GitHub archive, so the export names that archive: board B fetches the same bytes from an allowed host.
     exported_text = open(dl_export_path, encoding='utf-8', errors='replace').read()
-    exported_text = re.sub(r'https?://127\.0\.0\.1:\d+/[^<\s"]*', zip_url, exported_text)
+    # the export names board A's file addresses in order: the archive, then the two previews. Board B may fetch only from the
+    # ports 80 and 443 (D53), so each address is replaced by the archive on GitHub or by a placehold.co image.
+    replacements = iter([zip_url, 'https://placehold.co/600x450.png?text=Preview%20one', 'https://placehold.co/600x450.png?text=Preview%20two'])
+    exported_text = re.sub(r'https?://127\.0\.0\.1:\d+/[^<\s"]*', lambda m: next(replacements, zip_url), exported_text)
     open(dl_export_path, 'w', encoding='utf-8').write(exported_text)
     snapshot_dl = {}
     for entry_id, subject in flows.db(f"select entry_id, subject from mybb_myshowcase_data{dl_sid_a} where user_id={flows.USERS['member1']['uid']} order by entry_id"):
@@ -231,6 +235,12 @@ try:
             f"and field_id={dl_field_b} order by field_value_id")]
         flows.ok(platforms_b == expected,
                  f'board B: {subject!r} holds the platforms {platforms_b}, as A holds {expected} (value ids and labels, in order)')
+        # the previews: two files of the entry on B, in display order, as A holds them (decision D197)
+        preview_field_b = flows.one("select field_id from mybb_myshowcase_fields where field_key='previews' and collection_id="
+                                    "(select collection_id from mybb_myshowcase_collections where name='Downloads')")
+        orders_b = [r[0] for r in flows.db(f"select display_order from mybb_myshowcase_attachments where entry_id={rows_b[0][0]} "
+                                           f"and field_id={preview_field_b} order by display_order")]
+        flows.ok(orders_b == ['1', '2'], f'board B: {subject!r} holds its two previews in display order {orders_b}')
 finally:
     finish(ctx_b)
 
