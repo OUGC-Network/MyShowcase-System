@@ -872,6 +872,24 @@
                 }
             ],
             "enable_search": 1
+        },
+        {
+            "field_key": "fk_file_multiple",
+            "label": "Files multiple",
+            "description": "",
+            "html_type": "file",
+            "field_type": "text",
+            "is_enabled": 1,
+            "is_required": 0,
+            "display_order": 49,
+            "render_order": 49,
+            "display_in_create_update_page": 1,
+            "display_in_view_page": 1,
+            "display_in_main_page": 1,
+            "allowed_groups_fill": "all",
+            "allowed_groups_view": "all",
+            "allow_multiple_values": 1,
+            "maximum_size": 1024
         }
     ]
 }

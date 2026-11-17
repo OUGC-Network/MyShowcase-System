@@ -306,7 +306,8 @@ def create(client, overrides, token, uploads):
     data['fk_select_req'] = option_ids['fk_select_req'][0]
     data['fk_select_multiple_req[]'] = [option_ids['fk_select_multiple_req'][0]]
     for field_key, wanted in uploads.items():
-        if wanted:
+        # a count uploads that many files to a multiple-file field (decision D197); True is one file
+        for _ in range(wanted if isinstance(wanted, int) and not isinstance(wanted, bool) else (1 if wanted else 0)):
             upload_status, upload_body = upload(client, post_hash, field_key)
             if upload_status != 200:
                 raise RuntimeError(f'upload to {field_key} answered {upload_status}: {upload_body[:300]}')
@@ -1530,6 +1531,70 @@ def stage_closure(acp, member, cells, ctx, fixture, users):
           f'a value id with a comma is refused in the ACP: the option keeps {value_before!r}, now {value_after!r}')
 
 
+def stage_files_multi(member, cells, ctx, fixture):
+    """Decisions D197, D61 and D182 (matrix): a multiple-file field stores its files in upload order with their display order,
+    and its cache holds their ids in that order; the cap of files is refused at the eleventh upload; an edit removes one file and
+    renumbers the rest; the entry's delete through the forum route removes all its files; a stale cache is detected."""
+    fk = 'fk_file_multiple'
+    fid = FIELD_IDS[fk]
+    # stage h deleted the option Alpha of fk_select: the posts of this stage use a live option of it
+    live_select = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
+                        f"and value<>'Alpha' order by display_order, field_data_id limit 1")[0][0]
+    made = create(member, {'fk_select': live_select}, 'FM1', {'fk_file_req': True, 'fk_file': False, fk: 3})
+    rows = query(f"select a.attachment_id, a.display_order from mybb_myshowcase_attachments a join {DATA} d on d.entry_id=a.entry_id "
+                 f"where d.subject='FM1' and a.field_id={fid} order by a.attachment_id")
+    ids = [r[0] for r in rows]
+    cache = (query(f"select {fk} from {DATA} where subject='FM1'") or [[None]])[0][0]
+    if not query(f"select 1 from {DATA} where subject='FM1'"):
+        check(cells, 'values:files-order', 'f', 'fail', f"the entry with three files is not stored: {made['error'] or made['status']}")
+        return
+    order_ok = len(rows) == 3 and [r[1] for r in rows] == ['1', '2', '3'] and made['status'] in (200, 302)
+    check(cells, 'values:files-order', 'f', 'pass' if (order_ok and cache == ','.join(ids)) else 'fail',
+          f'three files stored with display order {[r[1] for r in rows]}; cache {cache!r} equals their ids {",".join(ids)!r}')
+
+    # the cap: ten files are accepted, the eleventh is refused and not stored
+    form = member.get(f'/showcase.php/{ROUTE}/create')
+    ph = form_fields(form['body'])
+    statuses = [upload(member, ph, fk)[0] for _ in range(11)]
+    stored = query(f"select count(*) from mybb_myshowcase_attachments where post_hash='{ph}' and field_id={fid}")[0][0]
+    ctx.execute(f"delete from mybb_myshowcase_attachments where post_hash='{ph}'")
+    check(cells, 'values:files-cap', 'f', 'pass' if (statuses[:10] == [200] * 10 and statuses[10] != 200 and stored == '10') else 'fail',
+          f'uploads answer {statuses}; files stored for the form: {stored} (cap 10)')
+
+    # an edit removes one file; the rest are renumbered and the cache follows them
+    row = {k: str(v) for k, v in zip(('public_id', 'entry_slug_custom', 'subject', 'fk_text_req'),
+                                    query(f"select public_id, entry_slug_custom, subject, fk_text_req from {DATA} where subject='FM1'")[0])}
+    update_post(member, row, {'fk_select': live_select, 'remove_attachments[]': [ids[1]]})
+    left = query(f"select a.attachment_id, a.display_order from mybb_myshowcase_attachments a join {DATA} d on d.entry_id=a.entry_id "
+                 f"where d.subject='FM1' and a.field_id={fid} order by a.display_order, a.attachment_id")
+    cache_after = (query(f"select {fk} from {DATA} where subject='FM1'") or [[None]])[0][0]
+    check(cells, 'values:files-remove', 'f',
+          'pass' if ([r[0] for r in left] == [ids[0], ids[2]] and [r[1] for r in left] == ['1', '2'] and cache_after == f'{ids[0]},{ids[2]}') else 'fail',
+          f'the removed file is gone: {[r[0] for r in left]} (kept {ids[0]}, {ids[2]}); display order {[r[1] for r in left]}; cache {cache_after!r}')
+
+    # the entry deleted through the forum route removes its files and their rows
+    entry_row = query(f"select entry_id, public_id from {DATA} where subject='FM1'")[0]
+    ctx.execute(f"update mybb_myshowcase_permissions set entries_can_delete=1 where showcase_id={SHOWCASE_ID} and group_id=2")
+    fixture('rebuild')
+    listing = member.get(f'/showcase.php/{ROUTE}/')
+    member.post(f'/showcase.php/{ROUTE}/?action=inline_moderation', {
+        'my_post_key': post_key(listing['body']), 'moderate': 'delete', 'selected_all_entries': '0',
+        'selected_entries': json.dumps([entry_row[1]]), 'unselected_entries': '[]'})
+    files_left = query(f"select count(*) from mybb_myshowcase_attachments where entry_id={entry_row[0]}")[0][0]
+    check(cells, 'values:files-entry-delete', 'f', 'pass' if (files_left == '0' and not query(f"select 1 from {DATA} where subject='FM1'")) else 'fail',
+          f'after the forum delete the entry keeps {files_left} files')
+
+    # negative control: a cache that does not match its files is detected
+    detected = not files_match_cache('1,2,3', ['1', '2'])
+    check(cells, 'values:files-negative-control', 'f', 'pass' if detected else 'fail',
+          f'a stale cache of files is detected: {detected}')
+
+
+def files_match_cache(cache, ordered_ids):
+    """Decision D61 for files: the cache of a multiple-file field is the ids of its files, in display order, joined by ','."""
+    return cache == ','.join(ordered_ids)
+
+
 def stage_field_delete(acp, member, cells, ctx, fixture):
     """Decision D195, closure 4: a multiple-choice field deleted through the ACP removes its child rows (and its entries' values
     with its column). The field is detached from its JSON file first, as the ACP requires for a delete (stage h, C)."""
@@ -2247,6 +2312,7 @@ def main():
         stage_k_sync_table(acp, cells, ctx, 'summary_sync')
         stage_k_word_create(cells, ctx, fixture)
         stage_ip_ipv6(cells, ctx, fixture, users)
+        stage_files_multi(member, cells, ctx, fixture)
         stage_field_delete(acp, member, cells, ctx, fixture)
     finally:
         ctx.stop()
