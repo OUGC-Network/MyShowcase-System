@@ -97,6 +97,11 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 1
         ],
+        'display_order' => [
+            'type' => 'INT',
+            'unsigned' => true,
+            'default' => 0,
+        ],
         'entry_id' => [
             'type' => 'INT',
             'unsigned' => true,

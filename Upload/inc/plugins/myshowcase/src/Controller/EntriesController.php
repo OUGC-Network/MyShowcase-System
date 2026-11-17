@@ -1236,10 +1236,6 @@ class EntriesController extends BaseController
                     $entry = $this->context->entries_manager->validationEntryInsert();
                 }
 
-                foreach ($removed_attachment_ids as $attachment_id) {
-                    $this->context->attachments_repository->deleteAttachment($attachment_id);
-                }
-
                 if ($this->is_api_request) {
                     if ($this->context->current_user->uid) {
                         $user_permissions = user_permissions($this->context->current_user->uid);

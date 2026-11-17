@@ -27,6 +27,7 @@ class AttachmentEntity
         public readonly ?DateTime $dateline = null,
         public readonly ?int $status = null,
         public readonly ?DateTime $update_dateline = null,
+        public readonly ?int $display_order = null,
         public readonly ?int $edit_user_id = null,
         public readonly ?string $file_name = null,
         public readonly ?string $mime_type = null,

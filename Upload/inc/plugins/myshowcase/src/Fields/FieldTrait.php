@@ -328,7 +328,10 @@ trait FieldTrait
                     'thumbnail_dimensions',
                     'dimensions',
                     'update_dateline',
+                    'display_order',
                 ],
+                // The files of a field in their display order, then their upload order (decision D61).
+                ['order_by' => 'display_order, attachment_id'],
             ) as $attachment_data
         ) {
             $attachments_manager->addAttachment($attachment_data);
