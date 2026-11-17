@@ -17,6 +17,7 @@ namespace MyShowcase\Service;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Service\JsonSync\JsonLock;
+use MyShowcase\Repository\FieldValuesRepository;
 use MyShowcase\Util\FieldBoundUtil;
 use MyShowcase\Util\MultipleChoiceUtil;
 
@@ -744,6 +745,15 @@ final class FieldService
      *
      * @return int The id of the option row.
      */
+    /**
+     * Whether a value id holds the delimiter of the stored values (decision D196): the cache of a multiple-choice field joins
+     * the value ids with a comma, so a value id that holds one could not be read back.
+     */
+    public static function valueIdHasDelimiter(string $value_id): bool
+    {
+        return str_contains($value_id, FieldValuesRepository::CACHE_DELIMITER);
+    }
+
     public function saveOption(array $data, int $fieldDataId = 0, bool $fromSync = false): int
     {
         if (!$fromSync && $fieldDataId) {

@@ -1040,6 +1040,15 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
 
         $displayOrderInput = $mybb->get_input('display_order', MyBB::INPUT_ARRAY);
 
+        // decision D196: a value id is the separator-free token of its option; a comma would break the stored cache
+        foreach ((array)$mybb->get_input('value_id', MyBB::INPUT_ARRAY) as $submittedValueId) {
+            if (\MyShowcase\Service\FieldService::valueIdHasDelimiter((string)$submittedValueId)) {
+                flash_message($lang->myshowcase_admin_error_option_value_id_delimiter, 'error');
+
+                admin_redirect($url->build(['action' => 'edit_field', 'collection_id' => $collection_id, 'field_id' => $field_id]));
+            }
+        }
+
         if (!$mybb->get_input('create', MyBB::INPUT_INT)) {
             foreach ($fieldOptionObjects as $fieldOptionID => $fieldOptionData) {
                 $fieldDataID = (int)$fieldOptionData['field_data_id'];

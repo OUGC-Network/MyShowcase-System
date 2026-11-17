@@ -301,7 +301,10 @@ final class JsonValidator
             }
 
             if (isset($option['value_id'])) {
-                if (!is_int($option['value_id']) || $option['value_id'] < 0) {
+                if (is_string($option['value_id']) && str_contains($option['value_id'], ',')) {
+                    // decision D196: the comma separates the stored values of a field, so a value id can not hold one
+                    $errors[] = self::error("{$optionPath}.value_id", 'must not contain a comma');
+                } elseif (!is_int($option['value_id']) || $option['value_id'] < 0) {
                     $errors[] = self::error("{$optionPath}.value_id", 'must be a whole number of 0 or more');
                 } elseif (isset($seen[$option['value_id']])) {
                     $errors[] = self::error("{$optionPath}.value_id", 'is used by another option of this field');

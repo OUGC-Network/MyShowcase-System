@@ -33,6 +33,7 @@ $l = [
     'myshowcase_admin_error_field_key_format' => 'The field key must start with a lower case letter and hold only lower case letters, digits and single underscores between them.',
     'myshowcase_admin_error_invalid_html_type' => 'The HTML type is not one of the supported types.',
     'myshowcase_admin_error_reserved_html_type' => 'The HTML type is reserved for a later feature and cannot be used yet.',
+    'myshowcase_admin_error_option_value_id_delimiter' => 'A value id can not contain a comma: the comma separates the stored values of a field.',
     'myshowcase_admin_error_multiple_column_type' => 'A field with several values must have the database type text, so that its values fit.',
     'myshowcase_admin_error_multiple_toggle_in_use' => 'The several-values setting of this field cannot change while an entry holds a value for it.',
     'myshowcase_admin_error_invalid_field_type' => 'The database type is not one of the supported types.',

@@ -1517,6 +1517,19 @@ def stage_closure(acp, member, cells, ctx, fixture, users):
           f'the deleted option is gone from the rows: {rows_now}; cache {cache_now!r} equals the rows: {cache_now == ",".join(rows_now)}')
 
 
+    # ---- 5 (decision D196): the ACP refuses a value id with a comma; the stored value stays
+    opt = o['fk_select_multiple'][2]
+    value_before = query(f"select value_id from mybb_myshowcase_field_data where field_data_id={opt}")[0][0]
+    page = acp.get(url)
+    data = form_data(page['body'])
+    data['field_id'] = str(multi_fid)
+    data[f'value_id[{opt}]'] = '9,9'
+    acp.post(url, data)
+    value_after = query(f"select value_id from mybb_myshowcase_field_data where field_data_id={opt}")[0][0]
+    check(cells, 'values:closure-value-id-comma', 'v', 'pass' if value_after == value_before else 'fail',
+          f'a value id with a comma is refused in the ACP: the option keeps {value_before!r}, now {value_after!r}')
+
+
 def stage_y(cells, member):
     """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
     The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""

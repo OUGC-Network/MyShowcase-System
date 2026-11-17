@@ -100,6 +100,8 @@ foreach (
 check(count($all) >= 13, 'every error is returned, not only the first (' . count($all) . ')');
 check(in_array('$.fields[3].field_key', $p, true) && !in_array('$.fields[2].field_key', $p, true), 'a duplicate key is reported on the later field only');
 
+// decision D196: a value id with a comma is refused with its reason (the comma is the separator of the stored values)
+check(in_array('$.fields[0].options[0].value_id', paths(JsonValidator::validate($collection([$field(['options' => [['value_id' => '1,2', 'value' => 'x']]])])))), 'a value id with a comma is refused');
 check(paths(JsonValidator::validate($collection([$field(['options' => [['value_id' => 1], ['value_id' => 1, 'value' => 'x', 'bogus' => 1]]])]))) === [
     '$.fields[0].options[0].value', '$.fields[0].options[1].bogus', '$.fields[0].options[1].value_id',
 ], 'option problems carry their path');
