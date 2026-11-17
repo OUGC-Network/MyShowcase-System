@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use MyShowcase\Util\MultipleChoiceUtil;
+
 use DB_MySQLi;
 use DB_PgSQL;
 use DB_SQLite;
@@ -217,6 +219,38 @@ class AttachmentsManager
             };
 
             return ['error' => $error_message];
+        }
+
+        // A multiple-file field takes at most MultipleChoiceUtil::MAX_FILES files (decision D197); the file that would be the next
+        // one is refused before it is stored.
+        if ($field_id && $field_definition && MultipleChoiceUtil::isMultiple(
+            (string)($field_definition['html_type'] ?? ''),
+            $field_definition['allow_multiple_values'] ?? 0
+        )) {
+            $owners = [];
+
+            if (!empty($entry->entry_id)) {
+                $owners[] = "entry_id='" . (int)$entry->entry_id . "'";
+            }
+
+            if (!empty($entry->post_hash)) {
+                $owners[] = "post_hash='" . $this->context->database->escape_string((string)$entry->post_hash) . "'";
+            }
+
+            $files = $owners ? $this->context->attachments_repository->queryAttachmentCount([
+                "field_id='" . (int)$field_id . "'",
+                '(' . implode(' OR ', $owners) . ')',
+            ]) : 0;
+
+            if ($files >= MultipleChoiceUtil::MAX_FILES) {
+                $this->context->language->load('datahandler_myshowcase', false, true);
+
+                return ['error' => $this->context->language->sprintf(
+                    $this->context->language->myshowcase_datahandler_file_count_maximum,
+                    (string)($field_definition['field_key'] ?? ''),
+                    (string)MultipleChoiceUtil::MAX_FILES
+                )];
+            }
         }
 
         // 'local_file' is set only by the entries importer, for a file it downloaded and checked itself (decision D53).

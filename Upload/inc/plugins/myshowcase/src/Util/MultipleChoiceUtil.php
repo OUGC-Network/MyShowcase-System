@@ -20,11 +20,22 @@ final class MultipleChoiceUtil
     /** The database type of the data column of a multi-valued field (D187). */
     public const COLUMN_TYPE = FieldTypes::Text;
 
+    /**
+     * The most files a multiple-file field holds (decision D197). The plugin has no per-field file count, so the cap is this
+     * one documented constant.
+     */
+    public const MAX_FILES = 10;
+
     /** Whether a field of this HTML type and flag takes several values. */
     public static function isMultiple(string $html_type, mixed $allow_multiple_values): bool
     {
         if ($html_type === FieldHtmlTypes::CheckBox) {
             return true;
+        }
+
+        // A file field takes several files when its flag is 1 (decision D197).
+        if ($html_type === FieldHtmlTypes::File) {
+            return (int)$allow_multiple_values === 1;
         }
 
         return $html_type === FieldHtmlTypes::Select && (int)$allow_multiple_values === 1;

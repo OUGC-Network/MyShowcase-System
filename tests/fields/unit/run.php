@@ -46,6 +46,10 @@ $check(MultipleChoiceUtil::isMultiple('radio', 1) === false, 'radio ignores the 
 $check(MultipleChoiceUtil::isMultiple('text', 1) === false, 'text ignores the flag (D131)');
 $check(MultipleChoiceUtil::isMultiple('select2_users', 1) === false, 'select2_users ignores the flag (D131)');
 
+// D197: a file field takes several files when its flag is 1; the cap is one constant (10)
+$check(MultipleChoiceUtil::isMultiple('file', 1) === true, 'a file field with flag 1 takes several files');
+$check(MultipleChoiceUtil::isMultiple('file', 0) === false, 'a file field with flag 0 takes one file');
+$check(MultipleChoiceUtil::MAX_FILES === 10, 'the cap of files per field is 10');
 // D187: a field with several values is text; any other type is refused as typed.
 $check(MultipleChoiceUtil::columnTypeFits('checkbox', 0, 'text') === true, 'checkbox as text fits');
 $check(MultipleChoiceUtil::columnTypeFits('checkbox', 0, 'TEXT') === true, 'the type name is compared without case');

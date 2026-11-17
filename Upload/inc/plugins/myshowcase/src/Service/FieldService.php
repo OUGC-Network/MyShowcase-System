@@ -574,7 +574,7 @@ final class FieldService
     {
         global $db;
 
-        $field = fieldsGet(["field_id='{$fieldId}'"], ['collection_id', 'field_key', 'field_type'])[$fieldId] ?? null;
+        $field = fieldsGet(["field_id='{$fieldId}'"], ['collection_id', 'field_key', 'field_type', 'html_type'])[$fieldId] ?? null;
 
         if (!$field) {
             return false;
@@ -584,6 +584,13 @@ final class FieldService
 
         if ((int)$child['n'] > 0) {
             return true;
+        }
+
+        // A file field holds its files in the attachments table (decision D61): one file is a value (decision D197).
+        if ($field['html_type'] === FieldHtmlTypes::File) {
+            $files = $db->fetch_array($db->simple_select('myshowcase_attachments', 'COUNT(*) AS n', "field_id='{$fieldId}'"));
+
+            return (int)$files['n'] > 0;
         }
 
         $key = (string)$field['field_key'];

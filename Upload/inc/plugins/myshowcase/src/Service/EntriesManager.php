@@ -1330,13 +1330,23 @@ class EntriesManager
             $field_label = $this->fieldLabel($field);
 
             // A multiple-choice field takes a list of options (decisions D184, D122): its own rule, and the list is its value.
-            if (MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
+            if ($field->html_type !== FieldHtmlTypes::File &&
+                MultipleChoiceUtil::isMultiple((string)$field->html_type, $field->allow_multiple_values)) {
                 $this->validateMultipleValues($field, (int)$field_id, $field_label);
 
                 continue;
             }
 
             $field_value = $this->validation_entry->extra_data[$field_key];
+
+            // A file field takes at most one file, or at most MultipleChoiceUtil::MAX_FILES when it takes several (decision D197).
+            if ($field->html_type === FieldHtmlTypes::File && MultipleChoiceUtil::isMultiple(FieldHtmlTypes::File, $field->allow_multiple_values)) {
+                $files = $this->countFieldAttachments((int)$field_id);
+
+                if ($files > MultipleChoiceUtil::MAX_FILES) {
+                    $this->validateSetError('file_count_maximum', [$field_label, (string)MultipleChoiceUtil::MAX_FILES]);
+                }
+            }
 
             // A blank value is '' (or no value at all). A blank optional field has nothing to check: no pattern, no
             // length, no format. A blank required field is refused. The value "0" is a value, never blank.
@@ -1589,7 +1599,8 @@ class EntriesManager
         // An entry with several values is written as one unit: the entry, its rows and its cache, and the end hook that
         // follows them (decision D188). A failure there, or a request that ends before COMMIT, leaves none of them.
         $repository = $this->context->entries_repository;
-        $own_transaction = $this->validation_entry->multiple_values !== [] && !$repository->callerTransaction();
+        $own_transaction = ($this->validation_entry->multiple_values !== [] || $this->multiFileFields() !== []) &&
+            !$repository->callerTransaction();
 
         if (!$own_transaction) {
             return $this->writeValidatedEntry();
@@ -1615,6 +1626,56 @@ class EntriesManager
         } finally {
             $repository->setCallerTransaction(false);
         }
+    }
+
+    /**
+     * The multiple-file fields of the collection: field key => field id (decision D197).
+     *
+     * @return array<string, int>
+     */
+    private function multiFileFields(): array
+    {
+        $fields = [];
+
+        foreach ($this->context->custom_fields_collection as $field_id => $field) {
+            if ($field->html_type === FieldHtmlTypes::File &&
+                MultipleChoiceUtil::isMultiple(FieldHtmlTypes::File, $field->allow_multiple_values)) {
+                $fields[(string)$field->field_key] = (int)$field_id;
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Gives the files of one field of an entry their display order (1, 2, ... in upload order) and writes their ids, in that
+     * order and joined by the cache delimiter, into the field's column: the cache, never read for logic (decision D61).
+     */
+    private function writeFileList(int $entry_id, int $field_id, string $field_key): void
+    {
+        if ($entry_id < 1) {
+            return;
+        }
+
+        $ids = [];
+
+        foreach ($this->context->attachments_repository->queryAttachments(
+            ["field_id='{$field_id}'", "entry_id='{$entry_id}'"],
+            ['attachment_id'],
+            ['order_by' => 'attachment_id']
+        ) as $row) {
+            $ids[] = (int)$row['attachment_id'];
+        }
+
+        foreach ($ids as $position => $attachment_id) {
+            $this->context->attachments_repository->updateAttachment(['display_order' => $position + 1], $attachment_id);
+        }
+
+        $this->context->database->update_query(
+            'myshowcase_data' . (int)$this->context->showcase->showcase_id,
+            [$field_key => $this->context->database->escape_string(FieldValuesRepository::cacheOf(array_map('strval', $ids)))],
+            "entry_id='{$entry_id}'"
+        );
     }
 
     /** Rolls back the transaction of a form write that is still open (the end of the request, or an exception). */
@@ -1667,6 +1728,16 @@ class EntriesManager
                 (int)$this->context->current_user->uid,
                 ['entry_id' => $this->validation_entry->entry_id]
             );
+        }
+
+        // The files the user removed on an edit go with the rule of an attachment delete (decision D61), and then the files of
+        // every multiple-file field get their display order and the cache of the field, in the same transaction.
+        foreach ($this->removed_attachment_ids as $removed_attachment_id) {
+            $this->context->attachments_repository->deleteAttachment((int)$removed_attachment_id);
+        }
+
+        foreach ($this->multiFileFields() as $field_key => $field_id) {
+            $this->writeFileList((int)$this->validation_entry->entry_id, (int)$field_id, (string)$field_key);
         }
 
         if (!isset($this->validation_entry->public_id)) {

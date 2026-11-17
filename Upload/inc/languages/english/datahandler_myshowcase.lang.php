@@ -34,5 +34,6 @@ $l = [
     'myshowcase_datahandler_required_field' => 'A required field is missing: {1}.',
     'myshowcase_datahandler_four_byte_character' => 'The field {1} holds a character this database cannot store: a four-byte UTF-8 character such as an emoji. Remove it, or ask the administrator to set the database encoding to utf8mb4.',
     'myshowcase_datahandler_invalid_length_minimum' => 'The field "{1}" has an invalid length. Make sure it at least {2} characters long.',
+    'myshowcase_datahandler_file_count_maximum' => 'The field "{1}" takes at most {2} files.',
     'myshowcase_datahandler_invalid_length_maximum' => 'The field "{1}" has an invalid length. Make sure it is no more than {2} characters long.',
 ];
