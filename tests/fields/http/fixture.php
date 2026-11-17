@@ -365,6 +365,24 @@ switch ($switch) {
             'single_select' => $sort->invoke($repository, 'fk_select', $collection),
         ]);
         break;
+    case 'failure-plugin-activate':
+        // TEST ONLY (decision D69): lists the test plugin msc_test_failure in the plugin cache (the file is copied by run.py)
+        $list = $cache->read('plugins');
+        $list = is_array($list) ? $list : [];
+        $list['active'] = array_values(array_unique(array_merge($list['active'] ?? [], ['msc_test_failure'])));
+        $cache->update('plugins', $list);
+        $out(['active' => in_array('msc_test_failure', $list['active'], true)]);
+        break;
+    case 'failure-write':
+        // TEST ONLY: the flag file that makes the form write fail (see msc_test_failure.php)
+        $flag = rtrim(MYBB_ROOT, '/') . '/msc_test_fail_write';
+        if ($argv[2] === 'on') {
+            file_put_contents($flag, '1');
+        } elseif (is_file($flag)) {
+            unlink($flag);
+        }
+        $out(['failure_write' => is_file($flag)]);
+        break;
     case 'rebuild':
         $rebuild();
         $out(['rebuilt' => true]);

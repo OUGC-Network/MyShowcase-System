@@ -84,6 +84,7 @@ PROPERTY_COLUMNS = ['field_label', 'description', 'placeholder', 'html_type', 'f
                     'enable_subject', 'enable_description', 'enable_editor', 'read_only']
 DATA = ''   # the data table of the showcase, set by main()
 SHOWCASE_ID = 0   # the showcase id of the FieldKit showcase, set by main()
+UP = {'fk_file_req': True, 'fk_file': False}   # the uploads of a create: the required file, no optional one
 MULTI_FIELD_IDS = {}   # field key => field id of each multiple-choice field of FieldKit, set by main()
 PNG = None  # bytes of the upload used by the file fields
 BOARD_DIR = ''   # the scratch board of the run
@@ -1397,6 +1398,125 @@ def stage_multi(cells, proof, fixture_sort):
           f'expected {expected}, got {proof}')
 
 
+def stage_closure(acp, member, cells, ctx, fixture, users):
+    """Closure tests of batch F2a (decision D195), run after stage h, whose data is removed first:
+    1  the ACP toggle of allow_multiple_values, saved through the form: free of values it changes; with a stored value it is
+       refused with the message and nothing changes;
+    2  D122 per value: on an update an unchanged stored value whose option the user's group no longer fills is accepted, a newly
+       added option the group may not fill is refused, and the stored value is unchanged;
+    3  a forced failing write (the test plugin msc_test_failure fails it after the entry and its rows are written) leaves no
+       entry, no child row and no cache;
+    4  an option deleted through the ACP removes its child rows, and the cache of the entry equals its rows."""
+    cid = cid_of_fieldkit()
+    ctx.execute(f"delete from {DATA}")
+    ctx.execute(f"delete from mybb_myshowcase_field_values where showcase_id={SHOWCASE_ID}")
+    multi_fid = FIELD_IDS['fk_select_multiple']
+    o = option_ids
+    url = f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={multi_fid}'
+    # stage h deleted the option Alpha of fk_select: the creates of this stage post a live option of it
+    live_select = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
+                        f"and value<>'Alpha' order by display_order, field_data_id limit 1")[0][0]
+
+    def make(client, overrides, token):
+        merged = {'fk_select': live_select}
+        merged.update(overrides)
+        return create(client, merged, token, UP)
+
+    # the ACP shows a managed field read-only: the field is detached from its JSON file first, as stage h does
+    ctx.execute(f"update mybb_myshowcase_fields set json_file='' where field_id={multi_fid}")
+    fixture('rebuild')
+
+    def set_flag(value):
+        page = acp.get(url)
+        data = form_data(page['body'])
+        data['field_id'] = str(multi_fid)
+        data['allow_multiple_values'] = value
+        return acp.post(url, data)
+
+    def flag():
+        return query(f"select allow_multiple_values from mybb_myshowcase_fields where field_id={multi_fid}")[0][0]
+
+    def row_of(subject):
+        # the columns an update needs; stage h may have deleted other field columns
+        rows = query(f"select public_id, entry_slug_custom, subject, fk_text_req from {DATA} where subject='{subject}'")
+        if not rows:
+            return None
+        keys = ('public_id', 'entry_slug_custom', 'subject', 'fk_text_req')
+        return dict(zip(keys, [str(v) for v in rows[0]]))
+
+    def cache_of(subject):
+        rows = query(f"select fk_select_multiple from {DATA} where subject='{subject}'")
+        return rows[0][0] if rows else None
+
+    def child_values(subject):
+        return [r[0] for r in query(f"select v.value_id from mybb_myshowcase_field_values v join {DATA} d on d.entry_id=v.entry_id "
+                                    f"where d.subject='{subject}' and v.field_id={multi_fid} and v.showcase_id={SHOWCASE_ID} "
+                                    f"order by v.field_value_id")]
+
+    # ---- 1: the toggle, saved through the ACP form
+    set_flag('0')
+    flag_free = flag()
+    set_flag('1')
+    flag_back = flag()
+    make(member, {'fk_select_multiple': [o['fk_select_multiple'][0]]}, 'TG1')
+    held = child_values('TG1')
+    refused = set_flag('0')
+    flag_held = flag()
+    refusal_text = 'cannot change while an entry holds a value' in html_text(refused['body'])
+    check(cells, 'values:closure-acp-toggle', 'v',
+          'pass' if (flag_free == '0' and flag_back == '1' and held and flag_held == '1' and refusal_text) else 'fail',
+          f'free toggle: flag {flag_free} then {flag_back}; with a value held ({held}) the save to 0 leaves the flag {flag_held}, '
+          f'refusal message shown: {refusal_text}; the save answers {refused["status"]}: {html_text(refused["body"])[:260]!r}')
+
+    # ---- 2: D122 per value, for the restricted user (who may fill the restricted option while it is fillable)
+    restricted_option = RESTRICTED_OPTION['fk_select_multiple']
+    owner = Front(ctx.url)
+    owner.login('fkrestricted', users['users']['fkrestricted']['password'])
+    original_groups = query(f"select allowed_groups_fill from mybb_myshowcase_field_data where field_data_id={restricted_option}")[0][0]
+    made1 = make(owner, {'fk_select_multiple': [restricted_option, o['fk_select_multiple'][0]]}, 'CL1')
+    made2 = make(owner, {'fk_select_multiple': [o['fk_select_multiple'][0]]}, 'CL2')
+    if row_of('CL1') is None or row_of('CL2') is None:
+        check(cells, 'values:closure-d122', 'v', 'fail',
+              f"the restricted user could not create the baseline entries: {made1['error'] or made1['status']} / {made2['error'] or made2['status']}")
+        return
+    stored_before = (cache_of('CL1'), cache_of('CL2'))
+    ctx.execute(f"update mybb_myshowcase_field_data set allowed_groups_fill='999' where field_data_id={restricted_option}")
+    fixture('rebuild')
+    kept = update_post(owner, row_of('CL1'), {'fk_select': live_select, 'fk_select_multiple[]': [restricted_option, o['fk_select_multiple'][0]]})
+    kept_ok = 'errors before continuing' not in kept['body'] and cache_of('CL1') == stored_before[0] and child_values('CL1') == cache_of('CL1').split(',')
+    added = update_post(owner, row_of('CL2'), {'fk_select': live_select, 'fk_select_multiple[]': [o['fk_select_multiple'][0], restricted_option]})
+    added_refused = 'errors before continuing' in added['body'] and cache_of('CL2') == stored_before[1]
+    ctx.execute(f"update mybb_myshowcase_field_data set allowed_groups_fill='{original_groups}' where field_data_id={restricted_option}")
+    fixture('rebuild')
+    check(cells, 'values:closure-d122', 'v', 'pass' if (kept_ok and added_refused) else 'fail',
+          f'unchanged stored restricted value accepted on update: {kept_ok}; newly added restricted value refused, nothing changed: {added_refused}; '
+          f'answers {kept["status"]} and {added["status"]}')
+
+    # ---- 3: a write that fails after its rows are written leaves nothing
+    rows_before = query(f"select count(*) from mybb_myshowcase_field_values where showcase_id={SHOWCASE_ID}")[0][0]
+    entries_before = query(f"select count(*) from {DATA}")[0][0]
+    fixture('failure-write', 'on')
+    failed = make(member, {'fk_select_multiple': [o['fk_select_multiple'][0], o['fk_select_multiple'][1]]}, 'CLF')
+    fixture('failure-write', 'off')
+    rows_after = query(f"select count(*) from mybb_myshowcase_field_values where showcase_id={SHOWCASE_ID}")[0][0]
+    entries_after = query(f"select count(*) from {DATA}")[0][0]
+    forced = 'forced failure of the write (test)' in html_text(failed['body'])
+    check(cells, 'values:closure-forced-failure', 'v',
+          'pass' if (forced and row_of('CLF') is None and rows_before == rows_after and entries_before == entries_after) else 'fail',
+          f'the write failed with its message: {forced}; entry stored: {row_of("CLF") is not None}; child rows {rows_before} -> {rows_after}; '
+          f'entries {entries_before} -> {entries_after}')
+
+    # ---- 4: an option deleted through the ACP: its rows go, the cache equals the rows
+    make(member, {'fk_select_multiple': [o['fk_select_multiple'][1], o['fk_select_multiple'][2]]}, 'CLO')
+    fdid = o['fk_select_multiple'][1]
+    acp.post(f'/admin/index.php?module=myshowcase-fields&action=deleteOption&field_data_id={fdid}', {'yes': '1'})
+    rows_now = child_values('CLO')
+    cache_now = cache_of('CLO')
+    check(cells, 'values:closure-option-delete', 'v',
+          'pass' if (fdid and cache_now is not None and cache_now == ','.join(rows_now) and len(rows_now) == 1) else 'fail',
+          f'the deleted option is gone from the rows: {rows_now}; cache {cache_now!r} equals the rows: {cache_now == ",".join(rows_now)}')
+
+
 def stage_y(cells, member):
     """Stage y (decision D145): a blank date sorts last in the list, in ascending and in descending order, on every engine.
     The entries are throwaway: the data of the showcase is emptied first (this stage runs after the others)."""
@@ -1980,6 +2100,8 @@ def main():
 
         users_file = os.path.join(a.scratch, 'users.json')
         fixture('setup', users_file)
+        shutil.copy(os.path.join(HERE, 'msc_test_failure.php'), os.path.join(ctx.board, 'inc', 'plugins', 'msc_test_failure.php'))
+        fixture('failure-plugin-activate')
         BOUNDED_TYPES = tuple(fixture('bounded-types'))
         users = json.load(open(users_file))
         restricted = users['restricted']
@@ -2075,6 +2197,7 @@ def main():
         stage_m(cells, users, restricted, fixture, option_ids['fk_radio'][0])
         stage_a_acp(acp, cells, ctx, fixture)
         stage_h(member, acp, cells, ctx, cid_of_fieldkit(), fixture)
+        stage_closure(acp, member, cells, ctx, fixture, users)
         stage_h_moderation(cells, ctx, fixture, users)
         stage_x(cells, ctx, member)
         stage_y(cells, member)
