@@ -261,6 +261,17 @@ switch ($switch) {
         $out(['setting' => (string)$db->fetch_field($db->simple_select('settings', 'value', "name='myshowcase_import_external_files'"), 'value')]);
         break;
 
+    case 'field-maximum-size':
+        // Sets the maximum size of one file field of a shipped collection, in KB (test data: the size refusal of a list, S2 A.2).
+        $collection = $db->escape_string($argv[2]);
+        $db->update_query('myshowcase_fields', ['maximum_size' => (int)$argv[4]],
+            "field_key='" . $db->escape_string($argv[3]) . "' AND collection_id IN (SELECT collection_id FROM "
+            . $db->table_prefix . "myshowcase_collections WHERE name='" . $collection . "')");
+        $rebuild();
+
+        $out(['field' => $argv[3], 'maximum_size' => (int)$argv[4]]);
+        break;
+
     case 'count':
         $table = $argv[2];
 

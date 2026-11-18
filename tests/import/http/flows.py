@@ -1277,6 +1277,21 @@ def section_previews():
        'a second file that fails rolls the whole entry back, the first file too (decision D59)')
 
     # the setting off refuses a list of URLs as a whole
+    # a file of the list over the field's maximum size (decision D197, closure A.2 of batch S2): the field takes 1 KB here, so
+    # the preview is refused, the entry is not stored, and the message names the field and the file (its URL)
+    fixture('field-maximum-size', 'Downloads', 'previews', '1')
+    large = downloads_entry(99, zip_url)
+    large['fields']['previews'] = [previews[0]]
+    body = import_into(member, 'downloads', write_file('downloads-previews-large.xml', xml_file([large], route='downloads', collection='Downloads', format_version=3)))['body']
+    report = report_of(body)
+    named = report is not None and previews[0] in report['text'] and 'Previews' in report['text'] and 'larger' in report['text']
+    stored_large = int(one(f"select count(*) from {table} where version='1.9.99' and user_id={uid}") or 0)
+    ok(report is not None and report['status'] == 'failed' and named and stored_large == 0,
+       f'a preview over the field size is refused as a whole, the message names the field and the file, nothing stored '
+       f'({report_kind(body) if report is not None else "no report"}; report: {report["text"][:200] if report else ""!r})')
+    fixture('field-maximum-size', 'Downloads', 'previews', '2048')
+    time.sleep(3)
+
     fixture('external-setting', '0')
     time.sleep(3)
     off = downloads_entry(98, zip_url)

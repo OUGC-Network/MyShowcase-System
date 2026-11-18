@@ -234,10 +234,12 @@ def accumulate(cells, key, stage, ok, detail):
     check(cells, key, stage, 'pass' if (previous['result'] == 'pass' and ok) else 'fail', previous['detail'] + ' | ' + detail)
 
 
-def png_bytes():
+def png_bytes(padding=0):
+    """A one-pixel PNG. With padding, a text chunk of that many bytes is added (a valid PNG that is larger, for the size cases)."""
     def chunk(kind, data):
         return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
-    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)) +
+    text = chunk(b'tEXt', b'Comment\x00' + b'a' * padding) if padding else b''
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)) + text +
             chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b''))
 
 
@@ -283,13 +285,13 @@ def form_fields(body):
     return post_hash.group(1) if post_hash else ''
 
 
-def upload(client, post_hash, field_key):
-    """The attachment route of the entry form: one PNG for the field, sent as the form's uploader sends it."""
+def upload(client, post_hash, field_key, path=None):
+    """The attachment route of the entry form: one PNG for the field (or the file at path), sent as the form's uploader sends it."""
     form = client.get(f'/showcase.php/{ROUTE}/create')
     token = post_key(form['body'])
     fid = FIELD_IDS[field_key]
     up = client.upload(f'/showcase.php/{ROUTE}/update/{post_hash}/upload?my_post_key={token}&field_id={fid}',
-                       {'my_post_key': token, 'field_id': fid}, field_key, os.path.join(a.scratch, 'matrix.png'))
+                       {'my_post_key': token, 'field_id': fid}, field_key, path or os.path.join(a.scratch, 'matrix.png'))
     return up['status'], up['body']
 
 
@@ -597,9 +599,10 @@ def entry_ids(token):
 
 
 def files_of(entry_id, field_key):
-    """The stored attachments of one file field of one entry: public_id, attachment_name (the display name), file_name (the stored path), mime_type, file_size."""
-    return query(f"select public_id, attachment_name, file_name, mime_type, file_size from mybb_myshowcase_attachments "
-                 f"where entry_id={int(entry_id)} and field_id={FIELD_IDS[field_key]} and status=1 order by attachment_id")
+    """The stored attachments of one file field of one entry, in display order (decision D197): public_id, attachment_name (the
+    display name), file_name (the stored path), mime_type, file_size, display_order."""
+    return query(f"select public_id, attachment_name, file_name, mime_type, file_size, display_order from mybb_myshowcase_attachments "
+                 f"where entry_id={int(entry_id)} and field_id={FIELD_IDS[field_key]} and status=1 order by display_order, attachment_id")
 
 
 def fetch_file(member, file_row):
@@ -632,13 +635,17 @@ def file_problems(member, key, tokens):
             shown = lambda row: (row[1], row[3], row[4])  # the display name, MIME type and size (not the random stored path)
             if shown(original) != shown(copy):
                 problems.append(f'{token}: file name, type or size {shown(original)} became {shown(copy)}')
+        if [r[5] for r in left] != [r[5] for r in right]:
+            problems.append(f'{token}: display order {[r[5] for r in left]} became {[r[5] for r in right]}')
         for entry_id, row in zip(ids, stored_rows(token)):
-            if not files_of(entry_id, key):
+            files = files_of(entry_id, key)
+            if not files:
                 continue
             page = member.get(f'/showcase.php/{ROUTE}/view/{row["public_id"]}/{row["entry_slug_custom"]}')
-            name = files_of(entry_id, key)[0][1]
-            if page['status'] != 200 or name not in page['body']:
-                problems.append(f'{token}: entry page answered {page["status"]} without the file {name!r}')
+            # every file of the entry is on its page, in display order (a file named in another one's name is found first)
+            positions = [page['body'].find(f[1]) for f in files]
+            if page['status'] != 200 or any(p < 0 for p in positions) or positions != sorted(positions):
+                problems.append(f'{token}: entry page answered {page["status"]} without the files {[f[1] for f in files]} in order')
     return problems
 
 
@@ -646,9 +653,14 @@ def stage_i(member, cells, users, uid, fixture):
     """Stage i: the XML export of valid entries, imported into the same showcase. Every field of every copy must hold the
     value it held. Throwaway data: the entries of the matrix are removed first, the round trip uses valid entries only."""
     CTX.execute(f"delete from {DATA}")
-    tokens = ['XML1', 'XML2', 'XML3']
+    # XMLM1 holds three files of the multiple-file field (decision D197): the export writes them as a list of URLs in display
+    # order, and each copy must hold the same files in the same order
+    tokens = ['XML1', 'XML2', 'XML3', 'XMLM1']
     for token in tokens:
-        create(member, {}, token, {'fk_file_req': True, 'fk_file': False})
+        uploads = {'fk_file_req': True, 'fk_file': False}
+        if token == 'XMLM1':
+            uploads['fk_file_multiple'] = 3
+        create(member, {}, token, uploads)
     originals = {t: stored_rows(t) for t in tokens}
     if not all(len(originals[t]) == 1 for t in tokens):
         for key in FIELDS:
@@ -705,7 +717,7 @@ def stage_i(member, cells, users, uid, fixture):
     refused = after_off == before
     note = (f'setting OFF: the same file refused as a whole, no entry added; reply: {summary_off}' if refused else
             f'setting OFF: NOT refused as a whole (copies {before} -> {after_off}); reply: {summary_off}')
-    for key in ('fk_file', 'fk_file_req'):
+    for key in ('fk_file', 'fk_file_req', 'fk_file_multiple'):
         cells[f'{key}|i']['detail'] += ' | ' + note
         if not refused:
             cells[f'{key}|i']['result'] = 'fail'
@@ -1561,6 +1573,23 @@ def stage_files_multi(member, cells, ctx, fixture):
     check(cells, 'values:files-cap', 'f', 'pass' if (statuses[:10] == [200] * 10 and statuses[10] != 200 and stored == '10') else 'fail',
           f'uploads answer {statuses}; files stored for the form: {stored} (cap 10)')
 
+    # a list with a file over the field's maximum_size (1024 KB): the first file is kept, the large one is refused with the
+    # message that names the field and the file, and nothing of it is stored
+    big = os.path.join(a.scratch, 'too-large.png')
+    open(big, 'wb').write(png_bytes(padding=1100 * 1024))
+    form = member.get(f'/showcase.php/{ROUTE}/create')
+    ph = form_fields(form['body'])
+    first_status = upload(member, ph, fk)[0]
+    big_status, big_body = upload(member, ph, fk, big)
+    big_text = html_text(big_body)
+    stored_big = query(f"select count(*) from mybb_myshowcase_attachments where post_hash='{ph}' and field_id={fid}")[0][0]
+    ctx.execute(f"delete from mybb_myshowcase_attachments where post_hash='{ph}'")
+    size_ok = (first_status == 200 and big_status != 200 and stored_big == '1' and 'too-large.png' in big_text
+               and 'Files multiple' in big_text and 'too large' in big_text)
+    check(cells, 'values:files-size-refusal', 'f', 'pass' if size_ok else 'fail',
+          f'the first file answers {first_status}; the file over the maximum size answers {big_status}, and the message '
+          f'{"names" if size_ok else "does not name"} the field and the file: {big_text[:240]!r}; files stored for the form: {stored_big}')
+
     # an edit removes one file; the rest are renumbered and the cache follows them
     row = {k: str(v) for k, v in zip(('public_id', 'entry_slug_custom', 'subject', 'fk_text_req'),
                                     query(f"select public_id, entry_slug_custom, subject, fk_text_req from {DATA} where subject='FM1'")[0])}
@@ -1593,6 +1622,62 @@ def stage_files_multi(member, cells, ctx, fixture):
 def files_match_cache(cache, ordered_ids):
     """Decision D61 for files: the cache of a multiple-file field is the ids of its files, in display order, joined by ','."""
     return cache == ','.join(ordered_ids)
+
+
+def stage_file_toggle(acp, member, cells, ctx, fixture):
+    """Closure A.3 of batch S2 (decisions D195 and D197): the several-files setting of the file field fk_file_multiple, saved
+    through the ACP form. Free of files, the save changes the flag, the column keeps its type and a new entry takes its files
+    with the cache of their ids; with a file held, the save to 0 is refused with the message and nothing changes. The field is
+    detached from its JSON file for the run (the ACP shows a managed field read-only), and the entries and files are removed
+    first and last. The field is restored to its file afterwards."""
+    cid = cid_of_fieldkit()
+    fid = FIELD_IDS['fk_file_multiple']
+    url = f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={fid}'
+    original_json = query(f"select json_file from mybb_myshowcase_fields where field_id={fid}")[0][0]
+    ctx.execute(f"delete from {DATA}")
+    ctx.execute(f"delete from mybb_myshowcase_attachments where field_id={fid}")
+    ctx.execute(f"update mybb_myshowcase_fields set json_file='' where field_id={fid}")
+    fixture('rebuild')
+
+    def set_flag(value):
+        page = acp.get(url)
+        data = form_data(page['body'])
+        data['field_id'] = str(fid)
+        data['allow_multiple_values'] = value
+        return acp.post(url, data)
+
+    def flag():
+        return query(f"select allow_multiple_values from mybb_myshowcase_fields where field_id={fid}")[0][0]
+
+    try:
+        free_off = set_flag('0')
+        flag_free = flag()
+        free_on = set_flag('1')
+        flag_back = flag()
+        column = column_types(DATA).get('fk_file_multiple', '').lower()
+        # a new entry takes two files; the cache holds their ids in display order
+        live_select = query(f"select field_data_id from mybb_myshowcase_field_data where field_id={FIELD_IDS['fk_select']} "
+                            f"and value<>'Alpha' order by display_order, field_data_id limit 1")[0][0]
+        made = create(member, {'fk_select': live_select}, 'FT1', {'fk_file_req': True, 'fk_file': False, 'fk_file_multiple': 2})
+        rows = query(f"select a.attachment_id, a.display_order from mybb_myshowcase_attachments a join {DATA} d on d.entry_id=a.entry_id "
+                     f"where d.subject='FT1' and a.field_id={fid} order by a.display_order, a.attachment_id")
+        cache = (query(f"select fk_file_multiple from {DATA} where subject='FT1'") or [[None]])[0][0]
+        cache_ok = bool(rows) and len(rows) == 2 and cache == ','.join(r[0] for r in rows)
+        # with the file held, the save to 0 is refused with the message and the flag stays 1
+        refused = set_flag('0')
+        flag_held = flag()
+        refusal_text = 'cannot change while an entry holds a value' in html_text(refused['body'])
+        check(cells, 'values:file-acp-toggle', 'v',
+              'pass' if (flag_free == '0' and flag_back == '1' and cache_ok and flag_held == '1' and refusal_text
+                         and column == 'text') else 'fail',
+              f'free: flag {flag_free} then {flag_back} (saves answer {free_off["status"]} and {free_on["status"]}); '
+              f'column type {column!r}; with two files held ({[r[0] for r in rows]}) the cache {cache!r} equals their ids and the '
+              f'save to 0 leaves the flag {flag_held}, refusal message shown: {refusal_text}; the save answers {refused["status"]}')
+    finally:
+        ctx.execute(f"delete from {DATA}")
+        ctx.execute(f"delete from mybb_myshowcase_attachments where field_id={fid}")
+        ctx.execute(f"update mybb_myshowcase_fields set json_file='{original_json}' where field_id={fid}")
+        fixture('rebuild')
 
 
 def stage_field_delete(acp, member, cells, ctx, fixture):
@@ -2312,6 +2397,7 @@ def main():
         stage_k_sync_table(acp, cells, ctx, 'summary_sync')
         stage_k_word_create(cells, ctx, fixture)
         stage_ip_ipv6(cells, ctx, fixture, users)
+        stage_file_toggle(acp, member, cells, ctx, fixture)
         stage_files_multi(member, cells, ctx, fixture)
         stage_field_delete(acp, member, cells, ctx, fixture)
     finally:
