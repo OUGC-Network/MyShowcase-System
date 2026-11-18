@@ -619,8 +619,8 @@ def import_into(client, route, path):
 
 
 def gallery_entry(i, image):
-    # The gallery showcase does not use a subject: an entry carries its title as a field.
-    return {'fields': {'title': f'Picture {i}', 'image': image, 'caption': f'Caption {i}'}}
+    # The gallery showcase takes its subject from its title (decision D204): the entry's subject is the title.
+    return {'subject': f'Picture {i}', 'fields': {'title': f'Picture {i}', 'image': image, 'caption': f'Caption {i}'}}
 
 
 def downloads_entry(i, archive):
@@ -971,6 +971,22 @@ def section_files():
         ok(report is not None and report['status'] == 'failed' and 'not an allowed type' in report['text'] and
            int(one(f'select count(*) from mybb_myshowcase_data{did} where user_id={uid}') or 0) == dbefore,
            'a PNG in the downloads field is refused by its type, and nothing is stored')
+
+    # C (decision D204, closes D56): the shipped gallery showcase enables its subject, and an entry that carries one imports with
+    # it and shows it on its page (the title of the gallery is its subject). Before D204 the showcase had no subject.
+    ok(one(f"select entries_enable_subject from mybb_myshowcase_config where showcase_id={gid}") == '1',
+       'the shipped gallery showcase enables its subject (decision D204)')
+    subject_entry = gallery_entry(3, urls[0])
+    subject_entry['subject'] = 'Picture subject three'
+    body = import_into(member, 'gallery', write_file('gallery-subject.xml', xml_file([subject_entry], route='gallery', collection='Gallery', format_version=2)))['body']
+    dump('gallery-subject', body)
+    stored = db(f"select public_id, entry_slug_custom, subject from mybb_myshowcase_data{gid} where user_id={uid} and title='Picture 3' order by entry_id desc limit 1")
+    page_ok = False
+    if stored:
+        page = member.get(f'/showcase.php/gallery/view/{stored[0][0]}/{stored[0][1]}')
+        page_ok = page['status'] == 200 and 'Picture subject three' in page['body']
+    ok(report_of(body) is not None and report_of(body)['status'] == 'completed' and bool(stored) and stored[0][2] == 'Picture subject three' and page_ok,
+       f'a gallery entry with a subject imports with it, and its page shows the subject (stored subject {stored[0][2] if stored else None!r})')
 
 
 def section_option_numbering():

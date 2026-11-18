@@ -6,7 +6,7 @@
     "main_per_page": 24,
     "main_sort_default_field": "dateline",
     "main_sort_direction": 0,
-    "entries_enable_subject": 0,
+    "entries_enable_subject": 1,
     "entries_enable_message": 0,
     "entries_message_minimum_length": 0,
     "entries_allow_post_icons": 0,
