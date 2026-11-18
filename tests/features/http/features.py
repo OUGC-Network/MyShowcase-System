@@ -430,10 +430,12 @@ def attachments():
     fix('permission', 1, 'attachments_can_download', 0)
     fix('permission', 2, 'attachments_can_download', 0)
     for who, c in (('guest', guest), ('member2', m2)):
+        # A thumbnail needs no download permission (the design record, T35, and AttachmentAccess::decide()): the thumbnail and
+        # the fallback thumbnail are served, the full file is refused
         t, o = c.get(f'{G}/thumbnail/{b[0]}/{b[1]}'), c.get(f'{G}/attachment/{b[0]}/{b[1]}')
-        ok(t['status'] == 403 and o['status'] == 403, f'{who} without the download permission: 403 on both routes [{t["status"]} {o["status"]}]')
+        ok(t['status'] == 200 and o['status'] == 403, f'{who} without the download permission: thumbnail served, file 403 [{t["status"]} {o["status"]}]')
         t = c.get(thumb)
-        ok(t['status'] == 403, f'{who} without the download permission: fallback thumbnail 403 too [{t["status"]}]')
+        ok(t['status'] == 200, f'{who} without the download permission: fallback thumbnail served [{t["status"]}]')
     t, o = m1.get(f'{G}/thumbnail/{b[0]}/{b[1]}'), m1.get(f'{G}/attachment/{b[0]}/{b[1]}')
     ok(t['status'] == 200 and o['status'] == 200, f'owner without the download permission still gets both [{t["status"]} {o["status"]}]')
     fix('permission', 1, 'attachments_can_download', 1)
