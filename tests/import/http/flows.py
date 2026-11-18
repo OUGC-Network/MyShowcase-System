@@ -1429,6 +1429,22 @@ def option_label(route, key, value_id):
     return one(f"select value from mybb_myshowcase_field_data where field_id={field_id_of(route, key)} and value_id='{value_id}'")
 
 
+def hex_of_column(column):
+    """The column as hexadecimal UTF-8, whatever the engine: the command-line client of MySQL escapes newlines and backslashes
+    in its output, so a text value is read back as bytes and decoded (the same reading as the field matrix's)."""
+    if ENGINE == 'pgsql':
+        return f"encode(convert_to(coalesce({column}::text,''),'UTF8'),'hex')"
+    return f"HEX(CAST({column} AS CHAR))" if ENGINE == 'mysql' else f"hex({column})"
+
+
+def text_row(sql_columns, table, where):
+    """One row of the columns as text, read through hexadecimal (an empty value is '')."""
+    rows = db(f"select {', '.join(hex_of_column(c) for c in sql_columns)} from {table} where {where}")
+    if not rows:
+        return None
+    return [bytes.fromhex(v).decode('utf-8', errors='replace') if v not in (None, '', 'NULL') else '' for v in rows[0]]
+
+
 def check_seed_entry(member, route, entry, uid, label, first_attachment):
     """Every field of one seed entry against its stored row: options by label, lists in order, text and numbers as sent, files
     by their attachments in display order, and the entry page answers with its subject. Returns the problems found."""
@@ -1440,7 +1456,7 @@ def check_seed_entry(member, route, entry, uid, label, first_attachment):
         return [f'{label}: no stored entry for the subject {entry["subject"]!r}']
     entry_id, public_id, slug = found[0]
     keys = list(fields)
-    values = dict(zip(keys, db(f"select {', '.join(keys)} from mybb_myshowcase_data{sid} where entry_id={entry_id}")[0]))
+    values = dict(zip(keys, text_row(keys, f'mybb_myshowcase_data{sid}', f'entry_id={entry_id}')))
     problems = []
     for key in keys:
         html_type = fields[key]['html_type']
@@ -1480,9 +1496,9 @@ def check_seed_entry(member, route, entry, uid, label, first_attachment):
             if str(wanted) != str(got):
                 problems.append(f'{label}: {key} stored {got!r}, the seed says {wanted!r}')
     if entry['message']:
-        message = one(f"select message from mybb_myshowcase_data{sid} where entry_id={entry_id}")
+        message = (text_row(['message'], f'mybb_myshowcase_data{sid}', f'entry_id={entry_id}') or [''])[0]
         if message != entry['message']:
-            problems.append(f'{label}: the stored message is not the seed message')
+            problems.append(f'{label}: the stored message {message!r} is not the seed message {entry["message"]!r}')
     page = member.get(f"/showcase.php/{route}/view/{public_id}/{slug or 'x'}")
     if page['status'] != 200 or entry['subject'] not in page['body']:
         problems.append(f'{label}: the entry page answered {page["status"]} without the subject')
