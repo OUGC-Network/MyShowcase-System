@@ -7,7 +7,7 @@ only while the failing cells are exactly that list.
 
 ## What is in this folder
 
-* `collections/fieldkit.json` is the FieldKit collection: 39 fields, one for every selectable HTML type (poll and rating are reserved for later features and are not in the file), with the
+* `collections/fieldkit.json` is the FieldKit collection: 43 fields, one for every selectable HTML type (poll and rating are reserved for later features and are not in the file), with the
   variants of the matrix (required and optional, defaults as defined and generated, minimum and maximum lengths, a
   validation pattern, the bounds of number, range, date, datetime-local, time, month and week, read-only, a fill and view
   restriction, parser settings on and off, select, radio and checkbox options). The bounds are the value properties
@@ -46,6 +46,10 @@ entry from the list.
 
 The run prints the counts per result, the distinct PHP messages of the run's error log, and the cells that differ from the list.
 
+The cell counts of the matrix at the end of batch S2 (`known_failures.json` empty): 823 cells pass, 91 are not applicable (`na`), none
+fail, and the run writes no PHP log message. Measured on SQLite with PHP 8.2.35; the other engines and PHP 8.5.12 are in the batch's
+status file.
+
 ## Stages
 
 Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not applicable: for example no entry was stored) or
@@ -64,7 +68,10 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
 * `c` validation on POST: valid values, blank optional and blank required values, length and numeric bounds, patterns,
   option ids that do not belong to the field, several checked boxes (accepted as a list, decision D184), markup, multibyte text,
   emoji, overlong values. A multiple-file field (`fk_file_multiple`, decision D197) takes three files in upload order, refuses
-  the eleventh, drops one on edit, loses its files with its entry, and detects a stale cache.
+  the eleventh, refuses a file over its maximum size with a message that names the field and the file (`values:files-size-refusal|f`),
+  drops one on edit, loses its files with its entry, and detects a stale cache.
+  The ACP toggle of its several-files setting is saved through the form (`values:file-acp-toggle|v`): free of files it changes, and
+  with two files held the save to 0 is refused with the message.
 * `d` storage: the value that the database holds after the create.
 * `e` entry page: the stored value is shown, option fields show the option label, and nothing is printed raw.
   The IP address of an entry (`ipaddress`): an entry created from the IPv6 loopback (a second PHP server on `[::1]`, when the machine has
@@ -92,7 +99,9 @@ Each field is checked at these stages. A cell is `pass`, `fail`, `na` (not appli
   is refused for another user's entry with a real message and the entry stays (`place:entry-delete-other-refused|h`).
   Dates (decision D116): a stored blank text, changed to a date field, refuses the change as a whole with the reason (`place:type-change-date-blank|h`);
   the same field with valid dates is accepted and keeps its values (`place:type-change-date-valid|h`).
-* `i` XML export and import: the entries of valid values are exported and imported into the same showcase (the import of
+* `i` XML export and import: the entries of valid values are exported and imported into the same showcase, the multiple-file entry
+  with three files included (its files are exported as an ordered list of URLs and every copy holds the same files in the same order, with the
+  setting off the whole file is refused) (the import of
   files from URLs is switched on through the fixture for the run, with the wait the server's opcache needs); every copy must
   hold the stored value. The file fields are compared through the download route: the stored bytes, name, MIME type and size,
   and the entry page shows the file. With the setting off the same file is refused as a whole (decision D57).

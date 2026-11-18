@@ -15,7 +15,7 @@ under `Upload/inc/plugins/myshowcase/`.
 | color | ColorField | yes | verified |
 | checkbox, radio, select | CheckBoxField, RadioField, SelectField | yes; options are posted by `field_data_id` | verified |
 | select2_users, select2_entries, select2_threads | SelectUsersField, SelectEntriesField, SelectThreadsField | yes (plain text input) | verified (validation only) |
-| file | FileField | yes (FilePond uploader) | verified for the upload and the required count |
+| file | FileField | yes (FilePond uploader) | verified for the upload, the required count, and the list of several files (decision D197: order, cap of ten, size refusal, edit removal, entry delete, export and import as a list of URLs, the ACP toggle of the several-files setting) |
 | rating | RatingField | no: the template has no branch, the container is empty | verified (defect) |
 | poll | PollField | no: the template has no branch, the container is empty | verified (defect) |
 
