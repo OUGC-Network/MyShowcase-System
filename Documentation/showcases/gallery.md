@@ -72,8 +72,10 @@ Every field is open to every group for filling in and for viewing.
 
 ## Permissions
 
-The import does not set permissions. An administrator must still grant the upload, comment and view permissions of the
-gallery to the groups that use it. Until permission seeding is in place (a later step), grant them by hand.
+The import does not set permissions. Every group has the default permissions of the board from the installation (decision
+D217): the defaults let a group view and download, and refuse posting and commenting. An administrator grants the upload and
+comment permissions of the gallery to the groups that use it in the ACP group form (the MyShowcase tab); saving the form once
+is not needed for the defaults to apply.
 
 ## What the files do not provide yet
 

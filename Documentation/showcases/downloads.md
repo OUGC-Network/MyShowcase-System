@@ -85,7 +85,9 @@ sorted or refused for holding several values.
 
 ## Permissions and moderation
 
-The import does not set permissions. An administrator must still grant, to the groups that may use the showcase:
+The import does not set permissions. Every group has the default permissions of the board from the installation (decision
+D217); the defaults let a group view and download and refuse posting and commenting. An administrator grants, in the ACP
+group form (the MyShowcase tab), to the groups that may use the showcase:
 
 * the permission to post entries (and to upload files with them),
 * the permission to comment,

@@ -74,9 +74,10 @@ for an empty field.
 
 ## Permissions
 
-The import does not set permissions. An administrator must still grant the blog permissions to the groups that post
-and comment (the permission seeding is a later step). Until then, only groups with permissions set by hand can create
-entries.
+The import does not set permissions. Every group has the default permissions of the board from the installation (decision
+D217): the defaults let a group view and download, and refuse posting and commenting. An administrator grants the blog
+permissions to the groups that post and comment in the ACP group form (the MyShowcase tab); until then, the groups that
+have not been granted posting cannot create entries.
 
 ## Updating the blog
 
