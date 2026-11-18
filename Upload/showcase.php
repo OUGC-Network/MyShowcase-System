@@ -117,6 +117,18 @@ if (str_contains($request_uri, '/attachment/') ||
 
     $lang->load('messages');
 
+    // Decision D221: a minimal load does not run global.php, which sets the view's main namespace ('frontend'). Without it a
+    // template rendered for a refusal (the no-permission page) fails with "Missing namespace in Locator" (a 503 for the
+    // attachment and thumbnail routes of a group whose main view is refused). The same namespace as a full load is set here.
+    $view = \MyBB\app(\MyBB\View\Runtime\Runtime::class);
+
+    $view->setContext([
+        'script' => basename($_SERVER['PHP_SELF']),
+        'action' => $mybb->get_input('action'),
+    ]);
+
+    $view->setMainNamespace('frontend');
+
     $closed_bypass = ['refresh_captcha', 'validate_captcha'];
 } else {
     $minimalLoad = false;
