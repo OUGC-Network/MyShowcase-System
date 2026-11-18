@@ -532,6 +532,13 @@ const TABLES_DATA = [
             'category' => 'general',
             'input_type' => FormTypes::Text,
         ],
+        'url_mode' => [
+            'type' => 'TINYINT',
+            'unsigned' => true,
+            'default' => 1,
+            'category' => 'general',
+            'input_type' => FormTypes::SelectUrlMode,
+        ],
         'password' => [
             'type' => 'VARCHAR',
             'size' => 255,

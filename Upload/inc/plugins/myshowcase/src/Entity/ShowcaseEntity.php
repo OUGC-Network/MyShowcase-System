@@ -13,6 +13,7 @@ readonly class ShowcaseEntity
         public string $description = '',
         public string $route_identifier = '',
         public string $showcase_url = '',
+        public int $url_mode = 1,
         public string $password = '',
         public int $password_minutes_interval = 15,
         public int $password_ip_check = 1,
