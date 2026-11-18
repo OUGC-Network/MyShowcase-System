@@ -105,6 +105,14 @@ final class ShowcaseService
             ];
         }
 
+        // The links option is one of the three choices (0, 1, 2): any other value is refused, and nothing is saved.
+        if (isset($data['url_mode']) && !preg_match('/^[012]$/', (string)$data['url_mode'])) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_invalid_url_mode',
+                'message' => 'The links option must be No, Automatic or Yes.'
+            ];
+        }
+
         if (!empty($data['custom_template_prefix']) && $isTaken('custom_template_prefix', $data['custom_template_prefix'])) {
             $errors[] = [
                 'key' => 'myShowcaseAdminErrorDuplicatedTemplatePrefix',

@@ -18,6 +18,7 @@ router that stands for the rewrite (url_mode_router.php in the board root). The 
 Exit code 1 if a check fails.
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
+from html.parser import HTMLParser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'json-sync', 'http'))
@@ -69,6 +70,70 @@ def start_server(board_dir, port, seo, log):
 
 def links_of(body, pattern):
     return re.findall(r'href="([^"]*' + pattern + r'[^"]*)"', body)
+
+
+class FormScraper(HTMLParser):
+    """The forms of a page with their fields (the JSON-sync flows' scraper, copied: this suite does not import them)."""
+
+    def __init__(self):
+        super().__init__()
+        self.forms, self.cur, self.sel, self.ta = [], None, None, None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == 'form':
+            self.cur = {'action': a.get('action', ''), 'fields': {}, 'disabled': set()}
+            self.forms.append(self.cur)
+        elif self.cur is None:
+            return
+        elif tag == 'input' and a.get('name'):
+            if 'disabled' in a:
+                self.cur['disabled'].add(a['name'])
+            ty = (a.get('type') or 'text').lower()
+            if ty in ('submit', 'button', 'reset', 'image'):
+                return
+            if ty in ('checkbox', 'radio'):
+                if 'checked' in a:
+                    self.cur['fields'].setdefault(a['name'], []).append(a.get('value', 'on'))
+            else:
+                self.cur['fields'].setdefault(a['name'], []).append(a.get('value', ''))
+        elif tag == 'select':
+            self.sel = {'name': a.get('name'), 'selected': [], 'first': None}
+            if 'disabled' in a and self.sel['name']:
+                self.cur['disabled'].add(self.sel['name'])
+        elif tag == 'option' and self.sel is not None:
+            if self.sel['first'] is None:
+                self.sel['first'] = a.get('value', '')
+            if 'selected' in a:
+                self.sel['selected'].append(a.get('value', ''))
+        elif tag == 'textarea':
+            self.ta = [a.get('name'), '']
+
+    def handle_data(self, d):
+        if self.ta is not None:
+            self.ta[1] += d
+
+    def handle_endtag(self, tag):
+        if tag == 'select' and self.sel is not None and self.cur is not None:
+            if self.sel['name']:
+                vals = self.sel['selected'] or ([self.sel['first']] if self.sel['first'] is not None else [])
+                if vals:
+                    self.cur['fields'][self.sel['name']] = vals
+            self.sel = None
+        elif tag == 'textarea' and self.ta is not None:
+            if self.ta[0]:
+                self.cur['fields'][self.ta[0]] = [self.ta[1]]
+            self.ta = None
+
+
+def form_of(html, contains):
+    """The form whose action contains the text."""
+    scraper = FormScraper()
+    scraper.feed(html)
+    for f in scraper.forms:
+        if contains in f['action']:
+            return f
+    raise RuntimeError(f'no form with {contains}')
 
 
 def php_env(board_dir, env, *args):
@@ -261,24 +326,27 @@ def run(ctx, scratch, port):
         os.remove(apply_path)
     ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 0 stores 0')
 
-    # ---- F: the ACP showcase form
-    print('--- F ACP form: three choices, a saved choice, a refused value')
-    showcase_id = str(php(board_dir, 'showcase-value', 'blog', 'showcase_id').get('value'))
-    page = acp.get('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id)
-    select = re.search(r'<select[^>]*name="url_mode"[^>]*>(.*?)</select>', page['body'], re.S)
+    # ---- F: the ACP showcase form (the General tab): three choices, each saved, and a value that is not a choice refused
+    print('--- F ACP form: three choices, each saved, a value that is not a choice refused')
+    sid = str(php(board_dir, 'showcase-value', 'blog', 'showcase_id').get('value'))
+    page = acp.get(f'/admin/index.php?module=myshowcase-summary&action=update&showcase_id={sid}')
+    general = form_of(page['body'], 'type=general')
+    select = re.search(r'<select[^>]*name="showcase\[url_mode\]"[^>]*>(.*?)</select>', page['body'], re.S)
     options = re.findall(r'<option[^>]*value="(\d+)"[^>]*>([^<]*)</option>', select.group(1)) if select else []
-    ok(len(options) == 3 and [v for v, _ in options] == ['0', '1', '2'], f'the form offers three choices 0, 1, 2 [{options}]')
-    data = {'my_post_key': acp.post_key, 'submit': 'Save'}
-    data.update({'url_mode': '2'})
-    r = acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
-    ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', f'saving the form with 2 stores 2 [{r["status"]}]')
-    for value in ('0', '1'):
-        data['url_mode'] = value
-        acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
+    ok([v for v, _ in options] == ['0', '1', '2'], f'the form offers three choices 0, 1, 2 [{options}]')
+
+    def save(value):
+        data = {k: (v[0] if len(v) == 1 else v) for k, v in general['fields'].items() if k not in general['disabled']}
+        data['showcase[url_mode]'] = value
+        path = general['action'].replace('&amp;', '&').split('module=')[1]
+        return acp.post('/admin/index.php?module=' + path, data)
+
+    for value in ('2', '0', '1'):
+        save(value)
         ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == value, f'saving the form with {value} stores {value}')
-    data['url_mode'] = '7'
-    acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
-    ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', 'a value that is not a choice is refused and nothing changes')
+    save('2')
+    r = save('7')
+    ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', f'a value that is not a choice (7) is refused and nothing changes [{r["status"]}]')
 
     # ---- D2: a file with url_mode 2 gives 2
     print('--- D file: a showcase file with url_mode 2 creates a showcase with 2')

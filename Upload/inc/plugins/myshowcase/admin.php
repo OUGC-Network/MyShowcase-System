@@ -817,6 +817,7 @@ function buildPermissionsRow(
         case FormTypes::SelectAttachmentsMainRender:
         case FormTypes::SelectWatermarkLocation:
         case FormTypes::SelectAttachmentsDisplayType:
+        case FormTypes::SelectUrlMode:
         case FormTypes::SelectTemplateSet:
             if ($display_extra_text) {
                 $input_code .= '<div class="group_settings_bit">';
@@ -854,6 +855,8 @@ function buildPermissionsRow(
                 $select_array = (new SelectableLists($lang))->watermarkLocationsList();
             } elseif ($definition['input_type'] === FormTypes::SelectAttachmentsDisplayType) {
                 $select_array = (new SelectableLists($lang))->attachmentsDisplayTypeList();
+            } elseif ($definition['input_type'] === FormTypes::SelectUrlMode) {
+                $select_array = (new SelectableLists($lang))->urlModesList();
             } elseif ($definition['input_type'] === FormTypes::SelectTemplateSet) {
                 $select_array = (new SelectableLists($lang))->templateSetsList((string)($input[$name] ?? $mybb->get_input($name)));
             } else {

@@ -13,6 +13,7 @@ use MyBB\Extensions\Theme\Repository;
 use MyLanguage;
 use MyShowcase\Entity\PermissionEntity;
 use MyShowcase\Enum\AttachmentsDisplayType;
+use MyShowcase\Routing\UrlMode;
 use MyShowcase\Enum\AttachmentsMainRenderType;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FilterFields;
@@ -132,6 +133,15 @@ readonly class SelectableLists
         }
 
         return $list;
+    }
+
+    public function urlModesList(): array
+    {
+        return [
+            UrlMode::PLAIN => $this->language->myshowcase_admin_summary_create_update_url_mode_plain,
+            UrlMode::AUTOMATIC => $this->language->myshowcase_admin_summary_create_update_url_mode_automatic,
+            UrlMode::FRIENDLY => $this->language->myshowcase_admin_summary_create_update_url_mode_friendly,
+        ];
     }
 
     public function attachmentsDisplayTypeList(): array
