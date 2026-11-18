@@ -74,6 +74,7 @@ try:
     acp = board.activate(ctx)
 
     flows.configure(ctx, a.scratch, log)
+    flows.ACP = acp
     flows.create_blog(acp)
     flows.create_showcase(acp, 'gallery', 'Gallery')
     flows.create_showcase(acp, 'downloads', 'Downloads')

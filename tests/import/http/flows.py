@@ -314,6 +314,8 @@ def run():
     section_unknown_option_value()
     section_previews()
     section_four_byte_subject()
+    section_seeds()
+    section_seed_round_trip(logged_in('member1'), USERS['member1']['uid'])
     section_logs()
 
 
@@ -1365,6 +1367,269 @@ def section_four_byte_subject():
 
 def page_has_label(page, label):
     return text(page).find(label) >= 0 if label else False
+
+
+# ---- the content seeders (decisions D40 and D43): tests/fixtures/seeds, imported through the forum-side import ----------
+
+SEEDS_DIR = os.path.join(HERE, '..', '..', 'fixtures', 'seeds')
+COLLECTIONS_DIR = os.path.join(HERE, '..', '..', '..', 'Upload', 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'collections')
+COLLECTION_NAMES = {'blog': 'Blog', 'downloads': 'Downloads', 'gallery': 'Gallery'}
+SEED_FIRST_ATTACHMENT = {}
+SEED_EXPECTED = [
+    ('blog-full', 'blog', 3), ('blog-minimal', 'blog', 1),
+    ('downloads-full', 'downloads', 2), ('downloads-minimal', 'downloads', 1),
+    ('gallery-full', 'gallery', 3), ('gallery-minimal', 'gallery', 1),
+]
+
+
+def seed_value(element):
+    """A value of a seed file, read the way the import reads it: an array whose keys are all INT is a list, another array a
+    dict, and a value typed INT is a number."""
+    array = element.find('array')
+    if array is not None:
+        children = [(c.find('key'), c.find('value')) for c in array.findall('element')]
+        if children and all(k is not None and k.get('type') == 'INT' for k, _ in children):
+            return [seed_value(v) for _, v in children]
+        return {k.text: seed_value(v) for k, v in children}
+    text = element.text or ''
+    return int(text) if element.get('type') == 'INT' else text
+
+
+def seed_entries(name):
+    """The entries of a seed file: subject, message (None when the entry carries none) and the fields by key."""
+    import xml.etree.ElementTree as ET
+    root = ET.parse(os.path.join(SEEDS_DIR, name + '.xml')).getroot()
+    entries_value = [e.find('value') for e in root.findall('element') if e.find('key').text == 'entries'][0]
+    entries = []
+    for item in entries_value.find('array').findall('element'):
+        parts = {p.find('key').text: p.find('value') for p in item.find('value').find('array').findall('element')}
+        entries.append({'subject': seed_value(parts['subject']),
+                        'message': seed_value(parts['message']) if 'message' in parts else None,
+                        'fields': seed_value(parts['fields'])})
+    return entries
+
+
+def collection_fields(route):
+    """The field definitions of the shipped collection of a showcase, by key (from its JSON file)."""
+    data = json.load(open(os.path.join(COLLECTIONS_DIR, COLLECTION_NAMES[route].lower() + '.json'), encoding='utf-8'))
+    return {f['field_key']: f for f in data['fields']}
+
+
+def showcase_of(route):
+    return int(one(f"select showcase_id from mybb_myshowcase_config where route_identifier='{route}'") or 0)
+
+
+def field_id_of(route, key):
+    return int(one(f"select f.field_id from mybb_myshowcase_fields f join mybb_myshowcase_config c on c.collection_id=f.collection_id "
+                   f"where c.route_identifier='{route}' and f.field_key='{key}'") or 0)
+
+
+def option_label(route, key, value_id):
+    """The label of an option by its value id (decision D185: the value ids are the ones a seed names)."""
+    return one(f"select value from mybb_myshowcase_field_data where field_id={field_id_of(route, key)} and value_id='{value_id}'")
+
+
+def check_seed_entry(member, route, entry, uid, label, first_attachment):
+    """Every field of one seed entry against its stored row: options by label, lists in order, text and numbers as sent, files
+    by their attachments in display order, and the entry page answers with its subject. Returns the problems found."""
+    sid = showcase_of(route)
+    fields = collection_fields(route)
+    found = db(f"select entry_id, public_id, entry_slug_custom from mybb_myshowcase_data{sid} where subject='{entry['subject']}' "
+               f"and user_id={uid} order by entry_id desc limit 1")
+    if not found:
+        return [f'{label}: no stored entry for the subject {entry["subject"]!r}']
+    entry_id, public_id, slug = found[0]
+    keys = list(fields)
+    values = dict(zip(keys, db(f"select {', '.join(keys)} from mybb_myshowcase_data{sid} where entry_id={entry_id}")[0]))
+    problems = []
+    for key in keys:
+        html_type = fields[key]['html_type']
+        wanted = entry['fields'].get(key, '')
+        got = values[key] or ''
+        if html_type == 'file':
+            # only the files this import attached: an entry id can be reused after a delete, and older rows stay in the table
+            files = db(f"select attachment_name, mime_type, file_size from mybb_myshowcase_attachments where entry_id={entry_id} "
+                       f"and showcase_id={sid} and attachment_id>{first_attachment} "
+                       f"and field_id={field_id_of(route, key)} and status=1 order by display_order, attachment_id")
+            count = len(wanted) if isinstance(wanted, list) else (1 if wanted else 0)
+            if len(files) != count:
+                problems.append(f'{label}: {key} holds {len(files)} file(s), the seed has {count}')
+            for name, mime, size in files:
+                if not int(size or 0) > 0 or not str(mime).startswith(('image/', 'application/zip')):
+                    problems.append(f'{label}: {key} file {name!r} has type {mime!r} and size {size}')
+        elif html_type == 'select':
+            if wanted == '':
+                if got not in ('', '0'):
+                    problems.append(f'{label}: blank {key} stored {got!r}')
+            else:
+                shown = one(f"select value from mybb_myshowcase_field_data where field_data_id='{got}'")
+                if shown != option_label(route, key, wanted):
+                    problems.append(f'{label}: {key} shows {shown!r}, the seed says {option_label(route, key, wanted)!r}')
+        elif html_type == 'checkbox':
+            wanted_ids = [str(v) for v in wanted] if isinstance(wanted, list) else ([str(wanted)] if wanted != '' else [])
+            stored_ids = [v for v in str(got).split(',') if v]
+            if [option_label(route, key, v) for v in stored_ids] != [option_label(route, key, v) for v in wanted_ids]:
+                problems.append(f'{label}: {key} stored {stored_ids}, the seed says {wanted_ids}')
+        elif html_type == 'number':
+            if wanted == '':
+                if got not in ('', '0'):
+                    problems.append(f'{label}: blank {key} stored {got!r}')
+            elif str(int(float(got or 0))) != str(wanted):
+                problems.append(f'{label}: {key} stored {got!r}, the seed says {wanted!r}')
+        else:
+            if str(wanted) != str(got):
+                problems.append(f'{label}: {key} stored {got!r}, the seed says {wanted!r}')
+    if entry['message']:
+        message = one(f"select message from mybb_myshowcase_data{sid} where entry_id={entry_id}")
+        if message != entry['message']:
+            problems.append(f'{label}: the stored message is not the seed message')
+    page = member.get(f"/showcase.php/{route}/view/{public_id}/{slug or 'x'}")
+    if page['status'] != 200 or entry['subject'] not in page['body']:
+        problems.append(f'{label}: the entry page answered {page["status"]} without the subject')
+    return problems
+
+
+def section_seeds():
+    print('--- S content seeders: every shipped collection field in a full seed, a minimal seed for each showcase (D40, D43)')
+    fixture('files-setup', 'import-test-uploads')
+    fixture('external-setting', '1')
+    time.sleep(3)
+    # the entries removed as data by the earlier checks leave their files in the table, and an entry id can come again: the
+    # files of entries that no longer exist are removed first, so an export of the seeds holds only their own files
+    for route in ('blog', 'downloads', 'gallery'):
+        sid = showcase_of(route)
+        CTX.execute(f"delete from mybb_myshowcase_attachments where showcase_id={sid} and entry_id>0 "
+                    f"and entry_id not in (select entry_id from mybb_myshowcase_data{sid})")
+    member = logged_in('member1')
+    uid = USERS['member1']['uid']
+    for name, route, count in SEED_EXPECTED:
+        before = int(one(f"select count(*) from mybb_myshowcase_data{showcase_of(route)} where user_id={uid}") or 0)
+        first_attachment = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        SEED_FIRST_ATTACHMENT[name] = first_attachment
+        body = import_into(member, route, os.path.join(SEEDS_DIR, name + '.xml'))['body']
+        dump('seed-' + name, body)
+        report = report_of(body)
+        imported = re.search(r'Entries imported (\d+)', report['text']) if report else None
+        ok(report is not None and report['status'] == 'completed' and imported is not None and int(imported.group(1)) == count,
+           f'{name}: the seed imports completed with {count} entries ({report_kind(body) if report is not None else "no report"}; '
+           f'report: {report["text"][:700] if report else ""!r})')
+        if report is None or report['status'] != 'completed':
+            continue
+        stored = int(one(f"select count(*) from mybb_myshowcase_data{showcase_of(route)} where user_id={uid}") or 0) - before
+        ok(stored == count, f'{name}: {stored} entries stored')
+        problems = []
+        for index, entry in enumerate(seed_entries(name)):
+            problems += check_seed_entry(member, route, entry, uid, f'{name} entry {index + 1}', first_attachment)
+        ok(not problems, f'{name}: every field of every entry holds its seed value' + (f'; {problems[:3]}' if problems else ' (checked)'))
+
+
+def create_showcase_copy(route, copy_route):
+    """A second showcase of the same collection, from the shipped file of the route (the ACP's JSON sync)."""
+    acp = ACP
+    acp.get('/admin/index.php?module=myshowcase-json_sync&action=create&type=showcase')
+    for action in ('preview', 'run'):
+        acp.post('/admin/index.php?module=myshowcase-json_sync', {
+            'action': action, 'mode': 'create', 'type': 'showcase', 'file': f'showcases/{route}.json',
+            'name': COLLECTION_NAMES[route] + ' copy', 'route_identifier': copy_route, 'custom_template_prefix': '',
+        })
+    created = one(f"select count(*) from mybb_myshowcase_config where route_identifier='{copy_route}'") == '1'
+    if created:
+        # the JSON sync creates a showcase switched off; the copy is switched on for the import
+        fixture('showcase-setting', copy_route, 'is_enabled', '1')
+    return created
+
+
+def stored_values(route, subject, uid, newest=True, first_attachment=0):
+    """The stored fields of an entry with the subject (the newest copy, or the oldest), by key: the column values, and for file
+    fields the files of the entry (name, MIME type and size, in display order). None when the entry is not there."""
+    sid = showcase_of(route)
+    fields = collection_fields(route)
+    order = 'desc' if newest else 'asc'
+    found = db(f"select entry_id from mybb_myshowcase_data{sid} where subject='{subject}' and user_id={uid} order by entry_id {order} limit 1")
+    if not found:
+        return None
+    entry_id = found[0][0]
+    keys = list(fields)
+    row = dict(zip(keys, db(f"select {', '.join(keys)} from mybb_myshowcase_data{sid} where entry_id={entry_id}")[0]))
+    for key in keys:
+        if fields[key]['html_type'] == 'file':
+            row[key] = db(f"select attachment_name, mime_type, file_size from mybb_myshowcase_attachments where entry_id={entry_id} "
+                          f"and showcase_id={sid} and attachment_id>{first_attachment} and field_id={field_id_of(route, key)} and status=1 "
+                          f"order by display_order, attachment_id")
+    return row
+
+
+def seeded_export(raw, subjects):
+    """The export of a showcase, kept to the entries whose subject is one of the seeded subjects (the showcase also holds the
+    entries of other checks, which the import refuses as a whole): the entry count of the header is set to the kept entries."""
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(raw)
+    top = {e.find('key').text: e.find('value') for e in root.findall('element')}
+    array = top['entries'].find('array')
+    kept = 0
+    for item in list(array.findall('element')):
+        parts = {p.find('key').text: p.find('value') for p in item.find('value').find('array').findall('element')}
+        if seed_value(parts['subject']) in subjects:
+            kept += 1
+        else:
+            array.remove(item)
+    # the entries are a list: their index keys are renumbered from 0 after the removal
+    for index, item in enumerate(array.findall('element')):
+        item.find('key').text = str(index)
+    for element in top['header'].find('array').findall('element'):
+        if element.find('key').text == 'entry_count':
+            element.find('value').text = str(kept)
+    return ET.tostring(root, encoding='utf-8', xml_declaration=True)
+
+
+def section_seed_round_trip(member, uid):
+    """The export of each full seed's showcase imports back into the same showcase as a second copy, and the copy holds the same
+    field values as the seed's entry (the stored values by label, lists in order, the files by name, type and size). The
+    decision of the plugin (an export is imported only into the showcase it came from) is checked on a second showcase of the
+    same collection, which is refused. Held back: the contract's import into a second showcase, which the plugin refuses by
+    design (status file, step S decision P-S1)."""
+    print('--- S2 round trip: the export of the seeded showcases imports back; a second showcase refuses the file')
+    for route in ('blog', 'downloads', 'gallery'):
+        copy_route = route + 'copy'
+        created = create_showcase_copy(route, copy_route)
+        ok(created, f'the second showcase {copy_route} of the {route} collection is created from the shipped file')
+        export_form = member.get(f'/showcase.php/{route}/export')
+        member.post(f'/showcase.php/{route}/export', {'my_post_key': post_key(export_form['body']), 'limit': '0', 'order_by': 'dateline',
+                                                     'order_dir': 'asc', 'submit': 'Export'})
+        export_id = one(f"select export_id from mybb_myshowcase_exports where user_id={uid} order by export_id desc limit 1")
+        download = member.get(f'/showcase.php/{route}/export/{export_id}/download')
+        seeded_by_name = {name: [e['subject'] for e in seed_entries(name)] for name, r, _ in SEED_EXPECTED
+                          if r == route and name.endswith('full')}
+        all_subjects = [subject for subjects in seeded_by_name.values() for subject in subjects]
+        path = write_file(f'seed-roundtrip-{route}.xml', seeded_export(download['raw'], all_subjects))
+        first_round = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        if created:
+            body = import_into(member, copy_route, path)['body']
+            dump(f'seed-other-showcase-{route}', body)
+            ok(report_of(body) is not None and report_of(body)['status'] == 'failed' and
+               'only imported into the showcase it came from' in report_of(body)['text'],
+               f'an export of {route} is refused by {copy_route}: a file is imported only into the showcase it came from')
+        body = import_into(member, route, path)['body']
+        dump(f'seed-roundtrip-{route}', body)
+        report = report_of(body)
+        ok(report is not None and report['status'] == 'completed',
+           f'the export of {route} imports back into {route} ({report_kind(body) if report is not None else "no report"})')
+        if report is None or report['status'] != 'completed':
+            continue
+        differences = []
+        seeded = all_subjects
+        origin = {subject: name for name, subjects in seeded_by_name.items() for subject in subjects}
+        for subject in seeded:
+            original = stored_values(route, subject, uid, newest=False, first_attachment=SEED_FIRST_ATTACHMENT[origin[subject]])
+            copy = stored_values(route, subject, uid, newest=True, first_attachment=first_round)
+            if original is None or copy is None or original is copy:
+                differences.append(f'{subject!r}: a copy is missing')
+                continue
+            for key in original:
+                if original[key] != copy[key]:
+                    differences.append(f'{subject!r} {key}: {original[key]!r} became {copy[key]!r}')
+        ok(not differences and len(seeded) > 0,
+           f'the copy of each seeded {route} entry holds the same field values ({len(seeded)} entries)' + (f': {differences[:3]}' if differences else ''))
 
 
 def section_logs():

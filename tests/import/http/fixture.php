@@ -207,21 +207,22 @@ switch ($switch) {
 
     case 'files-setup':
         // The board's attachment types and folder for the file-field checks (DATA of the test, not the plugin's code):
-        // PNG (the board has none by default) for the gallery, ZIP of 50 MB for the downloads, a writable uploads folder
-        // for both showcases, and the attachment permissions of the registered group.
+        // PNG (the board has none by default) for the gallery, the blog (its cover image) and the downloads, ZIP of 50 MB for the downloads, a writable uploads folder
+        // for the three showcases (the blog's cover image is a file too), and the attachment permissions of the registered group.
         $gallery = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='gallery'"), 'showcase_id');
         $downloads = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='downloads'"), 'showcase_id');
+        $blog = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='blog'"), 'showcase_id');
         $uploads = rtrim(MYBB_ROOT, '/') . '/' . $argv[2];
         if (!is_dir($uploads)) {
             mkdir($uploads, 0777, true);
         }
         chmod($uploads, 0777);
-        $db->update_query('myshowcase_config', ['attachments_uploads_path' => $db->escape_string($uploads)], "showcase_id IN ({$gallery},{$downloads})");
-        $db->update_query('myshowcase_config', ['import_export_flood_seconds' => 0], "showcase_id IN ({$gallery},{$downloads})");
+        $db->update_query('myshowcase_config', ['attachments_uploads_path' => $db->escape_string($uploads)], "showcase_id IN ({$gallery},{$downloads},{$blog})");
+        $db->update_query('myshowcase_config', ['import_export_flood_seconds' => 0], "showcase_id IN ({$gallery},{$downloads},{$blog})");
         $png = $db->fetch_field($db->simple_select('attachtypes', 'atid', "extension='png'"), 'atid');
         $png_row = ['name' => 'PNG Image', 'mimetype' => 'image/png', 'extension' => 'png', 'maxsize' => 10240,
                     'icon' => 'images/attachtypes/image.png', 'enabled' => 1, 'forcedownload' => 0, 'groups' => '-1',
-                    'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => (string)$gallery . ',' . (string)$downloads];
+                    'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => (string)$gallery . ',' . (string)$downloads . ',' . (string)$blog];
         if ($png) {
             $db->update_query('attachtypes', $png_row, "atid='" . (int)$png . "'");
         } else {
