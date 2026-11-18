@@ -1520,7 +1520,7 @@ def section_seeds():
     uid = USERS['member1']['uid']
     for name, route, count in SEED_EXPECTED:
         before = int(one(f"select count(*) from mybb_myshowcase_data{showcase_of(route)} where user_id={uid}") or 0)
-        first_attachment = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        first_attachment = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0) if one('select max(attachment_id) from mybb_myshowcase_attachments') not in ('', 'NULL') else 0
         SEED_FIRST_ATTACHMENT[name] = first_attachment
         body = import_into(member, route, os.path.join(SEEDS_DIR, name + '.xml'))['body']
         dump('seed-' + name, body)
@@ -1618,7 +1618,7 @@ def section_seed_round_trip(member, uid):
                           if r == route and name.endswith('full')}
         all_subjects = [subject for subjects in seeded_by_name.values() for subject in subjects]
         path = write_file(f'seed-roundtrip-{route}.xml', seeded_export(download['raw'], all_subjects))
-        first_round = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        first_round = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0) if one('select max(attachment_id) from mybb_myshowcase_attachments') not in ('', 'NULL') else 0
         if created:
             body = import_into(member, copy_route, path)['body']
             dump(f'seed-other-showcase-{route}', body)

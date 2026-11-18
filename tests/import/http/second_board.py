@@ -250,7 +250,7 @@ try:
     flows.fixture('external-setting', '1')
     time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
     for name, route in (('blog-full', 'blog'), ('downloads-full', 'downloads'), ('gallery-full', 'gallery')):
-        first_attachment = int(flows.one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        first_attachment = int(flows.one('select max(attachment_id) from mybb_myshowcase_attachments') or 0) if flows.one('select max(attachment_id) from mybb_myshowcase_attachments') not in ('', 'NULL') else 0
         body = flows.import_into(member_b, route, os.path.join(flows.SEEDS_DIR, name + '.xml'))['body']
         report = flows.report_of(body)
         count = len(flows.seed_entries(name))
