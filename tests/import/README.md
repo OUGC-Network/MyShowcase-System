@@ -39,6 +39,17 @@ install where the gallery collection is created first and five extra options are
 option ids differ), imports the file as another user. Per entry: each option holds B's field_data_id of the option with the exported value id,
 the label shown on B's entry page is the one of A, and the text fields are equal. Users, groups and file URLs are not compared (D137).
 It runs on SQLite, MySQL and PostgreSQL, two installs per run: `python3 tests/import/http/second_board.py --engine sqlite|mysql|pgsql --mybb DIR --scratch DIR`.
+The second board also imports the three full content seeders (`tests/fixtures/seeds`, decisions D40 and D43): each option is compared
+by its label through board B's own ids, each list in order, each file by name, type and size. A second board needs a gallery
+showcase, which the script creates and switches on.
+
+The import suite's section `S` (`section_seeds`) imports the six seeds into the blog, downloads and gallery showcases and checks every
+field of every entry against its seed. Section `S2` (`section_seed_round_trip`) exports each full seed's showcase, keeps the export to the
+seeded entries, imports it back into the same showcase and compares the copies. A second showcase of the same collection refuses the
+export, because a file is imported only into the showcase it came from; that refusal is checked. The contract's import into a second
+showcase is held back for this reason (status file, decision P-S1). The coverage test `tests/fixtures/seeds/coverage_test.py` needs no
+board and runs on its own.
+
 The blank optional option values and the format 2 file with only blanks are covered by the field matrix (stage `i`, decision D142). The PHP binary is the one
 named `php` on the `PATH`: to run the suite on another version, put a directory with a `php` link first on the `PATH`.
 
