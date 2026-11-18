@@ -87,19 +87,22 @@ def main():
     ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
     try:
         run(ctx, scratch, port)
-    finally:
+    except Exception as e:  # a crash is a failed check, reported with the summary below
+        FAILS.append(f'the run stopped: {e}')
+        print('FAIL the run stopped:', e)
+    print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
+    for f in FAILS:
+        print('  FAILED:', f)
+    sys.stdout.flush()
+    try:
         for s in SERVERS:
             s.terminate()
             s.wait()
-        ctx.stop()
-        if a.engine == 'mysql':
-            env = board.db_env()
-            subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}",
-                            '-e', f'DROP DATABASE IF EXISTS {ctx.dbname}'], check=False)
-        if a.engine == 'pgsql':
-            env = board.db_env()
-            subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres',
-                            '-c', f'DROP DATABASE IF EXISTS {ctx.dbname}'], check=False, capture_output=True)
+        ctx.close()  # stops the servers, drops the database and checks that nothing is left (D225)
+    except Exception as e:
+        print('CLEANUP FAILED:', e)
+        return 1
+    return 1 if FAILS else 0
 
 
 def run(ctx, scratch, port):
@@ -185,18 +188,14 @@ def run(ctx, scratch, port):
     shipped = json.load(open(os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'blog.json')))
     shipped['url_mode'] = 2
     json.dump(shipped, open(file_path, 'w'))
-    acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/urlmode-test.json', 'name': 'Url test', 'route_identifier': 'urltest'})
-    php(board_dir, 'enable', 'urltest')
-    ok(php(board_dir, 'showcase-value', 'urltest', 'url_mode').get('value') == '2', 'the showcase created from the file has url_mode 2')
+    try:
+        acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/urlmode-test.json', 'name': 'Url test', 'route_identifier': 'urltest'})
+        php(board_dir, 'enable', 'urltest')
+        ok(php(board_dir, 'showcase-value', 'urltest', 'url_mode').get('value') == '2', 'the showcase created from the file has url_mode 2')
+    finally:
+        os.remove(file_path)  # the test file lives in the board's copy only and is removed (D234)
 
-    for s in servers_list:
-        s.terminate()
-        s.wait()
-    print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
-    for f in FAILS:
-        print('  FAILED:', f)
 
 
 if __name__ == '__main__':
-    main()
-    sys.exit(1 if FAILS else 0)
+    sys.exit(main())
