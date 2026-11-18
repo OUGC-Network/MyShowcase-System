@@ -41,7 +41,7 @@ board settings, not part of the file.
 | `main_per_page` | 24 | Images per page on the list |
 | `main_sort_default_field` | `dateline` | Sorted by the date of the entry |
 | `main_sort_direction` | 0 | Newest first (1 would be oldest first) |
-| `entries_enable_subject`, `entries_enable_message` | 0 | The title field is the subject; there is no separate message |
+| `entries_enable_subject`, `entries_enable_message` | 1, 0 | The title field is the subject (decision D204: the subject is on, so the title is the entry's subject); there is no separate message |
 | `entries_display_empty_fields` | 0 | Empty fields are hidden on the entry page |
 | `entries_display_signatures`, `entries_display_profile_fields` | 0 | No signatures or profile fields |
 | `comments_enable`, `comments_enable_quick_reply` | 1 | Comments with a quick reply |
