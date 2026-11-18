@@ -156,6 +156,23 @@ switch ($command) {
         $out(['route' => $argv[2], $argv[3] => $argv[4]]);
         break;
 
+    case 'wol':
+        // the who's-online location of a showcase page, built by the plugin's hook (activity: list or view; entry id optional)
+        if (getenv('URL_MODE_SEO') === '1') {
+            $_SERVER['SEO_SUPPORT'] = 1;
+        }
+        require_once MYBB_ROOT . 'inc/plugins/myshowcase/forum_hooks.php';
+        $row = $db->fetch_array($db->simple_select('myshowcase_config', 'showcase_id, name, route_identifier', "route_identifier='" . $db->escape_string($argv[2]) . "'"));
+        $activity = ['activity' => $argv[3] === 'view' ? 'myshowcase_main_table_head_view' : 'myshowcase_list', 'myshowcase_id' => (int)$row['showcase_id'],
+            'myshowcase_name' => $row['name'], 'myshowcase_mainfile' => $row['route_identifier']];
+        if ($argv[3] === 'view') {
+            $activity['entry_id'] = (string)($argv[4] ?? '1');
+        }
+        $plugin = ['user_activity' => $activity, 'location_name' => ''];
+        $plugin = build_friendly_wol_location_end($plugin);
+        $out(['location' => $plugin['location_name']]);
+        break;
+
     case 'showcase-value':
         $out(['value' => (string)$db->fetch_field($db->simple_select('myshowcase_config', $argv[3], "route_identifier='" . $db->escape_string($argv[2]) . "'"), $argv[3])]);
         break;

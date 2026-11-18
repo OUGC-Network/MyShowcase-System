@@ -71,6 +71,25 @@ def links_of(body, pattern):
     return re.findall(r'href="([^"]*' + pattern + r'[^"]*)"', body)
 
 
+def php_env(board_dir, env, *args):
+    """A fixture command with extra environment (the SEO_SUPPORT of the request the who's-online builder is told about)."""
+    r = subprocess.run(['php', os.path.join(HERE, 'fresh_fixture.php'), *[str(x) for x in args]], cwd=board_dir, capture_output=True, text=True,
+                       env={**os.environ, **env})
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if r.returncode or not lines or 'SQL Error' in r.stdout:
+        return {'error': (lines[-1] if lines else r.stdout[-200:])[:200]}
+    return json.loads(lines[-1])
+
+
+def plugin_links(body):
+    """Every link or form action of the blog: with the showcase.php segment (plain) or without it (friendly)."""
+    return re.findall(r'(?:href|action)="([^"]*?/blog(?:/|\?|"|$)[^"]*)"', body)
+
+
+def is_friendly(link):
+    return '/showcase.php/' not in link
+
+
 def expected_friendly(mode, seourls, seo):
     """Automatic is MyBB core's rule (init.php): yes, or auto with SEO_SUPPORT == 1."""
     if mode == 0:
@@ -167,6 +186,80 @@ def run(ctx, scratch, port):
            f'{name}: the plain and the friendly address answer 200 with the same entry '
            f'({ {k: r["status"] for k, r in answers.items()} })')
 
+    # ---- E: the list page and the entry page: every link of the blog, in the form the rule says
+    print('--- E every link of the list and the entry page follows the rule (incl. sort, last_comment, search, new entry)')
+    for seourls in ('no', 'auto', 'yes'):
+        php(board_dir, 'setting', 'seourls', seourls)
+        time.sleep(3)
+        for mode in (0, 1, 2):
+            php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+            for name, base_port, is_seo in (('plain server', plain_port, False), ('SEO server', seo_port, True)):
+                c = Front(f'http://127.0.0.1:{base_port}')
+                want = expected_friendly(mode, seourls, is_seo)
+                for page_name, path in (('list', '/showcase.php/blog/'),
+                                        ('entry', f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")):
+                    r = c.get(path)
+                    links = plugin_links(r['body'])
+                    wrong = [l for l in links if is_friendly(l) != want]
+                    kinds = {'sort' if 'sort' in l else 'last_comment' if 'last_comment' in l else 'view' if '/view/' in l else 'other' for l in links}
+                    ok(r['status'] == 200 and links and not wrong,
+                       f'seourls {seourls}, url_mode {mode}, {name}, {page_name} page: {len(links)} links all {"friendly" if want else "plain"}'
+                       f'{"" if not wrong else " (wrong: " + wrong[0] + ")"} [{", ".join(sorted(kinds))}]')
+
+    # ---- W: who's online shows the showcase page with the same rule
+    print('--- W who\'s online: the location link of a showcase page follows the rule')
+    for seourls in ('no', 'auto', 'yes'):
+        php(board_dir, 'setting', 'seourls', seourls)
+        for mode in (0, 1, 2):
+            php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+            for is_seo in (False, True):
+                env = {'URL_MODE_SEO': '1' if is_seo else '0'}
+                loc = php_env(board_dir, env, 'wol', 'blog', 'view', entry['entry_id'])
+                hrefs = re.findall(r'href="([^"]*)"', loc.get('location', ''))
+                want = expected_friendly(mode, seourls, is_seo)
+                good = bool(hrefs) and all(is_friendly(h) == want for h in hrefs)
+                ok(good, f'who\'s online, seourls {seourls}, url_mode {mode}, {"SEO" if is_seo else "plain"} request: '
+                         f'{"friendly" if want else "plain"} ({hrefs[:1] or loc})')
+
+    # ---- P: a custom showcase_url (not ending in showcase.php) gives identical forms; an empty one falls back to bburl
+    print('--- P prefix: a custom prefix gives identical forms in every mode; an empty one falls back to bburl/showcase.php')
+    php(board_dir, 'setting', 'seourls', 'no')
+    time.sleep(3)
+    custom = f'http://127.0.0.1:{plain_port}/custom'
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', custom)
+    per_mode = {}
+    for mode in (0, 2):
+        php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+        per_mode[mode] = sorted(set(plugin_links(Front(f'http://127.0.0.1:{plain_port}').get('/showcase.php/blog/')['body'])))
+    ok(per_mode[0] and per_mode[0] == per_mode[2] and all(l.startswith(custom + '/blog') for l in per_mode[0]),
+       f'a custom prefix gives the same links in mode 0 and mode 2 under it ({per_mode[0][:1]})')
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', '')
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 0)
+    links0 = plugin_links(Front(f'http://127.0.0.1:{plain_port}').get('/showcase.php/blog/')['body'])
+    ok(links0 and all(l.startswith(f'http://127.0.0.1:{port}/showcase.php/blog') for l in links0),
+       f'an empty showcase_url falls back to bburl/showcase.php in mode 0 ({links0[:1]})')
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 2)
+    links2 = plugin_links(Front(f'http://127.0.0.1:{plain_port}').get('/showcase.php/blog/')['body'])
+    ok(links2 and all(l.startswith(f'http://127.0.0.1:{port}/blog') for l in links2),
+       f'an empty showcase_url in mode 2 gives bburl/blog ({links2[:1]})')
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 1)
+
+    # ---- J: JSON-sync export of a showcase carries url_mode; an apply with url_mode 0 stores 0
+    print('--- J JSON sync: the export carries url_mode; an apply stores it')
+    sid = php(board_dir, 'showcase-value', 'blog', 'showcase_id').get('value')
+    exp = acp.get(f'/admin/index.php?module=myshowcase-json_sync&action=export&type=showcase&id={sid}&my_post_key={acp.post_key}')
+    ok('"url_mode"' in exp['body'], 'the JSON export of the showcase carries url_mode')
+    apply_path = os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'urlmode-apply.json')
+    shipped = json.load(open(os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'blog.json')))
+    shipped['url_mode'] = 0
+    json.dump(shipped, open(apply_path, 'w'))
+    try:
+        acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/urlmode-apply.json'})
+    finally:
+        os.remove(apply_path)
+    ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 0 stores 0')
+
     # ---- F: the ACP showcase form
     print('--- F ACP form: three choices, a saved choice, a refused value')
     showcase_id = str(php(board_dir, 'showcase-value', 'blog', 'showcase_id').get('value'))
@@ -178,6 +271,10 @@ def run(ctx, scratch, port):
     data.update({'url_mode': '2'})
     r = acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
     ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', f'saving the form with 2 stores 2 [{r["status"]}]')
+    for value in ('0', '1'):
+        data['url_mode'] = value
+        acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
+        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == value, f'saving the form with {value} stores {value}')
     data['url_mode'] = '7'
     acp.post('/admin/index.php?module=myshowcase&action=edit&showcase_id=' + showcase_id, data)
     ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', 'a value that is not a choice is refused and nothing changes')
