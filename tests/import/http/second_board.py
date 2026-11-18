@@ -241,6 +241,28 @@ try:
         orders_b = [r[0] for r in flows.db(f"select display_order from mybb_myshowcase_attachments where entry_id={rows_b[0][0]} "
                                            f"and field_id={preview_field_b} order by display_order")]
         flows.ok(orders_b == ['1', '2'], f'board B: {subject!r} holds its two previews in display order {orders_b}')
+    # the content seeders (decisions D40 and D43): each full seed is imported into board B, whose option ids differ from A's
+    # and the seed's; every option is compared by its label (the value id of the seed, read through B's own ids), every list in
+    # order, every text and number as sent, every file by name, type and size (the same checks as the import suite)
+    flows.create_showcase(acp_b, 'gallery', 'Gallery')
+    flows.fixture('showcase-setting', 'gallery', 'is_enabled', '1')  # the JSON sync creates a showcase switched off
+    flows.fixture('files-setup', 'import-test-uploads')
+    flows.fixture('external-setting', '1')
+    time.sleep(3)  # the server's opcache revalidates inc/settings.php on its own clock
+    for name, route in (('blog-full', 'blog'), ('downloads-full', 'downloads'), ('gallery-full', 'gallery')):
+        first_attachment = int(flows.one('select max(attachment_id) from mybb_myshowcase_attachments') or 0)
+        body = flows.import_into(member_b, route, os.path.join(flows.SEEDS_DIR, name + '.xml'))['body']
+        report = flows.report_of(body)
+        count = len(flows.seed_entries(name))
+        flows.ok(report is not None and report['status'] == 'completed' and f'{count} entries were imported' in report['text'],
+                 f"board B: the seed {name} is imported by member2 ({report['text'][:140] if report else 'no report'})")
+        if report is None or report['status'] != 'completed':
+            continue
+        problems = []
+        for index, entry in enumerate(flows.seed_entries(name)):
+            problems += flows.check_seed_entry(member_b, route, entry, uid2, f'board B {name} entry {index + 1}', first_attachment)
+        flows.ok(not problems, f'board B: every field of the seed {name} holds its seed value, by label and in order'
+                               + (f': {problems[:3]}' if problems else ''))
 finally:
     finish(ctx_b)
 
