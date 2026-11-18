@@ -217,10 +217,10 @@ switch ($command) {
     case 'portal-render':
         // The portal template has no caller in the plugin: render it with the main list's entry URL helper.
         $showcase = (new BuildShowcase())->getShowcase($showcaseId($argv[2]));
-        $row = $db->fetch_array($db->simple_select('myshowcase_data' . $showcase->context->showcase->showcase_id, 'entry_slug, entry_slug_custom', '', ['limit' => 1]));
+        $row = $db->fetch_array($db->simple_select('myshowcase_data' . $showcase->context->showcase->showcase_id, 'public_id, entry_slug_custom', '', ['limit' => 1]));
         $url = $showcase->context->routing->generateUrl(
             \MyShowcase\Enum\Routes::EntryView,
-            ['entry_slug' => $row['entry_slug'], 'entry_slug_custom' => $row['entry_slug_custom'] ?: 'x']
+            ['entry_public_id' => $row['public_id'], 'entry_slug_custom' => $row['entry_slug_custom'] ?: 'x']
         );
         $html = $showcase->context->render_manager->templateGet('portal_rand_showcase', [
             'theme' => ['borderwidth' => 1, 'tablespace' => 4],

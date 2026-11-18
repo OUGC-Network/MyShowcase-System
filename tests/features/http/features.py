@@ -315,39 +315,39 @@ def security():
     ok('moderator_options_selector' in mod_page and 'name="modoptions[closethread]"' in mod_page,
        'moderator: entry page shows inline moderation and close/sticky options')
     ok('moderation.php' not in mod_page.split('id="moderator_optselect_a_toolions"')[0][-400:] and 'action="moderation.php"' not in mod_page
-       and f"/update/{e1['entry_slug']}" in mod_page and 'Thread.deletePost' not in mod_page,
+       and f"/update/{e1['public_id']}" in mod_page and 'Thread.deletePost' not in mod_page,
        'entry-page moderation form and soft-delete link use plugin endpoints, not moderation.php or core JS')
     # L2: the entry-page form closes the entry through the plugin with the post key and D1 checks.
-    r = m2.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close', 'my_post_key': post_key(m2.get(view_url(e1))['body'])})
+    r = m2.post(f"{G}/update/{e1['public_id']}", {'action': 'close', 'my_post_key': post_key(m2.get(view_url(e1))['body'])})
     ok(no_permission(r) and entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', "member cannot close another user's entry from the entry page")
-    r = mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close'})
+    r = mod.post(f"{G}/update/{e1['public_id']}", {'action': 'close'})
     ok(bad_post_key(r) and entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'entry-page close without my_post_key refused')
-    mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'close', 'my_post_key': post_key(mod_page)})
+    mod.post(f"{G}/update/{e1['public_id']}", {'action': 'close', 'my_post_key': post_key(mod_page)})
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '1', 'moderator closes the entry from the entry-page form')
-    mod.post(f"{G}/update/{e1['entry_slug']}", {'action': 'open', 'my_post_key': post_key(mod_page)})
+    mod.post(f"{G}/update/{e1['public_id']}", {'action': 'open', 'my_post_key': post_key(mod_page)})
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'moderator opens it again')
     ok('value="copy"' not in mod.get(f'{G}/')['body'] and 'value="copy"' not in mod_page, 'main list and entry page hide the unimplemented copy action')
     # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
-    cslug = q(f"select comment_slug from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
-    r = mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1")
-    ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1,
+    cslug = q(f"select public_id from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
+    r = mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1")
+    ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
        'comment soft delete without my_post_key is refused')
-    r = m1.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
-    ok(no_permission(r) and count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1,
+    r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+    ok(no_permission(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
        "member cannot soft-delete another user's comment")
-    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
-    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
+    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
+    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
     page = mod.get(view_url(e1))['body']
     ok(f"/update/comment/{cslug}?action=restore" in page.replace('&amp;', '&') and 'editpost.php' not in page,
        'deleted comment shows a plugin restore link to moderators, no editpost.php')
-    r = m1.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?action=restore&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+    r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
     # A member does not even see another user's soft-deleted comment: refused as missing or as no permission.
-    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='2'") == 1 and 'restored' not in r['body'].lower(),
+    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1 and 'restored' not in r['body'].lower(),
        "member cannot restore another user's comment")
-    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?action=restore&my_post_key={post_key(page)}")
-    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}' and status='1'") == 1, 'moderator restores the comment through the plugin')
-    mod.get(f"{G}/view/{e1['entry_slug']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
-    ok(count('mybb_myshowcase_comments', f"comment_slug='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
+    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(page)}")
+    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1, 'moderator restores the comment through the plugin')
+    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
+    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
     # L5: day-threshold filter compares dateline as a date.
     keep_title = 'Member one photo'
     old = create_gallery(m1, 'Threshold old photo')['entry']
@@ -542,10 +542,10 @@ def deletion(e2):
     names = files(e['entry_id'])
     mod.get(f"{G}/update/{e['public_id']}?delete=1&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '2', 'entry page: moderator soft delete')
-    r = m1.get(f"{G}/update/{e['entry_slug']}")
+    r = m1.get(f"{G}/update/{e['public_id']}")
     ok('id="contentForm"' not in r['body'], "edit form: the author without \"view deleted\" cannot open the own soft-deleted entry")
     deleted_page = mod.get(view_url(e))['body'].replace('&amp;', '&')
-    ok(f"/update/{e['entry_slug']}?action=restore" in deleted_page and 'editpost.php' not in deleted_page and 'Thread.restorePost' not in deleted_page,
+    ok(f"/update/{e['public_id']}?action=restore" in deleted_page and 'editpost.php' not in deleted_page and 'Thread.restorePost' not in deleted_page,
        'soft-deleted entry shows a plugin restore link to moderators, no editpost.php or core JS')
     mod.get(f"{G}/update/{e['public_id']}?action=restore&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '1', 'entry page: moderator restore')
