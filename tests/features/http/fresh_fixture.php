@@ -150,6 +150,16 @@ switch ($command) {
         $out(['table' => $argv[2], 'exists' => $db->table_exists($argv[2])]);
         break;
 
+    case 'showcase-set':
+        $db->update_query('myshowcase_config', [$argv[3] => $db->escape_string($argv[4])], "route_identifier='" . $db->escape_string($argv[2]) . "'");
+        $rebuild();
+        $out(['route' => $argv[2], $argv[3] => $argv[4]]);
+        break;
+
+    case 'showcase-value':
+        $out(['value' => (string)$db->fetch_field($db->simple_select('myshowcase_config', $argv[3], "route_identifier='" . $db->escape_string($argv[2]) . "'"), $argv[3])]);
+        break;
+
     case 'enable':
         foreach (array_slice($argv, 2) as $route) {
             $db->update_query('myshowcase_config', ['is_enabled' => 1], "route_identifier='" . $db->escape_string($route) . "'");
