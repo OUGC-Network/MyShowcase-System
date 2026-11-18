@@ -253,6 +253,17 @@ class EntriesExporter
                     continue;
                 }
 
+                // A blank number is stored as 0 (the column holds no NULL, as a blank option is stored as 0, decision T26). Where
+                // 0 is below the field's minimum, a stored 0 can only be that blank: it is exported blank, so the import takes it
+                // as no value and does not refuse it as below the minimum (batch S2, the blank round trip of the blog seed).
+                if (in_array($field->html_type, [FieldHtmlTypes::Number, FieldHtmlTypes::Range], true) &&
+                    $field->minimum_value !== '' && (int)$field->minimum_value > 0 &&
+                    (int)($row[$field->field_key] ?? 0) === 0) {
+                    $entry['fields'][$field->field_key] = '';
+
+                    continue;
+                }
+
                 $entry['fields'][$field->field_key] = $this->valueOf($row[$field->field_key] ?? null, $field);
             }
 
