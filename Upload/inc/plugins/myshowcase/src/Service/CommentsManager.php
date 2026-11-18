@@ -91,6 +91,14 @@ class CommentsManager
 
     public function generateComment(array $comment_data = []): CommentEntity
     {
+        // PostgreSQL's driver reads a binary column (the packed IP address) as a stream: it is read into a string here, so the
+        // entity gets the value and not a resource (batch B1: every comment page of PostgreSQL answered 400 with a TypeError).
+        foreach ($comment_data as $key => $value) {
+            if (is_resource($value)) {
+                $comment_data[$key] = (string)stream_get_contents($value);
+            }
+        }
+
         foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
             if (isset($comment_data[$field_name])) {
                 $comment_data[$field_name] = castTableFieldValue(
