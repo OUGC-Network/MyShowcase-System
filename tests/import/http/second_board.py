@@ -69,9 +69,8 @@ def start(ctx, scratch, port, label):
 
 
 def finish(ctx):
-    ctx.stop()
+    ctx.close()  # stops the server and drops the database, and checks that it is gone (D225)
     if a.engine in ('mysql', 'pgsql'):
-        board.drop_database(a.engine, ctx.dbname)
         print(f'dropped database {ctx.dbname}')
 
 

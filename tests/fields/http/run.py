@@ -2401,14 +2401,7 @@ def main():
         stage_files_multi(member, cells, ctx, fixture)
         stage_field_delete(acp, member, cells, ctx, fixture)
     finally:
-        ctx.stop()
-        if a.engine == 'mysql':
-            subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}",
-                            f"-u{env['MYSQL_USER']}"] + ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) +
-                           ['-e', f'DROP DATABASE IF EXISTS {DBNAME}'], check=False)
-        if a.engine == 'pgsql':
-            subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres',
-                            '-c', f'DROP DATABASE IF EXISTS {DBNAME}'], check=False, capture_output=True)
+        ctx.close()  # stops the server, drops the database and checks that it is gone (D225)
     for key in FIELDS:
         for stage, reason in NOT_RUN.items():
             check(cells, key, stage, 'notrun', reason)

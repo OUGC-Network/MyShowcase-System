@@ -51,5 +51,5 @@ try:
         print('  FAILED:', f)
 finally:
     if not a.keep:
-        ctx.stop()
+        ctx.close()
 sys.exit(1 if flows.FAILS else 0)

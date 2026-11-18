@@ -128,16 +128,7 @@ def main():
         check('the edit screen shows the stored bounds', 'value="20"' in page and 'value="1"' in page)
     finally:
         stop_server(ctx)
-        if a.engine == 'mysql':
-            env = ctx.env
-            cmd = [env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"]
-            if env['MYSQL_PASSWORD']:
-                cmd.append(f"-p{env['MYSQL_PASSWORD']}")
-            subprocess.run(cmd + ['-e', f'DROP DATABASE IF EXISTS {DBNAME}'], check=False)
-        if a.engine == 'pgsql':
-            env = ctx.env
-            subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres',
-                            '-c', f'DROP DATABASE IF EXISTS {DBNAME}'], check=False, capture_output=True)
+        ctx.close()  # drops the database and checks that it is gone (D225)
     failed = [r for r in results if r['result'] != 'pass']
     print(json.dumps({'engine': a.engine, 'results': results}, indent=1))
     print(f"acp bounds {a.engine}: {len(results) - len(failed)} passed, {len(failed)} failed")

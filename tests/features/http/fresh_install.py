@@ -128,7 +128,7 @@ def main():
     try:
         run(ctx, scratch)
     finally:
-        ctx.stop()
+        ctx.close()
         # the throwaway database of this run is dropped (MySQL and PostgreSQL; SQLite's file goes with the scratch folder)
         if a.engine == 'mysql':
             env = board.db_env()

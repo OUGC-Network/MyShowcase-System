@@ -41,5 +41,5 @@ try:
         print('  FAILED:', f)
 finally:
     if not a.keep:
-        ctx.stop()
+        ctx.close()
 sys.exit(1 if features.FAILS else 0)

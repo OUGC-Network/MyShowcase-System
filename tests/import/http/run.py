@@ -88,7 +88,7 @@ try:
     for line in flows.NOT_RUN:
         print('  NOT RUN:', line)
 finally:
-    ctx.stop()
+    ctx.close()
 
     if a.engine in ('mysql', 'pgsql'):
         board.drop_database(a.engine, dbname)

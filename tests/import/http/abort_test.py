@@ -220,8 +220,8 @@ def main():
         return 0 if all(ok for ok, _ in RESULTS) else 1
     finally:
         if ctx is not None:
-            ctx.stop()
-        if a.engine in ('mysql', 'pgsql'):
+            ctx.close()  # stops the server, drops the database and checks that it is gone (D225)
+        elif a.engine in ('mysql', 'pgsql'):
             drop_database(DBNAME)
 
 

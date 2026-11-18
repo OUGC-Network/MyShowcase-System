@@ -72,6 +72,19 @@ class Ctx:
         if self.server:
             self.server.terminate()
             self.server.wait()
+            self.server = None
+
+    def close(self):
+        """End of a run (D225): stops the run's server, drops its own database (MySQL, PostgreSQL) and checks that nothing is left.
+        A database still there raises, so a harness cannot report a green run while it leaves one behind."""
+        self.stop()
+        port = self.url.rsplit(':', 1)[-1]
+        if subprocess.run(['lsof', '-ti', f'tcp:{port}', '-sTCP:LISTEN'], capture_output=True, text=True).stdout.strip():
+            raise RuntimeError(f'a server still listens on port {port} after the run')
+        if self.engine in ('mysql', 'pgsql'):
+            drop_database(self.engine, self.dbname)
+            if database_exists(self.engine, self.dbname):
+                raise RuntimeError(f'database {self.dbname} is still there after the run')
 
 
 def db_env():
@@ -108,6 +121,20 @@ def _ignore_source():
         return skipped
 
     return ignore
+
+
+def database_exists(engine, dbname):
+    """Whether a MySQL or PostgreSQL database of this name exists (the run's own check after its drop)."""
+    env = db_env()
+    if engine == 'mysql':
+        out = subprocess.run([env['MYSQL_BIN'], '--no-defaults', f"-h{env['MYSQL_HOST']}", f"-P{env['MYSQL_PORT']}", f"-u{env['MYSQL_USER']}"] +
+                             ([f"-p{env['MYSQL_PASSWORD']}"] if env['MYSQL_PASSWORD'] else []) + ['-N', '-B', '-e', f"SHOW DATABASES LIKE '{dbname}'"],
+                             capture_output=True, text=True)
+        return bool(out.stdout.strip())
+    out = subprocess.run([env['PSQL_BIN'], '-h', env['PGHOST'], '-p', env['PGPORT'], '-U', env['PGUSER'], '-d', 'postgres', '-At',
+                          '-c', f"select 1 from pg_database where datname='{dbname}'"], capture_output=True, text=True,
+                         env={**os.environ, 'LC_ALL': 'en_US.UTF-8'})
+    return out.stdout.strip() == '1'
 
 
 def drop_database(engine, dbname):

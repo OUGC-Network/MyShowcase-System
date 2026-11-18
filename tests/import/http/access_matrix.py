@@ -480,9 +480,7 @@ def main():
         return 1 if failures else 0
     finally:
         for b in builds:
-            b.ctx.stop()
-            if a.engine in ('mysql', 'pgsql'):
-                drop_database(b.dbname)
+            b.ctx.close()  # stops the server, drops the database and checks that it is gone (D225)
 
 
 if __name__ == '__main__':
