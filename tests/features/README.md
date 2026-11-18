@@ -26,6 +26,8 @@ It checks, in order:
 * **S5 idempotent**: a second activation changes no row.
 * **S6 ACP form**: the group form shows the seeded values, and saving it unchanged changes no row.
 * **S7 uninstall**: with the table-drop setting, the uninstall drops the permission table with its rows.
+* **S8 refused main view**: with the guest group's main view refused, the list, an entry, the new-entry form, an attachment and a
+  thumbnail answer 403 with the no-permission page (not 503: decision D221); a group that is not refused still reaches the list.
 
 The expected values are the board's own defaults (`TABLES_DATA`), read through `fresh_fixture.php`; the stage writes no
 permission row itself, except through the save of S3 and S6 that a group form makes. `fresh_fixture.php` is test data only.
