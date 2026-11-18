@@ -1,0 +1,236 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Board-side test data for fresh_install.py (decision D3). It creates users and a group, reads and writes the global permission
+ * rows the way an ACP save does, inserts one approved entry with one attachment, and reports the defaults of TABLES_DATA. It is
+ * run from the board root and is not part of the plugin. It never seeds a permission row itself: that is the plugin's job, and
+ * the stage checks that it happened.
+ *
+ *   users <users_file>              members member1 (Registered) and mod1 (Moderators), with passwords written to the file
+ *   group <title>                   a usergroup like Registered, created after the install; prints its gid
+ *   user <name> <gid>               a user in the group; prints the uid
+ *   rows                            the global permission rows (showcase_id 0), every column, ordered by group
+ *   save-row <gid> <col> <value>    an ACP-like save of one global row: updates it, or inserts it with the defaults first
+ *   delete-row <gid>                deletes the global row of a group (a group whose row is missing)
+ *   setting <name> <value>          a plugin setting, rebuilt
+ *   table-exists <table>           whether a table exists
+ *   enable <route>...               switches the showcases on and rebuilds the caches
+ *   defaults                        the default of every permission column (TABLES_DATA)
+ *   entry <route> <subject>         one approved entry of the showcase, by user 1; prints its entry id, public id and slug
+ *   attachment <route> <entry_id>   one PNG attachment of the entry, written to the uploads folder; prints its name
+ *   types <route>...                the PNG attachment type for the showcases, and the uploads folder of each
+ */
+
+define('IN_MYBB', 1);
+define('IN_ADMINCP', 1);
+define('NO_ONLINE', 1);
+
+$_SERVER['REMOTE_ADDR'] ??= '127.0.0.1';
+$_SERVER['QUERY_STRING'] ??= '';
+
+require './inc/init.php';
+
+use const MyShowcase\Plugin\Core\TABLES_DATA;
+use MyShowcase\Enum\CacheDataTypes;
+use MyShowcase\Service\CacheManager;
+
+global $db, $cache;
+
+$command = $argv[1] ?? '';
+$out = static fn(mixed $value) => print(json_encode($value, JSON_UNESCAPED_SLASHES) . "\n");
+// The plugin's classes load only while the plugin is active: the commands that need them create the manager themselves.
+$rebuild = static function () use ($db, $cache): void {
+    $cacheManager = new CacheManager($db, $cache);
+    foreach ([CacheDataTypes::Config, CacheDataTypes::Permissions, CacheDataTypes::AttachmentTypes, CacheDataTypes::Fields, CacheDataTypes::FieldData] as $type) {
+        $cacheManager->update($type);
+    }
+};
+$identifiers = ['permission_id', 'showcase_id', 'group_id', 'moderator_id', 'user_id'];
+$permissionColumns = static function () use ($identifiers): array {
+    $columns = [];
+    foreach (TABLES_DATA['myshowcase_permissions'] as $name => $definition) {
+        if (!in_array($name, $identifiers, true)) {
+            $columns[$name] = $definition['default'] ?? 0;
+        }
+    }
+
+    return $columns;
+};
+// The time columns: integers on SQLite, datetimes on MySQL and PostgreSQL.
+$when = static fn() => str_contains((string)$db->type, 'sqlite') ? TIME_NOW : gmdate('Y-m-d H:i:s', TIME_NOW);
+$showcaseId = static function (string $route) use ($db): int {
+    return (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='" . $db->escape_string($route) . "'"), 'showcase_id');
+};
+
+switch ($command) {
+    case 'users':
+        require_once MYBB_ROOT . 'inc/datahandlers/user.php';
+        $users = [];
+        foreach (['member1' => 2, 'mod1' => 3] as $username => $group) {
+            $password = bin2hex(random_bytes(10));
+            $handler = new UserDataHandler('insert');
+            $handler->set_data(['username' => $username, 'password' => $password, 'password2' => $password,
+                'email' => "{$username}@example.localhost", 'email2' => "{$username}@example.localhost",
+                'usergroup' => $group, 'regip' => '127.0.0.1']);
+            if (!$handler->validate_user()) {
+                fwrite(STDERR, implode('; ', $handler->get_friendly_errors()) . "\n");
+                exit(1);
+            }
+            $users[$username] = ['uid' => (int)$handler->insert_user()['uid'], 'group' => $group, 'password' => $password];
+        }
+        file_put_contents($argv[2], json_encode($users));
+        chmod($argv[2], 0600);
+        $out(['users' => array_keys($users)]);
+        break;
+
+    case 'group':
+        $registered = $db->fetch_array($db->simple_select('usergroups', '*', "gid='2'"));
+        $row = array_filter($registered, 'is_string', ARRAY_FILTER_USE_KEY);
+        unset($row['gid']);
+        $row['title'] = $argv[2];
+        $gid = (int)$db->insert_query('usergroups', array_map(static fn($v) => $db->escape_string((string)$v), $row));
+        $cache->update_usergroups();
+        $out(['gid' => $gid]);
+        break;
+
+    case 'user':
+        require_once MYBB_ROOT . 'inc/datahandlers/user.php';
+        $password = bin2hex(random_bytes(10));
+        $handler = new UserDataHandler('insert');
+        $handler->set_data(['username' => $argv[2], 'password' => $password, 'password2' => $password,
+            'email' => "{$argv[2]}@example.localhost", 'email2' => "{$argv[2]}@example.localhost",
+            'usergroup' => (int)$argv[3], 'regip' => '127.0.0.1']);
+        if (!$handler->validate_user()) {
+            fwrite(STDERR, implode('; ', $handler->get_friendly_errors()) . "\n");
+            exit(1);
+        }
+        $uid = (int)$handler->insert_user()['uid'];
+        $out(['uid' => $uid, 'password' => $password]);
+        break;
+
+    case 'rows':
+        $rows = [];
+        $query = $db->simple_select('myshowcase_permissions', '*', "showcase_id='0'", ['order_by' => 'group_id']);
+        while ($row = $db->fetch_array($query)) {
+            $rows[(string)$row['group_id']] = array_filter($row, 'is_string', ARRAY_FILTER_USE_KEY);
+        }
+        $out($rows);
+        break;
+
+    case 'save-row':
+        $gid = (int)$argv[2];
+        $column = $argv[3];
+        $value = (int)$argv[4];
+        $existing = $db->fetch_field($db->simple_select('myshowcase_permissions', 'permission_id', "showcase_id='0' AND group_id='{$gid}'"), 'permission_id');
+        if ($existing) {
+            $db->update_query('myshowcase_permissions', [$column => $value], "permission_id='" . (int)$existing . "'");
+        } else {
+            $data = array_merge(['showcase_id' => 0, 'group_id' => $gid], $permissionColumns());
+            $data[$column] = $value;
+            $db->insert_query('myshowcase_permissions', $data);
+        }
+        $rebuild();
+        $out(['saved' => $column, 'group' => $gid, 'value' => $value]);
+        break;
+
+    case 'delete-row':
+        $db->delete_query('myshowcase_permissions', "showcase_id='0' AND group_id='" . (int)$argv[2] . "'");
+        $out(['deleted' => (int)$argv[2]]);
+        break;
+
+    case 'setting':
+        $db->update_query('settings', ['value' => $db->escape_string($argv[3])], "name='" . $db->escape_string($argv[2]) . "'");
+        rebuild_settings();
+        $out(['setting' => $argv[2], 'value' => $argv[3]]);
+        break;
+
+    case 'table-exists':
+        $out(['table' => $argv[2], 'exists' => $db->table_exists($argv[2])]);
+        break;
+
+    case 'enable':
+        foreach (array_slice($argv, 2) as $route) {
+            $db->update_query('myshowcase_config', ['is_enabled' => 1], "route_identifier='" . $db->escape_string($route) . "'");
+        }
+        $rebuild();
+        $out(['enabled' => array_slice($argv, 2)]);
+        break;
+
+    case 'defaults':
+        $out($permissionColumns());
+        break;
+
+    case 'entry':
+        $route = $argv[2];
+        $sid = $showcaseId($route);
+        $public = substr(md5($argv[3] . microtime()), 0, 10);
+        // the columns the collection requires (NOT NULL) get a value; a gallery entry's title is its subject
+        $columns = [
+            'public_id' => $public, 'entry_slug_custom' => 'fresh', 'subject' => $db->escape_string($argv[3]),
+            'user_id' => 1, 'status' => 1, 'dateline' => $when(), 'update_dateline' => $when(), 'post_hash' => $public,
+            'category' => 1,
+        ];
+        if ($route === 'gallery') {
+            $columns += ['title' => $db->escape_string($argv[3]), 'image' => '', 'caption' => ''];
+        }
+        $query = $db->simple_select('myshowcase_fields', 'field_key, field_type', "collection_id=(SELECT collection_id FROM " . $db->table_prefix . "myshowcase_config WHERE showcase_id='{$sid}')");
+        while ($field = $db->fetch_array($query)) {
+            if (!isset($columns[$field['field_key']])) {
+                $columns[$field['field_key']] = preg_match('/int/i', (string)$field['field_type']) ? 0 : '';
+            }
+        }
+        $entryId = (int)$db->insert_query("myshowcase_data{$sid}", $columns);
+        $out(['entry_id' => $entryId, 'public_id' => $public, 'slug' => 'fresh']);
+        break;
+
+    case 'attachment':
+        $route = $argv[2];
+        $sid = $showcaseId($route);
+        $entryId = (int)$argv[3];
+        $folder = rtrim((string)$db->fetch_field($db->simple_select('myshowcase_config', 'attachments_uploads_path', "showcase_id='{$sid}'"), 'attachments_uploads_path'), '/');
+        if (!is_dir($folder)) {
+            mkdir($folder, 0777, true);
+        }
+        $name = 'fresh-' . $entryId . '.png';
+        $stored = 'fresh_' . $entryId . '_' . bin2hex(random_bytes(4)) . '.attach';
+        copy($argv[4], $folder . '/' . $stored);
+        $public = substr(md5($stored), 0, 10);
+        $id = (int)$db->insert_query('myshowcase_attachments', [
+            'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'user_id' => 1, 'post_hash' => '',
+            'file_name' => $stored, 'mime_type' => 'image/png', 'file_size' => filesize($folder . '/' . $stored),
+            'attachment_name' => $name, 'status' => 1, 'dateline' => $when(), 'update_dateline' => $when(),
+            'thumbnail_name' => '', 'field_id' => 0,
+        ]);
+        $out(['attachment_id' => $id, 'public_id' => $public, 'name' => $name]);
+        break;
+
+    case 'types':
+        $ids = [];
+        foreach (array_slice($argv, 2) as $route) {
+            $ids[] = $showcaseId($route);
+            $folder = MYBB_ROOT . 'uploads/myshowcase-fresh';
+            if (!is_dir($folder)) {
+                mkdir($folder, 0777, true);
+            }
+            $db->update_query('myshowcase_config', ['attachments_uploads_path' => $db->escape_string($folder)], "route_identifier='" . $db->escape_string($route) . "'");
+        }
+        $png = $db->fetch_field($db->simple_select('attachtypes', 'atid', "extension='png'"), 'atid');
+        $row = ['name' => 'PNG Image', 'mimetype' => 'image/png', 'extension' => 'png', 'maxsize' => 10240,
+            'icon' => 'images/attachtypes/image.png', 'enabled' => 1, 'forcedownload' => 0, 'groups' => '-1',
+            'forums' => '-1', 'avatarfile' => 0, 'myshowcase_ids' => implode(',', $ids)];
+        if ($png) {
+            $db->update_query('attachtypes', $row, "atid='" . (int)$png . "'");
+        } else {
+            $db->insert_query('attachtypes', $row);
+        }
+        (new CacheManager($db, $cache))->update(CacheDataTypes::AttachmentTypes);
+        $rebuild();
+        $out(['types' => $ids]);
+        break;
+
+    default:
+        fwrite(STDERR, "unknown command: {$command}\n");
+        exit(2);
+}
