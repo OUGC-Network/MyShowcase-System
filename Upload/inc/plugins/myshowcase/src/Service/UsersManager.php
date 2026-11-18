@@ -143,6 +143,16 @@ class UsersManager
             $group_permissions_cache[$permission_data['group_id']] = $permission_data;
         }
 
+        // Decision D217: a group with no global row has the defaults of the ACP form, read here and never written (a group that
+        // was created after the installation). Per-showcase rows, read next, still replace a group's values as before.
+        foreach (explode("','", $user_groups_ids) as $group_id_text) {
+            $group_id = (int)$group_id_text;
+
+            if (!isset($group_permissions_cache[$group_id])) {
+                $group_permissions_cache[$group_id] = ['group_id' => $group_id] + PermissionsRepository::defaultValues();
+            }
+        }
+
         foreach (
             $this->context->permissions_repository->queryPermissions(
                 ["group_id IN ('{$user_groups_ids}')"],
