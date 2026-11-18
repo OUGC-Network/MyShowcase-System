@@ -272,6 +272,28 @@ def run(ctx, scratch):
     ok(len(after_save) == count_before and after_save.get('4') == before_save.get('4'),
        f'saving the group form unchanged leaves its row byte-identical and adds no row [{saved["status"]}]')
 
+    # ---- S8: a refused main view answers the no-permission page on every showcase route (decision D221)
+    print('--- S8 refused main view: 403 and the no-permission page on every showcase route, for the refused group only')
+    php(board_dir, 'save-row', 1, 'main_can_view', 0)
+    e, att = entries['blog'], attachments['blog']
+    routes = [
+        ('list', '/showcase.php/blog/'),
+        ('entry page', f'/showcase.php/blog/view/{e["public_id"]}/{e["slug"]}'),
+        ('new-entry form', '/showcase.php/blog/create'),
+        ('attachment', f'/showcase.php/blog/attachment/{att["public_id"]}/{att["name"]}'),
+        ('thumbnail', f'/showcase.php/blog/thumbnail/{att["public_id"]}/{att["name"]}'),
+    ]
+    guest_refused = Front(ctx.url)
+    for label, path in routes:
+        r = guest_refused.get(path)
+        text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', r['body']))
+        ok(r['status'] == 403 and 'do not have permission' in text and 'Missing namespace' not in text,
+           f'guest with main_can_view refused: the {label} answers 403 with the no-permission page [{r["status"]}]')
+    member_ok = clients['member1']
+    r = member_ok.get('/showcase.php/blog/')
+    ok(r['status'] == 200, f'a member whose group is not refused still reaches the list [{r["status"]}]')
+    php(board_dir, 'save-row', 1, 'main_can_view', 1)
+
     # ---- S7: uninstall with the table-drop setting: the seeded rows go with the table
     print('--- S7 uninstall: the rows go with the table')
     php(board_dir, 'setting', 'myshowcase_delete_tables_on_uninstall', 1)
