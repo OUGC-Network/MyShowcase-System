@@ -314,17 +314,29 @@ def run(ctx, scratch, port):
     # ---- J: JSON-sync export of a showcase carries url_mode; an apply with url_mode 0 stores 0
     print('--- J JSON sync: the export carries url_mode; an apply stores it')
     sid = php(board_dir, 'showcase-value', 'blog', 'showcase_id').get('value')
+    # the export writes the columns that differ from their defaults (as the other columns do): url_mode 2 is written, 1 is not
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 2)
     exp = acp.get(f'/admin/index.php?module=myshowcase-json_sync&action=export&type=showcase&id={sid}&my_post_key={acp.post_key}')
-    ok('"url_mode"' in exp['body'], 'the JSON export of the showcase carries url_mode')
-    apply_path = os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'urlmode-apply.json')
-    shipped = json.load(open(os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'blog.json')))
+    ok(re.search(r'"url_mode":\s*2', exp['body']) is not None, f'the JSON export of a showcase with url_mode 2 carries "url_mode": 2 [{exp["status"]}]')
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 1)
+    exp = acp.get(f'/admin/index.php?module=myshowcase-json_sync&action=export&type=showcase&id={sid}&my_post_key={acp.post_key}')
+    ok('"url_mode"' not in exp['body'], 'the JSON export of a showcase with the default (1) does not write it')
+    # the apply reads the showcase's own file (showcases/blog.json of the board's copy): it is restored after the check
+    shipped_path = os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'blog.json')
+    original = open(shipped_path, 'rb').read()
+    shipped = json.loads(original)
     shipped['url_mode'] = 0
-    json.dump(shipped, open(apply_path, 'w'))
     try:
-        acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/urlmode-apply.json'})
+        json.dump(shipped, open(shipped_path, 'w'))
+        acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/blog.json'})
+        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 0 stores 0')
+        # a file with a value that is not a choice is refused: the stored value does not change
+        shipped['url_mode'] = 7
+        json.dump(shipped, open(shipped_path, 'w'))
+        acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/blog.json'})
+        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 7 is refused and stores nothing')
     finally:
-        os.remove(apply_path)
-    ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 0 stores 0')
+        open(shipped_path, 'wb').write(original)
 
     # ---- F: the ACP showcase form (the General tab): three choices, each saved, and a value that is not a choice refused
     print('--- F ACP form: three choices, each saved, a value that is not a choice refused')

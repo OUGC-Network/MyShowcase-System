@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service\JsonSync;
 
+use MyShowcase\Routing\UrlMode;
 use function MyShowcase\Plugin\Functions\fieldHtmlTypes;
 use function MyShowcase\Plugin\Functions\fieldTypesGet;
 
@@ -347,6 +348,11 @@ final class JsonValidator
             if (array_key_exists($name, $data)) {
                 $errors = array_merge($errors, self::value($data[$name], $definition, '$.' . $name));
             }
+        }
+
+        // the links option is one of its three choices (decision D224); a column type alone allows any small number
+        if (array_key_exists('url_mode', $data) && !(is_int($data['url_mode']) && UrlMode::isValid($data['url_mode']))) {
+            $errors[] = self::error('$.url_mode', 'must be 0 (No), 1 (Automatic) or 2 (Yes)');
         }
 
         return $errors;
