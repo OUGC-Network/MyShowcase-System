@@ -147,45 +147,11 @@ function build_friendly_wol_location_end(array &$plugin_array): array
         $filename = my_substr($split_loc[0], -my_strpos(strrev($split_loc[0]), '/'));
     }
 
-    /* URL Definitions */
-    if ($mybb->settings['seourls'] === 'yes' || ($mybb->settings['seourls'] === 'auto' && $_SERVER['SEO_SUPPORT'] === 1)) {
-        $myshowcase_name = strtolower($plugin_array['user_activity']['myshowcase_name']);
-
-        //clean the name and make it suitable for SEO
-        //cleaning borrowed from Google SEO plugin
-        $pattern = '!"#$%&\'( )*+,-./:;<=>?@[\]^_`{|}~';
-        $pattern = preg_replace(
-            "/[\\\\\[\\]\\/\\-^]/u",
-            "\\\\\\0",
-            $pattern
-        );
-
-        // Cut off punctuation at beginning and end.
-        $myshowcase_name = preg_replace(
-            "/^[$pattern]+|[$pattern]+$/u",
-            '',
-            strtolower($myshowcase_name)
-        );
-
-        // Replace middle punctuation with one separator.
-        $myshowcase_name = preg_replace(
-            "/[$pattern]+/u",
-            '-',
-            $myshowcase_name
-        );
-
-        $myshowcase_url = $myshowcase_name . '.html';
-        $myshowcase = $myshowcase_name . '-page-{page}.html';
-        $myshowcase_url_view = $myshowcase_name . '-view-{entry_id}.html';
-        $myshowcase_url_new = $myshowcase_name . '-new.html';
-        $myshowcase_url_view_attach = $myshowcase_name . '-attachment-{attachment_id}.html';
-    } else {
-        $myshowcase_url = $plugin_array['user_activity']['myshowcase_mainfile'];
-        $myshowcase_url_paged = $plugin_array['user_activity']['myshowcase_mainfile'] . '?page={page}';
-        $myshowcase_url_view = $plugin_array['user_activity']['myshowcase_mainfile'] . '?action=view&entry_id={entry_id}';
-        $myshowcase_url_new = $plugin_array['user_activity']['myshowcase_mainfile'] . '?action=new';
-        $myshowcase_url_view_attach = $plugin_array['user_activity']['myshowcase_mainfile'] . '?action=attachment&attachment_id={attachment_id}';
-    }
+    /* URL Definitions: the links come from the showcase's own builder, the same links as its pages (decisions D224, D229) */
+    $showcaseId = (int)($plugin_array['user_activity']['myshowcase_id'] ?? 0);
+    $wolRouting = $showcaseId ? (new BuildShowcase())->getShowcase($showcaseId)->context->routing : null;
+    $myshowcase_url = $wolRouting ? $wolRouting->url(Routes::Main) : '';
+    $myshowcase_url_new = $wolRouting ? $wolRouting->url(Routes::EntryCreate) : '';
 
     switch ($plugin_array['user_activity']['activity']) {
         case 'myshowcase_list':
@@ -196,7 +162,7 @@ function build_friendly_wol_location_end(array &$plugin_array): array
             );
             break;
 
-        case 'myshowcase_view':
+        case 'myshowcase_main_table_head_view':
             if (array_key_exists('entry_id', $plugin_array['user_activity'])) {
                 $showcase_id = (int)$plugin_array['user_activity']['myshowcase_id'];
 
@@ -210,19 +176,23 @@ function build_friendly_wol_location_end(array &$plugin_array): array
                     $showcase->context->showcase
                 );
 
-                $showcaseObjects = $entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id']);
-
-                foreach ($showcaseObjects as $entryID => $entryData) {
-                    $uid = $entryData['user_id'];
-                    $userinfo = get_user($uid);
+                // queryEntry returns the one row (or an empty array), not a list of rows
+                $viewedEntry = $entries_repository->queryEntry(["entry_id='{$entryID}'"], ['user_id', 'public_id', 'entry_slug_custom']);
+                $uid = (int)($viewedEntry['user_id'] ?? 0);
+                $userinfo = $uid ? get_user($uid) : [];
+                if (!empty($viewedEntry['public_id'])) {
+                    $myshowcase_url_view = $showcase->context->routing->url(Routes::EntryView, [
+                        'entry_public_id' => $viewedEntry['public_id'],
+                        'entry_slug_custom' => $viewedEntry['entry_slug_custom'],
+                    ]);
                 }
             }
             $plugin_array['location_name'] = $lang->sprintf(
                 $lang->viewing_myshowcase,
-                str_replace('{entry_id}', $plugin_array['user_activity']['entry_id'], $myshowcase_url_view),
+                $myshowcase_url_view ?? $wolRouting?->url(Routes::Main) ?? '',
                 $plugin_array['user_activity']['myshowcase_name'],
-                get_profile_link($uid),
-                $userinfo['username']
+                $uid ? get_profile_link($uid) : '',
+                $userinfo['username'] ?? ''
             );
             break;
 
@@ -654,7 +624,7 @@ function modcp_reports_report(): void
 
         $report_data['content'] = $lang->sprintf(
             $lang->myshowcase_report_comment_content,
-            $showcase->context->showcase->showcase_url . $showcase->context->routing->generateUrl(
+            $showcase->context->routing->url(
                 Routes::CommentView,
                 [
                     'comment_public_id' => $commentData['public_id'],

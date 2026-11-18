@@ -185,7 +185,7 @@
                         // Server
                         server: {
                             process: {
-                                url: '{{ config.showcase_url }}{{ url.upload }}',
+                                url: '{{ url.showcase }}{{ url.upload }}',
                                 method: 'POST',
                                 body: function () {
                                     const form_data = new FormData();

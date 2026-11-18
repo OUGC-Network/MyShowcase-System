@@ -512,6 +512,49 @@ class Routing
         return $this->generator->generate($name, $parameters, UrlGenerator::ABSOLUTE_PATH);
     }
 
+    /**
+     * The one builder of the links the plugin generates for a showcase (decisions D224, D229): the base the route path is
+     * added to. Plain links keep the showcase.php segment (the showcase's "Url to Showcase", or the board address with
+     * showcase.php); friendly links drop it, when the base ends in it. Both forms are always routed.
+     */
+    public function base(): string
+    {
+        return self::showcaseBase(
+            (string)$this->context->showcase->showcase_url,
+            (int)$this->context->showcase->url_mode,
+            (string)($this->context->mybb->settings['bburl'] ?? ''),
+            (string)($this->context->mybb->settings['seourls'] ?? 'no'),
+            $_SERVER['SEO_SUPPORT'] ?? null
+        );
+    }
+
+    /**
+     * The base of the links of a showcase, without a trailing slash, as a pure function of its settings and the request.
+     *
+     * @param mixed $seoSupport $_SERVER['SEO_SUPPORT'] of the request; null when it is not set
+     */
+    public static function showcaseBase(string $showcaseUrl, int $urlMode, string $boardUrl, string $seourls, mixed $seoSupport): string
+    {
+        $configured = rtrim(trim($showcaseUrl), '/');
+        $base = $configured !== '' ? $configured : rtrim($boardUrl, '/') . '/showcase.php';
+
+        if (UrlMode::usesFriendlyLinks($urlMode, $seourls, $seoSupport) && str_ends_with($base, '/showcase.php')) {
+            $base = substr($base, 0, -strlen('/showcase.php'));
+        }
+
+        return $base;
+    }
+
+    /**
+     * A link of the showcase: the builder's base followed by the route's path.
+     *
+     * @param array<string, mixed> $parameters
+     */
+    public function url(string $name, array $parameters = []): string
+    {
+        return $this->base() . $this->generateUrl($name, $parameters);
+    }
+
     public function routeIdentifier(): string|false
     {
         static $route_identifier = null;

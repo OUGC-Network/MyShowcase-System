@@ -11,7 +11,7 @@
     <meta property="og:site_name" content="{{ mybb.settings.bbname }}">
 
     {% if meta.canonical is defined and meta.canonical %}
-        <link rel="canonical" href="{{ config.showcase_url }}{{ meta.canonical }}"/>
+        <link rel="canonical" href="{{ meta.canonical }}"/>
     {% endif %}
 
     {% if meta.page %}
@@ -194,7 +194,7 @@
                 {{ trans('myshowcase_comment_text_limit', config.comments_message_minimum_length|my_number_format, config.comments_message_minimum_length|my_number_format) }}
             </div>
             <div class="post post--reply post--quick-reply compose compose--quick-reply quick-reply" id="post-reply">
-                <form method="post" action="{{ config.showcase_url }}{{ url.create_comment }}" name="quick_comment_form"
+                <form method="post" action="{{ url.showcase }}{{ url.create_comment }}" name="quick_comment_form"
                       id="quick_comment_form">
                     <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
                     <div class="post__meta">

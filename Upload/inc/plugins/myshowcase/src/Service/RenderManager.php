@@ -152,7 +152,7 @@ class RenderManager
                 'page' => [],
             ],
             'url' => [
-                'showcase' => $this->context->showcase->showcase_url,
+                'showcase' => $this->context->routing->base(),
                 'showcase_assets' => $this->context->mybb->get_asset_url($this->context->showcase->showcase_url),
                 'main' => $this->context->routing->generateUrl(Routes::Main),
             ],
@@ -773,7 +773,7 @@ class RenderManager
             }
         } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comment_moderator || $userCanSoftDeleteComments)) {
             if ($comment_moderator && $postStatus === ContentStatuses::AwaitingApproval) {
-                $templatesContext['url_comment_approve'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $templatesContext['url_comment_approve'] = $this->context->routing->url(
                         Routes::CommentView,
                         array_merge($this->url_params, [
                             'entry_public_id' => $entry->public_id,

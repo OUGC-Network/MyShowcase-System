@@ -215,7 +215,8 @@ def run(ctx, scratch, port):
             for is_seo in (False, True):
                 env = {'URL_MODE_SEO': '1' if is_seo else '0'}
                 loc = php_env(board_dir, env, 'wol', 'blog', 'view', entry['entry_id'])
-                hrefs = re.findall(r'href="([^"]*)"', loc.get('location', ''))
+                # the showcase's own links only: the board's profile link of the viewer is not a showcase link
+                hrefs = [h for h in re.findall(r'href="([^"]*)"', loc.get('location', '')) if '/blog' in h]
                 want = expected_friendly(mode, seourls, is_seo)
                 good = bool(hrefs) and all(is_friendly(h) == want for h in hrefs)
                 ok(good, f'who\'s online, seourls {seourls}, url_mode {mode}, {"SEO" if is_seo else "plain"} request: '

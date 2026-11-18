@@ -110,7 +110,7 @@ class EntriesController extends BaseController
         );
 
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main),
+            $this->context->routing->url(Routes::Main),
             $this->context->language->myshowcase_redirect_password_cleared
         );
     }
@@ -345,7 +345,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main)
+            $this->context->routing->url(Routes::Main)
         );
 
         if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
@@ -438,7 +438,7 @@ class EntriesController extends BaseController
                 $templatesContext['total_entries'],
                 $this->mainPerPage(),
                 $this->context->mybb->input['page'],
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::Main,
                     $pagination_params
                 ),
@@ -569,7 +569,7 @@ class EntriesController extends BaseController
                     )
                     ->setExtraData(
                         'url_last_comment',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::EntryView,
                             [
                                 'entry_public_id' => $entry->public_id,
@@ -580,12 +580,12 @@ class EntriesController extends BaseController
                     )
                     ->setExtraData(
                         'entryUrlLastComment',
-                        !empty($last_comment_data['public_id']) ? $this->context->routing->generateUrl(
+                        !empty($last_comment_data['public_id']) ? $this->context->routing->url(
                             Routes::CommentView,
                             [
                                 'comment_public_id' => $last_comment_data['public_id'],
                             ],
-                        ) : $this->context->routing->generateUrl(
+                        ) : $this->context->routing->url(
                             Routes::EntryView,
                             [
                                 'entry_public_id' => $entry->public_id,
@@ -726,13 +726,13 @@ class EntriesController extends BaseController
         if ($columns === null) {
             $this->context->entries_manager->deleteEntry($entry->entry_id);
 
-            redirect($this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main), $lang->$message);
+            redirect($this->context->routing->url(Routes::Main), $lang->$message);
         }
 
         $this->performBatchEntryUpdate([$entry], $columns);
 
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::EntryView,
                 ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             ),
@@ -957,7 +957,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::Main,
             )
         );
@@ -965,7 +965,7 @@ class EntriesController extends BaseController
         if ($is_update) {
             add_breadcrumb(
                 $this->context->language->myshowcase_button_entry_update,
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -975,7 +975,7 @@ class EntriesController extends BaseController
         } else {
             add_breadcrumb(
                 $this->context->language->myshowcase_main_button_entry_create,
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryCreate,
                 ),
             );
@@ -1283,7 +1283,7 @@ class EntriesController extends BaseController
                     );
 
                     redirect(
-                        $this->context->showcase->showcase_url . $mainUrl,
+                        $this->context->routing->base() . $mainUrl,
                         match (true) {
                             $entry->status === ContentStatuses::AwaitingApproval && $is_update => $this->context->language->myshowcase_entry_entry_updated_awaiting_approval_list,
                             $entry->status === ContentStatuses::AwaitingApproval => $this->context->language->myshowcase_entry_entry_created_awaiting_approval_list,
@@ -1293,7 +1293,7 @@ class EntriesController extends BaseController
                     );
                 } else {
                     redirect(
-                        $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::EntryView,
                             [
                                 'entry_public_id' => $entry->public_id,
@@ -1498,7 +1498,7 @@ class EntriesController extends BaseController
                 }
 
                 redirect(
-                    $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    $this->context->routing->url(
                         Routes::EntryView,
                         [
                             'entry_public_id' => $entry->public_id,
@@ -1534,7 +1534,7 @@ class EntriesController extends BaseController
                 }
 
                 redirect(
-                    $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    $this->context->routing->url(
                         Routes::EntryView,
                         [
                             'entry_public_id' => $entry->public_id,
@@ -1572,7 +1572,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::Main,
                 $this->context->showcase->main_filter_force_field === FilterFields::UserID ? ['user_id' => $entry->user_id] : []
             )
@@ -1686,7 +1686,7 @@ class EntriesController extends BaseController
 
         //$templatesContext['subject'] = $this->context->entries_manager->buildSubject($entry);
 
-        $templatesContext['meta']['canonical'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+        $templatesContext['meta']['canonical'] = $this->context->routing->url(
                 Routes::EntryView,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -1697,7 +1697,7 @@ class EntriesController extends BaseController
         $templatesContext['meta']['page'] = [
             [
                 'property' => 'og:url',
-                'content' => $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                'content' => $this->context->routing->url(
                         Routes::EntryView,
                         [
                             'entry_public_id' => $entry->public_id,
@@ -1756,7 +1756,7 @@ class EntriesController extends BaseController
 
         add_breadcrumb(
             $subject,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::EntryView,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -1814,7 +1814,7 @@ class EntriesController extends BaseController
                 $total_comments,
                 $this->context->showcase->comments_per_page,
                 $this->context->render_manager->url_params['page'] ?? CommentsManager::FIRST_PAGE,
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryView,
                     array_merge($pagination_params, [
                         'entry_public_id' => $entry->public_id,
@@ -1980,7 +1980,7 @@ class EntriesController extends BaseController
         array $url_params = ['clear_selected' => 1]
     ): void {
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main, $url_params),
+            $this->context->routing->url(Routes::Main, $url_params),
             $message
         );
     }

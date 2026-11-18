@@ -42,9 +42,9 @@ $l['myshowcase_comment_text_limit'] = 'Message should be between {1} and {2} cha
 
 //who's onine and portal
 
-$l['viewing_myshowcase_list'] = "Viewing <a href=\"../{1}\">{2} List</a>";
-$l['viewing_myshowcase'] = "Viewing <a href=\"../{1}\">{2} entry</a> of <a href=\"{3}\">{4}</a>";
-$l['viewing_myshowcase_new'] = "Creating <a href=\"../{1}\">New {2}</a>";
+$l['viewing_myshowcase_list'] = "Viewing <a href=\"{1}\">{2} List</a>";
+$l['viewing_myshowcase'] = "Viewing <a href=\"{1}\">{2} entry</a> of <a href=\"{3}\">{4}</a>";
+$l['viewing_myshowcase_new'] = "Creating <a href=\"{1}\">New {2}</a>";
 $l['viewing_myshowcase_edit'] = 'Editing a {1} entry';
 $l['viewing_myshowcase_attach'] = 'Viewing Attachment';
 

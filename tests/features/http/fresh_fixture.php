@@ -168,8 +168,9 @@ switch ($command) {
         if ($argv[3] === 'view') {
             $activity['entry_id'] = (string)($argv[4] ?? '1');
         }
+        $activity['location'] = '';
         $plugin = ['user_activity' => $activity, 'location_name' => ''];
-        $plugin = build_friendly_wol_location_end($plugin);
+        $plugin = \MyShowcase\Hooks\Forum\build_friendly_wol_location_end($plugin);
         $out(['location' => $plugin['location_name']]);
         break;
 
