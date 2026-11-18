@@ -239,6 +239,7 @@ $l = array_merge($l, [
     'myshowcase_create_update_attachment_error_missing_file' => 'You did not select a file to upload.',
     'myshowcase_create_update_attachment_error_size_too_low' => 'The file {1} is too small. The minimum file size allowed is {2}.',
     'myshowcase_create_update_attachment_error_size_too_large' => 'The file {1} is too large. The maximum file size allowed is {2}.',
+    'myshowcase_create_update_attachment_error_size_too_large_field' => 'The file {1} is too large for the field "{2}". The maximum file size allowed is {3}.',
 
     'myshowcase_redirect_subscribed_to_entry' => 'You have successfully subscribed to the entry.<br />You will now be returned to your previous location.',
     'myshowcase_redirect_unsubscribed_to_entry' => 'You have successfully unsubscribed from the entry.<br />You will now be returned to your previous location.',
@@ -556,7 +557,7 @@ $l = array_merge($l, [
     'myshowcase_import_export_problem_unknown_field' => 'The field "{1}" is not a field of this showcase (entries {2}{3}).',
     'myshowcase_import_export_problem_too_many_files' => 'The file has {1} file URLs. At most {2} files can be taken from URLs in one import, so nothing was imported.',
     'myshowcase_import_export_problem_time_budget' => 'This server allows too little time to take files from URLs in one import, so nothing was imported.',
-    'myshowcase_import_file_error' => 'The file of the field "{1}" could not be imported: {2}.',
+    'myshowcase_import_file_error' => 'The file "{3}" of the field "{1}" could not be imported: {2}.',
     'myshowcase_import_file_reason_scheme' => 'the address must start with http:// or https://',
     'myshowcase_import_file_reason_port' => 'only the ports 80 and 443 can be used',
     'myshowcase_import_file_reason_userinfo' => 'an address with a user name or password is not allowed',

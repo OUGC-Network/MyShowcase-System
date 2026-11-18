@@ -193,6 +193,25 @@ class AttachmentsManager
     /**
      * @throws RandomException
      */
+    /**
+     * The label of a field as the forms show it: the language entry of the collection field, else the stored label, else the
+     * key (the same rule as FieldTrait::label()).
+     */
+    private function fieldLabelOf(array $field_definition): string
+    {
+        $field_key = (string)($field_definition['field_key'] ?? '');
+        $language = $this->context->language;
+        $language_key = 'myshowcase_collection_field_' . $field_key;
+
+        if (isset($language->$language_key) && $language->$language_key !== '' && $language->$language_key !== $language_key) {
+            return (string)$language->$language_key;
+        }
+
+        $label = (string)($field_definition['field_label'] ?? '');
+
+        return $label !== '' ? $label : $field_key;
+    }
+
     public function uploadAttachment(
         array $attachment_data,
         EntryEntity $entry,
@@ -312,10 +331,12 @@ class AttachmentsManager
             }
 
             if ($attachment_data['size'] > $field_definition['maximum_size'] * 1024 && !empty($field_definition['maximum_size'])) {
+                // The message names the field and the file (batch S2, A.2): a list of files tells which one was refused
                 return [
                     'error' => $this->context->language->sprintf(
-                        $this->context->language->myshowcase_create_update_attachment_error_size_too_large,
+                        $this->context->language->myshowcase_create_update_attachment_error_size_too_large_field,
                         htmlspecialchars_uni($attachment_data['name']),
+                        htmlspecialchars_uni($this->fieldLabelOf($field_definition)),
                         get_friendly_size($field_definition['maximum_size'] * 1024)
                     )
                 ];

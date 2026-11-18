@@ -454,13 +454,17 @@ class EntriesImporter
                     continue;
                 }
 
+                $text = $this->scalarText($token);
+
                 try {
-                    $file = $this->takeFile($this->scalarText($token), $field, $temp, $budget);
+                    $file = $this->takeFile($text, $field, $temp, $budget);
                 } catch (ExternalFileException $exception) {
+                    // The message names the field and the file (the URL it was given), and the reason (batch S2, A.2)
                     $result['errors'][] = $language->sprintf(
                         $language->myshowcase_import_file_error,
                         $this->context->entries_manager->fieldLabel($field),
-                        $this->reasonText($exception->reason)
+                        $this->reasonText($exception->reason),
+                        $text
                     );
 
                     continue;
