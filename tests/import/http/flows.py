@@ -1617,7 +1617,12 @@ def section_seed_round_trip(member, uid):
         seeded_by_name = {name: [e['subject'] for e in seed_entries(name)] for name, r, _ in SEED_EXPECTED
                           if r == route and name.endswith('full')}
         all_subjects = [subject for subjects in seeded_by_name.values() for subject in subjects]
-        path = write_file(f'seed-roundtrip-{route}.xml', seeded_export(download['raw'], all_subjects))
+        try:
+            exported = seeded_export(download['raw'], all_subjects)
+        except Exception as error:  # the export is not an entries file: a failed check, and the round trip of this route stops
+            ok(False, f'the export of {route} is an entries file ({type(error).__name__}; status {download["status"]}: {download["raw"][:120]!r})')
+            continue
+        path = write_file(f'seed-roundtrip-{route}.xml', exported)
         first_round = int(one('select max(attachment_id) from mybb_myshowcase_attachments') or 0) if one('select max(attachment_id) from mybb_myshowcase_attachments') not in ('', 'NULL') else 0
         if created:
             body = import_into(member, copy_route, path)['body']
