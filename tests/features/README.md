@@ -41,3 +41,14 @@ expectations with it, and the form check (S6) keeps the form and the seeded rows
   (`Documentation/visibility.md`, Entries). The features check tests both sides.
 * A thumbnail needs no download permission (design record T35); the full file does. The features check expects a thumbnail
   to be served and the file refused for a group without the download permission.
+
+## URL option (decision D224)
+
+`tests/features/http/url_mode.py` checks the links of a showcase for each Links choice (0 No, 1 Automatic, 2 Yes) against
+each seourls setting (no, auto, yes), on a plain request and on a request with SEO_SUPPORT, on the list page, the entry
+page and the who's-online location; both forms of an address answer the same entry; a custom prefix gives identical
+forms; the ACP form saves and refuses; and the JSON-sync file carries the option. It runs on one engine per call:
+
+    python3 tests/features/http/url_mode.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
+
+The Automatic rule itself is a board-less unit test: `php tests/url-mode/run.php`.
