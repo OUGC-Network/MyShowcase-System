@@ -1378,6 +1378,19 @@ class EntriesManager
                 $field_value = (string)$default_value;
             }
 
+            // A file field holds files, not text: a value that is not the http(s) URL of a file is refused (batch S2, a
+            // regression of the F2b change that made the blog cover image a file field: the URL rule of the old URL field
+            // was lost, so a javascript: value was stored). The import's URLs and the export's are http(s).
+            if ($field->html_type === FieldHtmlTypes::File) {
+                foreach ((array)$field_value as $file_value) {
+                    if ((string)$file_value !== '' && !preg_match('#^https?://#i', (string)$file_value)) {
+                        $this->validateSetError('invalid_value', [$field_label]);
+
+                        break;
+                    }
+                }
+            }
+
             if (is_scalar($field_value) && $field->regular_expression &&
                 preg_match($field->regular_expression, '') !== false &&
                 preg_match($field->regular_expression, (string)$field_value) !== 1) {
