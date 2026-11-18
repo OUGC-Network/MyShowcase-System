@@ -407,11 +407,19 @@ string(17) "Invalid character"
                     </element>
                     <element>
                       <key>html_type</key>
-                      <value>url</value>
+                      <value>file</value>
                     </element>
                     <element>
                       <key>field_type</key>
                       <value>varchar</value>
+                    </element>
+                    <element>
+                      <key>maximum_size</key>
+                      <value type="INT">2048</value>
+                    </element>
+                    <element>
+                      <key>file_types</key>
+                      <value>png,jpg,jpeg,gif</value>
                     </element>
                   </array>
                 </value>
