@@ -96,6 +96,69 @@ class PermissionsRepository
         )['total_permissions'];
     }
 
+    /** The columns that identify a row; every other column of the table is a permission. */
+    private const IDENTIFIER_COLUMNS = ['permission_id', 'showcase_id', 'group_id', 'moderator_id', 'user_id'];
+
+    /**
+     * The defaults of a global row (showcase_id 0): every permission column with its default from TABLES_DATA. These are the
+     * values the ACP group form shows for a group that has no row (decision D217), so a seeded row and the form agree.
+     *
+     * @return array<string, mixed>
+     */
+    public static function defaultValues(): array
+    {
+        $values = [];
+
+        foreach (TABLES_DATA['myshowcase_permissions'] as $field_name => $field_definition) {
+            if (in_array($field_name, self::IDENTIFIER_COLUMNS, true) || !array_key_exists('default', $field_definition)) {
+                continue;
+            }
+
+            $values[$field_name] = $field_definition['default'];
+        }
+
+        return $values;
+    }
+
+    /**
+     * Decision D217: every user group has a global row (showcase_id 0) from the installation and every activation on. A group
+     * that has no row gets one with the defaults; a row that exists is never changed, so a second call adds nothing. Returns
+     * the number of rows added. Per-showcase rows are not touched.
+     */
+    public function seedMissingGlobalRows(): int
+    {
+        $with_row = [];
+
+        $query = $this->database->simple_select('myshowcase_permissions', 'group_id', "showcase_id='0'");
+
+        while ($row = $this->database->fetch_array($query)) {
+            $with_row[(int)$row['group_id']] = true;
+        }
+
+        $groups = [];
+
+        $query = $this->database->simple_select('usergroups', 'gid');
+
+        while ($group = $this->database->fetch_array($query)) {
+            $groups[] = (int)$group['gid'];
+        }
+
+        $added = 0;
+
+        foreach ($groups as $group_id) {
+            if (isset($with_row[$group_id])) {
+                continue;
+            }
+
+            // one repository per row: the flag of an insert is readonly and set once per instance
+            (new self($this->database))->insertPermission(['group_id' => $group_id] + self::defaultValues());
+
+            $added++;
+        }
+
+        return $added;
+    }
+
     public function insertPermission(
         array $permission_data,
         bool $is_update = false,

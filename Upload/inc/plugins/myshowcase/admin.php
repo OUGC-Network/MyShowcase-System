@@ -325,6 +325,10 @@ function pluginActivation(): bool
         dbVerifyIndexes(["myshowcase_data{$showcase_id}" => dataTableStructureGet($showcase_id)]);
     }
 
+    // Decision D217: every user group has its global permission row from the installation on (the defaults of the ACP form, added
+    // where a group has none; existing rows are not changed). Read-time defaults cover a group created after this.
+    (new \MyShowcase\Repository\PermissionsRepository($db))->seedMissingGlobalRows();
+
     $mybb->cache->update_usergroups();
 
     $plugins['myshowcase'] = $pluginInformation['versioncode'];
