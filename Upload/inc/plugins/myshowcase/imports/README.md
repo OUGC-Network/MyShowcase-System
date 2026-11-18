@@ -105,6 +105,11 @@ Which property a field uses:
 
 A property a file does not mention is not managed: it keeps its value and its input stays editable.
 
+`url_mode` is a showcase property a file may set: `0` (No), `1` (Automatic) or `2` (Yes), the choices of the Links option
+(`Documentation/showcases/url-option.md`). A file that does not set it gives the showcase `1`, and a value that is not one
+of the three is refused, so nothing is applied. The export writes `url_mode` only when it is not `1`, as the other columns
+are written only when they differ from their defaults.
+
 ## Identity
 
 * A row is linked to a file by `json_file` (the relative path). A collection file is linked to at most one
