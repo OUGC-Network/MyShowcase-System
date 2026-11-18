@@ -378,7 +378,16 @@ def moderation(e1):
     fix('permission', 2, 'entries_can_view_unapproved', 0)
     r = m2.get(view_url(e))
     ok('Waiting photo' not in r['body'], 'entry page refused to other members')
-    ok('Waiting photo' in q1.get(f'{G}/')['body'] and 'Waiting photo' in q1.get(view_url(e))['body'], 'visible to its author (list and entry page)')
+    # Documents/visibility.md, Entries: an awaiting entry needs entries_can_view_unapproved, and a member without it sees no entry of
+    # that status, not even their own. The moderated group does not have the permission (grants of the fixture), so the author is
+    # refused; with the permission the author sees their own entry (own entries only), in the list and on the entry page.
+    ok('Waiting photo' not in q1.get(f'{G}/')['body'] and 'Waiting photo' not in q1.get(view_url(e))['body'],
+       "awaiting entry hidden from its author without entries_can_view_unapproved (visibility.md, Entries)")
+    moderated_gid = int(one("select gid from mybb_usergroups where title='Moderated members'"))
+    fix('permission', moderated_gid, 'entries_can_view_unapproved', 1)
+    ok('Waiting photo' in q1.get(f'{G}/')['body'] and 'Waiting photo' in q1.get(view_url(e))['body'],
+       'visible to its author with entries_can_view_unapproved (list and entry page; visibility.md, Entries)')
+    fix('permission', moderated_gid, 'entries_can_view_unapproved', 0)
     r = mod.get(f'{G}/?unapproved=1')
     ok('Waiting photo' in r['body'] and 'Member one photo' not in r['body'], 'moderator: approval queue lists only the waiting entries')
     ok('unapproved entries' in mod.get(f'{G}/')['body'], 'moderator: main list links to the approval queue')
@@ -456,7 +465,8 @@ def edit_form(j):
     old = q(f"select attachment_id, file_name, attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
     form = m1.get(f"{G}/update/{j['public_id']}")
     ok(old[2] in form['body'] and f'name="remove_attachments[]" value="{old[0]}"' in form['body'], 'edit form lists the attached image with a remove control')
-    data = {'title': 'Jpeg photo', 'caption': 'kept', 'category': option_id('gallery', 'Nature'), 'my_post_key': post_key(form['body']), 'submit': 'Post'}
+    # the gallery's subject is its title (decision D204): an update without it is refused as a whole
+    data = {'subject': 'Jpeg photo', 'title': 'Jpeg photo', 'caption': 'kept', 'category': option_id('gallery', 'Nature'), 'my_post_key': post_key(form['body']), 'submit': 'Post'}
     m1.post(f"{G}/update/{j['public_id']}", data)
     ok(count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1, 'saving without removing keeps the image')
     r = m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': old[0]}))
@@ -530,7 +540,8 @@ def deletion(e2):
     page = m2.get(view_url(e2))
     m2.get(f"{view_url(e2)}?action=subscribe&my_post_key={post_key(page['body'])}")
     names = files(e2['entry_id'])
-    ok(dependents(e2['entry_id']) == (1, 1, 1) and len(exists(names)) == len(names) > 0, 'entry with an attachment, a comment and a subscription')
+    ok(dependents(e2['entry_id']) == (1, 1, 1) and len(exists(names)) == len(names) > 0,
+       f"entry with an attachment, a comment and a subscription (attachments, comments, subscriptions {dependents(e2['entry_id'])}; files on disk {len(exists(names))} of {len(names)})")
     moderate(mod, 'delete', [e2])
     ok(entry('gallery', 'entry_id', e2['entry_id']) is None, 'inline hard delete removes the row')
     ok(dependents(e2['entry_id']) == (0, 0, 0) and exists(names) == [], 'inline hard delete removes attachments, files, thumbnails, comments, subscriptions')
