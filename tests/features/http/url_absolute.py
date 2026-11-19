@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Every URL the plugin's pages emit is absolute and based on the showcase base or on bburl (decision D244).
 
+JSON endpoints (decision D248): the entry view API (api/view/<id>/<slug>) answers the entry's id and message, with no URL;
+the attachment API (api/view/<id>/upload) answers URLs, but 403 to a member without the entry-edit right, so it is not in this
+page set. Its URLs are built with url() (tests/url-builder keeps every link on the builder). The pagination pages (list and the
+entry's comments, with a page size of one here) assert that URLs were read.
+
+JSON endpoints (decision D248): the entry view API (api/view/<id>/<slug>) answers the entry's id and message, with no URL; the
+attachment API (api/view/<id>/upload) answers URLs, but 403 to a member without the entry-edit right, so it is not in this
+page set. Its URLs are built with url() (the static guard, tests/url-builder, keeps every link on the builder). Pagination:
+the list and the entry's comments have a page size of one here, and the page-two checks assert that URLs were read.
+
 The board is installed with the plugin of this working tree (board.make_board). For each showcase_url form (absolute with a
 host, absolute without showcase.php, a root-relative value, a relative value, empty) and each bburl form (the board's root,
 a subfolder with a trailing slash), and each url_mode (0, 1, 2), the test fetches the pages a guest and a member see (list,
@@ -153,13 +163,35 @@ def is_core_chrome(value):
     return any(text.startswith(item) for item in CORE_CHROME)
 
 
+def json_urls(value, out):
+    """Every string of a decoded JSON value that is a URL of the board or a root-relative route."""
+    if isinstance(value, dict):
+        for item in value.values():
+            json_urls(item, out)
+    elif isinstance(value, list):
+        for item in value:
+            json_urls(item, out)
+    elif isinstance(value, str) and (value.startswith(('http://', 'https://', '/')) or '/showcase.php' in value or '/blog/' in value):
+        out.append(('json string', value))
+    return out
+
+
 def check_page(page_name, body, showcase_url, bburl, mode, label):
+    """Checks the URLs of one page; returns how many were read (a page with none proves nothing)."""
     collector = UrlCollector()
-    collector.feed(body)
+    if body.lstrip().startswith(('{', '[')):
+        try:
+            collector.found = json_urls(json.loads(body), [])
+        except ValueError:
+            collector.found = []
+    else:
+        collector.feed(body)
     expected_showcase = expected_showcase_prefix(showcase_url, bburl, mode)
     board_host = urlsplit(bburl).netloc
+    read = 0
     for kind, value in collector.found:
         value = value.strip()
+        read += 1
         if value == '' or value.startswith(SKIP_SCHEMES):
             continue
         if is_core_chrome(value):
@@ -178,6 +210,7 @@ def check_page(page_name, body, showcase_url, bburl, mode, label):
                 PROBLEMS.setdefault(f'{page_name} {kind}', []).append(f'{label}: {value} (expected under {expected_showcase if "showcase" in value or "blog" in value else bburl})')
             continue
         PROBLEMS.setdefault(f'{page_name} {kind}', []).append(f'{label}: not absolute: {value}')
+    return read
 
 
 def main():
@@ -226,6 +259,10 @@ def run(ctx, scratch, port):
     php(board_dir, 'users', users_file)
     member_password = json.load(open(users_file))['member1']['password']
     php(board_dir, 'comment', 'blog', entry['entry_id'])
+    php(board_dir, 'entry', 'blog', 'Second absolute entry')
+    php(board_dir, 'comment', 'blog', entry['entry_id'], 'Second absolute comment')
+    php(board_dir, 'showcase-set', 'blog', 'main_per_page', 1)
+    php(board_dir, 'showcase-set', 'blog', 'comments_per_page', 1)
     php(board_dir, 'types', 'blog')
     png = os.path.join(scratch, 'absolute.png')
     open(png, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201a6a1c0340000000049454e44ae426082'))
@@ -263,12 +300,16 @@ def run(ctx, scratch, port):
                         ('export (member)', member, '/showcase.php/blog/export'),
                         ('import (member)', member, '/showcase.php/blog/import'),
                         ('search (guest)', guest, '/showcase.php/blog/search'),
-                        ('unknown entry (guest)', guest, '/showcase.php/blog/view/nope/nope'),  # 400 today: a status code of Batch 8, not checked here
+                        ('unknown entry (guest)', guest, '/showcase.php/blog/view/nope/nope'),  # 400 today: a Batch 8 status code (D249), accepted here
+                        ('list page 2 (guest)', guest, '/showcase.php/blog/?page=2'),
+                        ('entry comments page 2 (guest)', guest, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?page=2"),
                     ]
                     for name, client, path in pages:
                         r = client.get(f'{base}{path}')
                         ok(r['status'] in ((200, 403, 404, 400) if name.startswith('unknown entry') else (200, 403, 404)), f'{label}: {name} answers ({r["status"]})')
-                        check_page(name, r['body'], showcase_url, bburl, mode, label)
+                        read = check_page(name, r['body'], showcase_url, bburl, mode, label)
+                        if name in ('list page 2 (guest)', 'entry comments page 2 (guest)'):
+                            ok(read > 0, f'{label}: {name} has URLs to check ({read})')
     finally:
         server.terminate()
         server.wait()
