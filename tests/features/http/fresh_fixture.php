@@ -240,7 +240,7 @@ switch ($command) {
         $id = (int)$db->insert_query('myshowcase_comments', [
             'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'post_hash' => $public, 'user_id' => 1,
             'username' => 'admin', 'message' => $db->escape_string('Url mode comment'), 'dateline' => $when(), 'update_dateline' => $when(),
-            'status' => 1, 'ipaddress' => '127.0.0.1',
+            'status' => 1,
         ]);
         $out(['comment_id' => $id, 'public_id' => $public]);
         break;

@@ -37,6 +37,7 @@ if not a.mybb or not os.path.isdir(a.mybb):
     sys.exit('give --mybb: a MyBB 1.9 source tree with its vendor/ folder')
 
 FAILS, PASSES = [], 0
+SCRATCH_DIR = ''
 SERVERS = []
 
 
@@ -54,8 +55,10 @@ def php(board_dir, *args):
     r = subprocess.run(['php', os.path.join(HERE, 'fresh_fixture.php'), *[str(x) for x in args]], cwd=board_dir, capture_output=True, text=True)
     lines = [l for l in r.stdout.splitlines() if l.strip()]
     if r.returncode or not lines or 'SQL Error' in r.stdout:
-        first = next((l for l in r.stdout.splitlines() if 'SQLSTATE' in l or 'Error' in l), r.stdout[-200:])
+        first = next((l for l in r.stdout.splitlines() if 'SQLSTATE' in l), next((l for l in r.stdout.splitlines() if 'Error' in l and 'MyBB' not in l), r.stdout[-200:]))
         print(f'     fixture {args[0]} failed: {first.strip()[:200]}')
+        if SCRATCH_DIR:
+            open(os.path.join(SCRATCH_DIR, f'fixture-fail-{args[0]}.txt'), 'w').write(r.stdout + r.stderr)
         return {'error': first.strip()[:200]}
     return json.loads(lines[-1])
 
@@ -165,8 +168,10 @@ def expected_friendly(mode, seourls, seo):
 
 
 def main():
+    global SCRATCH_DIR
     scratch = a.scratch
     os.makedirs(scratch, exist_ok=True)
+    SCRATCH_DIR = scratch
     port = a.port or {'sqlite': 18900, 'mysql': 18901, 'pgsql': 18902}[a.engine]
     ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
     try:
@@ -372,6 +377,7 @@ def run(ctx, scratch, port):
     php(board_dir, 'comment', 'blog', entry['entry_id'])
     png = os.path.join(scratch, 'fresh.png')
     open(png, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201a6a1c0340000000049454e44ae426082'))
+    php(board_dir, 'types', 'blog')  # an uploads folder and PNG attachments for the blog (as the features harness sets them)
     attached = php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
     # the same pages with the prefix as stored (plain URL) and with an empty prefix (the bburl fallback, decision D229)
     for empty_prefix in (False, True):
