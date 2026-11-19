@@ -529,6 +529,35 @@ class Routing
     }
 
     /**
+     * The plain base of the showcase, whatever its url_mode: the form that is written into files (decision D238).
+     */
+    public function plainBase(): string
+    {
+        return self::showcaseBase(
+            (string)$this->context->showcase->showcase_url,
+            UrlMode::PLAIN,
+            (string)($this->context->mybb->settings['bburl'] ?? ''),
+            'no',
+            null
+        );
+    }
+
+    /**
+     * The friendly base of the showcase: the other form of the same address, which an own-board file URL may also take
+     * (decisions D52, D58). Equal to the plain base when the prefix is custom.
+     */
+    public function friendlyBase(): string
+    {
+        return self::showcaseBase(
+            (string)$this->context->showcase->showcase_url,
+            UrlMode::FRIENDLY,
+            (string)($this->context->mybb->settings['bburl'] ?? ''),
+            'no',
+            null
+        );
+    }
+
+    /**
      * The base of the links of a showcase, without a trailing slash, as a pure function of its settings and the request.
      *
      * @param mixed $seoSupport $_SERVER['SEO_SUPPORT'] of the request; null when it is not set

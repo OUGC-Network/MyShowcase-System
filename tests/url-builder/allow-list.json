@@ -10,8 +10,8 @@
     {
       "file": "Upload/inc/plugins/myshowcase/src/Routing/Routing.php",
       "pattern": "showcase_url",
-      "count": 1,
-      "reason": "the builder: the stored base read by base()"
+      "count": 3,
+      "reason": "the builder: the stored base read by plainBase(), friendlyBase() and base()"
     },
     {
       "file": "Upload/inc/plugins/myshowcase/Plugin/Core.php",
@@ -42,12 +42,6 @@
       "pattern": "showcase_url",
       "count": 1,
       "reason": "the asset base for the showcase's own assets (get_asset_url), not a link to a page; Batch 3 (D215) decides absolute asset URLs"
-    },
-    {
-      "file": "Upload/inc/plugins/myshowcase/src/Service/AttachmentAccess.php",
-      "pattern": "showcase_url",
-      "count": 1,
-      "reason": "publicBase(): the base of the public file URLs; moved onto the builder's plain base in the export commit (D238)"
     }
   ]
 }

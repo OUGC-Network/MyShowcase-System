@@ -38,20 +38,22 @@ final class AttachmentAccess
     }
 
     /**
-     * The base of the public URLs: the showcase's "Url to Showcase" when it is set, else the board's address (as the
-     * links of the showcase are built). Without a trailing slash.
+     * The base of the public file URLs that a file writes (decision D238): always the plain form, whatever the url_mode.
+     * Without a trailing slash.
      */
     public function publicBase(): string
     {
-        global $mybb;
+        return rtrim($this->context->routing->plainBase(), '/');
+    }
 
-        $base = trim((string)$this->context->showcase->showcase_url);
-
-        if ($base === '') {
-            $base = (string)($mybb->settings['bburl'] ?? '');
-        }
-
-        return rtrim($base, '/');
+    /**
+     * The own-board bases a file URL may start with (decisions D52, D58): both forms of the same address.
+     *
+     * @return string[]
+     */
+    public function ownBases(): array
+    {
+        return array_values(array_unique(array_filter([$this->context->routing->plainBase(), $this->context->routing->friendlyBase()], static fn(string $base): bool => $base !== '')));
     }
 
     /**
@@ -213,9 +215,16 @@ final class AttachmentAccess
      */
     public function ownPorts(string $text): array
     {
-        $base = $this->publicBase();
+        $base = null;
 
-        if ($base === '' || !str_starts_with($text, $base . '/')) {
+        foreach ($this->ownBases() as $candidate) {
+            if (str_starts_with($text, $candidate . '/')) {
+                $base = $candidate;
+                break;
+            }
+        }
+
+        if ($base === null) {
             return [];
         }
 
@@ -233,13 +242,21 @@ final class AttachmentAccess
      */
     public function ownAttachment(ExternalUrl $url): ?array
     {
-        $base = $this->publicBase();
+        $base = null;
 
-        if ($base === '' || !str_starts_with($url->text, $base)) {
+        foreach ($this->ownBases() as $candidate) {
+            if (str_starts_with($url->text, $candidate)) {
+                $base = $candidate;
+                break;
+            }
+        }
+
+        if ($base === null) {
             return null;
         }
 
-        $route = substr($url->text, strlen($base));
+        // the plain form has the showcase.php segment after the base; the friendly form does not
+        $route = preg_replace('#^/showcase\.php(?=/)#', '', substr($url->text, strlen($base)));
 
         if (preg_match('#/attachment/([^/]+)/([^/]+)$#', $route, $parts) !== 1) {
             return null;
