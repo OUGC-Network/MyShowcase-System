@@ -18,6 +18,12 @@ USERS = {}
 SHOWCASE = '/showcase.php/blog'
 
 
+def php_route(url):
+    """The test server has no URL rewriting: a link of the board (plain or friendly) is requested through showcase.php."""
+    path = url.replace(CTX.url, '', 1).replace('/showcase.php', '', 1)
+    return '/showcase.php' + path
+
+
 def configure(ctx, scratch, error_log):
     global CTX, SCRATCH, BOARD, ENGINE, ERROR_LOG
     CTX, SCRATCH, BOARD, ENGINE, ERROR_LOG = ctx, scratch, ctx.board, ctx.engine, error_log
@@ -574,10 +580,10 @@ def section_permissions():
     exporter = logged_in('exporter')
     main_member = member.get(f'{SHOWCASE}/')['body']
     main_exporter = exporter.get(f'{SHOWCASE}/')['body']
-    ok('href="/blog/import"' in main_member, 'the import link is shown to a member with EntriesCanImport')
+    ok(re.search(r'href="[^"]*/blog/import"', main_member) is not None, 'the import link is shown to a member with EntriesCanImport')
     dump('main-exporter', main_exporter)
-    ok('href="/blog/import"' not in main_exporter, 'the import link is hidden from a member without it')
-    ok('href="/blog/export"' in main_exporter, 'the export link is shown to a member who may export')
+    ok(re.search(r'href="[^"]*/blog/import"', main_exporter) is None, 'the import link is hidden from a member without it')
+    ok(re.search(r'href="[^"]*/blog/export"', main_exporter) is not None, 'the export link is shown to a member who may export')
     ok(exporter.get(f'{SHOWCASE}/export')['status'] == 200, 'export still works for a member who may only export')
 
 
@@ -780,7 +786,7 @@ def section_files():
     if attach_urls:
         # The board's routed URL is /gallery/attachment/...; this test server has no URL rewriting, so the same route is
         # requested through the front controller. A real server's rewrite rules map one to the other.
-        first = attach_urls[0].replace(CTX.url, '').replace('/gallery/attachment/', '/showcase.php/gallery/attachment/', 1)
+        first = php_route(attach_urls[0])
         fetched = member.get(first)['raw']
         ok(len(fetched) > 0 and hashlib.sha256(fetched).hexdigest() in set(
             hashlib.sha256(open(os.path.join(uploads, name), 'rb').read()).hexdigest() for name in stored_names),
@@ -840,7 +846,7 @@ def section_files():
     # entry is awaiting approval or soft-deleted. The entry's status is changed in the database for this check and restored.
     if attach_urls:
         own_url = attach_urls[0]
-        route_path = own_url.replace(CTX.url, '').replace('/gallery/attachment/', '/showcase.php/gallery/attachment/', 1)
+        route_path = php_route(own_url)
         # The entry of the file the URL names (found by its public id, not assumed to be the newest one).
         own_public_id = own_url.split('/gallery/attachment/', 1)[1].split('/', 1)[0]
         own_entry = one(f"select entry_id from mybb_myshowcase_attachments where showcase_id={gid} and public_id='{own_public_id}'")
