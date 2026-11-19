@@ -235,14 +235,14 @@ switch ($command) {
         break;
 
     case 'comment':
-        // one approved comment on an entry, by user 1 (the comment's own id and public id are its ids)
+        // one approved comment on an entry, by user 1, with the given message (default: a fixed text)
         $route = $argv[2];
         $sid = $showcaseId($route);
         $entryId = (int)$argv[3];
         $public = substr(md5('comment' . $entryId . microtime()), 0, 10);
         $id = (int)$db->insert_query('myshowcase_comments', [
             'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'post_hash' => $public, 'user_id' => 1,
-            'username' => 'admin', 'message' => $db->escape_string('Url mode comment'), 'dateline' => $when(), 'update_dateline' => $when(),
+            'username' => 'admin', 'message' => $db->escape_string($argv[4] ?? 'Url mode comment'), 'dateline' => $when(), 'update_dateline' => $when(),
             'status' => 1,
         ]);
         $out(['comment_id' => $id, 'public_id' => $public]);
