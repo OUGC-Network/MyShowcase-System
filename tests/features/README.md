@@ -68,3 +68,14 @@ guest and a member, on nine pages. MyBB's own header and theme are not checked (
 entry's status is Batch 8 and is accepted here.
 
     python3 tests/features/http/url_absolute.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
+
+Its page set includes the list's second page and the entry's comments on page two (a page size of one), and it asserts that
+each of those pages has URLs to read. The entry view API carries no URL; the attachment API answers URLs, but 403 to a
+member without the entry-edit right, so the page set does not reach it (D248). MyBB's own header and theme are excluded by
+an explicit list in the test.
+
+A stored quote's date (`[quote datetime='…']`) is text a member writes, so it can be numeric or malformed. The test
+`tests/features/http/quote_dates.py` stores three such quotes in comments and requires the entry page to answer 200 and
+show their text, on each engine (D248). Before the repair it answered 400 on all three engines.
+
+    python3 tests/features/http/quote_dates.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
