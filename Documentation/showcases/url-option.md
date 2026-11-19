@@ -45,20 +45,28 @@ Every link of a showcase is its **base** followed by the route path:
 
 ## How Automatic decides
 
-Automatic follows MyBB core's own rule for its links (`inc/init.php`), so the plugin and the rest of the board agree:
+Automatic friendly links need **two** things, so a board that has not set up the rewrite never gets broken links:
 
-* the board's **SEO URLs** setting (`seourls`) is `yes`: friendly links;
-* it is `auto` and the request carries `SEO_SUPPORT` set to `1` (core compares it loosely, so `true` and `"1"` count):
-  friendly links;
-* otherwise: plain links.
+* core's rule, which MyBB applies to its own links (`inc/init.php`): the board's **SEO URLs** setting (`seourls`) is
+  `yes`, or it is `auto` and the request carries `SEO_SUPPORT` set to `1` (compared loosely, so `true` and `"1"` count);
+* the plugin's marker: the request carries `SHOWCASE_SEO_SUPPORT` set to `1` (the same loose comparison). The rewrite
+  snippets below set it.
 
-Mode 0 is always plain and mode 2 is always friendly, whatever the board and the request say.
+When both hold, the links are friendly. Otherwise they are plain. Without the marker, Automatic stays plain whatever
+core's rule says.
+
+Mode 0 is always plain and mode 2 is always friendly, whatever the board and the request say. Yes requires the rewrite
+rule to be in place; Automatic needs the rewrite rule and the marker.
 
 ### What SEO_SUPPORT means
 
 `SEO_SUPPORT` is a value in the server environment of the request, not a board setting. MyBB reads it to know that the
 server rewrites the board's addresses (so that a link without `index.php` or `showcase.php` reaches the board). The
 server sets it in the rewrite configuration of the board, as shown below. Without it, `auto` gives plain links.
+
+`SHOWCASE_SEO_SUPPORT` is the plugin's own marker, read from the same request. It says that the rewrite rule of the
+showcases is in place, so Automatic may use friendly links. Setting it is what the rewrite snippets below do, next to
+their rules.
 
 ## Server rules
 
@@ -72,6 +80,7 @@ root), and list your own route identifiers in place of the example ones.
 RewriteEngine On
 RewriteBase /forum/
 SetEnv SEO_SUPPORT 1
+SetEnv SHOWCASE_SEO_SUPPORT 1
 
 # a real file or folder is served as it is
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -93,13 +102,14 @@ location ~ ^/forum/showcase\.php(/.*)?$ {
     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     fastcgi_param PATH_INFO $fastcgi_path_info;
     fastcgi_param SEO_SUPPORT 1;
+    fastcgi_param SHOWCASE_SEO_SUPPORT 1;
     include fastcgi_params;
     fastcgi_pass unix:/run/php/php-fpm.sock;
 }
 ```
 
-Adjust the PHP socket to your PHP-FPM setup. Setting `SEO_SUPPORT` only where the rewrite is active keeps Automatic
-honest: a board whose server cannot rewrite should not send it.
+Adjust the PHP socket to your PHP-FPM setup. Setting `SEO_SUPPORT` and `SHOWCASE_SEO_SUPPORT` only where the rewrite is
+active keeps Automatic honest: a board whose server cannot rewrite should send neither.
 
 ## Checking it
 
