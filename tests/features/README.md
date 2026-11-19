@@ -57,3 +57,14 @@ Since the full migration, the same run also covers the comment, attachment, expo
 and as a member), with the prefix as stored and with an empty one, and the export file URL and the own-board check of an
 import (both forms, every mode). The static guard that every link goes through the builder is `php tests/url-builder/guard_test.py`
 (no board needed; its allow-list and reasons are in `tests/url-builder/allow-list.json`).
+
+## Absolute URLs (decision D244)
+
+`tests/features/http/url_absolute.py` installs a board and checks every URL the plugin's pages emit (href, src, action,
+srcset, poster, data-*url*, meta and canonical content, url() in CSS, URL-like strings in scripts): each must be absolute,
+and on the expected base (the showcase base for a route of the showcase, the board address otherwise). It covers five
+showcase URL forms, two board address forms (the root, a subfolder with a trailing slash) and url_mode 0, 1 and 2, for a
+guest and a member, on nine pages. MyBB's own header and theme are not checked (an explicit list in the test). The unknown
+entry's status is Batch 8 and is accepted here.
+
+    python3 tests/features/http/url_absolute.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
