@@ -546,6 +546,16 @@ class Routing
     }
 
     /**
+     * The path of a route of the showcase, without the base: for comparing a route, never for a link.
+     *
+     * @param array<string, mixed> $parameters
+     */
+    public function path(string $name, array $parameters = []): string
+    {
+        return $this->generateUrl($name, $parameters);
+    }
+
+    /**
      * A link of the showcase: the builder's base followed by the route's path.
      *
      * @param array<string, mixed> $parameters

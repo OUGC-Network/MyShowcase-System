@@ -63,7 +63,7 @@
             src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
     <script type="text/javascript">
         <!--
-        const url_showcase = "{{ url.showcase }}";
+        const url_showcase = "";
         // -->
     </script>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
@@ -105,7 +105,7 @@
 
     {# Approval queue #}
     {% if unapproved_entries %}
-        {% include '@ext.myshowcase/globalMessageUnapprovedEntries.twig' with {unapprovedEntriesUrl: url.showcase ~ unapproved_entries.url, unapprovedText: unapproved_entries.text} %}
+        {% include '@ext.myshowcase/globalMessageUnapprovedEntries.twig' with {unapprovedEntriesUrl: unapproved_entries.url, unapprovedText: unapproved_entries.text} %}
     {% endif %}
 
     {# Forum rules #}
@@ -126,7 +126,7 @@
 
     {% if url.create_entry %}
         {% set button_new_entry %}
-            <a href="{{ url.showcase }}{{ url.create_entry }}" class="button button--medium button--full-width">
+            <a href="{{ url.create_entry }}" class="button button--medium button--full-width">
                 {{ include('partials/icon.twig', {icon: 'edit', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_entry_create }}</span>
             </a>
@@ -135,7 +135,7 @@
 
     {% if url.export %}
         <p class="page-controls page-controls--compact">
-            <a href="{{ url.showcase }}{{ url.export }}" class="button button--medium button--secondary">
+            <a href="{{ url.export }}" class="button button--medium button--secondary">
                 {{ include('partials/icon.twig', {icon: 'download', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_import_export_button_export }}</span>
             </a>
@@ -144,7 +144,7 @@
 
     {% if url.import %}
         <p class="page-controls page-controls--compact">
-            <a href="{{ url.showcase }}{{ url.import }}" class="button button--medium button--secondary">
+            <a href="{{ url.import }}" class="button button--medium button--secondary">
                 <span class="button__text">{{ lang.myshowcase_import_export_button_import }}</span>
             </a>
         </p>
@@ -152,13 +152,13 @@
 
     <div class="page-controls page-controls--compact">
         <div class="page-buttons">
-            <a href="{{ url.showcase }}{{ url.main }}?action=markread&amp;{% if mybb.user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
+            <a href="{{ url.main }}?action=markread&amp;{% if mybb.user.uid %}&amp;my_post_key={{ mybb.post_code }}{% endif %}"
                class="button button--medium button--secondary button--half-width">
                 {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_button_read }}</span>
             </a>
             {% if mybb.user.uid %}
-                <a href="{{ url.showcase }}{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
+                <a href="{{ url.main }}?action=subscribe&amp;type=forum&amp;&amp;my_post_key={{ mybb.post_code }}"
                    class="button button--medium button--secondary button--half-width">
                     {% if 'add' == 'add' %}
                         {{ include('partials/icon.twig', {icon: 'plus', class: 'button__icon'}, with_context = false) }}
@@ -170,7 +170,7 @@
                 </a>
             {% endif %}
             {% if config.password %}
-                <a href="{{ url.showcase }}{{ url.clear_password }}"
+                <a href="{{ url.clear_password }}"
                    class="button button--medium button--secondary button--full-width">
                     {{ include('partials/icon.twig', {icon: 'key', class: 'button__icon'}, with_context = false) }}
                     {{ lang.myshowcase_main_button_clear_stored_password }}</a>
@@ -192,11 +192,11 @@
         {% endset %}
         <div class="column-headings column-headings--major column-headings--thread-list sort-results thread thread--default">
             <div class="column-headings__column thread__title">
-                <a href="{{ url.showcase }}{{ url.sort.subject }}"
+                <a href="{{ url.sort.subject }}"
                    class="sort-results__link sort-results__link--title">{{ lang.myshowcase_main_table_head_entry }}{% if url_params.order_by is defined and url_params.order_by == 'subject' %}{{ ascDesc }}{% endif %}</a>
             </div>
             <div class="column-headings__column thread__author">
-                <a href="{{ url.showcase }}{{ url.sort.username }}"
+                <a href="{{ url.sort.username }}"
                    class="sort-results__link sort-results__link--author">{{ lang.myshowcase_main_table_head_author }}{% if url_params.order_by is defined and url_params.order_by == 'username' %}{{ ascDesc }}{% endif %}</a>
             </div>
 
@@ -210,11 +210,11 @@
             {% endfor %}
 
             <div class="column-headings__column thread__replies">
-                <a href="{{ url.showcase }}{{ url.sort.comments }}"
+                <a href="{{ url.sort.comments }}"
                    class="sort-results__link sort-results__link--comments-approved">123-{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments' %}{{ ascDesc }}{% endif %}</a>
             </div>
             <div class="column-headings__column thread__latest">
-                <a href="{{ url.showcase }}{{ url.sort.last_comment }}"
+                <a href="{{ url.sort.last_comment }}"
                    class="sort-results__link sort-results__link--latest">{{ lang.myshowcase_main_table_head_last_comment }}{% if url_params.order_by is defined and url_params.order_by == 'dateline' %}{{ ascDesc }}{% endif %}</a>
             </div>
             {% if inline_tools %}
@@ -294,7 +294,7 @@
                 {{ include('partials/icon.twig', {icon: 'random', class: 'button__icon'}, with_context = false) }}
                 <span class="button__text">{{ lang.myshowcase_main_sort_entries }}</span>
             </summary>
-            <form action="{{ url.showcase }}{{ url.main }}" method="get"
+            <form action="{{ url.main }}" method="get"
                   class="block-actions__details form form--compact multi-field">
                 <h3 class="sort-results__title visually-hidden">{{ lang.myshowcase_main_sort_entries }}</h3>
                 <div class="select-field">
@@ -357,7 +357,7 @@
             {# Search #}
             <div class="forum-search page-tools__item">
                 <h2 class="title title--legend {% if not permissions.entries_can_view %}visually-hidden{% endif %}">{{ lang.myshowcase_main_search }}</h2>
-                <form action="{{ url.showcase }}{{ url.main }}" method="get">
+                <form action="{{ url.main }}" method="get">
                     <label>
                         <input type="text" name="keywords"
                                placeholder="{{ lang.myshowcase_main_search_keywords }}"

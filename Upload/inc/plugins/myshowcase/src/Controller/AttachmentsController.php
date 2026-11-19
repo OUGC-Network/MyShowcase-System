@@ -148,7 +148,7 @@ class AttachmentsController extends BaseController
                 $this->success([
                     'id' => $upload_attachment_result['attachment_id'],
                     'path' => $upload_attachment_result['file_name'],
-                    'url' => $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    'url' => $this->context->routing->url(
                             Routes::AttachmentDownload,
                             [
                                 'attachment_public_id' => $upload_attachment_result['public_id'],
@@ -233,7 +233,7 @@ class AttachmentsController extends BaseController
         );
 
         foreach ($attachmentObjects as $attachment_id => $attachment_data) {
-            $attachmentObjects[$attachment_id]['url'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $attachmentObjects[$attachment_id]['url'] = $this->context->routing->url(
                     Routes::AttachmentDownload,
                     [
                         'attachment_public_id' => $attachment_data['public_id'],

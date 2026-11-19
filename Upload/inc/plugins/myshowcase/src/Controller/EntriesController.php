@@ -244,7 +244,7 @@ class EntriesController extends BaseController
 
         $templatesContext = [
             'url' => [
-                'clear_password' => $this->context->routing->generateUrl(
+                'clear_password' => $this->context->routing->url(
                     Routes::Main,
                     [
                         'clear_password' => 1,
@@ -252,23 +252,23 @@ class EntriesController extends BaseController
                     ]
                 ),
                 'sort' => [
-                    'subject' => $this->context->routing->generateUrl(
+                    'subject' => $this->context->routing->url(
                         Routes::Main,
                         ['order_by' => 'subject'] + $order_dir_param + $this->context->render_manager->url_params,
                     ),
-                    'username' => $this->context->routing->generateUrl(
+                    'username' => $this->context->routing->url(
                         Routes::Main,
                         ['order_by' => 'username'] + $order_dir_param + $this->context->render_manager->url_params,
                     ),
-                    'comments' => $this->context->routing->generateUrl(
+                    'comments' => $this->context->routing->url(
                         Routes::Main,
                         ['order_by' => 'comments'] + $order_dir_param + $this->context->render_manager->url_params,
                     ),
-                    'views' => $this->context->routing->generateUrl(
+                    'views' => $this->context->routing->url(
                         Routes::Main,
                         ['order_by' => 'views'] + $order_dir_param + $this->context->render_manager->url_params,
                     ),
-                    'last_comment' => $this->context->routing->generateUrl(
+                    'last_comment' => $this->context->routing->url(
                         Routes::Main,
                         ['order_by' => 'last_comment'] + $order_dir_param + $this->context->render_manager->url_params,
                     ),
@@ -349,20 +349,20 @@ class EntriesController extends BaseController
         );
 
         if ($this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
-            $templatesContext['url']['create_entry'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['create_entry'] = $this->context->routing->url(
                 Routes::EntryCreate,
             );
         }
 
         if ($this->context->current_user->uid > 0 &&
             $this->context->current_user->hasPermission(UserPermissions::EntriesCanExport)) {
-            $templatesContext['url']['export'] = $this->context->routing->generateUrl(Routes::ExportMain);
+            $templatesContext['url']['export'] = $this->context->routing->url(Routes::ExportMain);
         }
 
         if ($this->context->current_user->uid > 0 &&
             $this->context->current_user->hasPermission(UserPermissions::EntriesCanImport) &&
             $this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
-            $templatesContext['url']['import'] = $this->context->routing->generateUrl(Routes::ImportMain);
+            $templatesContext['url']['import'] = $this->context->routing->url(Routes::ImportMain);
         }
 
         $templatesContext['unapproved_entries'] = '';
@@ -375,7 +375,7 @@ class EntriesController extends BaseController
                 ["entry_data.status='" . ContentStatuses::AwaitingApproval . "'"]
             ))) {
             $templatesContext['unapproved_entries'] = [
-                'url' => $this->context->routing->generateUrl(Routes::Main, ['unapproved' => 1]),
+                'url' => $this->context->routing->url(Routes::Main, ['unapproved' => 1]),
                 'text' => $this->context->language->sprintf(
                     $this->context->language->myshowcase_unapproved_count,
                     htmlspecialchars_uni($this->context->showcase->name),
@@ -386,7 +386,7 @@ class EntriesController extends BaseController
 
         if ($this->context->current_user->uid > 0 &&
             $this->context->current_user->hasPermission(UserPermissions::EntriesCanExport)) {
-            $templatesContext['url']['export'] = $this->context->routing->generateUrl(Routes::ExportMain);
+            $templatesContext['url']['export'] = $this->context->routing->url(Routes::ExportMain);
         }
 
         /**
@@ -394,7 +394,7 @@ class EntriesController extends BaseController
          */
         foreach ($this->context->custom_fields_collection as $field_id => $field) {
             if ($field->isViewableInMain()) {
-                $templatesContext['url']['sort'][$field->field_key] = $this->context->routing->generateUrl(
+                $templatesContext['url']['sort'][$field->field_key] = $this->context->routing->url(
                     Routes::Main,
                     ['order_by' => $field->field_key] + $order_dir_param + $this->context->render_manager->url_params,
                 );
@@ -506,7 +506,7 @@ class EntriesController extends BaseController
 
                 $attachment_data->setExtraData(
                     'url',
-                    $this->context->routing->generateUrl(
+                    $this->context->routing->url(
                         Routes::AttachmentDownload,
                         [
                             'attachment_public_id' => $attachment_data->public_id,
@@ -518,7 +518,7 @@ class EntriesController extends BaseController
                 if ($attachment_data->has_thumbnail) {
                     $attachment_data->setExtraData(
                         'url_thumbnail',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::AttachmentThumbnail,
                             [
                                 'attachment_public_id' => $attachment_data->public_id,
@@ -559,7 +559,7 @@ class EntriesController extends BaseController
                 $entry
                     ->setExtraData(
                         'url',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::EntryView,
                             [
                                 'entry_public_id' => $entry->public_id,
@@ -654,7 +654,7 @@ class EntriesController extends BaseController
                         ->setExtraData('last_commenter_user_data', get_user($comment_data['user_id']))
                         ->setExtraData(
                             'last_comment_url',
-                            $this->context->routing->generateUrl(
+                            $this->context->routing->url(
                                 Routes::CommentView,
                                 [
                                     'comment_public_id' => $comment_data['public_id'],
@@ -825,7 +825,7 @@ class EntriesController extends BaseController
         }
 
         return [
-            'url' => $this->context->routing->generateUrl(
+            'url' => $this->context->routing->url(
                 Routes::AttachmentThumbnail,
                 ['attachment_public_id' => $image->public_id, 'attachment_name' => $image->attachment_name]
             ),
@@ -1026,13 +1026,13 @@ class EntriesController extends BaseController
 
             $field->setExtraData(
                 'upload_url',
-                $is_update ? $this->context->routing->generateUrl(
+                $is_update ? $this->context->routing->url(
                     Routes::EntryUpdateUploadApi,
                     [
                         'entry_public_id' => $entry->public_id,
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
-                ) : $this->context->routing->generateUrl(
+                ) : $this->context->routing->url(
                     Routes::EntryCreateUploadApi,
                     [
                         'post_hash' => $entry->post_hash,
@@ -1045,21 +1045,21 @@ class EntriesController extends BaseController
 
         $templatesContext = [
             'url' => [
-                'crate_update' => $is_update ? $this->context->routing->generateUrl(
+                'crate_update' => $is_update ? $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
                     ]
-                ) : $this->context->routing->generateUrl(
+                ) : $this->context->routing->url(
                     Routes::EntryCreate,
                 ),
-                'upload' => $is_update ? $this->context->routing->generateUrl(
+                'upload' => $is_update ? $this->context->routing->url(
                     Routes::EntryUpdateUploadApi,
                     [
                         'entry_public_id' => $entry->public_id,
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
-                ) : $this->context->routing->generateUrl(
+                ) : $this->context->routing->url(
                     Routes::EntryCreateUploadApi,
                     [
                         'post_hash' => $entry->post_hash,
@@ -1277,7 +1277,7 @@ class EntriesController extends BaseController
                         $entry->status === ContentStatuses::SoftDeleted ||
                         !$this->context->entries_manager->canViewStatus((int)$entry->status, (int)$entry->user_id)
                     )) {
-                    $mainUrl = $this->context->routing->generateUrl(
+                    $mainUrl = $this->context->routing->url(
                         Routes::Main,
                         $this->context->render_manager->url_params
                     );
@@ -1578,7 +1578,7 @@ class EntriesController extends BaseController
             )
         );
 
-        $mainUrl = $this->context->routing->generateUrl(
+        $mainUrl = $this->context->routing->url(
             Routes::Main,
             $this->context->render_manager->url_params
         );
@@ -1598,24 +1598,24 @@ class EntriesController extends BaseController
             'entry_moderator' => $this->isEntryModerator(),
             'comment_moderator' => $this->isCommentModerator(),
             'url' => [
-                'entry' => $this->context->routing->generateUrl(
+                'entry' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
                         'entry_slug_custom' => $entry->entry_slug_custom
                     ]
                 ),
-                'entry_moderation' => $this->context->routing->generateUrl(
+                'entry_moderation' => $this->context->routing->url(
                     Routes::EntryUpdate,
                     ['entry_public_id' => $entry->public_id]
                 ),
-                'comment' => $this->context->routing->generateUrl(
+                'comment' => $this->context->routing->url(
                     Routes::CommentCreate,
                     [
                         'entry_public_id' => $entry->public_id,
                     ]
                 ),
-                'threaded' => $this->context->routing->generateUrl(
+                'threaded' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1623,7 +1623,7 @@ class EntriesController extends BaseController
                         'threaded' => 1
                     ]
                 ),
-                'subscribe' => $this->context->routing->generateUrl(
+                'subscribe' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1632,7 +1632,7 @@ class EntriesController extends BaseController
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
                 ),
-                'unsubscribe' => $this->context->routing->generateUrl(
+                'unsubscribe' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1641,7 +1641,7 @@ class EntriesController extends BaseController
                         'my_post_key' => $this->context->mybb->post_code,
                     ]
                 ),
-                'oldest' => $this->context->routing->generateUrl(
+                'oldest' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1649,7 +1649,7 @@ class EntriesController extends BaseController
                         'action' => 'oldest',
                     ]
                 ),
-                'newest' => $this->context->routing->generateUrl(
+                'newest' => $this->context->routing->url(
                     Routes::EntryView,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1850,7 +1850,7 @@ class EntriesController extends BaseController
 
                 $collapsed['quickreply_e'] ??= '';
 
-                $templatesContext['url']['create_comment'] = $this->context->routing->generateUrl(
+                $templatesContext['url']['create_comment'] = $this->context->routing->url(
                     Routes::CommentCreate,
                     [
                         'entry_public_id' => $entry->public_id,

@@ -60,7 +60,7 @@ final class AttachmentAccess
      */
     public function publicUrl(string $public_id, string $attachment_name): string
     {
-        $path = $this->context->routing->generateUrl(
+        $path = $this->context->routing->path(
             Routes::AttachmentDownload,
             ['attachment_public_id' => $public_id, 'attachment_name' => $attachment_name]
         );
@@ -249,7 +249,7 @@ final class AttachmentAccess
 
         $name = rawurldecode($parts[2]);
 
-        $expected = $this->context->routing->generateUrl(
+        $expected = $this->context->routing->path(
             Routes::AttachmentDownload,
             ['attachment_public_id' => $public_id, 'attachment_name' => $name]
         );

@@ -408,15 +408,13 @@ abstract class BaseController
             $url_params['page'] = $current_page;
         }
 
-        return $this->context->showcase->showcase_url
-            . $this->context->routing->generateUrl(Routes::EntryView, $url_params)
+        return $this->context->routing->url(Routes::EntryView, $url_params)
             . '#' . $comment_public_id;
     }
 
     private function buildEntryRedirectUrl(EntryEntity $entry): string
     {
-        return $this->context->showcase->showcase_url
-            . $this->context->routing->generateUrl(
+        return $this->context->routing->url(
                 Routes::EntryView,
                 array_merge(
                     $this->context->render_manager->url_params,

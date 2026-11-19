@@ -165,12 +165,12 @@ class ExportController extends BaseController
 
         add_breadcrumb(
             $this->context->language->myshowcase_import_export_title_export,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::ExportMain)
+            $this->context->routing->url(Routes::ExportMain)
         );
 
         return $this->context->render_manager->templateGet('pageExportView', [
             'export' => $this->presentExport($export),
-            'url' => ['export_main' => $this->context->routing->generateUrl(Routes::ExportMain)],
+            'url' => ['export_main' => $this->context->routing->url(Routes::ExportMain)],
         ]);
     }
 
@@ -266,7 +266,7 @@ class ExportController extends BaseController
     {
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main)
+            $this->context->routing->url(Routes::Main)
         );
     }
 
@@ -356,7 +356,7 @@ class ExportController extends BaseController
             'size_cap' => get_friendly_size(ImportLimits::effectiveCap()),
             'storage_inside_web_root' => $this->storage->isInsideWebRoot(),
             'storage_problem' => $this->storage->configurationProblem() !== null,
-            'url' => ['export_main' => $this->context->routing->generateUrl(Routes::ExportMain)],
+            'url' => ['export_main' => $this->context->routing->url(Routes::ExportMain)],
             'stored_count' => $this->storedExportsCount(),
             'stored_maximum' => (int)$this->context->showcase->exports_per_user_maximum,
         ]);
@@ -402,9 +402,9 @@ class ExportController extends BaseController
                 'removed_characters' => (int)($rules['removed_characters'] ?? 0),
             ],
             'url' => [
-                'view' => $routing->generateUrl(Routes::ExportView, ['export_id' => $export_id]),
-                'download' => $routing->generateUrl(Routes::ExportDownload, ['export_id' => $export_id]),
-                'delete' => $routing->generateUrl(Routes::ExportDelete, ['export_id' => $export_id]),
+                'view' => $routing->url(Routes::ExportView, ['export_id' => $export_id]),
+                'download' => $routing->url(Routes::ExportDownload, ['export_id' => $export_id]),
+                'delete' => $routing->url(Routes::ExportDelete, ['export_id' => $export_id]),
             ],
         ];
     }
@@ -467,7 +467,7 @@ class ExportController extends BaseController
     private function redirectTo(string $route, string $message, array $parameters = []): never
     {
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl($route, $parameters),
+            $this->context->routing->url($route, $parameters),
             $message
         );
 

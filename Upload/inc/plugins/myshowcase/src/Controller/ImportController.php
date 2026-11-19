@@ -124,7 +124,7 @@ class ImportController extends BaseController
 
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main)
+            $this->context->routing->url(Routes::Main)
         );
 
         $this->context->language->load('datahandler_myshowcase', false, true);
@@ -200,7 +200,7 @@ class ImportController extends BaseController
                 'size' => get_friendly_size(ImportLimits::effectiveCap()),
             ],
             'external_files' => ImportSettings::externalFilesEnabled(),
-            'url' => ['import_main' => $this->context->routing->generateUrl(Routes::ImportMain)],
+            'url' => ['import_main' => $this->context->routing->url(Routes::ImportMain)],
         ]);
     }
 

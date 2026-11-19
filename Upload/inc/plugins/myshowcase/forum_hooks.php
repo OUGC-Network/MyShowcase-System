@@ -385,7 +385,7 @@ function postbit(array &$post): array
                         ->setExtraData('icon', get_attachment_icon($attachment->attachment_name))
                         ->setExtraData(
                             'url',
-                            $showcase->context->routing->generateUrl(
+                            $showcase->context->routing->url(
                                 Routes::AttachmentDownload,
                                 [
                                     'attachment_public_id' => $attachment->public_id,
@@ -397,7 +397,7 @@ function postbit(array &$post): array
                     if (!empty($attachment->thumbnail_name)) {
                         $attachment->setExtraData(
                             'url_thumbnail',
-                            $showcase->context->routing->generateUrl(
+                            $showcase->context->routing->url(
                                 Routes::AttachmentThumbnail,
                                 [
                                     'attachment_public_id' => $attachment->public_id,
@@ -579,7 +579,7 @@ function modcp_reports_report(): void
 
         $report_data['content'] = $lang->sprintf(
             $lang->myshowcase_report_entry_content,
-            $showcase->context->routing->generateUrl(
+            $showcase->context->routing->url(
                 Routes::EntryView,
                 [
                     'entry_public_id' => $entryData['public_id'],

@@ -191,14 +191,14 @@ class CommentsController extends BaseController
     ): void {
         add_breadcrumb(
             $this->context->showcase->name,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(Routes::Main)
+            $this->context->routing->url(Routes::Main)
         );
 
         $entry_subject = $this->buildEntrySubject($entry);
 
         add_breadcrumb(
             $entry_subject . $entry->subject,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::EntryView,
                 ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             )
@@ -207,7 +207,7 @@ class CommentsController extends BaseController
         if ($is_update) {
             add_breadcrumb(
                 $lang->myshowcase_button_comment_update,
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::CommentUpdate,
                     ['entry_public_id' => $entry->public_id, 'comment_public_id' => $comment_public_id]
                 )
@@ -218,7 +218,7 @@ class CommentsController extends BaseController
 
         add_breadcrumb(
             $lang->myshowcase_button_comment_create,
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::CommentCreate,
                 ['entry_public_id' => $entry->public_id]
             )
@@ -338,7 +338,7 @@ class CommentsController extends BaseController
         // Soft-deleted comments redirect to entry page; users cannot deep-link deleted content
         if (isset($comment_data->status) && $comment_data->status === ContentStatuses::SoftDeleted) {
             redirect(
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryView,
                     ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
@@ -347,7 +347,7 @@ class CommentsController extends BaseController
         }
 
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::CommentView,
                 ['comment_public_id' => $comment_data->public_id]
             ),
@@ -358,13 +358,13 @@ class CommentsController extends BaseController
     private function buildFormActionUrl(EntryEntity $entry, ?string $comment_public_id, bool $is_update): string
     {
         if ($is_update) {
-            return $this->context->routing->generateUrl(
+            return $this->context->routing->url(
                 Routes::CommentUpdate,
                 ['entry_public_id' => $entry->public_id, 'comment_public_id' => $comment_public_id]
             );
         }
 
-        return $this->context->routing->generateUrl(
+        return $this->context->routing->url(
             Routes::CommentCreate,
             ['entry_public_id' => $entry->public_id]
         );
@@ -444,7 +444,7 @@ class CommentsController extends BaseController
             $this->updateEntryCommentsCount((int)$entry->entry_id);
 
             redirect(
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryView,
                     ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
@@ -466,7 +466,7 @@ class CommentsController extends BaseController
             $this->updateEntryCommentsCount((int)$entry->entry_id);
 
             redirect(
-                $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::EntryView,
                     ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
@@ -481,7 +481,7 @@ class CommentsController extends BaseController
         $this->updateEntryCommentsCount((int)$entry->entry_id);
 
         redirect(
-            $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+            $this->context->routing->url(
                 Routes::EntryView,
                 ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             ),

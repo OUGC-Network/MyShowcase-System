@@ -1,14 +1,14 @@
 <div class="row row--form field uploaded-attachment" id="attachment_{{ attachment_id }}">
     <div class="uploaded-attachment__details">
         {% if attachment_data.extra_data.is_image %}
-            <a href="{{ url.showcase }}{{ attachment_data.extra_data.url }}" target="_blank" class="uploaded-attachment__preview">
-                <img src="{{ url.showcase }}{{ attachment_data.extra_data.url_thumbnail }}" alt="" style="max-width: 80px; max-height: 80px;"/>
+            <a href="{{ attachment_data.extra_data.url }}" target="_blank" class="uploaded-attachment__preview">
+                <img src="{{ attachment_data.extra_data.url_thumbnail }}" alt="" style="max-width: 80px; max-height: 80px;"/>
             </a>
         {% else %}
             <span class="uploaded-attachment__icon">{{ attachment_data.extra_data.icon|raw }}</span>
         {% endif %}
         <span class="uploaded-attachment__file-name">
-            <a href="{{ url.showcase }}{{ attachment_data.extra_data.url }}" target="_blank">{{ attachment_data.attachment_name }}</a>
+            <a href="{{ attachment_data.extra_data.url }}" target="_blank">{{ attachment_data.attachment_name }}</a>
         </span>
         <span class="uploaded-attachment__file-size">({{ attachment_data.extra_data.file_size }})</span>
     </div>

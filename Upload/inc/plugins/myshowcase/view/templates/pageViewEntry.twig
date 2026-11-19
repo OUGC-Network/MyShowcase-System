@@ -128,7 +128,7 @@
         {% endif %}
 
         {# Entry date & permalink #}
-        <a href="{{ url.showcase }}{{ url.entry }}#{{ entry_data.public_id }}"
+        <a href="{{ url.entry }}#{{ entry_data.public_id }}"
            title="{{ entry_data.dateline.getTimestamp()|striptags }}"
            class="post__date">
             {{ entry_data.dateline|date }}
@@ -212,7 +212,7 @@
             <div class="post-controls post-controls--primary">
                 {# Restore button (for deleted posts) #}
                 {% if entry_moderator and permissions.entries_can_restore and url.restore is defined %}
-                    <a href="{{ url.showcase }}{{ url.restore }}"
+                    <a href="{{ url.restore }}"
                        style="display: none;" id="quick_restore_{{ entry_data.public_id }}"
                        title="{{ lang.myshowcase_view_entry_action_quick_restore_title }}"
                        class="post-control post-control--restore">
@@ -258,8 +258,8 @@
                        id="quick_edit_post_{{ entry_data.public_id }}"
                        title="{{ lang.myshowcase_view_entry_action_edit_title }}"
                        data-entry-public-id="{{ entry_data.public_id }}"
-                       data-view-url="{{ url.showcase }}{{ url.entry_api }}"
-                       data-update-url="{{ url.showcase }}{{ url.update_api }}">
+                       data-view-url="{{ url.entry_api }}"
+                       data-update-url="{{ url.update_api }}">
                         {{ include('partials/icon.twig', {icon: 'pencil-alt', class: 'post-control__icon fa-fw'}, with_context = false) }}
                         <span class="post-control__text">{{ lang.myshowcase_view_entry_action_edit }}</span>
                     </a>
@@ -282,7 +282,7 @@
                     <span class="post-options__list" id="post_options2_{{ entry_data.public_id }}">
                         {# Edit button #}
                         {% if entry_data.public_id and permissions.entries_can_update %}
-                            <a href="{{ url.showcase }}{{ url.update }}"
+                            <a href="{{ url.update }}"
                                class="post-control post-control--full-edit">
                             {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_entry_options_full_edit }}</span>
@@ -291,7 +291,7 @@
 
                         {# Delete button #}
                         {% if entry_data.public_id and permissions.entries_can_soft_delete %}
-                            <a href="{{ url.showcase }}{{ url.soft_delete }}"
+                            <a href="{{ url.soft_delete }}"
                                id="quick_delete_{{ entry_data.public_id }}"
                                title="{{ lang.myshowcase_view_entry_options_quick_delete_title }}"
                                class="post-control post-control--delete">
@@ -307,7 +307,7 @@
 
                         {# Delete button #}
                         {% if entry_data.public_id and permissions.entries_can_delete %}
-                            <a href="{{ url.showcase }}{{ url.delete }}"
+                            <a href="{{ url.delete }}"
                                title="{{ lang.myshowcase_view_entry_options_quick_delete_permanently_title }}"
                                class="post-control post-control--delete">
                             {{ include('partials/icon.twig', {icon: 'trash', class: 'post-control__icon fa-fw'}, with_context = false) }}

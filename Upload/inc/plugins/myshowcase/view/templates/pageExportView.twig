@@ -21,19 +21,19 @@
                 {% if export.file_deleted %}
                     <em>{{ lang.myshowcase_import_export_file_deleted }}</em>
                 {% else %}
-                    <a href="{{ url.showcase }}{{ export.url.download }}" class="button button--medium">
+                    <a href="{{ export.url.download }}" class="button button--medium">
                         <span class="button__text">{{ lang.myshowcase_import_export_download }}</span>
                     </a>
                 {% endif %}
             </p>
-            <form action="{{ url.showcase }}{{ export.url.delete }}" method="post"
+            <form action="{{ export.url.delete }}" method="post"
                   onsubmit="return confirm('{{ lang.myshowcase_import_export_delete_confirm|e('js') }}');">
                 <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
                 <button type="submit" class="button button--medium button--secondary">
                     <span class="button__text">{{ lang.myshowcase_import_export_delete }}</span>
                 </button>
             </form>
-            <p><a href="{{ url.showcase }}{{ url.export_main }}">{{ lang.myshowcase_import_export_back_to_list }}</a></p>
+            <p><a href="{{ url.export_main }}">{{ lang.myshowcase_import_export_back_to_list }}</a></p>
         </section>
     </div>
 {% endblock body %}

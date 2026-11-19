@@ -7,15 +7,15 @@
 
     {# The first image of the entry's file fields #}
     {% if entry.extra_data.main_image %}
-        <a href="{{ url.showcase }}{{ entry.extra_data.url }}" class="thread__image">
-            <img src="{{ url.showcase }}{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"
+        <a href="{{ entry.extra_data.url }}" class="thread__image">
+            <img src="{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"
                  style="max-width: 80px; max-height: 80px;"/>
         </a>
     {% endif %}
 
     <div class="thread__title">
         <h3 class="thread__subject">
-            <a href="{{ url.showcase }}{{ entry.extra_data.url }}">{{ entry.extra_data.subject_html|raw }}</a>
+            <a href="{{ entry.extra_data.url }}">{{ entry.extra_data.subject_html|raw }}</a>
         </h3>
 
         {# Only their author and moderators see waiting entries, only moderators deleted ones #}

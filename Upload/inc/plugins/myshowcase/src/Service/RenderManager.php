@@ -152,9 +152,8 @@ class RenderManager
                 'page' => [],
             ],
             'url' => [
-                'showcase' => $this->context->routing->base(),
                 'showcase_assets' => $this->context->mybb->get_asset_url($this->context->showcase->showcase_url),
-                'main' => $this->context->routing->generateUrl(Routes::Main),
+                'main' => $this->context->routing->url(Routes::Main),
             ],
         ],
             array_merge([
@@ -326,7 +325,7 @@ class RenderManager
 
         // todo, will be empty when preview a new entry/comment
         if (!empty($entry->public_id)) {
-            $templatesContext['url']['entry'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['entry'] = $this->context->routing->url(
                 Routes::EntryView,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -334,7 +333,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['entry_api'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['entry_api'] = $this->context->routing->url(
                 Routes::EntryViewApi,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -405,7 +404,7 @@ class RenderManager
 
             $attachment_data->setExtraData(
                 'url',
-                $this->context->routing->generateUrl(
+                $this->context->routing->url(
                     Routes::AttachmentDownload,
                     [
                         'attachment_public_id' => $attachment_data->public_id,
@@ -417,7 +416,7 @@ class RenderManager
             if ($attachment_data->has_thumbnail) {
                 $attachment_data->setExtraData(
                     'url_thumbnail',
-                    $this->context->routing->generateUrl(
+                    $this->context->routing->url(
                         Routes::AttachmentThumbnail,
                         [
                             'attachment_public_id' => $attachment_data->public_id,
@@ -444,7 +443,7 @@ class RenderManager
                 );
             }
         } elseif (!$this->is_preview) {
-            $templatesContext['url']['comment'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['comment'] = $this->context->routing->url(
                 Routes::CommentView,
                 [
                     'comment_public_id' => $comment->public_id
@@ -535,14 +534,14 @@ class RenderManager
             );
 
         if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entry_moderator || $userCanUpdateEntries)) {
-            $templatesContext['url']['update'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['update'] = $this->context->routing->url(
                 Routes::EntryUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
                 ]
             );
 
-            $templatesContext['url']['update_api'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['update_api'] = $this->context->routing->url(
                 Routes::EntryUpdateApi,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -550,7 +549,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['soft_delete'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['soft_delete'] = $this->context->routing->url(
                 Routes::EntryUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -559,7 +558,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['delete'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['delete'] = $this->context->routing->url(
                 Routes::EntryUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -568,7 +567,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['restore'] = $this->context->routing->url(
                 Routes::EntryUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -577,7 +576,7 @@ class RenderManager
                 ]
             );
         } elseif (!$this->is_preview && $post_type === ContentTypes::Comment && $comment->comment_id && ($comment_moderator || $userCanUpdateComments)) {
-            $templatesContext['url']['update'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['update'] = $this->context->routing->url(
                 Routes::CommentUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -585,7 +584,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['soft_delete'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['soft_delete'] = $this->context->routing->url(
                 Routes::CommentUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -595,7 +594,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['delete'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['delete'] = $this->context->routing->url(
                 Routes::CommentUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -605,7 +604,7 @@ class RenderManager
                 ]
             );
 
-            $templatesContext['url']['restore'] = $this->context->routing->generateUrl(
+            $templatesContext['url']['restore'] = $this->context->routing->url(
                 Routes::CommentUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -726,7 +725,7 @@ class RenderManager
 
         if (!$this->is_preview && $post_type === ContentTypes::Entry && $entry->entry_id && ($entry_moderator || $userCanSoftDeleteEntries)) {
             if ($entry_moderator && $postStatus === ContentStatuses::AwaitingApproval) {
-                $approveUrl = $this->context->routing->generateUrl(
+                $approveUrl = $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -734,7 +733,7 @@ class RenderManager
                     ]
                 );
             } elseif ($entry_moderator && $postStatus === ContentStatuses::VisibleApproved) {
-                $unapproveUrl = $this->context->routing->generateUrl(
+                $unapproveUrl = $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -744,7 +743,7 @@ class RenderManager
             }
 
             if ($entry_moderator && $postStatus === ContentStatuses::SoftDeleted) {
-                $restoreUrl = $this->context->routing->generateUrl(
+                $restoreUrl = $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -752,7 +751,7 @@ class RenderManager
                     ]
                 );
             } elseif ($postStatus === ContentStatuses::VisibleApproved && $userCanSoftDeleteEntries) {
-                $softDeleteUrl = $this->context->routing->generateUrl(
+                $softDeleteUrl = $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -763,7 +762,7 @@ class RenderManager
 
             //only mods, original author (if allowed) or owner (if allowed) can delete entries
             if ($entry_moderator) {
-                $deleteUrl = $this->context->routing->generateUrl(
+                $deleteUrl = $this->context->routing->url(
                     Routes::EntryUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -783,7 +782,7 @@ class RenderManager
                         ])
                     );
             } elseif ($comment_moderator && $postStatus === ContentStatuses::VisibleApproved) {
-                $templatesContext['url_comment_unapprove'] = $this->context->routing->generateUrl(
+                $templatesContext['url_comment_unapprove'] = $this->context->routing->url(
                     Routes::CommentUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -794,7 +793,7 @@ class RenderManager
             }
 
             if ($comment_moderator && $postStatus === ContentStatuses::SoftDeleted) {
-                $templatesContext['url_comment_restore'] = $this->context->routing->generateUrl(
+                $templatesContext['url_comment_restore'] = $this->context->routing->url(
                     Routes::CommentUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -803,7 +802,7 @@ class RenderManager
                     ]
                 );
             } elseif ($postStatus === ContentStatuses::VisibleApproved) {
-                $templatesContext['url_comment_soft_delete'] = $this->context->routing->generateUrl(
+                $templatesContext['url_comment_soft_delete'] = $this->context->routing->url(
                     Routes::CommentUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -815,7 +814,7 @@ class RenderManager
 
             //only mods, original author (if allowed) or owner (if allowed) can delete comments
             if ($comment_moderator) {
-                $templatesContext['url_comment_delete'] = $this->context->routing->generateUrl(
+                $templatesContext['url_comment_delete'] = $this->context->routing->url(
                     Routes::CommentUpdate,
                     [
                         'entry_public_id' => $entry->public_id,
@@ -1125,7 +1124,7 @@ class RenderManager
                 if ($entry->entry_id) {
                     $attachment_data->setExtraData(
                         'url',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::AttachmentDownload,
                             [
                                 'attachment_public_id' => $attachment_data->public_id,
@@ -1136,7 +1135,7 @@ class RenderManager
                 } else {
                     $attachment_data->setExtraData(
                         'url',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::AttachmentDownload,
                             [
                                 'attachment_public_id' => $attachment_data->public_id,
@@ -1149,7 +1148,7 @@ class RenderManager
                 if ($attachment_data->has_thumbnail) {
                     $attachment_data->setExtraData(
                         'url_thumbnail',
-                        $this->context->routing->generateUrl(
+                        $this->context->routing->url(
                             Routes::AttachmentThumbnail,
                             [
                                 'attachment_public_id' => $attachment_data->public_id,
@@ -1289,7 +1288,7 @@ class RenderManager
         $myDropzoneSettingAllowedMimeFileTypes = implode(',', $myDropzoneSettingAllowedMimeFileTypes);
 
         if ($isEditPage) {
-            $createUpdateUrl = $this->context->routing->generateUrl(
+            $createUpdateUrl = $this->context->routing->url(
                 Routes::EntryUpdate,
                 [
                     'entry_public_id' => $entry->public_id,
@@ -1297,7 +1296,7 @@ class RenderManager
                 $this->url_params
             );
         } else {
-            $createUpdateUrl = $this->context->routing->generateUrl(
+            $createUpdateUrl = $this->context->routing->url(
                 Routes::EntryCreate,
                 $this->url_params
             );

@@ -91,7 +91,7 @@
         </h3>
 
         {# Comment date & permalink #}
-        <a href="{{ url.showcase }}{{ url.comment }}"
+        <a href="{{ url.comment }}"
            title="{{ entry_data.dateline.getTimestamp()|striptags }}"
            class="post__date">
             {{ entry_data.dateline.getTimestamp() }}
@@ -142,7 +142,7 @@
         <div class="post-controls post-controls--primary">
             {# Restore button (for deleted posts) #}
             {% if comment_moderator and permissions.comments_can_restore and url.restore is defined %}
-                <a href="{{ url.showcase }}{{ url.restore }}"
+                <a href="{{ url.restore }}"
                    style="display: none;" id="quick_restore_{{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quick_restore_title }}"
                    class="post-control post-control--restore">
@@ -193,7 +193,7 @@
                 <span class="post-options__list" id="post_options2_{{ comment_data.public_id }}">
                     {# Edit button #}
                     {% if permissions.comments_can_update or comment_moderator %}
-                        <a href="{{ url.showcase }}{{ url.update }}"
+                        <a href="{{ url.update }}"
                            class="post-control post-control--full-edit">
                             {{ include('partials/icon.twig', {icon: 'edit', class: 'post-control__icon fa-fw'}, with_context = false) }}
                             <span class="post-control__text">{{ lang.myshowcase_view_comment_options_full_edit }}</span>
@@ -202,7 +202,7 @@
 
                     {# Delete button #}
                     {% if (permissions.comments_can_soft_delete or comment_moderator) %}
-                        <a href="{{ url.showcase }}{{ url.soft_delete }}"
+                        <a href="{{ url.soft_delete }}"
                            id="quick_delete_{{ comment_data.public_id }}"
                            title="{{ lang.myshowcase_view_comment_options_quick_delete_title }}"
                            class="post-control post-control--delete">

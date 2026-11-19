@@ -63,7 +63,7 @@ readonly class QuotesUtil
                 $delete_quote = true;
 
                 if (!empty($slug)) {
-                    $quote['url'] = $this->context->showcase->showcase_url . $this->context->routing->generateUrl(
+                    $quote['url'] = $this->context->routing->url(
                             Routes::CommentView,
                             [
                                 'comment_public_id' => $slug,
