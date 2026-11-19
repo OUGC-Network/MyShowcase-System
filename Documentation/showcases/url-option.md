@@ -35,6 +35,21 @@ An import recognises a file URL that points at its own board's attachment (the b
 in **both** forms: `https://example.com/forum/showcase.php/blog/attachment/…` and
 `https://example.com/forum/blog/attachment/…`. The option does not change what an import accepts.
 
+## The showcase URL is absolute
+
+Every URL the plugin's pages emit is absolute (decision D244): the links, the forms, the scripts, the images, the canonical
+and the meta links. The showcase URL (**Url to Showcase**, in the ACP General tab) decides the base of the showcase's own
+links, and it is resolved like this:
+
+* a value with a scheme and a host (`https://example.com/forum/showcase.php`) is used as it is;
+* a value that starts with `/` (`/forum/showcase.php`) is resolved against the origin of the board address;
+* any other value (`showcase.php`, `forum/showcase.php`) is resolved against the board address;
+* an empty value is the board address followed by `/showcase.php`.
+
+The board address is the board's own address (`bburl`). A board in a subfolder keeps the folder in every link, image and
+script, and a trailing slash in the board address does not produce a doubled slash. The profile, attachment and asset
+links are based on the board address; a showcase's own pages are based on the showcase URL.
+
 ## Where the base comes from
 
 Every link of a showcase is its **base** followed by the route path:
