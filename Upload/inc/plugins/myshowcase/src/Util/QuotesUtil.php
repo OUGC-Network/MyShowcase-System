@@ -24,6 +24,25 @@ readonly class QuotesUtil
     {
     }
 
+
+    /**
+     * The timestamp a quote's datetime tag names, or null when the text names no date. A number is a Unix timestamp (the form
+     * a stored integer time takes); any other text is read as a date. A text PHP cannot read has no date, and the quote is
+     * still shown (defect of the quote parser: the constructor threw for a numeric or malformed date and failed the page).
+     */
+    private function quoteTimestamp(string $value): ?int
+    {
+        if (is_numeric($value)) {
+            return (int)$value;
+        }
+
+        try {
+            return (new DateTime($value))->getTimestamp();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     /**
      * Parses quote MyCode.
      *
@@ -76,11 +95,9 @@ readonly class QuotesUtil
                 }
 
                 if (!empty($datetime)) {
-                    $datetime = new DateTime($datetime);
+                    $dateline = $this->quoteTimestamp((string)$datetime);
 
-                    $dateline = $datetime->getTimestamp();
-
-                    if ($dateline < TIME_NOW) {
+                    if ($dateline !== null && $dateline < TIME_NOW) {
                         $quote['date'] = my_date('relative', $dateline);
                     }
 
