@@ -10,6 +10,10 @@ ENGINE = BOARD = IMP = A = CTX = None
 ADM = '/admin/index.php?module='
 
 
+# the schema of the board's tables: database() on MySQL, current_schema() on PostgreSQL (information_schema on both)
+def schema_fn():
+    return 'current_schema()' if ENGINE == 'pgsql' else 'database()'
+
 def configure(ctx):
     """ctx provides: engine, board (path), url, user, password, query(sql), execute(sql)."""
     global ENGINE, BOARD, IMP, A, CTX
@@ -188,10 +192,10 @@ def section_a():
         ok(e is None, f'showcase tab {cat} saves' + (f' ({e})' if e else ''))
     ok(one(f"select main_per_page from mybb_myshowcase_config where showcase_id={sid}") == '7' and one(f"select main_prune_age from mybb_myshowcase_config where showcase_id={sid}") == '14' and one(f"select description from mybb_myshowcase_config where showcase_id={sid}") == 'cars desc', 'showcase values saved, including main_prune_age')
     page(f'myshowcase-summary&action=create_table&showcase_id={sid}')
-    ok(len(db("select 1 from mybb_myshowcase_collections")) >= 1 and one(f"select count(*) from information_schema.columns where table_schema=database() and table_name='mybb_myshowcase_data{sid}' and column_name='model_name'") == '1' if ENGINE != 'sqlite' else 'model_name' in [c[1] for c in db(f"pragma table_info('mybb_myshowcase_data{sid}')")], 'create table has the field columns')
+    ok(len(db("select 1 from mybb_myshowcase_collections")) >= 1 and one(f"select count(*) from information_schema.columns where table_schema={schema_fn()} and table_name='mybb_myshowcase_data{sid}' and column_name='model_name'") == '1' if ENGINE != 'sqlite' else 'model_name' in [c[1] for c in db(f"pragma table_info('mybb_myshowcase_data{sid}')")], 'create table has the field columns')
     # rename a field with an existing column
     submit(f'myshowcase-fields&action=edit_field&field_id={fid}&collection_id={cid}', 'action=edit_field', {'field_key': 'model'})
-    cols = ([c[0] for c in db(f"select column_name from information_schema.columns where table_schema=database() and table_name='mybb_myshowcase_data{sid}'")] if ENGINE != 'sqlite' else [c[1] for c in db(f"pragma table_info('mybb_myshowcase_data{sid}')")])
+    cols = ([c[0] for c in db(f"select column_name from information_schema.columns where table_schema={schema_fn()} and table_name='mybb_myshowcase_data{sid}'")] if ENGINE != 'sqlite' else [c[1] for c in db(f"pragma table_info('mybb_myshowcase_data{sid}')")])
     ok('model' in cols and 'model_name' not in cols, 'rename field renames its column')
     ok(one(f"select field_key from mybb_myshowcase_fields where field_id={fid}") == 'model', 'rename field row')
     ok(one(f"select field_key from mybb_myshowcase_field_data where field_id={kid} limit 1") == 'kind', 'option key kept for other field')
@@ -215,7 +219,7 @@ def cols(table):
         return [c[1] for c in db(f"pragma table_info('{table}')")]
     if ENGINE == 'mysql':
         return [c[0] for c in db(
-            f"select column_name from information_schema.columns where table_schema=database() and table_name='{table}' order by ordinal_position"
+            f"select column_name from information_schema.columns where table_schema={schema_fn()} and table_name='{table}' order by ordinal_position"
         )]
     return [c[0] for c in db(
         f"select column_name from information_schema.columns where table_schema=current_schema() and table_name='{table}' order by ordinal_position"
@@ -364,7 +368,7 @@ def section_c(cid, sid, fcat):
     ok('author_note' in c1 and 'topics' in c1 and 'tags' not in c1 and 'cover_image' in c1, 'columns: added, renamed, removed field keeps its column')
     ok(one(f"select topics from {tbl} where public_id='e2'") == 't2' and one(f"select count(*) from {tbl}") == '3', 'entries preserved through the rename')
     ok(one("select reading_time from " + tbl + " where public_id='e3'") == '12', 'type change int -> varchar: values kept')
-    ct = ([c[0] for c in db(f"select data_type from information_schema.columns where table_schema=database() and table_name='{tbl}' and column_name='reading_time'")] if ENGINE != 'sqlite' else [c[2] for c in db(f"pragma table_info('{tbl}')") if c[1] == 'reading_time'])
+    ct = ([c[0] for c in db(f"select data_type from information_schema.columns where table_schema={schema_fn()} and table_name='{tbl}' and column_name='reading_time'")] if ENGINE != 'sqlite' else [c[2] for c in db(f"pragma table_info('{tbl}')") if c[1] == 'reading_time'])
     ok('char' in ct[0].lower(), f'reading_time column type is now {ct[0]}')
     ok(db("select json_file, json_version from mybb_myshowcase_fields where field_key='cover_image'") == [('', '')], 'removed field: json_* cleared (custom)')
     ok(one("select placeholder from mybb_myshowcase_fields where field_key='summary'") == 'step 1.2.0->1.3.0', 'PHP update step ran with old and new version')
