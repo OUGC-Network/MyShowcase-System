@@ -21,7 +21,9 @@ namespace MyShowcase\Routing;
  * always routed; this option only chooses the links.
  *
  * Automatic follows MyBB core's own rule (inc/init.php): friendly when the board's seourls setting is yes, or when it is auto
- * and the request carries SEO_SUPPORT that core accepts (isset, and equal to 1). This is the one place that rule is written.
+ * and the request carries SEO_SUPPORT that core accepts (isset, and equal to 1), and the plugin's own marker
+ * SHOWCASE_SEO_SUPPORT (set, and equal to 1: the rewrite snippets of the documentation set it). This is the one place that rule
+ * is written.
  */
 final class UrlMode
 {
@@ -39,10 +41,17 @@ final class UrlMode
     }
 
     /**
+     * Whether the links of a showcase are friendly for this request (decisions D224, D243).
+     *
+     * Automatic is friendly only when core's rule holds (seourls yes, or auto with SEO_SUPPORT set and equal to 1) AND
+     * the request carries the plugin's own marker, SHOWCASE_SEO_SUPPORT, set and equal to 1 with the same loose comparison.
+     * Yes is always friendly and No always plain, whatever the request carries.
+     *
      * @param string $seourls the board's seourls setting: 'no', 'auto' or 'yes'
      * @param mixed $seoSupport $_SERVER['SEO_SUPPORT'] of the request; null when it is not set
+     * @param mixed $marker $_SERVER['SHOWCASE_SEO_SUPPORT'] of the request; null when it is not set
      */
-    public static function usesFriendlyLinks(int $mode, string $seourls, mixed $seoSupport): bool
+    public static function usesFriendlyLinks(int $mode, string $seourls, mixed $seoSupport, mixed $marker = null): bool
     {
         if ($mode === self::PLAIN) {
             return false;
@@ -52,6 +61,8 @@ final class UrlMode
             return true;
         }
 
-        return $seourls === 'yes' || ($seourls === 'auto' && $seoSupport !== null && $seoSupport == 1);
+        $coreRule = $seourls === 'yes' || ($seourls === 'auto' && $seoSupport !== null && $seoSupport == 1);
+
+        return $coreRule && $marker !== null && $marker == 1;
     }
 }

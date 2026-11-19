@@ -524,7 +524,8 @@ class Routing
             (int)$this->context->showcase->url_mode,
             (string)($this->context->mybb->settings['bburl'] ?? ''),
             (string)($this->context->mybb->settings['seourls'] ?? 'no'),
-            $_SERVER['SEO_SUPPORT'] ?? null
+            $_SERVER['SEO_SUPPORT'] ?? null,
+            $_SERVER['SHOWCASE_SEO_SUPPORT'] ?? null
         );
     }
 
@@ -538,6 +539,7 @@ class Routing
             UrlMode::PLAIN,
             (string)($this->context->mybb->settings['bburl'] ?? ''),
             'no',
+            null,
             null
         );
     }
@@ -553,6 +555,7 @@ class Routing
             UrlMode::FRIENDLY,
             (string)($this->context->mybb->settings['bburl'] ?? ''),
             'no',
+            null,
             null
         );
     }
@@ -561,13 +564,14 @@ class Routing
      * The base of the links of a showcase, without a trailing slash, as a pure function of its settings and the request.
      *
      * @param mixed $seoSupport $_SERVER['SEO_SUPPORT'] of the request; null when it is not set
+     * @param mixed $marker $_SERVER['SHOWCASE_SEO_SUPPORT'] of the request; null when it is not set
      */
-    public static function showcaseBase(string $showcaseUrl, int $urlMode, string $boardUrl, string $seourls, mixed $seoSupport): string
+    public static function showcaseBase(string $showcaseUrl, int $urlMode, string $boardUrl, string $seourls, mixed $seoSupport, mixed $marker = null): string
     {
         $configured = rtrim(trim($showcaseUrl), '/');
         $base = $configured !== '' ? $configured : rtrim($boardUrl, '/') . '/showcase.php';
 
-        if (UrlMode::usesFriendlyLinks($urlMode, $seourls, $seoSupport) && str_ends_with($base, '/showcase.php')) {
+        if (UrlMode::usesFriendlyLinks($urlMode, $seourls, $seoSupport, $marker) && str_ends_with($base, '/showcase.php')) {
             $base = substr($base, 0, -strlen('/showcase.php'));
         }
 

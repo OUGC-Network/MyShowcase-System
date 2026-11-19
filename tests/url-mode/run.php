@@ -56,16 +56,16 @@ foreach (['no', 'auto', 'yes'] as $seourls) {
 
         // Automatic follows core: yes is friendly; no is plain; auto is friendly only with SEO_SUPPORT == 1 (loose)
         $coreAuto = $seourls === 'yes' || ($seourls === 'auto' && $seo !== null && $seo == 1);
-        $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, $seourls, $seo) === $coreAuto,
-            "Automatic for seourls {$seourls} and SEO_SUPPORT {$label} is " . ($coreAuto ? 'friendly' : 'plain'));
+        $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, $seourls, $seo, 1) === $coreAuto,
+            "Automatic with the marker for seourls {$seourls} and SEO_SUPPORT {$label} is " . ($coreAuto ? 'friendly' : 'plain'));
     }
 }
 
-$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1) === true, 'Automatic, seourls auto, SEO_SUPPORT 1: friendly');
-$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 0) === false, 'Automatic, seourls auto, SEO_SUPPORT 0: plain');
-$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', null) === false, 'Automatic, seourls auto, SEO_SUPPORT not set: plain');
-$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'no', 1) === false, 'Automatic, seourls no, SEO_SUPPORT 1: plain');
-$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', null) === true, 'Automatic, seourls yes, SEO_SUPPORT not set: friendly');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1, 1) === true, 'Automatic with the marker, seourls auto, SEO_SUPPORT 1: friendly');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 0, 1) === false, 'Automatic with the marker, seourls auto, SEO_SUPPORT 0: plain');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', null, 1) === false, 'Automatic with the marker, seourls auto, SEO_SUPPORT not set: plain');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'no', 1, 1) === false, 'Automatic with the marker, seourls no, SEO_SUPPORT 1: plain');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', null, 1) === true, 'Automatic with the marker, seourls yes, SEO_SUPPORT not set: friendly');
 
 
 // D243: Automatic is friendly only when core's rule holds AND the plugin's own marker (SHOWCASE_SEO_SUPPORT, isset and
