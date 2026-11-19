@@ -161,6 +161,9 @@ switch ($command) {
         if (getenv('URL_MODE_SEO') === '1') {
             $_SERVER['SEO_SUPPORT'] = 1;
         }
+        if (getenv('URL_MODE_MARKER') === '1') {
+            $_SERVER['SHOWCASE_SEO_SUPPORT'] = 1;
+        }
         require_once MYBB_ROOT . 'inc/plugins/myshowcase/forum_hooks.php';
         $row = $db->fetch_array($db->simple_select('myshowcase_config', 'showcase_id, name, route_identifier', "route_identifier='" . $db->escape_string($argv[2]) . "'"));
         $activity = ['activity' => $argv[3] === 'view' ? 'myshowcase_main_table_head_view' : 'myshowcase_list', 'myshowcase_id' => (int)$row['showcase_id'],

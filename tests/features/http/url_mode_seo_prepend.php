@@ -7,3 +7,8 @@ declare(strict_types=1);
 if (getenv('URL_MODE_SEO') === '1') {
     $_SERVER['SEO_SUPPORT'] = 1;
 }
+
+// The plugin's own marker (decision D243): a request of a server with mod_rewrite and the documented snippets carries it.
+if (getenv('URL_MODE_MARKER') === '1') {
+    $_SERVER['SHOWCASE_SEO_SUPPORT'] = 1;
+}

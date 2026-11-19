@@ -63,9 +63,10 @@ def php(board_dir, *args):
     return json.loads(lines[-1])
 
 
-def start_server(board_dir, port, seo, log):
+def start_server(board_dir, port, seo, marker, log):
     env = dict(os.environ)
     env['URL_MODE_SEO'] = '1' if seo else '0'
+    env['URL_MODE_MARKER'] = '1' if marker else '0'
     cmd = ['php', '-d', 'auto_prepend_file=' + os.path.join(HERE, 'url_mode_seo_prepend.php'), '-S', f'127.0.0.1:{port}',
            '-t', board_dir, os.path.join(board_dir, 'url_mode_router.php')]
     return subprocess.Popen(cmd, env=env, stdout=open(log, 'w'), stderr=subprocess.STDOUT)
@@ -158,13 +159,13 @@ def is_friendly(link):
     return '/showcase.php/' not in link
 
 
-def expected_friendly(mode, seourls, seo):
-    """Automatic is MyBB core's rule (init.php): yes, or auto with SEO_SUPPORT == 1."""
+def expected_friendly(mode, seourls, seo, marker):
+    """D243: Automatic is core's rule (seourls yes, or auto with SEO_SUPPORT) AND the plugin's marker on the request."""
     if mode == 0:
         return False
     if mode == 2:
         return True
-    return seourls == 'yes' or (seourls == 'auto' and seo)
+    return (seourls == 'yes' or (seourls == 'auto' and seo)) and marker
 
 
 def main():
@@ -206,14 +207,17 @@ def run(ctx, scratch, port):
                    'route_identifier': 'blog', 'custom_template_prefix': ''})
     php(board_dir, 'enable', 'blog')
     entry = php(board_dir, 'entry', 'blog', 'Url mode entry')  # the list and the entry page need one approved entry
-    plain_port, seo_port = port + 10, port + 11
-    plain = start_server(board_dir, plain_port, False, os.path.join(scratch, 'php-plain.log'))
-    seo = start_server(board_dir, seo_port, True, os.path.join(scratch, 'php-seo.log'))
-    SERVERS.extend([plain, seo])
+    plain_port, seo_port, nomarker_port = port + 10, port + 11, port + 12
+    plain = start_server(board_dir, plain_port, False, False, os.path.join(scratch, 'php-plain.log'))
+    seo = start_server(board_dir, seo_port, True, True, os.path.join(scratch, 'php-seo.log'))
+    nomarker = start_server(board_dir, nomarker_port, True, False, os.path.join(scratch, 'php-nomarker.log'))
+    # (name, port, SEO_SUPPORT, the plugin's marker): SEO_SUPPORT without the marker stays plain under Automatic (D243)
+    SERVERS_LIST = [('plain server', plain_port, False, False), ('SEO server', seo_port, True, True), ('SEO server without the marker', nomarker_port, True, False)]
+    SERVERS.extend([plain, seo, nomarker])
     time.sleep(1.5)
     # the server the links point at: the plain server (the friendly form is the same host without the script name)
     php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
-    servers_list = [plain, seo]
+    servers_list = [plain, seo, nomarker]
 
     # ---- D: the default of a showcase created from a file without url_mode
     print('--- D default: a showcase created from its file without url_mode is Automatic (1)')
@@ -227,14 +231,14 @@ def run(ctx, scratch, port):
         time.sleep(3)  # the opcache revalidates the settings file on its own clock
         for mode in (0, 1, 2):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
-            for name, base_port, is_seo in (('plain server', plain_port, False), ('SEO server', seo_port, True)):
+            for name, base_port, is_seo, marker in SERVERS_LIST:
                 c = Front(f'http://127.0.0.1:{base_port}')
                 r = c.get('/showcase.php/blog/')
                 body = r['body']
                 hrefs = links_of(body, '/view/')
                 friendly_links = [h for h in hrefs if '/showcase.php/' not in h]
                 plain_links = [h for h in hrefs if '/showcase.php/' in h]
-                want = expected_friendly(mode, seourls, is_seo)
+                want = expected_friendly(mode, seourls, is_seo, marker)
                 good = bool(hrefs) and ((want and not plain_links and friendly_links) or (not want and not friendly_links and plain_links))
                 ok(r['status'] == 200 and good,
                    f'seourls {seourls}, url_mode {mode}, {name}: links {"friendly" if want else "plain"} '
@@ -247,7 +251,7 @@ def run(ctx, scratch, port):
     php(board_dir, 'showcase-set', 'blog', 'url_mode', 2)
     if 'public_id' not in entry:
         ok(False, 'an approved entry can be created for the address checks')
-    for name, base_port in (('plain server', plain_port), ('SEO server', seo_port)) if 'public_id' in entry else ():
+    for name, base_port in ((n, p) for n, p, _, _ in SERVERS_LIST) if 'public_id' in entry else ():
         c = Front(f'http://127.0.0.1:{base_port}')
         forms = {'plain': f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}",
                  'friendly': f"/blog/view/{entry['public_id']}/{entry['slug']}"}
@@ -263,9 +267,9 @@ def run(ctx, scratch, port):
         time.sleep(3)
         for mode in (0, 1, 2):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
-            for name, base_port, is_seo in (('plain server', plain_port, False), ('SEO server', seo_port, True)):
+            for name, base_port, is_seo, marker in SERVERS_LIST:
                 c = Front(f'http://127.0.0.1:{base_port}')
-                want = expected_friendly(mode, seourls, is_seo)
+                want = expected_friendly(mode, seourls, is_seo, marker)
                 for page_name, path in (('list', '/showcase.php/blog/'),
                                         ('entry', f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")):
                     r = c.get(path)
@@ -282,14 +286,14 @@ def run(ctx, scratch, port):
         php(board_dir, 'setting', 'seourls', seourls)
         for mode in (0, 1, 2):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
-            for is_seo in (False, True):
-                env = {'URL_MODE_SEO': '1' if is_seo else '0'}
+            for is_seo, marker in ((False, False), (True, True), (True, False)):
+                env = {'URL_MODE_SEO': '1' if is_seo else '0', 'URL_MODE_MARKER': '1' if marker else '0'}
                 loc = php_env(board_dir, env, 'wol', 'blog', 'view', entry['entry_id'])
                 # the showcase's own links only: the board's profile link of the viewer is not a showcase link
                 hrefs = [h for h in re.findall(r'href="([^"]*)"', loc.get('location', '')) if '/blog' in h]
-                want = expected_friendly(mode, seourls, is_seo)
+                want = expected_friendly(mode, seourls, is_seo, marker)
                 good = bool(hrefs) and all(is_friendly(h) == want for h in hrefs)
-                ok(good, f'who\'s online, seourls {seourls}, url_mode {mode}, {"SEO" if is_seo else "plain"} request: '
+                ok(good, f'who\'s online, seourls {seourls}, url_mode {mode}, {"SEO" if is_seo else "plain"}{" with the marker" if marker else ""} request: '
                          f'{"friendly" if want else "plain"} ({hrefs[:1] or loc})')
 
     # ---- P: a custom showcase_url (not ending in showcase.php) gives identical forms; an empty one falls back to bburl
@@ -388,8 +392,8 @@ def run(ctx, scratch, port):
             time.sleep(3)
             for mode in (0, 1, 2):
                 php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
-                for name, base_port, is_seo in (('plain server', plain_port, False), ('SEO server', seo_port, True)):
-                    want = expected_friendly(mode, seourls, is_seo)
+                for name, base_port, is_seo, marker in SERVERS_LIST:
+                    want = expected_friendly(mode, seourls, is_seo, marker)
                     guest = Front(f'http://127.0.0.1:{base_port}')
                     member = Front(f'http://127.0.0.1:{base_port}')
                     member.login('member1', member_password)
