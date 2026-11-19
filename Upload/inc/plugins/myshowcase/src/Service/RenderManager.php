@@ -152,7 +152,7 @@ class RenderManager
                 'page' => [],
             ],
             'url' => [
-                'showcase_assets' => $this->context->mybb->get_asset_url($this->context->showcase->showcase_url),
+                'showcase_assets' => $this->context->routing->boardBase(),
                 'main' => $this->context->routing->url(Routes::Main),
             ],
         ],
@@ -398,7 +398,7 @@ class RenderManager
                     'is_image',
                     str_starts_with($attachment_data->mime_type, 'image/')
                 )
-                ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
+                ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment_data->attachment_name), (string)$this->context->mybb->settings['bburl'], (string)$this->context->mybb->get_asset_url('')));
 
             $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
 
@@ -1114,7 +1114,7 @@ class RenderManager
                     'is_image',
                     str_starts_with($attachment_data->mime_type, 'image/')
                 )
-                ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
+                ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment_data->attachment_name), (string)$this->context->mybb->settings['bburl'], (string)$this->context->mybb->get_asset_url('')));
 
             $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
 

@@ -500,7 +500,7 @@ class EntriesController extends BaseController
                         'is_image',
                         str_starts_with($attachment_data->mime_type, 'image/')
                     )
-                    ->setExtraData('icon', get_attachment_icon($attachment_data->attachment_name));
+                    ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment_data->attachment_name), (string)$this->context->mybb->settings['bburl'], (string)$this->context->mybb->get_asset_url('')));
 
                 $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
 
@@ -661,7 +661,7 @@ class EntriesController extends BaseController
                                 ]
                             )
                         )
-                        ->setExtraData('last_comment_date', new DateTime($comment_data['dateline']));
+                        ->setExtraData('last_comment_date', new DateTime(is_numeric($comment_data['dateline']) ? '@' . (int)$comment_data['dateline'] : $comment_data['dateline']));
                 }
 
                 $entry

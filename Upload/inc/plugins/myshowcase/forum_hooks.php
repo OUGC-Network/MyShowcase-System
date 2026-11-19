@@ -382,7 +382,7 @@ function postbit(array &$post): array
                         ->setExtraData('file_size', get_friendly_size($attachment->file_size))
                         //->setExtraData('is_image', str_starts_with($attachment->mime_type, 'image/'))
                         //->setExtraData('has_thumbnail', !empty($attachment->thumbnail_name))
-                        ->setExtraData('icon', get_attachment_icon($attachment->attachment_name))
+                        ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment->attachment_name), (string)$mybb->settings['bburl'], (string)$mybb->get_asset_url('')))
                         ->setExtraData(
                             'url',
                             $showcase->context->routing->url(

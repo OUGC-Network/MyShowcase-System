@@ -177,7 +177,7 @@ readonly class SelectableLists
         foreach ($icon_objects as $icon_data) {
             $icon_data['path'] = str_replace('{theme}', $theme['imgdir'], $icon_data['path']);
 
-            $icon_data['path'] = $this->mybb->get_asset_url($icon_data['path']);
+            $icon_data['path'] = \MyShowcase\Routing\Routing::assetUrl((string)$icon_data['path'], (string)($this->mybb->settings['bburl'] ?? ''), (string)$this->mybb->get_asset_url(''));
 
             $icons_list[] = $icon_data;
         }

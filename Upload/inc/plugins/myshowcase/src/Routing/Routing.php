@@ -613,6 +613,55 @@ class Routing
         return self::normalizeUrl($board . '/showcase.php');
     }
 
+    /** The board address (bburl) normalised: the base of the URLs that are not showcase links (D244). */
+    public function boardBase(): string
+    {
+        return self::normalizeUrl((string)($this->context->mybb->settings['bburl'] ?? ''));
+    }
+
+    /**
+     * An asset URL (an icon or an image of the board) on the board address (decision D244). An empty path is no URL. An
+     * address that MyBB's asset base gives (its origin) is moved onto the board address, so a board in a subfolder keeps
+     * the subfolder. Any other absolute address is used as it is.
+     *
+     * @param string $coreAssetBase MyBB's asset base for an empty path (get_asset_url('')), which is the origin
+     */
+    public static function assetUrl(string $path, string $boardUrl, string $coreAssetBase): string
+    {
+        $path = trim($path);
+
+        if ($path === '') {
+            return '';
+        }
+
+        $board = self::normalizeUrl($boardUrl);
+
+        if (preg_match('#^https?://#i', $path) === 1) {
+            $origin = self::originOf(self::normalizeUrl($coreAssetBase));
+
+            if ($origin !== '' && str_starts_with($path, $origin)) {
+                return self::normalizeUrl($board . substr($path, strlen($origin)));
+            }
+
+            return $path;
+        }
+
+        return self::normalizeUrl($board . '/' . ltrim($path, '/'));
+    }
+
+    /**
+     * An icon of the board as MyBB gives it (an img tag): the src of the tag is made an asset URL of the board (assetUrl()),
+     * the rest of the tag is kept as it is.
+     */
+    public static function iconMarkup(string $markup, string $boardUrl, string $coreAssetBase): string
+    {
+        return (string)preg_replace_callback(
+            '#src="([^"]*)"#',
+            static fn(array $match): string => 'src="' . self::assetUrl($match[1], $boardUrl, $coreAssetBase) . '"',
+            $markup
+        );
+    }
+
     /** A URL without doubled slashes after its scheme and without a trailing slash. */
     public static function normalizeUrl(string $url): string
     {
