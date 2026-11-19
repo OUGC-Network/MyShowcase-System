@@ -568,8 +568,7 @@ class Routing
      */
     public static function showcaseBase(string $showcaseUrl, int $urlMode, string $boardUrl, string $seourls, mixed $seoSupport, mixed $marker = null): string
     {
-        $configured = rtrim(trim($showcaseUrl), '/');
-        $base = $configured !== '' ? $configured : rtrim($boardUrl, '/') . '/showcase.php';
+        $base = self::resolveBase($showcaseUrl, $boardUrl);
 
         if (UrlMode::usesFriendlyLinks($urlMode, $seourls, $seoSupport, $marker) && str_ends_with($base, '/showcase.php')) {
             $base = substr($base, 0, -strlen('/showcase.php'));
@@ -586,6 +585,48 @@ class Routing
     public function path(string $name, array $parameters = []): string
     {
         return $this->generateUrl($name, $parameters);
+    }
+
+    /**
+     * The absolute base of a showcase (decision D244): an absolute value (with a scheme and a host) is used as it is; a value
+     * starting with "/" is resolved against the origin of the board address; any other value against the board address;
+     * an empty value falls back to the board address with showcase.php. The result has no doubled slashes and no
+     * trailing slash.
+     */
+    public static function resolveBase(string $showcaseUrl, string $boardUrl): string
+    {
+        $value = trim($showcaseUrl);
+        $board = self::normalizeUrl($boardUrl);
+
+        if (preg_match('#^https?://[^/]+#i', $value) === 1) {
+            return self::normalizeUrl($value);
+        }
+
+        if (str_starts_with($value, '/')) {
+            return self::normalizeUrl(self::originOf($board) . $value);
+        }
+
+        if ($value !== '') {
+            return self::normalizeUrl($board . '/' . $value);
+        }
+
+        return self::normalizeUrl($board . '/showcase.php');
+    }
+
+    /** A URL without doubled slashes after its scheme and without a trailing slash. */
+    public static function normalizeUrl(string $url): string
+    {
+        if (preg_match('#^(https?://)(.*)$#i', $url, $parts) === 1) {
+            return $parts[1] . rtrim((string)preg_replace('#/{2,}#', '/', $parts[2]), '/');
+        }
+
+        return rtrim((string)preg_replace('#/{2,}#', '/', $url), '/');
+    }
+
+    /** The scheme and host of a URL (its origin), or the URL itself when it has none. */
+    public static function originOf(string $url): string
+    {
+        return preg_match('#^(https?://[^/]+)#i', $url, $parts) === 1 ? $parts[1] : $url;
     }
 
     /**
