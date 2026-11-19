@@ -213,6 +213,38 @@ switch ($command) {
         $out(['entry_id' => $entryId, 'public_id' => $public, 'slug' => 'fresh']);
         break;
 
+    case 'file-url':
+        // the public URL an export writes for an attachment (decision D238): the plain form, whatever the mode
+        $route = $argv[2];
+        $ctx = (new \MyShowcase\Util\BuildShowcase())->getShowcase($showcaseId($route))->context;
+        $access = new \MyShowcase\Service\AttachmentAccess($ctx);
+        $out(['url' => $access->publicUrl($argv[3], $argv[4])]);
+        break;
+
+    case 'own-url':
+        // the attachment an import reads from a file URL of this board (decisions D52, D58), or null
+        $route = $argv[2];
+        $ctx = (new \MyShowcase\Util\BuildShowcase())->getShowcase($showcaseId($route))->context;
+        $access = new \MyShowcase\Service\AttachmentAccess($ctx);
+        $url = \MyShowcase\Util\ExternalUrl::parse($argv[3], $access->ownPorts($argv[3]));
+        $own = $access->ownAttachment($url);
+        $out(['attachment_id' => $own === null ? null : (int)$own['attachment_id']]);
+        break;
+
+    case 'comment':
+        // one approved comment on an entry, by user 1 (the comment's own id and public id are its ids)
+        $route = $argv[2];
+        $sid = $showcaseId($route);
+        $entryId = (int)$argv[3];
+        $public = substr(md5('comment' . $entryId . microtime()), 0, 10);
+        $id = (int)$db->insert_query('myshowcase_comments', [
+            'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'post_hash' => $public, 'user_id' => 1,
+            'username' => 'admin', 'message' => $db->escape_string('Url mode comment'), 'dateline' => $when(), 'update_dateline' => $when(),
+            'status' => 1, 'ipaddress' => '127.0.0.1',
+        ]);
+        $out(['comment_id' => $id, 'public_id' => $public]);
+        break;
+
     case 'attachment':
         $route = $argv[2];
         $sid = $showcaseId($route);

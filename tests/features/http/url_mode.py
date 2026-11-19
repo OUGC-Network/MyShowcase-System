@@ -148,7 +148,7 @@ def php_env(board_dir, env, *args):
 
 def plugin_links(body):
     """Every link or form action of the blog: with the showcase.php segment (plain) or without it (friendly)."""
-    return re.findall(r'(?:href|action)="([^"]*?/blog(?:/|\?|"|$)[^"]*)"', body)
+    return re.findall(r'(?:href|action|src)="([^"]*?/blog(?:/|\?|"|$)[^"]*)"', body)
 
 
 def is_friendly(link):
@@ -359,6 +359,84 @@ def run(ctx, scratch, port):
     save('2')
     r = save('7')
     ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', f'a value that is not a choice (7) is refused and nothing changes [{r["status"]}]')
+
+    # ---- Q: the other pages: the entry page with its comment and attachments, the export and import pages, the
+    # canonical link (D240). As a guest, and as a member (who can export and import).
+    print('--- Q comments, attachments, export and import pages, canonical link: as a guest and as a member')
+    users_file = os.path.join(scratch, 'users.json')
+    php(board_dir, 'users', users_file)
+    member_password = json.load(open(users_file))['member1']['password']
+    php(board_dir, 'save-row', 2, 'entries_can_export', 1)
+    php(board_dir, 'save-row', 2, 'entries_can_import', 1)
+    php(board_dir, 'save-row', 2, 'entries_can_post', 1)  # the import page also needs the right to post entries
+    php(board_dir, 'comment', 'blog', entry['entry_id'])
+    png = os.path.join(scratch, 'fresh.png')
+    open(png, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201a6a1c0340000000049454e44ae426082'))
+    attached = php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
+    # the same pages with the prefix as stored (plain URL) and with an empty prefix (the bburl fallback, decision D229)
+    for empty_prefix in (False, True):
+        php(board_dir, 'showcase-set', 'blog', 'showcase_url', '' if empty_prefix else f'http://127.0.0.1:{plain_port}/showcase.php')
+        print('    prefix: ' + ('empty (bburl fallback)' if empty_prefix else 'plain URL as stored'))
+        for seourls in ('no', 'auto', 'yes'):
+            php(board_dir, 'setting', 'seourls', seourls)
+            time.sleep(3)
+            for mode in (0, 1, 2):
+                php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+                for name, base_port, is_seo in (('plain server', plain_port, False), ('SEO server', seo_port, True)):
+                    want = expected_friendly(mode, seourls, is_seo)
+                    guest = Front(f'http://127.0.0.1:{base_port}')
+                    member = Front(f'http://127.0.0.1:{base_port}')
+                    member.login('member1', member_password)
+                    for who, client in (('guest', guest), ('member', member)):
+                        entry_path = f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}"
+                        r = client.get(entry_path)
+                        links = plugin_links(r['body'])
+                        wrong = [l for l in links if is_friendly(l) != want]
+                        kinds = sorted({'comment' if '/comment' in l else 'attachment' if ('/attachment/' in l or '/thumbnail/' in l) else 'view' if '/view/' in l else 'other' for l in links})
+                        need = ['attachment', 'comment'] if who == 'member' else []
+                        ok(r['status'] == 200 and links and not wrong and all(k in kinds for k in need),
+                           f'seourls {seourls}, url_mode {mode}, {name}, {who}, entry page with comments and attachments: '
+                           f'{len(links)} links all {"friendly" if want else "plain"}{"" if not wrong else " (wrong: " + wrong[0] + ")"} [{", ".join(kinds)}]')
+                        canon = re.search(r'<link rel="canonical" href="([^"]*)"', r['body'])
+                        canon_ok = bool(canon) and (is_friendly(canon.group(1)) == want) and '/blog/view/' in canon.group(1)
+                        ok(canon_ok, f'seourls {seourls}, url_mode {mode}, {name}, {who}: the canonical link is '
+                                     f'{"friendly" if want else "plain"} ({canon.group(1) if canon else "none"})')
+                    if True:
+                        for page_name, path in (('export', '/showcase.php/blog/export'), ('import', '/showcase.php/blog/import')):
+                            r = member.get(path)
+                            links = plugin_links(r['body'])
+                            wrong = [l for l in links if is_friendly(l) != want]
+                            ok(r['status'] == 200 and links and not wrong,
+                               f'seourls {seourls}, url_mode {mode}, {name}, member, {page_name} page: {len(links)} links all '
+                               f'{"friendly" if want else "plain"}{"" if not wrong else " (wrong: " + wrong[0] + ")"}')
+
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
+
+    # ---- X: export file URLs are plain whatever the mode (D238); the own-board check of an import takes both forms (D52, D58)
+    print('--- X export and import of file URLs: plain in every mode; both forms of an own-board URL are recognised')
+    attached = php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
+    for empty_prefix in (False, True):
+        prefix = '' if empty_prefix else f'http://127.0.0.1:{plain_port}/showcase.php'
+        php(board_dir, 'showcase-set', 'blog', 'showcase_url', prefix)
+        host = f'http://127.0.0.1:{port}' if empty_prefix else f'http://127.0.0.1:{plain_port}'
+        for mode in (0, 1, 2):
+            php(board_dir, 'setting', 'seourls', 'yes')
+            time.sleep(3)
+            php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+            label = f"prefix {'empty' if empty_prefix else 'plain'}, url_mode {mode}, seourls yes"
+            file_url = php(board_dir, 'file-url', 'blog', attached['public_id'], attached['name']).get('url', '')
+            ok(file_url.startswith(f"{host}/showcase.php/blog/attachment/") and '/showcase.php/' in file_url,
+               f'{label}: the export writes the plain file URL [{file_url[:90]}]')
+            route = f"/attachment/{attached['public_id']}/{attached['name']}"
+            plain_form, friendly_form = f"{host}/showcase.php/blog{route}", f"{host}/blog{route}"
+            if empty_prefix:
+                plain_form = f"{host}/showcase.php/blog{route}"
+            got_plain = php(board_dir, 'own-url', 'blog', plain_form).get('attachment_id')
+            got_friendly = php(board_dir, 'own-url', 'blog', friendly_form).get('attachment_id')
+            ok(str(got_plain) == str(attached['attachment_id']) and str(got_friendly) == str(attached['attachment_id']),
+               f'{label}: the own-board URL is recognised in both forms (plain {got_plain}, friendly {got_friendly})')
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 1)
 
     # ---- D2: a file with url_mode 2 gives 2
     print('--- D file: a showcase file with url_mode 2 creates a showcase with 2')

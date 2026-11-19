@@ -1,0 +1,12 @@
+{
+  "_about": "Every occurrence of a link pattern outside the builder must be listed here with its count and a reason. A new call site, or a removed one, changes the count and fails the guard (tests/url-builder/guard_test.py). Patterns: generateUrl( = a route path; showcase_url = the showcase's stored URL base; url.showcase = the template prefix of plugin links.",
+  "entries": [
+    {"file": "Upload/inc/plugins/myshowcase/src/Routing/Routing.php", "pattern": "generateUrl(", "count": 2, "reason": "the builder: the path generator and the call inside url()"},
+    {"file": "Upload/inc/plugins/myshowcase/src/Routing/Routing.php", "pattern": "showcase_url", "count": 1, "reason": "the builder: the stored base read by base()"},
+    {"file": "Upload/inc/plugins/myshowcase/Plugin/Core.php", "pattern": "showcase_url", "count": 1, "reason": "the TABLES_DATA definition of the column"},
+    {"file": "Upload/inc/plugins/myshowcase/admin.php", "pattern": "showcase_url", "count": 1, "reason": "the ACP field mapping f2gpath (a form field name, not a link)"},
+    {"file": "Upload/inc/plugins/myshowcase/src/Entity/ShowcaseEntity.php", "pattern": "showcase_url", "count": 1, "reason": "the entity property"},
+    {"file": "Upload/inc/plugins/myshowcase/src/Service/JsonSync/JsonSchema.php", "pattern": "showcase_url", "count": 1, "reason": "the JSON-sync exclusion list (per-showcase value, never in a file)"},
+    {"file": "Upload/inc/plugins/myshowcase/src/Service/RenderManager.php", "pattern": "showcase_url", "count": 1, "reason": "the asset base for the showcase's own assets (get_asset_url), not a link to a page; Batch 3 (D215) decides absolute asset URLs"}
+  ]
+}
