@@ -16,6 +16,25 @@ So a link that was saved or bookmarked in the other form keeps working.
 The plugin never writes server configuration. The friendly form needs a rewrite rule on the server, given below. If you
 choose Yes (or Automatic with friendly links) without the rule, the links are broken until the rule is in place.
 
+## One builder for every link
+
+Every link the plugin generates is built by one function, `Routing::url()`: the base followed by the route's path. That
+covers the list, entry, comment, attachment, export, import, search, sort, pagination, form action, canonical and
+who's-online links, so the option changes all of them together. The templates do not add a prefix of their own. A check
+in the plugin's test suite (`tests/url-builder/guard_test.py`) fails when a link is built anywhere else.
+
+## Files are always plain
+
+The file URLs an export writes (the attachments of an entry) are always the **plain** form, whatever the option is set
+to, so a file written by a showcase set to Yes still works on a board without the rewrite rule. Only the links shown to
+people follow the option.
+
+## Own-board file URLs
+
+An import recognises a file URL that points at its own board's attachment (the board's own address, decisions D52, D58),
+in **both** forms: `https://example.com/forum/showcase.php/blog/attachment/…` and
+`https://example.com/forum/blog/attachment/…`. The option does not change what an import accepts.
+
 ## Where the base comes from
 
 Every link of a showcase is its **base** followed by the route path:
