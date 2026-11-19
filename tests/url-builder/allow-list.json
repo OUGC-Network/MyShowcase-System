@@ -36,12 +36,6 @@
       "pattern": "showcase_url",
       "count": 1,
       "reason": "the JSON-sync exclusion list (per-showcase value, never in a file)"
-    },
-    {
-      "file": "Upload/inc/plugins/myshowcase/src/Service/RenderManager.php",
-      "pattern": "showcase_url",
-      "count": 1,
-      "reason": "the asset base for the showcase's own assets (get_asset_url), not a link to a page; Batch 3 (D215) decides absolute asset URLs"
     }
   ]
 }

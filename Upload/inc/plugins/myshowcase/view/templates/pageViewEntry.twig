@@ -4,7 +4,7 @@
     <div class="post post--message ignored_post" id="ignored_post_{{ entry_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
-                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             </h3>
         </div>
         <div class="post__body post__body--message post_body">
@@ -31,7 +31,7 @@
     <div class="post post--message deleted_post_collapsed" id="deleted_post_{{ entry_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
-                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             </h3>
         </div>
         <div class="post__body post__body--message post_body" id="deleted_post{{ entry_data.public_id }}">
@@ -58,7 +58,7 @@
     <div class="post post--message deleted_entry_collapsed" id="deleted_entry_{{ entry_data.public_id }}">
         <div class="post__meta">
             <h3 class="post__author">
-                <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             </h3>
         </div>
         <div class="post__body post__body--message post_body" id="deleted_post{{ entry_data.public_id }}">
@@ -85,7 +85,7 @@
     <div class="post__meta">
         {# Author avatar #}
         {% if config.entries_display_avatars and mybb.user.showavatars is defined and mybb.user.showavatars is not empty and user_avatar %}
-            <a href="{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
+            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}" class="avatar-profile-link">
                 {% if user_data.avatar %}
                     <img src="{{ user_avatar.image }}" alt="" {{ user_avatar.width_height|raw }} class="avatar"/>
                 {% else %}
@@ -96,7 +96,7 @@
 
         {# Author username #}
         <h3 class="post__author">
-            <a href="{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
+            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}">{{ user_data.uid|format_name }}</a>
             {# Online status #}
             {% if userOnlineStatus == 'online' %}
                 <span class="user-status user-status--online">
@@ -108,7 +108,7 @@
                 </span>
             {% elseif userOnlineStatus == 'away' %}
                 <span class="user-status user-status--away">
-    <a href="{{ get_profile_link(user_data.uid) }}" title="{{ lang.myshowcase_view_entry_status_away }}"
+    <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user_data.uid) }}" title="{{ lang.myshowcase_view_entry_status_away }}"
        class="user-status__link">
         {{ include('partials/icon.twig', {icon: 'dot-circle', class: 'user-status__icon', title: lang.myshowcase_view_entry_status_away}, with_context = false) }}
     </a>
@@ -146,7 +146,7 @@
             <a href="#" class="post__edit-log" title=""
                id="edited_by_{{ entry_data.public_id }}">{{ include('partials/icon.twig', {icon: 'pencil-alt', class: ''}, with_context = false) }}</a>
             <span class="post__edit-reason">({{ trans('myshowcase_view_entry_edited_note', entry_data.update_dateline|my_date) }} <a
-                        href="{{ get_profile_link(entry_data.extra_data.edit_user_data.uid) }}">{{ entry_data.extra_data.edit_user_data.username }}</a>.{% if entry_data.update_note %}
+                        href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(entry_data.extra_data.edit_user_data.uid) }}">{{ entry_data.extra_data.edit_user_data.username }}</a>.{% if entry_data.update_note %}
                 <em>{{ lang.postbit_editreason }}: {{ entry_data.update_note }}</em>{% endif %})</span>
         {% endif %}
 

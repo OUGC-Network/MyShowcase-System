@@ -12,7 +12,7 @@
                        id="post_icon_{{ icon_data.iid }}"
                        value="{{ icon_data.iid }}"{{ mybb.input.icon_id is defined ? 'checked="checked"' }} form="contentForm"/>
                 <label for="post_icon_{{ icon_data.iid }}" class="segmented-control__button">
-                    <img src="{{ icon_data.path }}" alt="{{ icon_data.name }}" title="{{ icon_data.name }}"/>
+                    {% if icon_data.path %}<img src="{{ icon_data.path }}" alt="{{ icon_data.name }}" title="{{ icon_data.name }}"/>{% endif %}
                 </label>
             </span>
         {% endfor %}

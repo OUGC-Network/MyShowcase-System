@@ -89,7 +89,7 @@
                         displaygroup: moderator.display_group_id
                     } %}
                     <a
-                    href="{{ get_profile_link(moderator.user_id) }}">{{ moderator.user_id|format_name }}</a>{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(moderator.user_id) }}">{{ moderator.user_id|format_name }}</a>{% if loop.last == false %}{{ lang.comma }} {% endif %}
                 {% endfor %}
                 {% if moderators.users and moderators.groups %}{{ lang.comma }} {% endif %}
                 {% for moderator in moderators.groups %}
@@ -399,7 +399,7 @@
             <div class="container container--small container--users-browsing">{{ lang.myshowcase_main_users_browsing }}
                 {% for user in users_browsing %}
                     <a
-                    href="{{ get_profile_link(user.uid) }}">{{ user.uid|format_name }}</a>{% if user.invisible %}*{% endif %}{% if loop.last == false %}{{ lang.comma }} {% endif %}
+                    href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user.uid) }}">{{ user.uid|format_name }}</a>{% if user.invisible %}*{% endif %}{% if loop.last == false %}{{ lang.comma }} {% endif %}
                 {% endfor %}
 
                 {% if users_browsing_counter.invisible and mybb.usergroup.canviewwolinvis != 1 %}

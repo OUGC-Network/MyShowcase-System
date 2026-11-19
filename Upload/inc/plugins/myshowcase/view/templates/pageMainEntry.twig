@@ -42,7 +42,7 @@
         {{ lang.myshowcase_main_table_row_by }}
         <span class="thread__overflow">
             {% if entry.user_id > 0 %}
-                <a href="{{ get_profile_link(entry.user_id) }}">{{ entry.user_id|format_name }}</a>
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(entry.user_id) }}">{{ entry.user_id|format_name }}</a>
             {% else %}
                 {{ entry.username ?: lang.guest }}
             {% endif %}
@@ -78,7 +78,7 @@
         <span class="latest-post__text">{{ lang.lastpost_by }}</span>
         <span class="latest-post__author">
             {% if entry.extra_data.last_commenter_user_data %}
-                <a href="{{ get_profile_link(entry.extra_data.last_commenter_user_data.uid) }}">{{ entry.extra_data.last_commenter_user_data.uid|format_name }}</a>
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(entry.extra_data.last_commenter_user_data.uid) }}">{{ entry.extra_data.last_commenter_user_data.uid|format_name }}</a>
             {% else %}
                 {{ entry.last_comment_username ?? lang.guest }}
             {% endif %}

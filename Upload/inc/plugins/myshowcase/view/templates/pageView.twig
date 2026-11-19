@@ -160,7 +160,7 @@
                                 <span class="threaded-mode__author">
                                     {{ lang.by }}
                                     {% if post.uid > 0 %}
-                                        <a href="{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
+                                        <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
                                     {% else %}
                                         {{ post.username|default(lang.guest) }}
                                     {% endif %}
@@ -174,7 +174,7 @@
                                 <span class="threaded-mode__author">
                                     {{ lang.by }}
                                     {% if post.uid > 0 %}
-                                        <a href="{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
+                                        <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(post.uid) }}">{{ post.uid|format_name }}</a>
                                     {% else %}
                                         {{ post.username|default(lang.guest) }}
                                     {% endif %}
@@ -198,13 +198,13 @@
                       id="quick_comment_form">
                     <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
                     <div class="post__meta">
-                        <a href="{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
+                        <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(mybb.user.uid) }}" class="avatar-profile-link"
                            title="{{ lang.myshowcase_view_entry_comment_form_my_profile }}">
                             {{ render_avatar(url=mybb.user.avatar, alt=lang.welcome_my_avatar) }}
                         </a>
                         {# TO DO: username styling #}
                         <h3 class="post__author"><a
-                                    href="{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.uid|format_name }}</a>
+                                    href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(mybb.user.uid) }}">{{ mybb.user.uid|format_name }}</a>
                         </h3>
                         <span class="post__date">{{ lang.myshowcase_view_entry_comment_form_title }}</span>
                     </div>
@@ -347,7 +347,7 @@
                                     <p class="thread__author">
                                         {{ lang.by }}
                                         {% if similar_thread.uid > 0 %}
-                                            <a href="{{ get_profile_link(similar_thread.uid) }}">{{ similar_thread.uid|format_name }}</a>
+                                            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(similar_thread.uid) }}">{{ similar_thread.uid|format_name }}</a>
                                         {% else %}
                                             {{ similar_thread.threadusername|default(lang.guest) }}
                                         {% endif %}
@@ -367,7 +367,7 @@
                                         <span class="thread__latest-post__text">{{ lang.lastpost_by }}</span>
                                         <span class="thread__latest-post__author">
                                         {% if similar_thread.lastposteruid > 0 %}
-                                            <a href="{{ get_profile_link(similar_thread.lastposteruid) }}">{{ similar_thread.lastposteruid|format_name }}</a>
+                                            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(similar_thread.lastposteruid) }}">{{ similar_thread.lastposteruid|format_name }}</a>
                                         {% else %}
                                             {{ similar_thread.lastposter|default(lang.guest) }}
                                         {% endif %}
@@ -404,7 +404,7 @@
                 <div class="container container--small container--users-browsing">
                     {{ lang.myshowcase_view_entry_users_browsing_entry }}
                     {% for user in online_users %}
-                        <a href="{{ get_profile_link(user.uid) }}"
+                        <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(user.uid) }}"
                            title="{{ lang.myshowcase_view_entry_users_browsing_entry_reading }} ({{ user.reading }})">{{ user.uid|format_name }}</a>{{ user.invisible_mark }}{% if not loop.last %}{{ lang.comma }}{% endif %}
                     {% endfor %}
                     {% if online_count.invisible and online_count.users %}

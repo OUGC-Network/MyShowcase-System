@@ -9,7 +9,7 @@
 {% block jscripts %}
     <link rel="stylesheet" href="{{ mybb.asset_url }}/jscripts/select2/select2.css?ver=1807"/>
     <script type="text/javascript"
-            src="{{ mybb.asset_url }}/jscripts/select2/select2.min.js?ver=1806"></script>
+            src="{{ mybb.settings.bburl|trim('/', 'right') }}/jscripts/select2/select2.min.js?ver=1806"></script>
 
     <!-- Include FilePond and plugins -->
     <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
@@ -120,7 +120,7 @@
                                             {% else %}
                                                 {{ trans('myshowcase_new_edit_form_entry_multi_quote_plural', external_quotes) }}
                                             {% endif %}
-                                            <a href="./entry.php?fid={{ config.showcase_id }}&amp;load_all_quotes=1"
+                                            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/entry.php?fid={{ config.showcase_id }}&amp;load_all_quotes=1"
                                                onclick="return Post.loadMultiQuotedAll();">{% if external_quotes == 1 %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_plus_singular }}{% else %}{{ trans('myshowcase_new_edit_form_entry_multi_quote_plus_plural', external_quotes) }}{% endif %}</a>,
                                             <a href="javascript:void(0)"
                                                onclick="Post.clearMultiQuoted(); return false;">{% if external_quotes == 1 %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_deselect_singular }}{% else %}{{ lang.myshowcase_new_edit_form_entry_multi_quote_deselect_plural }}{% endif %}</a>
