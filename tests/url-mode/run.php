@@ -67,5 +67,28 @@ $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', null) === false, '
 $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'no', 1) === false, 'Automatic, seourls no, SEO_SUPPORT 1: plain');
 $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', null) === true, 'Automatic, seourls yes, SEO_SUPPORT not set: friendly');
 
+
+// D243: Automatic is friendly only when core's rule holds AND the plugin's own marker (SHOWCASE_SEO_SUPPORT, isset and
+// loosely == 1, the same comparison core makes) is set on the request. Yes ignores the marker; No ignores it.
+$markers = [null, 1, '1', true, 0, '0', '', 2, '2', false];
+$markerLabel = static fn(mixed $v): string => $v === null ? 'null' : var_export($v, true);
+foreach (['no', 'auto', 'yes'] as $seourls) {
+    foreach ($seoValues as $seo) {
+        foreach ($markers as $marker) {
+            $label = "seourls {$seourls}, SEO_SUPPORT " . ($seo === null ? 'null' : var_export($seo, true)) . ", marker {$markerLabel($marker)}";
+            $coreAuto = $seourls === 'yes' || ($seourls === 'auto' && $seo !== null && $seo == 1);
+            $markerSet = $marker !== null && $marker == 1;
+
+            $check(UrlMode::usesFriendlyLinks(UrlMode::PLAIN, $seourls, $seo, $marker) === false, "mode 0 is plain: {$label}");
+            $check(UrlMode::usesFriendlyLinks(UrlMode::FRIENDLY, $seourls, $seo, $marker) === true, "mode 2 is friendly, the marker ignored: {$label}");
+            $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, $seourls, $seo, $marker) === ($coreAuto && $markerSet),
+                "Automatic is friendly only with core's rule and the marker: {$label}");
+        }
+    }
+}
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', 1, null) === false, 'Automatic with seourls yes and no marker: plain (D243)');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', null, 1) === true, 'Automatic with seourls yes and the marker: friendly');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1, null) === false, 'Automatic with seourls auto, SEO_SUPPORT 1 and no marker: plain (D243)');
+$check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1, 1) === true, 'Automatic with seourls auto, SEO_SUPPORT 1 and the marker: friendly');
 echo "{$checks} checks, {$failures} failed\n";
 exit($failures ? 1 : 0);
