@@ -52,3 +52,8 @@ forms; the ACP form saves and refuses; and the JSON-sync file carries the option
     python3 tests/features/http/url_mode.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
 
 The Automatic rule itself is a board-less unit test: `php tests/url-mode/run.php`.
+
+Since the full migration, the same run also covers the comment, attachment, export, import and canonical links (as a guest
+and as a member), with the prefix as stored and with an empty one, and the export file URL and the own-board check of an
+import (both forms, every mode). The static guard that every link goes through the builder is `php tests/url-builder/guard_test.py`
+(no board needed; its allow-list and reasons are in `tests/url-builder/allow-list.json`).
