@@ -79,3 +79,6 @@ A stored quote's date (`[quote datetime='…']`) is text a member writes, so it 
 show their text, on each engine (D248). Before the repair it answered 400 on all three engines.
 
     python3 tests/features/http/quote_dates.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
+
+A failed installation leaves nothing behind: `make_board` cleans up what it created, and the harnesses create the
+board inside their guarded block (decision D252; see `tests/harness/README.md` and `tests/harness/cleanup_test.py`).
