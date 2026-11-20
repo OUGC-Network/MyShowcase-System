@@ -124,11 +124,13 @@ def main():
     os.makedirs(scratch, exist_ok=True)
     port = a.port or {'sqlite': 18710, 'mysql': 18711, 'pgsql': 18712}[a.engine]
     dbname = f'msc_test_fresh_{a.engine}_' + os.urandom(3).hex()
-    ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=dbname)
+    ctx = None
     try:
+        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=dbname)
         run(ctx, scratch)
     finally:
-        ctx.close()
+        if ctx is not None:
+            ctx.close()
         # the throwaway database of this run is dropped (MySQL and PostgreSQL; SQLite's file goes with the scratch folder)
         if a.engine == 'mysql':
             env = board.db_env()

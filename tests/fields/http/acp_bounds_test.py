@@ -55,8 +55,9 @@ def check(name, ok, detail=''):
 
 
 def main():
-    ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
+    ctx = None
     try:
+        ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
         ctx.server = subprocess.Popen(['php', '-d', 'error_reporting=32767', '-d', 'display_errors=0', '-d', 'log_errors=1',
                                        '-d', f'error_log={os.path.join(a.scratch, f"php_acp_{a.engine}_errors.log")}',
                                        '-S', f'127.0.0.1:{PORT}', '-t', ctx.board],
@@ -127,8 +128,9 @@ def main():
         page = acp.get(f'/admin/index.php?module=myshowcase-fields&action=edit_field&collection_id={cid}&field_id={field_id}')['body']
         check('the edit screen shows the stored bounds', 'value="20"' in page and 'value="1"' in page)
     finally:
-        stop_server(ctx)
-        ctx.close()  # drops the database and checks that it is gone (D225)
+        if ctx is not None:
+            stop_server(ctx)
+            ctx.close()  # drops the database and checks that it is gone (D225)
     failed = [r for r in results if r['result'] != 'pass']
     print(json.dumps({'engine': a.engine, 'results': results}, indent=1))
     print(f"acp bounds {a.engine}: {len(results) - len(failed)} passed, {len(failed)} failed")

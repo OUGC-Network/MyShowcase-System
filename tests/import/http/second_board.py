@@ -69,6 +69,8 @@ def start(ctx, scratch, port, label):
 
 
 def finish(ctx):
+    if ctx is None:
+        return
     ctx.close()  # stops the server and drops the database, and checks that it is gone (D225)
     if a.engine in ('mysql', 'pgsql'):
         print(f'dropped database {ctx.dbname}')
@@ -81,8 +83,9 @@ os.makedirs(scratch_b, exist_ok=True)
 
 # ---- board A: the author's blog entries and their export ----
 db_a = random_db()
-ctx_a = board.make_board(a.engine, a.mybb, scratch_a, port_a, 'real', pl_file, dbname=db_a)
+ctx_a = None
 try:
+    ctx_a = board.make_board(a.engine, a.mybb, scratch_a, port_a, 'real', pl_file, dbname=db_a)
     log_a = start(ctx_a, scratch_a, port_a, 'a')
     acp_a = board.activate(ctx_a)
     flows.configure(ctx_a, scratch_a, log_a)
@@ -161,8 +164,9 @@ finally:
 
 # ---- board B: a second install with other ids, the importer is another user ----
 db_b = random_db()
-ctx_b = board.make_board(a.engine, a.mybb, scratch_b, port_b, 'real', pl_file, dbname=db_b)
+ctx_b = None
 try:
+    ctx_b = board.make_board(a.engine, a.mybb, scratch_b, port_b, 'real', pl_file, dbname=db_b)
     log_b = start(ctx_b, scratch_b, port_b, 'b')
     acp_b = board.activate(ctx_b)
     flows.configure(ctx_b, scratch_b, log_b)

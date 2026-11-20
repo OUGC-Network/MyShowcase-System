@@ -29,8 +29,9 @@ scratch = a.scratch or tempfile.mkdtemp(prefix='myshowcase-http-')
 os.makedirs(scratch, exist_ok=True)
 port = a.port or {'sqlite': 8082, 'mysql': 8081, 'pgsql': 8083}[a.engine]
 
-ctx = board.make_board(a.engine, a.mybb, scratch, port, a.pluginlibrary, a.pluginlibrary_file or None)
+ctx = None
 try:
+    ctx = board.make_board(a.engine, a.mybb, scratch, port, a.pluginlibrary, a.pluginlibrary_file or None)
     board.activate(ctx)
     flows.configure(ctx)
     if a.screenshots:
@@ -50,6 +51,6 @@ try:
     for f in flows.FAILS:
         print('  FAILED:', f)
 finally:
-    if not a.keep:
+    if ctx is not None and not a.keep:
         ctx.close()
 sys.exit(1 if flows.FAILS else 0)

@@ -57,8 +57,9 @@ def main():
     scratch = a.scratch
     os.makedirs(scratch, exist_ok=True)
     port = a.port or {'sqlite': 18970, 'mysql': 18971, 'pgsql': 18972}[a.engine]
-    ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_quotes_{a.engine}_' + os.urandom(3).hex())
+    ctx = None
     try:
+        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_quotes_{a.engine}_' + os.urandom(3).hex())
         run(ctx, scratch, port)
     except Exception as e:
         FAILS.append(f'the run stopped: {e}')
@@ -68,7 +69,8 @@ def main():
         print('  FAILED:', f)
     sys.stdout.flush()
     try:
-        ctx.close()
+        if ctx is not None:
+            ctx.close()
     except Exception as e:
         print('CLEANUP FAILED:', e)
         return 1

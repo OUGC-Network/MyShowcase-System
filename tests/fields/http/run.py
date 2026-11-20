@@ -2251,12 +2251,13 @@ def main():
     global CTX, DATA, PNG, BOUNDED_TYPES, SHOWCASE_ID, MULTI_FIELD_IDS
     PNG = png_bytes()
     env = board.db_env()
-    ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
-    CTX = ctx
-    global BOARD_DIR
-    BOARD_DIR = ctx.board
     cells = {}
+    ctx = None
     try:
+        ctx = board.make_board(a.engine, a.mybb, a.scratch, PORT, 'real', PL_FILE, dbname=DBNAME)
+        CTX = ctx
+        global BOARD_DIR
+        BOARD_DIR = ctx.board
         for rel in ('showcase.php', 'inc/tasks/myshowcase.php', 'jscripts', 'images'):
             src, dst = os.path.join(REPO, 'Upload', rel), os.path.join(ctx.board, rel)
             if os.path.isdir(src):
@@ -2401,7 +2402,8 @@ def main():
         stage_files_multi(member, cells, ctx, fixture)
         stage_field_delete(acp, member, cells, ctx, fixture)
     finally:
-        ctx.close()  # stops the server, drops the database and checks that it is gone (D225)
+        if ctx is not None:
+            ctx.close()  # stops the server, drops the database and checks that it is gone (D225)
     for key in FIELDS:
         for stage, reason in NOT_RUN.items():
             check(cells, key, stage, 'notrun', reason)

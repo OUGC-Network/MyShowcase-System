@@ -174,8 +174,9 @@ def main():
     os.makedirs(scratch, exist_ok=True)
     SCRATCH_DIR = scratch
     port = a.port or {'sqlite': 18900, 'mysql': 18901, 'pgsql': 18902}[a.engine]
-    ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
+    ctx = None
     try:
+        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
         run(ctx, scratch, port)
     except Exception as e:  # a crash is a failed check, reported with the summary below
         FAILS.append(f'the run stopped: {e}')
@@ -188,7 +189,8 @@ def main():
         for s in SERVERS:
             s.terminate()
             s.wait()
-        ctx.close()  # stops the servers, drops the database and checks that nothing is left (D225)
+        if ctx is not None:
+            ctx.close()  # stops the servers, drops the database and checks that nothing is left (D225)
     except Exception as e:
         print('CLEANUP FAILED:', e)
         return 1

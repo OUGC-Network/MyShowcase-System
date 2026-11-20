@@ -31,8 +31,9 @@ scratch = a.scratch or tempfile.mkdtemp(prefix='myshowcase-features-')
 os.makedirs(scratch, exist_ok=True)
 port = a.port or {'sqlite': 8085, 'mysql': 8084, 'pgsql': 8086}[a.engine]
 
-ctx = board.make_board(a.engine, a.mybb, scratch, port, a.pluginlibrary, a.pluginlibrary_file or None, dbname=f'myshowcase_features_{a.engine}')
+ctx = None
 try:
+    ctx = board.make_board(a.engine, a.mybb, scratch, port, a.pluginlibrary, a.pluginlibrary_file or None, dbname=f'myshowcase_features_{a.engine}')
     acp = board.activate(ctx)
     features.configure(ctx, scratch)
     features.run(acp)
@@ -40,6 +41,6 @@ try:
     for f in features.FAILS:
         print('  FAILED:', f)
 finally:
-    if not a.keep:
+    if ctx is not None and not a.keep:
         ctx.close()
 sys.exit(1 if features.FAILS else 0)

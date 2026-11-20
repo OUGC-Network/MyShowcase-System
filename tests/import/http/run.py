@@ -49,9 +49,10 @@ port = a.port or {'sqlite': 18092, 'mysql': 18091, 'pgsql': 18093}[a.engine]
 
 dbname = 'msc_test_' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
 
-ctx = board.make_board(a.engine, a.mybb, a.scratch, port, 'real', pl_file, dbname=dbname)
+ctx = None
 
 try:
+    ctx = board.make_board(a.engine, a.mybb, a.scratch, port, 'real', pl_file, dbname=dbname)
     # The forum front controller and its helpers are not part of the plugin folder: copy them as the feature suite does.
     upload = os.path.join(REPO, 'Upload')
     for rel in ('showcase.php', 'inc/tasks/myshowcase.php', 'jscripts', 'images'):
@@ -88,7 +89,8 @@ try:
     for line in flows.NOT_RUN:
         print('  NOT RUN:', line)
 finally:
-    ctx.close()
+    if ctx is not None:
+        ctx.close()
 
     if a.engine in ('mysql', 'pgsql'):
         board.drop_database(a.engine, dbname)
