@@ -6,11 +6,6 @@ the attachment API (api/view/<id>/upload) answers URLs, but 403 to a member with
 page set. Its URLs are built with url() (tests/url-builder keeps every link on the builder). The pagination pages (list and the
 entry's comments, with a page size of one here) assert that URLs were read.
 
-JSON endpoints (decision D248): the entry view API (api/view/<id>/<slug>) answers the entry's id and message, with no URL; the
-attachment API (api/view/<id>/upload) answers URLs, but 403 to a member without the entry-edit right, so it is not in this
-page set. Its URLs are built with url() (the static guard, tests/url-builder, keeps every link on the builder). Pagination:
-the list and the entry's comments have a page size of one here, and the page-two checks assert that URLs were read.
-
 The board is installed with the plugin of this working tree (board.make_board). For each showcase_url form (absolute with a
 host, absolute without showcase.php, a root-relative value, a relative value, empty) and each bburl form (the board's root,
 a subfolder with a trailing slash), and each url_mode (0, 1, 2), the test fetches the pages a guest and a member see (list,
@@ -163,6 +158,7 @@ def is_core_chrome(value):
     return any(text.startswith(item) for item in CORE_CHROME)
 
 
+# No page of the set returns JSON yet: this walk is for JSON bodies, and the JSON endpoints are not in the set (D248).
 def json_urls(value, out):
     """Every string of a decoded JSON value that is a URL of the board or a root-relative route."""
     if isinstance(value, dict):
