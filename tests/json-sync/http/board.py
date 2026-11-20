@@ -149,9 +149,48 @@ def drop_database(engine, dbname):
 
 
 def make_board(engine, mybb, scratch, port, pl_mode='real', pl_file=None, dbname=None, database_server='mysql'):
+    """Installs the board and returns its Ctx. If any step fails, what was created goes again (D252) and the error is raised."""
     env = db_env()
     dbname = dbname or f'myshowcase_verify_{engine}'
     board = os.path.join(scratch, f'board_{engine}')
+    user, password = 'admin', 'T-' + secrets.token_urlsafe(18)
+    url = f'http://127.0.0.1:{port}'
+    ctx = Ctx(engine, board, url, user, password, dbname, env)
+    try:
+        return _install(ctx, mybb, scratch, port, pl_mode, pl_file)
+    except BaseException:
+        discard_board(ctx, scratch)
+        raise
+
+
+def discard_board(ctx, scratch):
+    """What make_board created before a failure goes again (D252): the server it started, the database (MySQL, PostgreSQL),
+    the board folder and the server log of that call. A leftover is reported on stderr; the caller re-raises the error."""
+    problems = []
+    started = ctx.server is not None
+    try:
+        ctx.stop()
+    except Exception as e:
+        problems.append(f'server: {e}')
+    if ctx.engine in ('mysql', 'pgsql'):
+        try:
+            drop_database(ctx.engine, ctx.dbname)
+            if database_exists(ctx.engine, ctx.dbname):
+                problems.append(f'database {ctx.dbname} still exists')
+        except Exception as e:
+            problems.append(f'database {ctx.dbname}: {e}')
+    shutil.rmtree(ctx.board, ignore_errors=True)
+    if os.path.exists(ctx.board):
+        problems.append(f'folder {ctx.board} still exists')
+    log = os.path.join(scratch, f'php_{ctx.engine}.log')
+    if started and os.path.exists(log):
+        os.remove(log)
+    if problems:
+        print('CLEANUP LEFT BEHIND after a failed install: ' + '; '.join(problems), file=sys.stderr)
+
+
+def _install(ctx, mybb, scratch, port, pl_mode, pl_file):
+    engine, board, dbname, env, user, password, url = ctx.engine, ctx.board, ctx.dbname, ctx.env, ctx.user, ctx.password, ctx.url
     shutil.rmtree(board, ignore_errors=True)
     shutil.copytree(mybb, board, ignore=_ignore_source(), symlinks=True)
     for f in ('inc/config.php', 'inc/settings.php', 'install/lock'):
@@ -159,10 +198,7 @@ def make_board(engine, mybb, scratch, port, pl_mode='real', pl_file=None, dbname
         if os.path.exists(p): os.remove(p)
     for f in ('inc/settings.php', 'inc/config.php'):
         open(os.path.join(board, f), 'w').close(); os.chmod(os.path.join(board, f), 0o666)
-    user, password = 'admin', 'T-' + secrets.token_urlsafe(18)
-    url = f'http://127.0.0.1:{port}'
-    ctx = Ctx(engine, board, url, user, password, dbname, env)
-    common = ['-p', 'db_table_prefix=mybb_', '-p', 'bbname=Test', '-p', f'bburl={url}', '-p', 'adminemail=admin@example.com', '-p', f'account_username={user}',
+    common =['-p', 'db_table_prefix=mybb_', '-p', 'bbname=Test', '-p', f'bburl={url}', '-p', 'adminemail=admin@example.com', '-p', f'account_username={user}',
               '-p', 'account_email=admin@example.com', '-p', f'account_password={password}', '-p', 'acp_pin=']
     if engine == 'sqlite':
         dbargs = ['-p', 'db_engine=sqlite', '-p', f'db_path={board}/inc/board.db']
