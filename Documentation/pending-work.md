@@ -667,3 +667,8 @@ work.
   answer 400; unknown report targets 404; the version check 500; page not found 404 and the fault branches of showcase.php 500
   (MyBB's error() takes the status as its fourth argument). url_absolute.py 540/0 and fields run.py 823/0 (91 n/a) on each
   engine; run.py 147/0 each. The fields fixture's moderator row now carries the B7 flags (it had none and failed on all engines).
+* B8b (names and language strings): partly done. Test and fix 5dd296f: tests/status/strings.py (undefined language keys and the
+  "purse" spelling; first run 88 failures, after the fix 1883/0); the purge keys renamed with no alias; the moderator icon labels
+  defined. features run.py 147/0 on each engine. Not done: the camelCase admin keys (myShowcaseAdmin*, 119 keys, 8 of them already
+  exist in snake form and need a value comparison); the hard-coded English sentences of Upload/showcase.php (the errorSentence
+  fallbacks, by design D146), AttachmentsManager and FieldTrait; the collection_id TODO in Plugin/Core.php.
