@@ -175,26 +175,30 @@ def main():
     SCRATCH_DIR = scratch
     port = a.port or {'sqlite': 18900, 'mysql': 18901, 'pgsql': 18902}[a.engine]
     ctx = None
+    cleanup_failed = False
     try:
-        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
-        run(ctx, scratch, port)
-    except Exception as e:  # a crash is a failed check, reported with the summary below
-        FAILS.append(f'the run stopped: {e}')
-        print('FAIL the run stopped:', e)
-    print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
-    for f in FAILS:
-        print('  FAILED:', f)
-    sys.stdout.flush()
-    try:
-        for s in SERVERS:
-            s.terminate()
-            s.wait()
-        if ctx is not None:
-            ctx.close()  # stops the servers, drops the database and checks that nothing is left (D225)
-    except Exception as e:
-        print('CLEANUP FAILED:', e)
-        return 1
-    return 1 if FAILS else 0
+        try:
+            ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_urlmode_{a.engine}_' + os.urandom(3).hex())
+            run(ctx, scratch, port)
+        except Exception as e:  # a crash is a failed check, reported with the summary below
+            FAILS.append(f'the run stopped: {e}')
+            print('FAIL the run stopped:', e)
+        print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
+        for f in FAILS:
+            print('  FAILED:', f)
+        sys.stdout.flush()
+    finally:
+        # also on KeyboardInterrupt (a BaseException): the servers, the database and the folder are closed in every case (D256)
+        try:
+            for s in SERVERS:
+                s.terminate()
+                s.wait()
+            if ctx is not None:
+                ctx.close()  # stops the servers, drops the database and checks that nothing is left (D225)
+        except Exception as e:
+            print('CLEANUP FAILED:', e)
+            cleanup_failed = True
+    return 1 if (FAILS or cleanup_failed) else 0
 
 
 def run(ctx, scratch, port):
