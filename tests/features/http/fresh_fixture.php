@@ -304,10 +304,37 @@ switch ($command) {
         break;
 
     case 'password-row':
-        // one access log row written with the given time (a 'Y-m-d H:i:s' string in UTC, as the gate writes it) and validity
+        // one access log row written with the given time (a 'Y-m-d H:i:s' string in UTC, as the gate writes it), validity and user (0 for a guest)
         $sid = $showcaseId($argv[2]);
-        $db->insert_query('myshowcase_access_logs', ['showcase_id' => $sid, 'user_id' => 0, 'dateline' => $db->escape_string($argv[3]), 'is_valid' => (int)$argv[4]]);
+        $db->insert_query('myshowcase_access_logs', ['showcase_id' => $sid, 'user_id' => (int)($argv[5] ?? 0), 'dateline' => $db->escape_string($argv[3]), 'is_valid' => (int)$argv[4]]);
         $out(['inserted' => $argv[3]]);
+        break;
+
+    case 'password-rows-clear':
+        // deletes the access log rows of a showcase (a test starts from none)
+        $db->delete_query('myshowcase_access_logs', "showcase_id='" . $showcaseId($argv[2]) . "'");
+        $out(['cleared' => $argv[2]]);
+        break;
+
+    case 'failed-rows':
+        // guest attempts that failed, from one IP address (a packed address as the gate records it), now
+        $sid = $showcaseId($argv[2]);
+        $packed = my_inet_pton($argv[3]);
+        $hex = bin2hex($packed);
+        $literal = str_contains((string)$db->type, 'sqlite') ? "X'{$hex}'" : (str_contains((string)$db->type, 'pg') ? "decode('{$hex}', 'hex')" : "UNHEX('{$hex}')");
+        for ($i = 0; $i < (int)$argv[4]; $i++) {
+            $db->write_query("INSERT INTO {$db->table_prefix}myshowcase_access_logs (showcase_id, user_id, dateline, is_valid, ipaddress) VALUES ('{$sid}', 0, '" . gmdate('Y-m-d H:i:s', TIME_NOW) . "', 0, {$literal})");
+        }
+        $out(['failed' => (int)$argv[4], 'ip' => $argv[3]]);
+        break;
+
+    case 'guest-cookie':
+        // the grant cookie the plugin itself makes for a guest of a showcase: the route's showcase (or the id given), an expiry
+        // (absolute time), the IP the grant is bound to ('' without the IP check)
+        $sid = isset($argv[5]) ? (int)$argv[5] : $showcaseId($argv[2]);
+        $row = $db->fetch_array($db->simple_select('myshowcase_config', 'password', "showcase_id='{$sid}'"));
+        $secret = \MyShowcase\Util\PasswordGrant::secretFrom($GLOBALS['cache']);
+        $out(['cookie' => \MyShowcase\Util\PasswordGrant::value($secret, $sid, (int)$argv[3], (string)$row['password'], (string)$argv[4])]);
         break;
 
     case 'moderator-row':
