@@ -378,7 +378,8 @@ def import_cells(build):
                 content = flows.xml_file([entry], route='gallery', collection='Gallery', format_version=2)
             else:
                 entry = flows.downloads_entry(1, build.url_of(att, 'file'))
-                content = flows.xml_file([entry], route='downloads', collection='Downloads', format_version=2)
+                # format 3: its select values are option tokens (value ids, D128); a format 2 file with options is refused
+                content = flows.xml_file([entry], route='downloads', collection='Downloads', format_version=3)
             path = flows.write_file(f'import-{build.label}-{user}-{att}.xml', content)
             body = flows.import_into(client, route, path)['body']
             report = flows.report_of(body)
