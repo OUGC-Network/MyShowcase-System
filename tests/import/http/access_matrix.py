@@ -217,7 +217,11 @@ class Build:
                 h.write(make_png(i))
         zip_path = make_zip(os.path.join(MEDIA, 'matrix-archive.zip'))
         gal_fields = lambda t: {'title': t, 'caption': 'Matrix caption', 'category': self.option('gallery', 'Nature')}
-        dl_fields = {'version': '1.9.1', 'release_date': '2026-11-01', 'platform': 1, 'license': 1, 'sha256': '0' * 64, 'category': 1}
+        # The select values are the option ids of THIS board's downloads collection, looked up by label: the ids are not
+        # fixed (a fresh install's shipped collection starts at 11), and a value that is no option refuses the save.
+        dl_fields = {'version': '1.9.1', 'release_date': '2026-11-01', 'platform': self.option('downloads', 'Any'),
+                     'license': self.option('downloads', 'Freeware'), 'sha256': '0' * 64,
+                     'category': self.option('downloads', 'Tools')}
 
         def approved_gallery(name, index):
             r = self.create_entry('owner', 'gallery', gal_fields(name), 'image', png(index))
