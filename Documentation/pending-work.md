@@ -669,3 +669,20 @@ fixed, deleted, or documented with an item ID. The per-marker list of the first 
   sqlite; the URL guard passes with 0 sites outside the allow-list. Not done: the legacy update code of Plugin/Core.php (:1993, kept:
   it runs on boards upgraded from old versions, a compatibility decision for the owner); docs/import-export-design.md NEW-5 (not
   re-checked in this run).
+* B9b (integrity report and warnings): done in part. Commit c28032a: tests/features/http/integrity_report.php (read-only; five orphan
+  kinds must be zero, two information kinds), run at the end of tests/features/http/run.py. Counts: features run.py 147/0 on each
+  engine with 0 orphans and no column outside TABLES_DATA; the report found 8 + 15 false orphans on the first try (a basename
+  mismatch in the report, fixed in the same commit; the database had none). Warnings pass: with error_reporting E_ALL and log_errors
+  on, the features run and the JSON-sync, import-matrix, url_absolute, url_mode and quote_dates suites logged no PHP warning,
+  notice or deprecation on SQLite; the features run logged none on MySQL and PostgreSQL. Binary columns: one VARBINARY column in the
+  plugin (ipaddress); its readers convert the PostgreSQL stream (EntriesManager, CommentsManager) or leave it out of the query
+  (attachments); no reader of the access log. Not done: the import-run hook of the integrity report (the features hook exists);
+  comments_history.ipaddress is written by no code path (not verified further).
+* B5 (PWA, P4): held back, one step. The brief asks for the worker's default scope to be the board folder while the worker is
+  served through a showcase route (scope = the directory of the script URL, /showcase.php/, not the board folder). This needs an owner
+  decision on the shape (P4): a root-level script (a rewrite or a file in the board root) or a scope header. Not started.
+* END (IA-3, final HEAD, see the hand-over): the listed suites pass on sqlite, mysql and pgsql (access matrix 112 cells, password,
+  guest grant, throttle, moderator areas, unapproved attachments, attachment rules, forum embed, features with the integrity report,
+  url_absolute, url_mode, quote_dates, fresh install, JSON-sync HTTP, acp bounds, field matrix 823 pass 91 n/a, abort and cleanup
+  harnesses, second board 40/0, import HTTP 205/0 twice on sqlite); interrupt harness on sqlite for the four features harnesses: 3/0
+  each. Static: unit suites, guard, strings and status tests, seeds coverage, php -l and py_compile all pass.
