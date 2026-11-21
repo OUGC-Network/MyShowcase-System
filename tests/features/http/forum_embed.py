@@ -4,9 +4,11 @@
 A forum post carries [attachment=public_id]; the post bit (forum_hooks.php postbit()) embeds the attachment. The checks:
 
   E1  a guest does not see the embedded attachment awaiting approval;
-  E2  a member who is neither its author nor a moderator (mod1, no moderator row) does not see it;
+  E2  a member who is neither its author nor a moderator (plainmember, no moderator row) does not see it;
   E3  its author (member1) sees it;
-  E4  a moderator of the entries (mod1 with the entries flag) sees it.
+  E4  a moderator of the entries (plainmember with the entries flag) sees it.
+
+mod1 is in the Super Moderators group (gid 3), which sees every attachment, so it is not used as the other viewer.
 
     python3 tests/features/http/forum_embed.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
 
@@ -73,7 +75,6 @@ def main():
         php(board_dir, 'users', os.path.join(a.scratch, 'users.json'))
         users = json.load(open(os.path.join(a.scratch, 'users.json')))
         member_password, member_uid = users['member1']['password'], users['member1']['uid']
-        mod_password, mod_uid = users['mod1']['password'], users['mod1']['uid']
         php(board_dir, 'types', 'blog')
         png = os.path.join(a.scratch, 'embed.png')
         open(png, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201a6a1c0340000000049454e44ae426082'))
@@ -90,8 +91,10 @@ def main():
         time.sleep(1.5)
 
         guest = Front(f'http://127.0.0.1:{port}')
+        # a plain Registered member: mod1 is in the Super Moderators group, which sees every attachment
+        plain_member = php(board_dir, 'user', 'plainmember', 2)
         other = Front(f'http://127.0.0.1:{port}')
-        other.login('mod1', mod_password)
+        other.login('plainmember', plain_member['password'])
         author = Front(f'http://127.0.0.1:{port}')
         author.login('member1', member_password)
         name = att['name']
@@ -108,7 +111,7 @@ def main():
         ok(name not in guest_body, 'E1: a guest does not see an embedded attachment awaiting approval')
         ok(name not in other_body, 'E2: a member who is neither its author nor a moderator does not see it')
         ok(name in author.get(page)['body'], 'E3: its author sees it')
-        php(board_dir, 'moderator-row', 'blog', mod_uid, 1, 0)
+        php(board_dir, 'moderator-row', 'blog', plain_member['uid'], 1, 0)
         time.sleep(1.5)
         ok(name in other.get(page)['body'], 'E4: a moderator of the entries (the entries flag) sees it')
     except Exception as e:  # a crash is a failed check, reported with the summary below
