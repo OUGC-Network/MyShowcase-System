@@ -33,8 +33,8 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 
 | ID | Title | Area | Status | Size | Depends on |
 |---|---|---|---|---|---|
-| P-URL-1 | Query string as a fourth link option | Links | Not started | M | none (touches B4) |
-| B4 | URL residuals | Links, tests, docs | Partial | M | none |
+| P-URL-1 | Query string as a fourth link option | Links | Done (documented) | M | none |
+| B4 | URL residuals | Links, tests, docs | Done (documented) | M | none |
 | B5 | PWA: manifest and service worker | Front end | Partial | S | P4 |
 | B6 | Visibility and access re-audit | Access | Partial | M | B7 |
 | B7 | One moderator model | Access | Partial | M | P1 |
@@ -72,11 +72,14 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 
 **What it is.** A fourth value of the showcase "Links" option (`url_mode` 3): links written as
 `showcase.php?route_identifier=<id>&route=<rest>`. Automatic would fall back to this form instead of the path form
-(`showcase.php/<id>/...`) when friendly links are not available. Export file URLs would use the query form. The ACP select
+(`showcase.php/<id>/...`) when friendly links are not available. Export file URLs use the showcase's own form (decision D277; the earlier wording said the query form, which is wrong). The ACP select
 would offer four labelled choices with help text, and the router would accept all three forms. The reason is that the path form
 needs `PATH_INFO`, which a common nginx `location ~ \.php$` block does not pass.
 
-**Current state: Not started.**
+**Current state: Done (documented).** Built in commits c15e151 (UrlMode, four values and `linkForm()`), 5694840 (router and
+builder), 7c37eba (export file URLs in the showcase's own form, own-board URLs in all three forms), c60740d (ACP select and
+JSON validation), 4e1866c (documentation), with the tests in 6be01ea and 22afb8e. The bullets below record the state before
+the work and are kept as the record of the plan.
 
 * `UrlMode` knows three modes only (`Upload/inc/plugins/myshowcase/src/Routing/UrlMode.php:28-40`), with the documentation of
   Automatic in the docblock at lines 20-27.
@@ -97,7 +100,7 @@ needs `PATH_INFO`, which a common nginx `location ~ \.php$` block does not pass.
   `PATH_INFO` today was not read: unverified).
 - [ ] Add the fourth value to validation (`ShowcaseService`, `JsonValidator`), the ACP select and language strings, the JSON
   documentation and the export of `url_mode`.
-- [ ] Write export file URLs in the query form; keep old plain URLs working (P3).
+- [x] Export file URLs in the showcase's own form (D277); old plain URLs keep working (P3).
 - [ ] Update `url-option.md`, the guard allow-list (`tests/url-builder/allow-list.json`) and the router fixture.
 
 **Acceptance.** A board without `PATH_INFO` routing can use every page and download through the query form; the URL-mode tests
@@ -111,7 +114,12 @@ the default setting.
 
 **What it is.** The remaining non-absolute URLs and test and documentation leftovers of the link work.
 
-**Current state: Partial.** Relative or host-root links remain in the plugin templates (read, not run):
+**Current state: Done (documented).** Completed by commits 8905e7f (the residual links, the password gate's action, `url_showcase`,
+the moderator's IP search link, the script escaping), 028e655 (`downloads_entry` by label), 62d0925 (the blog sentence), with
+the tests in 6be01ea, 22afb8e and edad466, and the guard's relative-link scan. The Batch 5 items (the manifest and the service
+worker) are unchanged and on the guard's allow-list. The findings below are the state before the work.
+
+Relative or host-root links remained in the plugin templates (read, not run):
 
 * `view/templates/pageViewEntry.twig:157` links to `/getip/{{ entry_data.public_id }}`; no route or script of that name exists in
   `Upload/` (a search for `getip` found only this line), so the link is both root-relative and dead (unverified at run time).
@@ -534,14 +542,14 @@ on load" (`FieldFactory::create()`), and `:1048` says no decisions are needed. T
 |---|---|---|
 | P1 | What do the ACP moderator flags mean? | `isModerator()` stays the one test; the entries and comments flags decide moderation per area for non-super moderators; the attachments, reports and logs flags are hidden until a feature uses them. |
 | P2 | Status code map | 404 unknown, 400 refused input, 401/403 permission, 500 faults only; page-not-found passes 404 explicitly. |
-| P3 | Old plain file URLs after P-URL-1 | They keep working; new exports write the query form. |
+| P3 | Old plain file URLs after P-URL-1 | Settled (D277): they keep working; exports write the showcase's own form, not always the query form. |
 | P4 | Service worker and manifest | Serve the worker from a showcase route with a root scope and ship an own manifest; if infeasible, drop the worker. |
 | P5 | Composer dependencies | Remove `symfony/uid` and `teamtnt/tntsearch` first; keep form and container until replaced. |
 | P6 | Unapproved attachments in `RenderManager` | Shown to their author and to moderators only. |
-| P7 | The `/getip/...` link | Replaced by a link to MyBB's own IP search for moderators, or removed. |
+| P7 | The `/getip/...` link | Settled (D281) and done: a link to MyBB's own IP search, shown to moderators for a stored address. |
 | P8 | Final regression list | Every runner listed under FR1, serial, each engine each runner supports. |
 | P9 | Documentation fixes | Made in the batch that touches the code, plus one small documentation batch for the gaps in section 4. |
-| P10 | `url_mode` numbering | The query form is value 3; Automatic's fallback is the query form. |
+| P10 | `url_mode` numbering | Settled and done: the query form is value 3; Automatic's fallback is the query form. |
 
 ## 4. Documentation gaps
 
@@ -552,7 +560,7 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 | G1 | `Documentation/templates/template-reference.md:61-62`: the flags come from `EntriesManager::isEntryModerator()` and `isCommentModerator()` | Those methods are on the controller (`Controller/BaseController.php:171-179`); `EntriesManager` has only `isModerator()` (`EntriesManager.php:229`) |
 | G2 | `Documentation/README.txt:171-177` and `template-reference.md:55-58`: users with "entries" or "comments" on, on the Moderators tab, moderate | The flags are not read (`EntriesManager.php:224-225`, `Documentation/visibility.md:20-21`) |
 | G3 | `EntriesManager.php:226-228` (comment): `matchesUser()` and the repository property "have not been confirmed" | `ModeratorsRepository.php:53` defines `matchesUser()`; `visibility.md:17-18` documents it |
-| G4 | `Documentation/showcases/blog.md:70-71`: "each one allows nothing for an empty field" | `Documentation/import.md:87`, `:108`: an empty optional value is stored empty and a pattern accepts it |
+| G4 (fixed, 62d0925) | `Documentation/showcases/blog.md:70-71`: "each one allows nothing for an empty field" | `Documentation/import.md:87`, `:108`: an empty optional value is stored empty and a pattern accepts it |
 | G5 | `Documentation/exports.md:100` and `:119`: two sections titled "File fields" | One topic written twice |
 | G6 | `Documentation/import-packages.md:119`: export as package writes "format version 2" | `Documentation/import.md:43-50`: versions 1 to 3, with 3 carrying option value ids |
 | G7 | `Upload/CLAUDE.md:101`: templates under `inc/plugins/myshowcase/src/view/templates/` | The folder is `Upload/inc/plugins/myshowcase/view/templates/` (`template-reference.md:11`) |
@@ -563,7 +571,7 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 | G12 | Root `README` (13 lines) | It contains template-edit code, not a description of the plugin |
 | G13 | `LANGUAGE_REFACTORING_SUMMARY.md` | A historical summary at the root; linked from no document (unverified) |
 | G14 | `docs/import-export-design.md:896-970` known issues | Not re-checked (NEW-5) |
-| G15 | `Documentation/showcases/url-option.md:19-90` (three modes) | Correct for the code today; it must change with P-URL-1 |
+| G15 (fixed, 4e1866c) | `Documentation/showcases/url-option.md:19-90` (three modes) | Rewritten for the four values (commit 4e1866c). |
 
 ## 5. TODO and FIXME inventory
 
