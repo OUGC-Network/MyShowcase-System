@@ -81,7 +81,7 @@ def main():
     # the allow-list (strings-allow.json) names each justified exception with its reason.
     allow = json.load(open(os.path.join(HERE, 'strings-allow.json'), encoding='utf-8'))
     allowed = {(e['file'], e['text']) for e in allow}
-    sentence = re.compile(r"'(?=[^'\n]*\b[a-z])([A-Z][A-Za-z]*(?:[ ,'\-][A-Za-z,'\-]+){2,}[.!?]?)'")
+    sentence = re.compile(r"'(?=[^'\n]*\b[a-z])([A-Z][A-Za-z]*(?:[ ,'\-][A-Za-z0-9,:;()'\-]+){2,}[.!?]?)'")
     skip = re.compile(r'throw new|die\(|error_log\(|header\(|LogicException|RuntimeException')
     for sub in ('Service', 'Controller'):
         for path in files(os.path.join(PLUGIN, 'src', sub), ('.php',)):

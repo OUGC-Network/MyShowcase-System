@@ -1,1 +1,37 @@
-[]
+[
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Service/ExportsManager.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Service/EntriesManager.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Service/EntriesImporter.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Controller/ExportController.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Controller/EntriesController.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Controller/BaseController.php",
+    "text": "Y-m-d H:i:s",
+    "reason": "a date format string for date(), gmdate() or DateTime, not a sentence"
+  },
+  {
+    "file": "Upload/inc/plugins/myshowcase/src/Service/CurlExternalFileTransport.php",
+    "text": "Accept-Encoding: identity",
+    "reason": "an HTTP request header, not a sentence a user reads"
+  }
+]
