@@ -23,6 +23,7 @@ use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\EntryEntity;
 use MyShowcase\Util\MultipleChoiceUtil;
+use MyShowcase\Util\PasswordGrant;
 use MyShowcase\Enum\{AttachmentsDisplayType,
     ContentStatuses,
     ContentTypes,
@@ -98,16 +99,21 @@ class EntriesController extends BaseController
 
         verify_post_check($this->context->mybb->get_input('my_post_key'));
 
-        $access_logs_repository = new AccessLogsRepository(
-            $this->context->database,
-            $this->context->showcase,
-            $this->context->event_dispatcher
-        );
+        if ((int)$this->context->current_user->uid < 1) {
+            // a guest's grant is its cookie (decision D296): clearing it takes the cookie away, and no other guest's grant
+            my_setcookie(PasswordGrant::cookieName((int)$this->context->showcase->showcase_id), '', -3600, true);
+        } else {
+            $access_logs_repository = new AccessLogsRepository(
+                $this->context->database,
+                $this->context->showcase,
+                $this->context->event_dispatcher
+            );
 
-        $access_logs_repository->updateAccessLogs(
-            ['is_valid' => parent::PASSWORD_IS_INVALID],
-            ['user_id' => $this->context->mybb->user['uid']]
-        );
+            $access_logs_repository->updateAccessLogs(
+                ['is_valid' => parent::PASSWORD_IS_INVALID],
+                ['user_id' => $this->context->mybb->user['uid']]
+            );
+        }
 
         redirect(
             $this->context->routing->url(Routes::Main),

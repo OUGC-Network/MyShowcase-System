@@ -28,6 +28,7 @@ use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\AccessLogsRepository;
+use MyShowcase\Util\PasswordGrant;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
@@ -54,6 +55,8 @@ abstract class BaseController
     public const INVALID_ENTRY = 3;
     public const INVALID_COMMENT = 4;
     public const INVALID_ATTACHMENT = 5;
+    /** Wrong passwords from one address, guests only, inside the interval, before the address is refused (decision D297). */
+    public const GUEST_ATTEMPT_LIMIT = 5;
 
     protected readonly EntriesRepository $entries_repository;
     protected readonly FormFactoryInterface $form_factory;
@@ -113,9 +116,13 @@ abstract class BaseController
         }
 
         $display_error = false;
+        $locked = false;
 
         if ($this->context->mybb->request_method === 'post') {
-            if (!hash_equals($this->context->showcase->password, $this->context->mybb->get_input('password'))) {
+            if ((int)$this->context->current_user->uid < 1 && $this->guestIsLockedOut($repo)) {
+                // too many wrong passwords from this address: the password is not even checked (decision D297)
+                $locked = true;
+            } elseif (!hash_equals($this->context->showcase->password, $this->context->mybb->get_input('password'))) {
                 $display_error = true;
 
                 $this->recordPasswordAccess($repo, false);
@@ -130,6 +137,7 @@ abstract class BaseController
                 'pageAccess',
                 [
                     'display_error' => $display_error,
+                    'locked' => $locked,
                     'form_action' => $this->absoluteRequestUrl(),
                 ]
             )
@@ -140,6 +148,10 @@ abstract class BaseController
 
     private function isPasswordAccessGranted(AccessLogsRepository $repo): bool
     {
+        if ((int)$this->context->current_user->uid < 1) {
+            return $this->guestHasGrant();
+        }
+
         $where_clauses = [
             "user_id='{$this->context->current_user->uid}'",
             "is_valid='" . self::PASSWORD_IS_VALID . "'",
@@ -154,6 +166,60 @@ abstract class BaseController
         return (bool)$repo->queryAccessLogsCount($where_clauses);
     }
 
+    /**
+     * A guest's grant is the signed cookie of this showcase (decision D296), never an access row (every guest has user id 0).
+     */
+    private function guestHasGrant(): bool
+    {
+        $name = str_replace([' ', "\n", "\r"], '', (string)$this->context->mybb->settings['cookieprefix'])
+            . PasswordGrant::cookieName((int)$this->context->showcase->showcase_id);
+
+        $cookie = $_COOKIE[$name] ?? '';
+
+        return is_string($cookie) && PasswordGrant::valid(
+            $cookie,
+            $this->passwordSecret(),
+            (int)$this->context->showcase->showcase_id,
+            (string)$this->context->showcase->password,
+            $this->passwordGrantIp(),
+            TIME_NOW,
+            (bool)$this->context->showcase->password_ip_check
+        );
+    }
+
+    /**
+     * Whether a guest's wrong passwords from this address reached the limit inside the interval (decision D297). The key is the
+     * address: another guest's attempts do not count here.
+     */
+    private function guestIsLockedOut(AccessLogsRepository $repo): bool
+    {
+        $where_clauses = [
+            "user_id='0'",
+            "is_valid='" . self::PASSWORD_IS_INVALID . "'",
+            "dateline>'" . gmdate('Y-m-d H:i:s', TIME_NOW - $this->context->showcase->password_minutes_interval * 60) . "'",
+            "ipaddress={$this->context->database->escape_binary($this->context->mybb->session->packedip)}",
+        ];
+
+        return $repo->queryAccessLogsCount($where_clauses) >= self::GUEST_ATTEMPT_LIMIT;
+    }
+
+    /** The address a grant is bound to, as text: '' without the showcase's IP check (decision D296). */
+    private function passwordGrantIp(): string
+    {
+        if (!$this->context->showcase->password_ip_check) {
+            return '';
+        }
+
+        return (string)my_inet_ntop($this->context->mybb->session->packedip);
+    }
+
+    private function passwordSecret(): string
+    {
+        global $cache;
+
+        return PasswordGrant::secretFrom($cache);
+    }
+
     private function recordPasswordAccess(AccessLogsRepository $repo, bool $is_valid = true): void
     {
         $repo->insertAccessLog([
@@ -164,6 +230,24 @@ abstract class BaseController
             'is_valid' => $is_valid ? self::PASSWORD_IS_VALID : self::PASSWORD_IS_INVALID,
             'ipaddress' => $this->context->mybb->session->packedip,
         ]);
+
+        if ($is_valid && (int)$this->context->current_user->uid < 1) {
+            // a guest's grant is the cookie of this showcase, for the interval (decision D296)
+            $seconds = (int)$this->context->showcase->password_minutes_interval * 60;
+
+            my_setcookie(
+                PasswordGrant::cookieName((int)$this->context->showcase->showcase_id),
+                PasswordGrant::value(
+                    $this->passwordSecret(),
+                    (int)$this->context->showcase->showcase_id,
+                    TIME_NOW + $seconds,
+                    (string)$this->context->showcase->password,
+                    $this->passwordGrantIp()
+                ),
+                $seconds,
+                true
+            );
+        }
 
         if ($is_valid) {
             $this->context->mybb->request_method = 'get';

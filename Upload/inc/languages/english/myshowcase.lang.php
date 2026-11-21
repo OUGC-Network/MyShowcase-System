@@ -52,6 +52,7 @@ $l = array_merge($l, [
     // Access page
     'myshowcase_password_required' => 'Password Required',
     'myshowcase_password_wrong_password' => 'The password you entered is incorrect. Please try again.',
+    'myshowcase_password_too_many_attempts' => 'Too many wrong passwords from your address. Wait until the password interval has passed, then try again.',
     'myshowcase_password_enter_password_below' => 'Enter the showcase password',
     'myshowcase_password_note' => "You must enter this showcase's password to gain access",
     'myshowcase_password_verify_password' => 'Verify Showcase Password',
