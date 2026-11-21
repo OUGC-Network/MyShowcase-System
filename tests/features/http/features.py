@@ -692,6 +692,11 @@ def blog_fields():
 
 def run(acp):
     setup(acp)
+    # The checks of this suite read the links of the forum features in the path form (showcase.php/<id>/...), as they were
+    # written. The Links option's choice of form is checked by url_mode.py (decisions D268, D269), so the showcases of this run
+    # keep the path form (mode 0) and their expectations are unchanged.
+    CTX.execute("update mybb_myshowcase_config set url_mode=0")
+    fix('grants')  # rebuilds the config cache, so the forum side reads the mode the showcases now have
     blog_fields()
     defaults(acp)
     field_deletion(acp)

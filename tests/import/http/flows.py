@@ -867,7 +867,8 @@ def section_files():
         own_url = attach_urls[0]
         route_path = php_route(own_url)
         # The entry of the file the URL names (found by its public id, not assumed to be the newest one).
-        own_public_id = own_url.split('/gallery/attachment/', 1)[1].split('/', 1)[0]
+        # the file URL is in the form of the showcase's setting: the path form, or the query string form (decision D268)
+        own_public_id = re.search(r'(?:/gallery/attachment/|route=attachment/)([^/&]+)', own_url).group(1)
         own_entry = one(f"select entry_id from mybb_myshowcase_attachments where showcase_id={gid} and public_id='{own_public_id}'")
         ok(own_entry != '' and own_entry != '0', 'the URL of the export names a file with an entry of the gallery')
 
