@@ -115,7 +115,7 @@ final class JsonSync
         if (!$file['valid']) {
             $messages = $file['exists']
                 ? array_map(static fn($error) => "{$error['path']} {$error['message']}", $file['errors'])
-                : ['The file does not exist.'];
+                : [JsonUi::text('error_file_missing')];
 
             return $empty + ['errors' => $messages];
         }

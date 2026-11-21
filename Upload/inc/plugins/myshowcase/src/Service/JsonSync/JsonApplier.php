@@ -112,7 +112,7 @@ final class JsonApplier
 
                 $result['failed'] = $step;
 
-                $result['error'] = "Step \"{$step['description']}\" failed: " . $exception->getMessage();
+                $result['error'] = 'Step "' . JsonUi::text($step['key'], ...$step['values']) . '" failed: ' . $exception->getMessage();
 
                 $this->context = array_merge($outer, ['collection_id' => $this->context['collection_id'], 'showcase_id' => $this->context['showcase_id']]);
 
@@ -212,7 +212,7 @@ final class JsonApplier
             'type' => $type,
             'row_id' => $type === 'collection' ? $this->context['collection_id'] : $this->context['showcase_id'],
             'step' => $step['type'],
-            'description' => $step['description'],
+            'description' => JsonUi::text($step['key'], ...$step['values']),
             'old_version' => $this->context['old_version'],
             'new_version' => $this->context['new_version'],
         ];
@@ -418,8 +418,8 @@ final class JsonApplier
             $holder = SchemaManager::nameHolder("myshowcase_data{$showcaseId}");
 
             throw new \RuntimeException($holder !== null
-                ? "The name of the entries table is already used by a {$holder} of the database, so the table cannot be created."
-                : 'The entries table was not created.');
+                ? JsonUi::text('error_data_table_holder', (string)$holder)
+                : JsonUi::text('error_data_table_not_created'));
         }
     }
 

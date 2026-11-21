@@ -440,6 +440,12 @@ $l = array_merge([
     'myshowcase_admin_summary_permissions_clear_confirm' => 'Are you sure you wish to clear this custom permission?',
     'myshowcase_admin_summary_permissions_clear_success' => 'The custom permissions for this showcase have been cleared successfully.',
 
+    'myshowcase_admin_error_showcase_name_in_use' => 'The selected name is already in use.',
+    'myshowcase_admin_error_route_identifier_in_use' => 'The route identifier is already in use.',
+    'myshowcase_admin_error_links_option' => 'The links option must be Path, Automatic, Friendly or Query string.',
+    'myshowcase_admin_error_template_prefix_in_use' => 'The template prefix is already in use.',
+    'myshowcase_admin_error_collection_required' => 'A required field is missing.',
+    'myshowcase_admin_error_collection_name_in_use' => 'The selected name is already in use.',
 ], $l);
 
 // the icons of the moderator list (AdminManager): a group and a user

@@ -111,7 +111,7 @@ $renderPlan = static function (array $plan, array $results = []): void {
     foreach ($plan['steps'] as $index => $step) {
         $table->construct_cell((string)($index + 1), ['class' => 'align_center']);
 
-        $cell = htmlspecialchars($step['description']);
+        $cell = htmlspecialchars(JsonUi::text($step['key'], ...$step['values']));
 
         foreach ($step['warnings'] as $warning) {
             $cell .= '<div style="margin-top:3px;padding:2px 6px;background:#fff3cd;color:#664d03;">'

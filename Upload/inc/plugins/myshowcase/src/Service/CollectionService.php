@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use MyShowcase\Util\AdminText;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Service\JsonSync\JsonLock;
 
@@ -38,7 +39,7 @@ final class CollectionService
         if ($name === '') {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_missing_required_fields',
-                'message' => 'A required field is missing.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_collection_required')
             ];
         } elseif (collectionGet(
             ["name='{$db->escape_string($name)}'", "collection_id<>'{$collectionId}'"],
@@ -46,7 +47,7 @@ final class CollectionService
         )) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_duplicated_name',
-                'message' => 'The selected name is already in use.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_collection_name_in_use')
             ];
         }
 

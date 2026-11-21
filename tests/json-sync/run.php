@@ -6,6 +6,16 @@
 
 declare(strict_types=1);
 
+// MSG-b: the planner's messages are language keys that the page resolves through $lang (JsonUi::text). Without MyBB, this test
+// gives the same English text from the admin language file.
+$l = [];
+require __DIR__ . '/../../Upload/inc/languages/english/admin/myshowcase_json_sync.lang.php';
+$GLOBALS['lang'] = new class($l) {
+    public function __construct(private readonly array $values) {}
+    public function load(string $name, bool $isdb = false, bool $admin = false): void {}
+    public function __get(string $key): ?string { return $this->values[$key] ?? null; }
+};
+
 error_reporting(E_ALL);
 
 define('IN_MYBB', 1);

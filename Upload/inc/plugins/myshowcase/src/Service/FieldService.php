@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use MyShowcase\Util\AdminText;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Enum\FieldHtmlTypes;
 use MyShowcase\Service\JsonSync\JsonLock;
@@ -433,7 +434,7 @@ final class FieldService
         if ($fieldKey === '') {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_missing_required_fields',
-                'message' => 'A required field is missing.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_required')
             ];
         } else {
             $keyProblem = self::fieldKeyProblem($fieldKey);
@@ -441,7 +442,7 @@ final class FieldService
             if ($keyProblem === 'format') {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_field_key_format',
-                    'message' => 'The field key must start with a lower case letter and hold only lower case letters, digits and single underscores between them.'
+                    'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_key_format')
                 ];
             }
 
@@ -470,7 +471,7 @@ final class FieldService
             )) {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_duplicated_name',
-                    'message' => 'The selected name is already in use.'
+                    'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_name_in_use')
                 ];
             }
         }
@@ -491,7 +492,7 @@ final class FieldService
                 if ($value !== '' && !FieldBoundUtil::formatIsValid($htmlType, $value)) {
                     $errors[] = [
                         'key' => 'myshowcase_admin_error_bound_format',
-                        'message' => 'A minimum or maximum value does not have the format of its field type.'
+                        'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_value_format')
                     ];
                 }
             }
@@ -499,7 +500,7 @@ final class FieldService
             if ($htmlType === FieldHtmlTypes::Range && ($minimumValue === '' || $maximumValue === '')) {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_range_bounds',
-                    'message' => 'A range field needs both a minimum and a maximum value.'
+                    'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_range_both')
                 ];
             } elseif ($minimumValue !== '' && $maximumValue !== '' &&
                 FieldBoundUtil::formatIsValid($htmlType, $minimumValue) &&
@@ -507,7 +508,7 @@ final class FieldService
                 FieldBoundUtil::isInverted($htmlType, $minimumValue, $maximumValue)) {
                 $errors[] = [
                     'key' => 'myshowcase_admin_error_bounds_order',
-                    'message' => 'The minimum value is above the maximum value.'
+                    'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_min_above_max')
                 ];
             }
         }
@@ -515,26 +516,26 @@ final class FieldService
         if (!empty($data['regular_expression']) && @preg_match($data['regular_expression'], '') === false) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_regular_expression',
-                'message' => 'The regular expression is not valid.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_regex_invalid')
             ];
         }
 
         if (isset($data['html_type']) && in_array((string)$data['html_type'], \MyShowcase\Plugin\Functions\reservedHtmlTypes(), true)) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_reserved_html_type',
-                'message' => 'The HTML type is reserved for a later feature and cannot be used yet.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_html_reserved')
             ];
         } elseif (isset($data['html_type']) && !isset(fieldHtmlTypes()[(string)$data['html_type']])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_invalid_html_type',
-                'message' => 'The HTML type is not one of the supported types.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_html_unsupported')
             ];
         }
 
         if (isset($data['field_type']) && !isset(fieldTypesGet()[strtolower((string)$data['field_type'])])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_invalid_field_type',
-                'message' => 'The database type is not one of the supported types.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_db_type_unsupported')
             ];
         }
 
@@ -551,7 +552,7 @@ final class FieldService
         if (!MultipleChoiceUtil::columnTypeFits($htmlType, $allowMultiple, $fieldType)) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_multiple_column_type',
-                'message' => 'A field with several values must have the database type text, so that its values fit.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_several_values_text')
             ];
         }
 
@@ -559,7 +560,7 @@ final class FieldService
             MultipleChoiceUtil::isMultiple($htmlType, $allowMultiple) && $this->fieldHasValues($fieldId)) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_multiple_toggle_in_use',
-                'message' => 'The several-values setting of this field cannot change while an entry holds a value for it.'
+                'message' => AdminText::text('myshowcase_fields', 'myshowcase_field_error_several_values_locked')
             ];
         }
 

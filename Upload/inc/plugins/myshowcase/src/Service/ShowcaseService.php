@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Service;
 
+use MyShowcase\Util\AdminText;
 use MyShowcase\Entity\ShowcaseEntity;
 use MyShowcase\Enum\CacheDataTypes;
 use MyShowcase\Repository\ShowcasesRepository;
@@ -83,14 +84,14 @@ final class ShowcaseService
         if (isset($data['name']) && (!$data['name'] || $isTaken('name', $data['name']))) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_duplicated_name',
-                'message' => 'The selected name is already in use.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_showcase_name_in_use')
             ];
         }
 
         if (!empty($data['route_identifier']) && $isTaken('route_identifier', $data['route_identifier'])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_duplicated_script_file',
-                'message' => 'The route identifier is already in use.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_route_identifier_in_use')
             ];
         }
 
@@ -109,14 +110,14 @@ final class ShowcaseService
         if (isset($data['url_mode']) && !preg_match('/^[0123]$/', (string)$data['url_mode'])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_invalid_url_mode',
-                'message' => 'The links option must be Path, Automatic, Friendly or Query string.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_links_option')
             ];
         }
 
         if (!empty($data['custom_template_prefix']) && $isTaken('custom_template_prefix', $data['custom_template_prefix'])) {
             $errors[] = [
                 'key' => 'myshowcase_admin_error_duplicated_template_prefix',
-                'message' => 'The template prefix is already in use.'
+                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_template_prefix_in_use')
             ];
         }
 

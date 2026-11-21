@@ -488,8 +488,7 @@ EOL;
                     // The route identifier is the first segment of the showcase URL, which the router matches with [a-z0-9]+.
                     if (isset($showcase_data['route_identifier']) &&
                         !preg_match('/^[a-z0-9]+$/', (string)$showcase_data['route_identifier'])) {
-                        $error_messages[] = $this->language->myshowcase_admin_error_invalid_route_identifier
-                            ?? 'The script file must not be empty and may only contain lowercase letters and digits.';
+                        $error_messages[] = $this->language->myshowcase_admin_error_invalid_route_identifier;
                     }
 
                     if (isset($showcase_data['name']) && (
@@ -563,8 +562,7 @@ EOL;
 
                             if ($collection_change_ignored) {
                                 flash_message(
-                                    $this->language->myshowcase_admin_warning_collection_change_ignored
-                                    ?? 'The settings were saved, but the collection was not changed because the showcase already has a data table.',
+                                    $this->language->myshowcase_admin_warning_collection_change_ignored,
                                     'error'
                                 );
                             } else {

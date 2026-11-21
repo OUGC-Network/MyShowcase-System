@@ -114,7 +114,7 @@ final class JsonFiles
         }
 
         if (filesize($path) > self::MAX_BYTES) {
-            return ['exists' => true, 'data' => null, 'error' => 'The file is larger than 512 KB.', 'raw' => null];
+            return ['exists' => true, 'data' => null, 'error' => JsonUi::text('error_file_too_large'), 'raw' => null];
         }
 
         $raw = (string)file_get_contents($path);
@@ -126,7 +126,7 @@ final class JsonFiles
     public static function decode(string $raw): array
     {
         if (strlen($raw) > self::MAX_BYTES) {
-            return ['data' => null, 'error' => 'The file is larger than 512 KB.', 'raw' => $raw];
+            return ['data' => null, 'error' => JsonUi::text('error_file_too_large'), 'raw' => $raw];
         }
 
         try {
@@ -136,7 +136,7 @@ final class JsonFiles
         }
 
         if (!is_array($data) || array_is_list($data)) {
-            return ['data' => null, 'error' => 'The top level of the file must be an object.', 'raw' => $raw];
+            return ['data' => null, 'error' => JsonUi::text('error_top_level_object'), 'raw' => $raw];
         }
 
         return ['data' => $data, 'error' => null, 'raw' => $raw];

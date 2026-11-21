@@ -230,7 +230,7 @@ final class JsonPlanner
         }
 
         if (($state['language_writable'] ?? true) === false) {
-            $plan['warnings'][] = 'The language directory is not writable: field labels will not be written.';
+            $plan['warnings'][] = JsonUi::text('warning_language_dir');
         }
 
         // 9. version, 10. caches
@@ -241,7 +241,7 @@ final class JsonPlanner
                 ['version' => $decoded['version'], 'hash' => $plan['hash']]
             );
 
-            $steps[] = self::step('cache_refresh', 'Refresh the caches', []);
+            $steps[] = self::step('cache_refresh', 'step_cache_refresh', []);
         }
 
         $plan['steps'] = $steps;
@@ -300,9 +300,9 @@ final class JsonPlanner
         $columns = array_intersect_key($decoded, JsonSchema::showcaseColumns());
 
         if ($row === null) {
-            $steps[] = self::step('showcase_create', 'Create the showcase', ['columns' => $columns]);
+            $steps[] = self::step('showcase_create', 'step_showcase_create', ['columns' => $columns]);
 
-            $steps[] = self::step('data_table_create', 'Create the entries table', []);
+            $steps[] = self::step('data_table_create', 'step_data_table_create', []);
         } else {
             $changed = array_keys(array_filter(
                 $columns,
@@ -313,13 +313,15 @@ final class JsonPlanner
             if ($changed || $row['json_file'] !== $file) {
                 $steps[] = self::step(
                     'showcase_update',
-                    'Update the showcase (' . implode(', ', $changed) . ')',
-                    ['columns' => $columns]
+                    'step_showcase_update',
+                    ['columns' => $columns],
+                    [],
+                    [implode(', ', $changed)]
                 );
             }
 
             if (empty($state['data_table'])) {
-                $steps[] = self::step('data_table_create', 'Create the entries table', []);
+                $steps[] = self::step('data_table_create', 'step_data_table_create', []);
             }
         }
 
@@ -332,7 +334,7 @@ final class JsonPlanner
                 ['version' => $decoded['version'], 'hash' => $plan['hash']]
             );
 
-            $steps[] = self::step('cache_refresh', 'Refresh the caches', []);
+            $steps[] = self::step('cache_refresh', 'step_cache_refresh', []);
         }
 
         $plan['steps'] = $steps;
@@ -382,12 +384,13 @@ final class JsonPlanner
         ];
     }
 
-    private static function step(string $type, string $description, array $data, array $warnings = []): array
+    private static function step(string $type, string $key, array $data, array $warnings = [], array $values = []): array
     {
         return [
             'id' => $type . ':' . md5(serialize($data)),
             'type' => $type,
-            'description' => $description,
+            'key' => $key,
+            'values' => $values,
             'warnings' => $warnings,
             'data' => $data,
         ];
