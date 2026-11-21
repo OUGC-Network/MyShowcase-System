@@ -558,7 +558,9 @@ def deletion(e2):
     r = m1.get(f"{G}/update/{e['public_id']}")
     ok('id="contentForm"' not in r['body'], "edit form: the author without \"view deleted\" cannot open the own soft-deleted entry")
     deleted_page = mod.get(view_url(e))['body'].replace('&amp;', '&')
-    ok(f"/update/{e['public_id']}?action=restore" in deleted_page and 'editpost.php' not in deleted_page and 'Thread.restorePost' not in deleted_page,
+    # the restore link is in the form of the showcase's setting: path or friendly (update/<id>?action=restore) or query string (D268)
+    restore_link = f"/update/{e['public_id']}?action=restore" in deleted_page or f"route=update/{e['public_id']}&action=restore" in deleted_page
+    ok(restore_link and 'editpost.php' not in deleted_page and 'Thread.restorePost' not in deleted_page,
        'soft-deleted entry shows a plugin restore link to moderators, no editpost.php or core JS')
     mod.get(f"{G}/update/{e['public_id']}?action=restore&my_post_key={post_key(page['body'])}")
     ok(entry('gallery', 'entry_id', e['entry_id'])['status'] == '1', 'entry page: moderator restore')

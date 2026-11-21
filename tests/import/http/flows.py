@@ -580,10 +580,11 @@ def section_permissions():
     exporter = logged_in('exporter')
     main_member = member.get(f'{SHOWCASE}/')['body']
     main_exporter = exporter.get(f'{SHOWCASE}/')['body']
-    ok(re.search(r'href="[^"]*/blog/import"', main_member) is not None, 'the import link is shown to a member with EntriesCanImport')
+    # the link of a route is in the form of the showcase's setting: the path or friendly form, or the query string form (D268)
+    ok(re.search(r'href="[^"]*(?:/blog/import"|route_identifier=blog&(?:amp;)?route=import")', main_member) is not None, 'the import link is shown to a member with EntriesCanImport')
     dump('main-exporter', main_exporter)
-    ok(re.search(r'href="[^"]*/blog/import"', main_exporter) is None, 'the import link is hidden from a member without it')
-    ok(re.search(r'href="[^"]*/blog/export"', main_exporter) is not None, 'the export link is shown to a member who may export')
+    ok(re.search(r'href="[^"]*(?:/blog/import"|route_identifier=blog&(?:amp;)?route=import")', main_exporter) is None, 'the import link is hidden from a member without it')
+    ok(re.search(r'href="[^"]*(?:/blog/export"|route_identifier=blog&(?:amp;)?route=export")', main_exporter) is not None, 'the export link is shown to a member who may export')
     ok(exporter.get(f'{SHOWCASE}/export')['status'] == 200, 'export still works for a member who may only export')
 
 
@@ -796,7 +797,10 @@ def section_files():
     download = member.get(f'/showcase.php/gallery/export/{export_id}/download')
     exported = download['raw'].decode('utf-8', errors='replace')
     ok('<value type="INT">3</value>' in exported and 'format_version' in exported, 'the export is format version 3')
-    attach_urls = re.findall(r'https?://127\.0\.0\.1:\d+/(?:showcase\.php/)?gallery/attachment/[^<\s]+', exported)
+    # the file URLs of the export: the path or friendly form, or the query string form of the showcase's setting (D268, D277)
+    attach_urls = re.findall(r'https?://127\.0\.0\.1:\d+/(?:showcase\.php/)?gallery/attachment/[^<\s]+'
+                             r'|https?://127\.0\.0\.1:\d+/showcase\.php\?route_identifier=gallery&amp;route=attachment/[^<\s]+', exported)
+    attach_urls = [u.replace('&amp;', '&') for u in attach_urls]
     ok(len(attach_urls) >= 2 and all(CTX.url in u for u in attach_urls), f'the export holds the public URL of each image ({len(attach_urls)})')
     if attach_urls:
         # The board's routed URL is /gallery/attachment/...; this test server has no URL rewriting, so the same route is
