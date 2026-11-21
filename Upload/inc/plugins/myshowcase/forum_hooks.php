@@ -357,7 +357,9 @@ function postbit(array &$post): array
                 foreach (
                     $showcase->context->attachments_repository->queryAttachments(
                         ["public_id IN ('{$attachment_public_ids}')"], // todo, status clause
-                        array_keys(TABLES_DATA['myshowcase_attachments']),
+                        // every column but the stored address: PostgreSQL returns a bytea column as a stream, which the entity
+                        // refuses; the post bit does not show the address
+                        array_values(array_diff(array_keys(TABLES_DATA['myshowcase_attachments']), ['ipaddress'])),
                     ) as $attachment_data
                 ) {
                     $showcase->context->attachments_manager->addAttachment($attachment_data);
