@@ -64,8 +64,10 @@ $check(PasswordGrant::valid($bound, $secret, 7, $password, '127.0.0.1', $now), '
 $check(!PasswordGrant::valid($bound, $secret, 7, $password, '10.0.0.9', $now), 'with the IP check, a cookie from another address does not grant');
 $check(!PasswordGrant::valid($bound, $secret, 7, $password, '', $now), 'with the IP check, a cookie used without an address does not grant');
 
-$check(PasswordGrant::valid(PasswordGrant::value($secret, 7, $expires, $password, ''), $secret, 7, $password, '10.0.0.9', $now)
-    === true, 'without the IP check the address is not part of the signature');
+$check(PasswordGrant::valid(PasswordGrant::value($secret, 7, $expires, $password, ''), $secret, 7, $password, '10.0.0.9', $now, false),
+    'without the IP check (the last argument false) the address is not part of the signature');
+$check(!PasswordGrant::valid(PasswordGrant::value($secret, 7, $expires, $password, ''), $secret, 7, $password, '10.0.0.9', $now),
+    'with the IP check on (the default), an address the cookie was not made for does not grant');
 
 $check(PasswordGrant::cookieName(7) === 'myshowcase_pw_7', 'the cookie is named per showcase');
 $check(PasswordGrant::cookieName(7) !== PasswordGrant::cookieName(8), 'two showcases have two cookies');

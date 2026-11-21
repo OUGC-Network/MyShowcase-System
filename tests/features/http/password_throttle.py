@@ -115,16 +115,25 @@ def main():
         ok(bool(new) and all(d < 300 for d in drift),
            f'the stored times of the wrong passwords are UTC (within five minutes of the UTC clock; drift in seconds {[int(d) for d in drift]})')
 
+        # W and G are the logged-in member's grant, which comes from the access log by user id (decision D296: a guest's grant is
+        # its cookie, not a row)
+        users_file = os.path.join(a.scratch, 'users.json')
+        php(board_dir, 'users', users_file)
+        users = json.load(open(users_file))
+        member_uid = users['member1']['uid']
+        member = Front(f'http://127.0.0.1:{port}')
+        member.login('member1', users['member1']['password'])
+
         # W: a valid access older than the interval does not open the gate
         stale = (utc_now() - datetime.timedelta(hours=2)).strftime('%Y-%m-%d %H:%M:%S')
-        php(board_dir, 'password-row', 'blog', stale, 1)
-        r = guest.get(path)
+        php(board_dir, 'password-row', 'blog', stale, 1, member_uid)
+        r = member.get(path)
         ok(gate_shown(r['body']), f'a valid access two hours old (interval 60 minutes) does not open the gate [{r["status"]}]')
 
-        # G: a valid access inside the interval opens it; the right password opens it too
+        # G: a valid access inside the interval opens it
         recent = (utc_now() - datetime.timedelta(minutes=10)).strftime('%Y-%m-%d %H:%M:%S')
-        php(board_dir, 'password-row', 'blog', recent, 1)
-        r = guest.get(path)
+        php(board_dir, 'password-row', 'blog', recent, 1, member_uid)
+        r = member.get(path)
         ok(r['status'] == 200 and not gate_shown(r['body']), f'a valid access ten minutes old opens the gate [{r["status"]}]')
 
     except Exception as e:  # a crash is a failed check, reported with the summary below
