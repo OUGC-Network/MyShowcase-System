@@ -13,6 +13,7 @@ The scan is static and does not depend on a database, so it runs once, not per e
 
 Exit code 1 if a check fails.
 """
+import json
 import os
 import re
 import sys
@@ -74,6 +75,26 @@ def main():
             for key in camel.findall(line):
                 checks += 1
                 failures.append(f'C {key} at {os.path.relpath(path, REPO)}:{number}')
+
+    # M (MSG, D146, D302): a user-facing English sentence is not written in the PHP of the services and controllers. A sentence
+    # is a quoted text of three or more words with a lowercase word, not in a line that throws, dies, logs or sends a header;
+    # the allow-list (strings-allow.json) names each justified exception with its reason.
+    allow = json.load(open(os.path.join(HERE, 'strings-allow.json'), encoding='utf-8'))
+    allowed = {(e['file'], e['text']) for e in allow}
+    sentence = re.compile(r"'(?=[^'\n]*\b[a-z])([A-Z][A-Za-z]*(?:[ ,'\-][A-Za-z,'\-]+){2,}[.!?]?)'")
+    skip = re.compile(r'throw new|die\(|error_log\(|header\(|LogicException|RuntimeException')
+    for sub in ('Service', 'Controller'):
+        for path in files(os.path.join(PLUGIN, 'src', sub), ('.php',)):
+            rel = os.path.relpath(path, REPO).replace(os.sep, '/')
+            for number, line in enumerate(open(path, encoding='utf-8').read().splitlines(), 1):
+                stripped = line.strip()
+                if skip.search(line) or stripped.startswith(('//', '*', '/*')):
+                    continue
+                for text in sentence.findall(line):
+                    if (rel, text) in allowed:
+                        continue
+                    checks += 1
+                    failures.append(f'M {text!r} at {rel}:{number} (a user-facing English sentence in a service or controller)')
 
     for f in failures:
         print('FAIL', f)
