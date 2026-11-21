@@ -16,14 +16,19 @@ declare(strict_types=1);
 namespace MyShowcase\Routing;
 
 /**
- * The URL option of a showcase (decisions D224, D229, D233): whether the links the plugin generates for a showcase are plain
- * (the showcase.php segment stays in them) or friendly (the segment is removed, which needs a server rewrite). Both forms are
- * always routed; this option only chooses the links.
+ * The URL option of a showcase (decisions D224, D229, D233, D268, D269): the form of the links the plugin generates for a
+ * showcase. Four values:
+ *   0 Path:          showcase.php/<id>/... (needs PATH_INFO, which a plain nginx "location ~ \.php$" block does not pass);
+ *   1 Automatic:     friendly when the request allows it, otherwise the query string form (the default);
+ *   2 Friendly:      <id>/... without showcase.php (needs the rewrite rule);
+ *   3 Query string:  showcase.php?route_identifier=<id>&route=<rest of the route>, with the other query parameters after it
+ *                    (no server setup).
+ * Every form is always routed; this option only chooses the links.
  *
  * Automatic follows MyBB core's own rule (inc/init.php): friendly when the board's seourls setting is yes, or when it is auto
  * and the request carries SEO_SUPPORT that core accepts (isset, and equal to 1), and the plugin's own marker
- * SHOWCASE_SEO_SUPPORT (set, and equal to 1: the rewrite snippets of the documentation set it). This is the one place that rule
- * is written.
+ * SHOWCASE_SEO_SUPPORT (set, and equal to 1: the rewrite snippets of the documentation set it). Without both, Automatic writes
+ * the query string form. This is the one place that rule is written; no caller decides the form itself.
  */
 final class UrlMode
 {
@@ -33,11 +38,46 @@ final class UrlMode
 
     public const FRIENDLY = 2;
 
+    public const QUERY = 3;
+
     public const DEFAULT = self::AUTOMATIC;
+
+    public const FORM_PATH = 'path';
+
+    public const FORM_FRIENDLY = 'friendly';
+
+    public const FORM_QUERY = 'query';
 
     public static function isValid(int $mode): bool
     {
-        return $mode === self::PLAIN || $mode === self::AUTOMATIC || $mode === self::FRIENDLY;
+        return $mode === self::PLAIN || $mode === self::AUTOMATIC || $mode === self::FRIENDLY || $mode === self::QUERY;
+    }
+
+    /**
+     * The form of the links of a showcase for this request: FORM_PATH, FORM_FRIENDLY or FORM_QUERY (decisions D269, D278).
+     * Path and friendly and query are chosen by the mode alone; Automatic is friendly only when usesFriendlyLinks() says so,
+     * and query otherwise. A request without a web server (a task or the command line) carries no markers, so Automatic
+     * writes the query form there.
+     *
+     * @param string $seourls the board's seourls setting: 'no', 'auto' or 'yes'
+     * @param mixed $seoSupport $_SERVER['SEO_SUPPORT'] of the request; null when it is not set
+     * @param mixed $marker $_SERVER['SHOWCASE_SEO_SUPPORT'] of the request; null when it is not set
+     */
+    public static function linkForm(int $mode, string $seourls, mixed $seoSupport, mixed $marker = null): string
+    {
+        if ($mode === self::PLAIN) {
+            return self::FORM_PATH;
+        }
+
+        if ($mode === self::QUERY) {
+            return self::FORM_QUERY;
+        }
+
+        if ($mode === self::FRIENDLY) {
+            return self::FORM_FRIENDLY;
+        }
+
+        return self::usesFriendlyLinks(self::AUTOMATIC, $seourls, $seoSupport, $marker) ? self::FORM_FRIENDLY : self::FORM_QUERY;
     }
 
     /**
@@ -59,6 +99,10 @@ final class UrlMode
 
         if ($mode === self::FRIENDLY) {
             return true;
+        }
+
+        if ($mode === self::QUERY) {
+            return false;
         }
 
         $coreRule = $seourls === 'yes' || ($seourls === 'auto' && $seoSupport !== null && $seoSupport == 1);
