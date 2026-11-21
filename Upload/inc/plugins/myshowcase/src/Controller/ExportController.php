@@ -184,7 +184,7 @@ class ExportController extends BaseController
         $library = $this->start();
 
         if (is_string($library)) {
-            $this->error($this->context->language->{'myshowcase_import_export_error_' . $library});
+            $this->error($this->context->language->{'myshowcase_import_export_error_' . $library}, 400);
         }
 
         $export = $this->ownExport($export_id);
@@ -216,7 +216,7 @@ class ExportController extends BaseController
         $library = $this->start();
 
         if (is_string($library)) {
-            $this->error($this->context->language->{'myshowcase_import_export_error_' . $library});
+            $this->error($this->context->language->{'myshowcase_import_export_error_' . $library}, 400);
         }
 
         // Deleting changes data: only a POST with a valid key does it, never a link.

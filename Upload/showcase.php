@@ -164,7 +164,7 @@ try {
     $showcase = (new Container())->container->get('showcase');
 } catch (Throwable $e) {
     error_log('MyShowcase: ' . get_class($e) . ': ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')');
-    error(DEBUG ? $e->getMessage() : \MyShowcase\Plugin\ErrorSentence\errorSentence(null, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'));
+    error(DEBUG ? $e->getMessage() : \MyShowcase\Plugin\ErrorSentence\errorSentence(null, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'), '', '', 500);
 }
 
 if (!$showcase->data_table_exists || !$showcase->context->showcase->collection_id) {
@@ -191,14 +191,14 @@ try {
     $context_language = isset($showcase) ? $showcase->context?->language : null;
 
     if ($e instanceof \Symfony\Component\Routing\Exception\ResourceNotFoundException) {
-        error(\MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_page_not_found', 'The page you asked for does not exist in this showcase.'));
+        error(\MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_page_not_found', 'The page you asked for does not exist in this showcase.'), '', '', 404);
     }
 
     error_log(
         'MyShowcase: ' . get_class($e) . ': ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ')'
     );
 
-    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : \MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'));
+    error(DEBUG ? $e->getMessage() . "<pre>{$e->getTraceAsString()}</pre>" : \MyShowcase\Plugin\ErrorSentence\errorSentence($context_language, $lang ?? null, 'myshowcase_error_unexpected', 'The request could not be completed. The cause has been written to the error log.'), '', '', 500);
 }
 
 exit;

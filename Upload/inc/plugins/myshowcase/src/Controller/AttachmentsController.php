@@ -83,7 +83,7 @@ class AttachmentsController extends BaseController
         $field_key = $field->field_key;
 
         if (empty($_FILES[$field_key])) {
-            $this->error($lang->myshowcase_create_update_attachment_error_missing_file);
+            $this->error($lang->myshowcase_create_update_attachment_error_missing_file, 400);
         }
 
         $field_definition = $this->context->collection_fields[$field->field_id];
@@ -143,7 +143,7 @@ class AttachmentsController extends BaseController
             );
 
             if (isset($upload_attachment_result['error'])) {
-                $this->error($upload_attachment_result['error']);
+                $this->error($upload_attachment_result['error'], 400);
             } else {
                 $this->success([
                     'id' => $upload_attachment_result['attachment_id'],

@@ -1344,8 +1344,9 @@ def stage_x(cells, ctx, member):
     page = member.get(f'/showcase.php/{ROUTE}/no-such-page/')
     text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', page['body']))
     open(os.path.join(a.scratch, 'container-failure.html'), 'w', encoding='utf-8').write(page['body'])
-    # error() answers with its status (MyBB's default is 400): the sentence and no empty or internal error page are the checks
-    ok = page['status'] == 400 and 'does not exist in this showcase' in text and 'unknown error' not in text.lower() \
+    # The page that does not exist answers 404 (B8a, decision P2; before it answered MyBB's default 400): the sentence and no empty
+    # or internal error page are the checks
+    ok = page['status'] == 404 and 'does not exist in this showcase' in text and 'unknown error' not in text.lower() \
         and 'Internal Error' not in text
     check(cells, 'place:page-not-found', 'x', 'pass' if ok else 'fail',
           f"answers {page['status']}; the page-not-found sentence shown: {'does not exist in this showcase' in text}; "

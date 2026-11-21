@@ -164,7 +164,9 @@ switch ($switch) {
         // The Moderators group is a moderator of this showcase (moderator type group, MODERATOR_TYPE_GROUP = 1): its members may
         // moderate entries of others when the group has the permission.
         $db->delete_query('myshowcase_moderators', "showcase_id='{$showcase}'");
-        $db->insert_query('myshowcase_moderators', ['showcase_id' => $showcase, 'user_id' => $groupId('Moderators'), 'group_id' => 1]);
+        // Per area (B7, decision P1): the entries flag moderates entries, the comments flag moderates comments
+        $db->insert_query('myshowcase_moderators', ['showcase_id' => $showcase, 'user_id' => $groupId('Moderators'), 'group_id' => 1,
+            'entries_can_view' => 1, 'can_manage_comments' => 1]);
 
         $rebuild();
 

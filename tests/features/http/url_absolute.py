@@ -339,7 +339,7 @@ def run(ctx, scratch, port):
                         ('export (member)', member, '/showcase.php/blog/export'),
                         ('import (member)', member, '/showcase.php/blog/import'),
                         ('search (guest)', guest, '/showcase.php/blog/search'),
-                        ('unknown entry (guest)', guest, '/showcase.php/blog/view/nope/nope'),  # 400 today: a Batch 8 status code (D249), accepted here
+                        ('unknown entry (guest)', guest, '/showcase.php/blog/view/nope/nope'),  # 404: an unknown entry (B8a, P2)
                         ('list page 2 (guest)', guest, '/showcase.php/blog/?page=2'),
                         ('entry comments page 2 (guest)', guest, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?page=2"),
                         ('entry threaded view (guest)', guest, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?threaded=1"),
@@ -347,7 +347,7 @@ def run(ctx, scratch, port):
                     ]
                     for name, client, path in pages:
                         r = client.get(f'{base}{path}')
-                        ok(r['status'] in ((200, 403, 404, 400) if name.startswith('unknown entry') else (200, 403, 404)), f'{label}: {name} answers ({r["status"]})')
+                        ok(r['status'] in (200, 403, 404), f'{label}: {name} answers ({r["status"]})')
                         read = check_page(name, r['body'], showcase_url, bburl, mode, label)
                         if name in ('list page 2 (guest)', 'entry comments page 2 (guest)'):
                             ok(read > 0, f'{label}: {name} has URLs to check ({read})')

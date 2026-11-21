@@ -105,7 +105,7 @@ class CommentsController extends BaseController
                 $this->errorNoPermission();
                 break;
             case self::INVALID_ENTRY:
-                $this->error($lang->myshowcase_report_error_invalid_entry);
+                $this->error($lang->myshowcase_report_error_invalid_entry, 404);
         }
 
         if ($is_update && !$this->context->current_user->hasPermission(UserPermissions::CommentsCanUpdate)) {
@@ -391,10 +391,10 @@ class CommentsController extends BaseController
                 $this->errorNoPermission();
                 break;
             case self::INVALID_ENTRY:
-                $this->error($lang->myshowcase_report_error_invalid_entry);
+                $this->error($lang->myshowcase_report_error_invalid_entry, 404);
                 break;
             case self::INVALID_COMMENT:
-                $this->error($lang->myshowcase_report_error_invalid_comment ?? $lang->myshowcase_report_error_invalid_entry);
+                $this->error($lang->myshowcase_report_error_invalid_comment ?? $lang->myshowcase_report_error_invalid_entry, 404);
         }
 
         /** @var CommentEntity $comment */

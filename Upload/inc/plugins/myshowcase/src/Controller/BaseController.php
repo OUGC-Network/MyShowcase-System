@@ -71,7 +71,8 @@ abstract class BaseController
     ) {
         if (SHOWCASE_FILE_VERSION_CODE < VERSION_CODE) {
             $this->error(
-                'This file is not the same version as the MyShowcase System. Please be sure to upload and configure ALL files.'
+                'This file is not the same version as the MyShowcase System. Please be sure to upload and configure ALL files.',
+                500
             );
         }
 
@@ -445,11 +446,11 @@ abstract class BaseController
                 $this->errorNoPermission();
                 break;
             case self::INVALID_ENTRY:
-                $this->error($this->context->language->myshowcase_report_error_invalid_entry);
+                $this->error($this->context->language->myshowcase_report_error_invalid_entry, 404);
                 break;
             case self::INVALID_COMMENT:
                 // A hidden comment answers exactly like a missing one: no redirect to its position.
-                $this->error($this->context->language->myshowcase_report_error_invalid_comment);
+                $this->error($this->context->language->myshowcase_report_error_invalid_comment, 404);
         }
 
         /** @var EntryEntity $entry */
