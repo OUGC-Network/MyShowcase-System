@@ -145,7 +145,8 @@ class UrlCollector(HTMLParser):
 
 # MyBB's own header, footer and default theme (core chrome, not emitted by the plugin): not checked here. The plugin's own
 # images (attachment type icons) are checked. The list is explicit, so a new entry is a decision of the test.
-CORE_CHROME = ('manifest.json', 'showteam.php', 'member.php', 'index.php', 'search.php', 'task.php', 'misc.php', 'usercp.php', 'private.php', 'memberlist.php', 'online.php', 'calendar.php', 'stats.php', 'modcp.php', 'portal.php', 'syndication.php', 'cache/', 'jscripts/', 'images/')
+# usercp.php is not core chrome here: the plugin links to it (the attachments of the entry form), so those links are checked.
+CORE_CHROME = ('manifest.json', 'showteam.php', 'member.php', 'index.php', 'search.php', 'task.php', 'misc.php', 'private.php', 'memberlist.php', 'online.php', 'calendar.php', 'stats.php', 'modcp.php', 'portal.php', 'syndication.php', 'cache/', 'jscripts/', 'images/')
 CORE_CHROME_EXCEPT = ('images/attachtypes/',)
 
 
@@ -198,8 +199,14 @@ def check_page(page_name, body, showcase_url, bburl, mode, label):
             parts = urlsplit(value)
             if parts.netloc != board_host:
                 continue  # another site
-            if re.search(r'/showcase\.php(/|$)|/(blog|gallery|downloads)(/|\?|$)', parts.path):
-                good = value.startswith(expected_showcase + '/') or value == expected_showcase
+            if re.search(r'/showcase\.php(/|$)|/(blog|gallery|downloads)(/|\?|$)|route_identifier=', value):
+                # the query string form (decision D268) is the plain base with the route in its parameters
+                plain = resolve_base(showcase_url, bburl)
+                good = value.startswith(expected_showcase + '/') or value == expected_showcase \
+                    or value.startswith(plain + '?route_identifier=')
+                if kind == 'script string' and '&amp;' in value:
+                    # a script's text is not decoded by the browser: an escaped "&" in a URL the script uses is a broken request
+                    PROBLEMS.setdefault(f'{page_name} {kind} escaped', []).append(f'{label}: {value[:120]} (a script holds &amp;, not &)')
             else:
                 good = value.startswith(normalize(bburl) + '/') or value == normalize(bburl)
             if not good:
@@ -226,7 +233,7 @@ def main():
         for kind, items in sorted(PROBLEMS.items(), key=lambda kv: -len(kv[1]))[:40]:
             for example in items[:3]:
                 print(f'  {len(items):4d}  {kind}   e.g. {example[:200]}')
-        for f in FAILS[:20]:
+        for f in FAILS:
             print('  FAILED:', f)
         sys.stdout.flush()
     finally:
@@ -256,6 +263,7 @@ def run(ctx, scratch, port):
     php(board_dir, 'save-row', 2, 'entries_can_export', 1)
     php(board_dir, 'save-row', 2, 'entries_can_import', 1)
     php(board_dir, 'save-row', 2, 'entries_can_post', 1)
+    php(board_dir, 'save-row', 2, 'comments_can_post', 1)  # the reply button of an entry needs the comment right (a member's)
     users_file = os.path.join(scratch, 'users.json')
     php(board_dir, 'users', users_file)
     member_password = json.load(open(users_file))['member1']['password']
@@ -268,6 +276,8 @@ def run(ctx, scratch, port):
     png = os.path.join(scratch, 'absolute.png')
     open(png, 'wb').write(bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201a6a1c0340000000049454e44ae426082'))
     php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
+    php(board_dir, 'set-ip', 'blog', entry['entry_id'], '127.0.0.1')  # a stored address: the moderator's IP search link (D281)
+    php(board_dir, 'setting', 'logip', 'show')
     server = subprocess.Popen(['php', '-S', f'127.0.0.1:{port + 10}', '-t', board_dir, os.path.join(board_dir, 'url_mode_router.php')],
                               stdout=open(os.path.join(scratch, 'php-absolute.log'), 'w'), stderr=subprocess.STDOUT)
     base = f'http://127.0.0.1:{port + 10}'
@@ -281,6 +291,8 @@ def run(ctx, scratch, port):
             'empty': '',
         }
         bburl_forms = {'root': base, 'subfolder with trailing slash': base + '/sub/'}
+        admin = Front(base)
+        admin.login('admin', ctx.password)  # a super moderator: the moderator's pages (the IP search link) are rendered
         for bburl_label, bburl in bburl_forms.items():
             php(board_dir, 'setting', 'bburl', bburl)
             time.sleep(3)  # the server's opcache revalidates the settings on its own clock (as url_mode.py does)
@@ -304,6 +316,8 @@ def run(ctx, scratch, port):
                         ('unknown entry (guest)', guest, '/showcase.php/blog/view/nope/nope'),  # 400 today: a Batch 8 status code (D249), accepted here
                         ('list page 2 (guest)', guest, '/showcase.php/blog/?page=2'),
                         ('entry comments page 2 (guest)', guest, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?page=2"),
+                        ('entry threaded view (guest)', guest, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?threaded=1"),
+                        ('entry threaded view (member)', member, f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}?threaded=1"),
                     ]
                     for name, client, path in pages:
                         r = client.get(f'{base}{path}')
@@ -311,6 +325,20 @@ def run(ctx, scratch, port):
                         read = check_page(name, r['body'], showcase_url, bburl, mode, label)
                         if name in ('list page 2 (guest)', 'entry comments page 2 (guest)'):
                             ok(read > 0, f'{label}: {name} has URLs to check ({read})')
+                    # the password gate (decision D244): a guest of a showcase with a password is asked for it, on an absolute form
+                    php(board_dir, 'showcase-set', 'blog', 'password', 'url-absolute-gate')
+                    gate = guest.get(f'{base}/showcase.php/blog/')
+                    check_page('password gate (guest)', gate['body'], showcase_url, bburl, mode, label)
+                    ok(gate['status'] == 200 and 'type="password"' in gate['body'], f'{label}: the password gate answers the password form ({gate["status"]})')
+                    php(board_dir, 'showcase-set', 'blog', 'password', '')
+                    # the moderator's IP search link (decision D281): shown to a moderator for the stored address, never to a guest
+                    moderator_page = admin.get(f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")
+                    ip_links = [h for h in re.findall(r'href="([^"]*)"', moderator_page['body']) if 'ipsearch' in h]
+                    ok(moderator_page['status'] == 200 and bool(ip_links) and all(h.startswith('http') for h in ip_links),
+                       f'{label}: the moderator sees the IP search link, absolute ({ip_links[:1]})')
+                    check_page('entry (moderator, stored IP)', moderator_page['body'], showcase_url, bburl, mode, label)
+                    guest_page = guest.get(f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")
+                    ok(not [h for h in re.findall(r'href="([^"]*)"', guest_page['body']) if 'ipsearch' in h], f'{label}: a guest does not see the IP search link')
     finally:
         server.terminate()
         server.wait()

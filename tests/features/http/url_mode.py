@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The URL option of a showcase (decisions D4 to D9, D224): url_mode 0 = No (plain links), 1 = Automatic, 2 = Yes (friendly links).
+"""The URL option of a showcase (decisions D4 to D9, D224, D268): url_mode 0 = Path, 1 = Automatic, 2 = Friendly, 3 = Query string.
 
 The plugin generates the links of a showcase; both forms are always routed, so a friendly request answers the same page as the
 plain one. Automatic follows the board's seourls setting exactly as MyBB core does for its own links (init.php): yes makes the
@@ -151,21 +151,28 @@ def php_env(board_dir, env, *args):
 
 
 def plugin_links(body):
-    """Every link or form action of the blog: with the showcase.php segment (plain) or without it (friendly)."""
-    return re.findall(r'(?:href|action|src)="([^"]*?/blog(?:/|\?|"|$)[^"]*)"', body)
+    """Every link or form action of the blog: path, friendly or query string form (decision D268)."""
+    return re.findall(r'(?:href|action|src)="([^"]*?(?:/blog(?:/|\?|"|$)|route_identifier=blog(?:&|"))[^"]*)"', body)
 
 
-def is_friendly(link):
-    return '/showcase.php/' not in link
+def form_of_link(link):
+    """The form of one link of the plugin: the query string form, the friendly form, or the path form."""
+    if 'route_identifier=' in link:
+        return 'query'
+    return 'friendly' if '/showcase.php' not in link else 'path'
 
 
-def expected_friendly(mode, seourls, seo, marker):
-    """D243: Automatic is core's rule (seourls yes, or auto with SEO_SUPPORT) AND the plugin's marker on the request."""
+def expected_form(mode, seourls, seo, marker):
+    """D268, D269: Path (0), Friendly (2) and Query string (3) are fixed. Automatic is friendly only when core's rule holds
+    (seourls yes, or auto with SEO_SUPPORT) AND the plugin's marker is on the request; otherwise the query string form, never
+    the path form."""
     if mode == 0:
-        return False
+        return 'path'
     if mode == 2:
-        return True
-    return (seourls == 'yes' or (seourls == 'auto' and seo)) and marker
+        return 'friendly'
+    if mode == 3:
+        return 'query'
+    return 'friendly' if ((seourls == 'yes' or (seourls == 'auto' and seo)) and marker) else 'query'
 
 
 def main():
@@ -213,13 +220,16 @@ def run(ctx, scratch, port):
                    'route_identifier': 'blog', 'custom_template_prefix': ''})
     php(board_dir, 'enable', 'blog')
     entry = php(board_dir, 'entry', 'blog', 'Url mode entry')  # the list and the entry page need one approved entry
-    plain_port, seo_port, nomarker_port = port + 10, port + 11, port + 12
+    plain_port, seo_port, nomarker_port, nopath_port = port + 10, port + 11, port + 12, port + 13
     plain = start_server(board_dir, plain_port, False, False, os.path.join(scratch, 'php-plain.log'))
     seo = start_server(board_dir, seo_port, True, True, os.path.join(scratch, 'php-seo.log'))
     nomarker = start_server(board_dir, nomarker_port, True, False, os.path.join(scratch, 'php-nomarker.log'))
     # (name, port, SEO_SUPPORT, the plugin's marker): SEO_SUPPORT without the marker stays plain under Automatic (D243)
     SERVERS_LIST = [('plain server', plain_port, False, False), ('SEO server', seo_port, True, True), ('SEO server without the marker', nomarker_port, True, False)]
-    SERVERS.extend([plain, seo, nomarker])
+    shutil.copy(os.path.join(HERE, 'url_mode_nopathinfo.php'), os.path.join(board_dir, 'url_mode_nopathinfo.php'))
+    nopath = subprocess.Popen(['php', '-S', f'127.0.0.1:{nopath_port}', '-t', board_dir, os.path.join(board_dir, 'url_mode_nopathinfo.php')],
+                              stdout=open(os.path.join(scratch, 'php-nopathinfo.log'), 'w'), stderr=subprocess.STDOUT)
+    SERVERS.extend([plain, seo, nomarker, nopath])
     time.sleep(1.5)
     # the server the links point at: the plain server (the friendly form is the same host without the script name)
     php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
@@ -235,19 +245,17 @@ def run(ctx, scratch, port):
     for seourls in ('no', 'auto', 'yes'):
         php(board_dir, 'setting', 'seourls', seourls)
         time.sleep(3)  # the opcache revalidates the settings file on its own clock
-        for mode in (0, 1, 2):
+        for mode in (0, 1, 2, 3):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
             for name, base_port, is_seo, marker in SERVERS_LIST:
                 c = Front(f'http://127.0.0.1:{base_port}')
                 r = c.get('/showcase.php/blog/')
                 body = r['body']
-                hrefs = links_of(body, '/view/')
-                friendly_links = [h for h in hrefs if '/showcase.php/' not in h]
-                plain_links = [h for h in hrefs if '/showcase.php/' in h]
-                want = expected_friendly(mode, seourls, is_seo, marker)
-                good = bool(hrefs) and ((want and not plain_links and friendly_links) or (not want and not friendly_links and plain_links))
+                hrefs = links_of(body, 'view/')
+                want = expected_form(mode, seourls, is_seo, marker)
+                good = bool(hrefs) and all(form_of_link(h) == want for h in hrefs)
                 ok(r['status'] == 200 and good,
-                   f'seourls {seourls}, url_mode {mode}, {name}: links {"friendly" if want else "plain"} '
+                   f'seourls {seourls}, url_mode {mode}, {name}: links {want} '
                    f'({len(hrefs)} links, first {hrefs[:1]})')
 
     # ---- R: both forms answer the same page
@@ -260,10 +268,11 @@ def run(ctx, scratch, port):
     for name, base_port in ((n, p) for n, p, _, _ in SERVERS_LIST) if 'public_id' in entry else ():
         c = Front(f'http://127.0.0.1:{base_port}')
         forms = {'plain': f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}",
-                 'friendly': f"/blog/view/{entry['public_id']}/{entry['slug']}"}
+                 'friendly': f"/blog/view/{entry['public_id']}/{entry['slug']}",
+                 'query': f"/showcase.php?route_identifier=blog&route=view/{entry['public_id']}/{entry['slug']}"}
         answers = {k: c.get(v) for k, v in forms.items()}
         ok(all(r['status'] == 200 and 'Url mode entry' in r['body'] for r in answers.values()),
-           f'{name}: the plain and the friendly address answer 200 with the same entry '
+           f'{name}: the path, the friendly and the query string address answer 200 with the same entry '
            f'({ {k: r["status"] for k, r in answers.items()} })')
 
     # ---- E: the list page and the entry page: every link of the blog, in the form the rule says
@@ -271,36 +280,36 @@ def run(ctx, scratch, port):
     for seourls in ('no', 'auto', 'yes'):
         php(board_dir, 'setting', 'seourls', seourls)
         time.sleep(3)
-        for mode in (0, 1, 2):
+        for mode in (0, 1, 2, 3):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
             for name, base_port, is_seo, marker in SERVERS_LIST:
                 c = Front(f'http://127.0.0.1:{base_port}')
-                want = expected_friendly(mode, seourls, is_seo, marker)
+                want = expected_form(mode, seourls, is_seo, marker)
                 for page_name, path in (('list', '/showcase.php/blog/'),
                                         ('entry', f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")):
                     r = c.get(path)
                     links = plugin_links(r['body'])
-                    wrong = [l for l in links if is_friendly(l) != want]
-                    kinds = {'sort' if 'sort' in l else 'last_comment' if 'last_comment' in l else 'view' if '/view/' in l else 'other' for l in links}
+                    wrong = [l for l in links if form_of_link(l) != want]
+                    kinds = {'sort' if 'sort' in l else 'last_comment' if 'last_comment' in l else 'view' if 'view/' in l else 'other' for l in links}
                     ok(r['status'] == 200 and links and not wrong,
-                       f'seourls {seourls}, url_mode {mode}, {name}, {page_name} page: {len(links)} links all {"friendly" if want else "plain"}'
+                       f'seourls {seourls}, url_mode {mode}, {name}, {page_name} page: {len(links)} links all {want}'
                        f'{"" if not wrong else " (wrong: " + wrong[0] + ")"} [{", ".join(sorted(kinds))}]')
 
     # ---- W: who's online shows the showcase page with the same rule
     print('--- W who\'s online: the location link of a showcase page follows the rule')
     for seourls in ('no', 'auto', 'yes'):
         php(board_dir, 'setting', 'seourls', seourls)
-        for mode in (0, 1, 2):
+        for mode in (0, 1, 2, 3):
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
             for is_seo, marker in ((False, False), (True, True), (True, False)):
                 env = {'URL_MODE_SEO': '1' if is_seo else '0', 'URL_MODE_MARKER': '1' if marker else '0'}
                 loc = php_env(board_dir, env, 'wol', 'blog', 'view', entry['entry_id'])
                 # the showcase's own links only: the board's profile link of the viewer is not a showcase link
-                hrefs = [h for h in re.findall(r'href="([^"]*)"', loc.get('location', '')) if '/blog' in h]
-                want = expected_friendly(mode, seourls, is_seo, marker)
-                good = bool(hrefs) and all(is_friendly(h) == want for h in hrefs)
+                hrefs = [h for h in re.findall(r'href="([^"]*)"', loc.get('location', '')) if '/blog' in h or 'route_identifier=blog' in h]
+                want = expected_form(mode, seourls, is_seo, marker)
+                good = bool(hrefs) and all(form_of_link(h) == want for h in hrefs)
                 ok(good, f'who\'s online, seourls {seourls}, url_mode {mode}, {"SEO" if is_seo else "plain"}{" with the marker" if marker else ""} request: '
-                         f'{"friendly" if want else "plain"} ({hrefs[:1] or loc})')
+                         f'{want} ({hrefs[:1] or loc})')
 
     # ---- P: a custom showcase_url (not ending in showcase.php) gives identical forms; an empty one falls back to bburl
     print('--- P prefix: a custom prefix gives identical forms in every mode; an empty one falls back to bburl/showcase.php')
@@ -340,16 +349,16 @@ def run(ctx, scratch, port):
     shipped_path = os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON', 'showcases', 'blog.json')
     original = open(shipped_path, 'rb').read()
     shipped = json.loads(original)
-    shipped['url_mode'] = 0
+    shipped['url_mode'] = 3
     try:
         json.dump(shipped, open(shipped_path, 'w'))
         acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/blog.json'})
-        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 0 stores 0')
-        # a file with a value that is not a choice is refused: the stored value does not change
-        shipped['url_mode'] = 7
+        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '3', 'a JSON apply of a file with url_mode 3 (Query string) stores 3')
+        # a file with a value that is not a choice (4) is refused: the stored value does not change
+        shipped['url_mode'] = 4
         json.dump(shipped, open(shipped_path, 'w'))
         acp.post(adm, {'action': 'run', 'mode': 'apply', 'type': 'showcase', 'id': str(sid), 'file': 'showcases/blog.json'})
-        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '0', 'a JSON apply of a file with url_mode 7 is refused and stores nothing')
+        ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '3', 'a JSON apply of a file with url_mode 4 is refused and stores nothing')
     finally:
         open(shipped_path, 'wb').write(original)
 
@@ -360,7 +369,7 @@ def run(ctx, scratch, port):
     general = form_of(page['body'], 'type=general')
     select = re.search(r'<select[^>]*name="showcase\[url_mode\]"[^>]*>(.*?)</select>', page['body'], re.S)
     options = re.findall(r'<option[^>]*value="(\d+)"[^>]*>([^<]*)</option>', select.group(1)) if select else []
-    ok([v for v, _ in options] == ['0', '1', '2'], f'the form offers three choices 0, 1, 2 [{options}]')
+    ok(sorted(v for v, _ in options) == ['0', '1', '2', '3'], f'the form offers four choices 0, 1, 2, 3 [{options}]')
 
     def save(value):
         data = {k: (v[0] if len(v) == 1 else v) for k, v in general['fields'].items() if k not in general['disabled']}
@@ -368,12 +377,13 @@ def run(ctx, scratch, port):
         path = general['action'].replace('&amp;', '&').split('module=')[1]
         return acp.post('/admin/index.php?module=' + path, data)
 
-    for value in ('2', '0', '1'):
+    for value in ('2', '0', '1', '3'):
         save(value)
         ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == value, f'saving the form with {value} stores {value}')
     save('2')
     r = save('7')
     ok(php(board_dir, 'showcase-value', 'blog', 'url_mode').get('value') == '2', f'a value that is not a choice (7) is refused and nothing changes [{r["status"]}]')
+    save('3')
 
     # ---- Q: the other pages: the entry page with its comment and attachments, the export and import pages, the
     # canonical link (D240). As a guest, and as a member (who can export and import).
@@ -396,10 +406,10 @@ def run(ctx, scratch, port):
         for seourls in ('no', 'auto', 'yes'):
             php(board_dir, 'setting', 'seourls', seourls)
             time.sleep(3)
-            for mode in (0, 1, 2):
+            for mode in (0, 1, 2, 3):
                 php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
                 for name, base_port, is_seo, marker in SERVERS_LIST:
-                    want = expected_friendly(mode, seourls, is_seo, marker)
+                    want = expected_form(mode, seourls, is_seo, marker)
                     guest = Front(f'http://127.0.0.1:{base_port}')
                     member = Front(f'http://127.0.0.1:{base_port}')
                     member.login('member1', member_password)
@@ -407,52 +417,75 @@ def run(ctx, scratch, port):
                         entry_path = f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}"
                         r = client.get(entry_path)
                         links = plugin_links(r['body'])
-                        wrong = [l for l in links if is_friendly(l) != want]
-                        kinds = sorted({'comment' if '/comment' in l else 'attachment' if ('/attachment/' in l or '/thumbnail/' in l) else 'view' if '/view/' in l else 'other' for l in links})
+                        wrong = [l for l in links if form_of_link(l) != want]
+                        # the query string form names the route after "route=", so the kinds match the route's own text
+                        kinds = sorted({'comment' if 'comment' in l else 'attachment' if ('attachment/' in l or 'thumbnail/' in l) else 'view' if 'view/' in l else 'other' for l in links})
                         need = ['attachment', 'comment'] if who == 'member' else []
                         ok(r['status'] == 200 and links and not wrong and all(k in kinds for k in need),
                            f'seourls {seourls}, url_mode {mode}, {name}, {who}, entry page with comments and attachments: '
-                           f'{len(links)} links all {"friendly" if want else "plain"}{"" if not wrong else " (wrong: " + wrong[0] + ")"} [{", ".join(kinds)}]')
+                           f'{len(links)} links all {want}{"" if not wrong else " (wrong: " + wrong[0] + ")"} [{", ".join(kinds)}]')
                         canon = re.search(r'<link rel="canonical" href="([^"]*)"', r['body'])
-                        canon_ok = bool(canon) and (is_friendly(canon.group(1)) == want) and '/blog/view/' in canon.group(1)
+                        canon_ok = bool(canon) and form_of_link(canon.group(1)) == want and ('/blog/view/' in canon.group(1) or 'route=view/' in canon.group(1))
                         ok(canon_ok, f'seourls {seourls}, url_mode {mode}, {name}, {who}: the canonical link is '
-                                     f'{"friendly" if want else "plain"} ({canon.group(1) if canon else "none"})')
+                                     f'{want} ({canon.group(1) if canon else "none"})')
                     if True:
                         for page_name, path in (('export', '/showcase.php/blog/export'), ('import', '/showcase.php/blog/import')):
                             r = member.get(path)
                             links = plugin_links(r['body'])
-                            wrong = [l for l in links if is_friendly(l) != want]
+                            wrong = [l for l in links if form_of_link(l) != want]
                             ok(r['status'] == 200 and links and not wrong,
                                f'seourls {seourls}, url_mode {mode}, {name}, member, {page_name} page: {len(links)} links all '
-                               f'{"friendly" if want else "plain"}{"" if not wrong else " (wrong: " + wrong[0] + ")"}')
+                               f'{want}{"" if not wrong else " (wrong: " + wrong[0] + ")"}')
 
     php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
 
-    # ---- X: export file URLs are plain whatever the mode (D238); the own-board check of an import takes both forms (D52, D58)
-    print('--- X export and import of file URLs: plain in every mode; both forms of an own-board URL are recognised')
+    # ---- X: export file URLs are in the showcase's own form (D277); the export here is a command-line build, which has no
+    # request markers, so Automatic writes the query string form there (D278); the own-board check takes all three forms
+    print('--- X export and import of file URLs: the own form in every mode; the own-board URL is recognised in every form')
     attached = php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
     for empty_prefix in (False, True):
         prefix = '' if empty_prefix else f'http://127.0.0.1:{plain_port}/showcase.php'
         php(board_dir, 'showcase-set', 'blog', 'showcase_url', prefix)
         host = f'http://127.0.0.1:{port}' if empty_prefix else f'http://127.0.0.1:{plain_port}'
-        for mode in (0, 1, 2):
+        for mode in (0, 1, 2, 3):
             php(board_dir, 'setting', 'seourls', 'yes')
             time.sleep(3)
             php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
             label = f"prefix {'empty' if empty_prefix else 'plain'}, url_mode {mode}, seourls yes"
             file_url = php(board_dir, 'file-url', 'blog', attached['public_id'], attached['name']).get('url', '')
-            ok(file_url.startswith(f"{host}/showcase.php/blog/attachment/") and '/showcase.php/' in file_url,
-               f'{label}: the export writes the plain file URL [{file_url[:90]}]')
+            own_file_start = {0: f"{host}/showcase.php/blog/attachment/", 1: f"{host}/showcase.php?route_identifier=blog&route=attachment/",
+                              2: f"{host}/blog/attachment/", 3: f"{host}/showcase.php?route_identifier=blog&route=attachment/"}[mode]
+            ok(file_url.startswith(own_file_start), f'{label}: the export writes the file URL in the own form, {expected_form(mode, "yes", False, None)} [{file_url[:90]}]')
             route = f"/attachment/{attached['public_id']}/{attached['name']}"
             plain_form, friendly_form = f"{host}/showcase.php/blog{route}", f"{host}/blog{route}"
-            if empty_prefix:
-                plain_form = f"{host}/showcase.php/blog{route}"
+            query_form = f"{host}/showcase.php?route_identifier=blog&route=attachment/{attached['public_id']}/{attached['name']}"
             got_plain = php(board_dir, 'own-url', 'blog', plain_form).get('attachment_id')
             got_friendly = php(board_dir, 'own-url', 'blog', friendly_form).get('attachment_id')
-            ok(str(got_plain) == str(attached['attachment_id']) and str(got_friendly) == str(attached['attachment_id']),
-               f'{label}: the own-board URL is recognised in both forms (plain {got_plain}, friendly {got_friendly})')
+            got_query = php(board_dir, 'own-url', 'blog', query_form).get('attachment_id')
+            ok(all(str(g) == str(attached['attachment_id']) for g in (got_plain, got_friendly, got_query)),
+               f'{label}: the own-board URL is recognised in the path, friendly and query string forms (plain {got_plain}, friendly {got_friendly}, query {got_query})')
     php(board_dir, 'showcase-set', 'blog', 'showcase_url', f'http://127.0.0.1:{plain_port}/showcase.php')
     php(board_dir, 'showcase-set', 'blog', 'url_mode', 1)
+
+    # ---- NP: a server that does not route PATH_INFO (decision D268): the query string links work there, the path form does not
+    print('--- NP no PATH_INFO: the query string links answer on a server that does not route PATH_INFO')
+    php(board_dir, 'setting', 'seourls', 'no')
+    time.sleep(3)
+    php(board_dir, 'showcase-set', 'blog', 'url_mode', 3)
+    from urllib.parse import urlsplit
+    import html as html_text
+    np_client = Front(f'http://127.0.0.1:{nopath_port}')
+    direct = np_client.get(f"/showcase.php?route_identifier=blog&route=view/{entry['public_id']}/{entry['slug']}")
+    ok(direct['status'] == 200 and 'Url mode entry' in direct['body'], f'the query string form answers 200 without PATH_INFO [{direct["status"]}]')
+    path_form = np_client.get(f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")
+    ok(path_form['status'] != 200, f'the path form does not answer on a server without PATH_INFO [{path_form["status"]}]')
+    listing = np_client.get('/showcase.php?route_identifier=blog&route=')
+    query_links = [html_text.unescape(h) for h in links_of(listing['body'], 'view/') if 'route_identifier=' in h]
+    ok(listing['status'] == 200 and bool(query_links), f'the list page on that server links the entries in the query string form ({len(query_links)} links)')
+    for link in query_links[:3]:
+        u = urlsplit(link)
+        got = np_client.get(u.path + ('?' + u.query if u.query else ''))
+        ok(got['status'] == 200 and 'Url mode entry' in got['body'], f'a query string link of the list page answers 200 without PATH_INFO [{got["status"]}]')
 
     # ---- D2: a file with url_mode 2 gives 2
     print('--- D file: a showcase file with url_mode 2 creates a showcase with 2')

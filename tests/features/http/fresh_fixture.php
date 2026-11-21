@@ -293,6 +293,14 @@ switch ($command) {
         $out(['types' => $ids]);
         break;
 
+    case 'set-ip':
+        // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281)
+        $sid = $showcaseId($argv[2]);
+        $packed = my_inet_pton($argv[4]);
+        $db->update_query("myshowcase_data{$sid}", ['ipaddress' => $db->escape_string($packed)], "entry_id='" . (int)$argv[3] . "'");
+        $out(['entry_id' => (int)$argv[3], 'ip' => $argv[4]]);
+        break;
+
     default:
         fwrite(STDERR, "unknown command: {$command}\n");
         exit(2);
