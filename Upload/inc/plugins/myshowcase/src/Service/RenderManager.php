@@ -269,9 +269,9 @@ class RenderManager
 
         hooksRun('render_build_entry_comment_start', $this);
 
-        $entry_moderator = $this->context->entries_manager->isModerator();
+        $entry_moderator = $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES);
 
-        $comment_moderator = $this->context->entries_manager->isModerator();
+        $comment_moderator = $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_COMMENTS);
 
         $templatesContext = [
             'entry_data' => $entry,

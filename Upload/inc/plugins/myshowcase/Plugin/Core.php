@@ -1780,22 +1780,7 @@ const TABLES_DATA = [
             'unsigned' => true,
             'default' => 0,
         ],
-        ModeratorPermissions::CommentsCanView => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        ModeratorPermissions::CanManageAttachments => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        ModeratorPermissions::CanManageReports => [
-            'type' => 'TINYINT',
-            'unsigned' => true,
-            'default' => 0,
-        ],
-        ModeratorPermissions::CanManageLogs => [
+        ModeratorPermissions::CanManageComments => [
             'type' => 'TINYINT',
             'unsigned' => true,
             'default' => 0,

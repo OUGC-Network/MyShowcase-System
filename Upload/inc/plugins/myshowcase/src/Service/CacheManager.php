@@ -155,10 +155,7 @@ readonly class CacheManager
                 // cache, which holds all of them, reads the table directly.
                 $moderatorFields = [
                     ModeratorPermissions::EntriesCanView,
-                    ModeratorPermissions::CommentsCanView,
-                    ModeratorPermissions::CanManageAttachments,
-                    ModeratorPermissions::CanManageReports,
-                    ModeratorPermissions::CanManageLogs,
+                    ModeratorPermissions::CanManageComments,
                 ];
 
                 $query = $this->database->simple_select(

@@ -23,6 +23,7 @@ use MyShowcase\Fields\FieldFactory;
 use MyShowcase\Fields\FieldsInterface;
 use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Enum\ModeratorPermissions;
 use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\FieldDefaultUtil;
@@ -126,7 +127,11 @@ class EntriesManager
     /** @var array<string, ?string> The stored value of each option field of the entry being updated, by field key. */
     private array $stored_option_values = [];
 
-    /** @var array<int, bool> Moderator answers per user id, see isModerator(). */
+    /** The areas a moderator can hold rights in (decision P1): entries, and comments. */
+    public const MODERATOR_AREA_ENTRIES = 'entries';
+    public const MODERATOR_AREA_COMMENTS = 'comments';
+
+    /** @var array<string, array<int, bool>> Moderator answers per area and user id, see isModerator(). */
     private array $is_moderator_cache = [];
 
     public function __construct(
@@ -218,15 +223,13 @@ class EntriesManager
     }
 
     /**
-     * Whether the current user is a moderator of this showcase: a super moderator or board administrator (issupermod
-     * or cancp on the usergroup), or listed as a moderator of the showcase by user id or through one of their usergroups.
+     * Whether the current user moderates one area of this showcase (decision P1): the entries, or the comments.
      *
-     * This is the single moderator notion for entries and comments (decision D29). The ACP moderator flags are stored but
-     * not read here.
-     * TODO(verify): ModeratorsRepository::matchesUser() is static and exists; $this->context->moderators_repository
-     *   is a property of ShowcaseContext. Neither has been confirmed in the files reviewed so far.
+     * A super moderator or board administrator (issupermod or cancp on the usergroup) moderates both areas. Any other user
+     * moderates an area when a myshowcase_moderators row for them, by user id or through one of their usergroups, has that
+     * area's flag on: entries_can_view for entries, can_manage_comments for comments. The flags of a row are independent.
      */
-    public function isModerator(): bool
+    public function isModerator(string $area): bool
     {
         $user = $this->context->current_user;
 
@@ -234,8 +237,8 @@ class EntriesManager
             return false;
         }
 
-        if (isset($this->is_moderator_cache[$user->uid])) {
-            return $this->is_moderator_cache[$user->uid];
+        if (isset($this->is_moderator_cache[$area][$user->uid])) {
+            return $this->is_moderator_cache[$area][$user->uid];
         }
 
         $usergroup = $this->context->mybb->usergroup ?? [];
@@ -253,10 +256,14 @@ class EntriesManager
                 )
             );
 
+            $flag = $area === self::MODERATOR_AREA_COMMENTS
+                ? ModeratorPermissions::CanManageComments
+                : ModeratorPermissions::EntriesCanView;
+
             foreach (
-                $this->context->moderators_repository->queryModerators([], ['user_id', 'group_id']) as $moderator_row
+                $this->context->moderators_repository->queryModerators([], ['user_id', 'group_id', $flag]) as $moderator_row
             ) {
-                if (ModeratorsRepository::matchesUser($moderator_row, $group_ids, (int)$user->uid)) {
+                if (!empty($moderator_row[$flag]) && ModeratorsRepository::matchesUser($moderator_row, $group_ids, (int)$user->uid)) {
                     $moderator = true;
 
                     break;
@@ -264,7 +271,7 @@ class EntriesManager
             }
         }
 
-        return $this->is_moderator_cache[$user->uid] = $moderator;
+        return $this->is_moderator_cache[$area][$user->uid] = $moderator;
     }
 
     /**
@@ -315,7 +322,7 @@ class EntriesManager
             return 'none';
         }
 
-        return $this->isModerator() ? 'any' : 'own';
+        return $this->isModerator(self::MODERATOR_AREA_ENTRIES) ? 'any' : 'own';
     }
 
     /**
@@ -352,7 +359,7 @@ class EntriesManager
             return 'none';
         }
 
-        return $this->isModerator() ? 'any' : 'own';
+        return $this->isModerator(self::MODERATOR_AREA_COMMENTS) ? 'any' : 'own';
     }
 
     /**
@@ -425,7 +432,7 @@ class EntriesManager
     /**
      * Whether the current user may use $tool on this entry: they hold the tool's permission, they may see the entry
      * (canViewStatus()), and it is their own entry or they moderate the showcase. The permissions are described as acting on
-     * 'your own entries', so acting on someone else's also takes being a moderator (isModerator()).
+     * 'your own entries', so acting on someone else's also takes being a moderator (isModerator(entries)).
      */
     public function canModerateEntry(string $tool, EntryEntity $entry): bool
     {
@@ -437,7 +444,7 @@ class EntriesManager
             return false;
         }
 
-        return (int)$entry->user_id === $uid || $this->isModerator();
+        return (int)$entry->user_id === $uid || $this->isModerator(self::MODERATOR_AREA_ENTRIES);
     }
 
     /**
@@ -623,44 +630,6 @@ class EntriesManager
         }
 
         return $allowed + $this->buildFieldValues($posted, fields: $this->fillableFields());
-    }
-
-    /**
-     * True for every member with EntriesCanView (on by default); it must not be used as a moderator test. Use isModerator().
-     */
-    public function moderatesShowcase(): bool
-    {
-        $user = $this->context->current_user;
-
-        if ($user->uid < 1) {
-            return false;
-        }
-
-        if ($user->hasPermission(UserPermissions::EntriesCanView)) {
-            return true;
-        }
-
-        $group_ids = array_filter(
-            array_map(
-                'intval',
-                explode(
-                    ',',
-                    ($this->context->mybb->user['usergroup'] ?? 0) . ',' . ($this->context->mybb->user['additionalgroups'] ?? '')
-                )
-            )
-        );
-
-        $conditions = ["user_id='" . (int)$user->uid . "'"];
-
-        if ($group_ids) {
-            $conditions[] = "group_id IN ('" . implode("','", $group_ids) . "')";
-        }
-
-        return !empty($this->context->moderators_repository->queryModerators(
-            ['(' . implode(' OR ', $conditions) . ')'],
-            [],
-            ['limit' => 1]
-        )['moderator_id']);
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MyShowcase\Controller;
 
+use MyShowcase\Service\EntriesManager;
 use MyShowcase\Enum\ContentStatuses;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Enum\UserPermissions;
@@ -350,7 +351,7 @@ class ExportController extends BaseController
                 'field_choices' => $field_choices,
                 'can_include_awaiting' => $this->context->entries_manager->canViewStatus(ContentStatuses::AwaitingApproval),
                 'can_include_deleted' => $this->context->entries_manager->canViewStatus(ContentStatuses::SoftDeleted),
-                'is_moderator' => $this->context->entries_manager->isModerator(),
+                'is_moderator' => $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES),
             ],
             'exports' => $exports,
             'size_cap' => get_friendly_size(ImportLimits::effectiveCap()),

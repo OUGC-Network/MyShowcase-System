@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace MyShowcase\Controller;
 
 use JetBrains\PhpStorm\NoReturn;
+use MyShowcase\Service\EntriesManager;
 use MyShowcase\Entity\AttachmentEntity;
 use MyShowcase\Entity\CommentEntity;
 use MyShowcase\Entity\EntryEntity;
@@ -169,16 +170,16 @@ abstract class BaseController
         }
     }
 
-    /** Whether the user is a moderator of this showcase (EntriesManager::isModerator()); entries and comments alike. */
+    /** Whether the user moderates the entries of this showcase (EntriesManager::isModerator(), the entries area). */
     protected function isEntryModerator(): bool
     {
-        return $this->context->entries_manager->isModerator();
+        return $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES);
     }
 
-    /** Whether the user is a moderator of this showcase (EntriesManager::isModerator()); entries and comments alike. */
+    /** Whether the user moderates the comments of this showcase (EntriesManager::isModerator(), the comments area). */
     protected function isCommentModerator(): bool
     {
-        return $this->context->entries_manager->isModerator();
+        return $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_COMMENTS);
     }
 
     /** Whether the user may run a moderation action, which needs $permission, on the entry. */

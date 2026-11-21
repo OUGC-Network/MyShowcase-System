@@ -139,10 +139,7 @@ function showcaseDefaultModeratorPermissions(): array
 {
     return [
         ModeratorPermissions::EntriesCanView => false,
-        ModeratorPermissions::CommentsCanView => false,
-        ModeratorPermissions::CanManageAttachments => false,
-        ModeratorPermissions::CanManageReports => false,
-        ModeratorPermissions::CanManageLogs => false,
+        ModeratorPermissions::CanManageComments => false,
     ];
 }
 

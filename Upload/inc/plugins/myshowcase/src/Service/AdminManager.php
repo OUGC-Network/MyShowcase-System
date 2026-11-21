@@ -583,10 +583,7 @@ EOL;
                             // Unchecked boxes are not submitted, so a missing flag means 0.
                             $moderator_data = [
                                 ModeratorPermissions::EntriesCanView => $permissions[ModeratorPermissions::EntriesCanView] ?? 0,
-                                ModeratorPermissions::CommentsCanView => $permissions[ModeratorPermissions::CommentsCanView] ?? 0,
-                                ModeratorPermissions::CanManageAttachments => $permissions[ModeratorPermissions::CanManageAttachments] ?? 0,
-                                ModeratorPermissions::CanManageReports => $permissions[ModeratorPermissions::CanManageReports] ?? 0,
-                                ModeratorPermissions::CanManageLogs => $permissions[ModeratorPermissions::CanManageLogs] ?? 0,
+                                ModeratorPermissions::CanManageComments => $permissions[ModeratorPermissions::CanManageComments] ?? 0,
                             ];
 
                             $showcase->context->moderators_repository->updateModerator($moderator_data, $moderatorID);
@@ -614,22 +611,9 @@ EOL;
                             'showcase_id' => $this->showcase_id,
                             'user_id' => $this->group_id,
                             'group_id' => MODERATOR_TYPE_GROUP,
-                            ModeratorPermissions::EntriesCanView => $this->mybb->get_input(
-                                ModeratorPermissions::EntriesCanView,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CommentsCanView => $this->mybb->get_input(
-                                ModeratorPermissions::CommentsCanView,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CanManageAttachments => $this->mybb->get_input(
-                                ModeratorPermissions::CanManageAttachments,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CanManageReports => $this->mybb->get_input(
-                                ModeratorPermissions::CanManageReports,
-                                MyBB::INPUT_INT
-                            ),
+                            // the add forms carry no flag controls: a new row has both of its rights on (decision P1)
+                            ModeratorPermissions::EntriesCanView => 1,
+                            ModeratorPermissions::CanManageComments => 1,
                         ];
 
                         $showcase->context->moderators_repository->insertModerator($moderator_data);
@@ -650,22 +634,9 @@ EOL;
                             'showcase_id' => $this->showcase_id,
                             'user_id' => (int)$userData['uid'],
                             'group_id' => MODERATOR_TYPE_USER,
-                            ModeratorPermissions::EntriesCanView => $this->mybb->get_input(
-                                ModeratorPermissions::EntriesCanView,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CommentsCanView => $this->mybb->get_input(
-                                ModeratorPermissions::CommentsCanView,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CanManageAttachments => $this->mybb->get_input(
-                                ModeratorPermissions::CanManageAttachments,
-                                MyBB::INPUT_INT
-                            ),
-                            ModeratorPermissions::CanManageReports => $this->mybb->get_input(
-                                ModeratorPermissions::CanManageReports,
-                                MyBB::INPUT_INT
-                            ),
+                            // the add forms carry no flag controls: a new row has both of its rights on (decision P1)
+                            ModeratorPermissions::EntriesCanView => 1,
+                            ModeratorPermissions::CanManageComments => 1,
                         ];
 
                         $showcase->context->moderators_repository->insertModerator($moderator_data);
@@ -999,10 +970,7 @@ EOL;
 
         $moderatorFlags = [
             ModeratorPermissions::EntriesCanView,
-            ModeratorPermissions::CommentsCanView,
-            ModeratorPermissions::CanManageAttachments,
-            ModeratorPermissions::CanManageReports,
-            ModeratorPermissions::CanManageLogs,
+            ModeratorPermissions::CanManageComments,
         ];
 
         $form_container->output_row_header(
