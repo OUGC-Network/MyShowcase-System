@@ -37,11 +37,12 @@ $check = static function (bool $ok, string $message) use (&$failures, &$checks):
     }
 };
 
-// the three modes, as stored (url_mode column) and as the ACP form offers them
-$check(UrlMode::PLAIN === 0 && UrlMode::AUTOMATIC === 1 && UrlMode::FRIENDLY === 2, 'the modes are 0 (No), 1 (Automatic), 2 (Yes)');
+// the four modes, as stored (url_mode column) and as the ACP form offers them (decision D268)
+$check(UrlMode::PLAIN === 0 && UrlMode::AUTOMATIC === 1 && UrlMode::FRIENDLY === 2, 'the modes are 0 (Path), 1 (Automatic), 2 (Friendly)');
+$check(defined(UrlMode::class . '::QUERY') && UrlMode::QUERY === 3, 'mode 3 is Query string');
 $check(UrlMode::DEFAULT === 1, 'the default mode is Automatic (1)');
-$check(UrlMode::isValid(0) && UrlMode::isValid(1) && UrlMode::isValid(2), '0, 1 and 2 are valid modes');
-$check(!UrlMode::isValid(3) && !UrlMode::isValid(-1) && !UrlMode::isValid(7), 'any other number is not a valid mode');
+$check(UrlMode::isValid(0) && UrlMode::isValid(1) && UrlMode::isValid(2) && UrlMode::isValid(3), '0, 1, 2 and 3 are valid modes');
+$check(!UrlMode::isValid(4) && !UrlMode::isValid(-1) && !UrlMode::isValid(7), 'any other number is not a valid mode');
 
 // the SEO_SUPPORT values a request can carry: null stands for "not set" (isset is false)
 $seoValues = [null, 1, '1', true, 0, '0', '', 2, '2', false];
@@ -90,5 +91,28 @@ $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', 1, null) === false,
 $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'yes', null, 1) === true, 'Automatic with seourls yes and the marker: friendly');
 $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1, null) === false, 'Automatic with seourls auto, SEO_SUPPORT 1 and no marker: plain (D243)');
 $check(UrlMode::usesFriendlyLinks(UrlMode::AUTOMATIC, 'auto', 1, 1) === true, 'Automatic with seourls auto, SEO_SUPPORT 1 and the marker: friendly');
+
+// the link form each mode writes (decision D269): one decision, UrlMode::linkForm(); Automatic is friendly only with core's
+// rule AND the marker, otherwise query string (never path). A missing method counts as a failure, not a fatal error.
+$form = static fn(int $mode, string $seourls, mixed $seo, mixed $marker = null): string =>
+    method_exists(UrlMode::class, 'linkForm') ? UrlMode::linkForm($mode, $seourls, $seo, $marker) : 'missing';
+$queryMode = defined(UrlMode::class . '::QUERY') ? constant(UrlMode::class . '::QUERY') : -1;
+foreach (['no', 'auto', 'yes'] as $seourls) {
+    foreach ($seoValues as $seo) {
+        foreach ($markers as $marker) {
+            $label = "seourls {$seourls}, SEO_SUPPORT " . ($seo === null ? 'null' : var_export($seo, true)) . ", marker " . $markerLabel($marker);
+            $coreAuto = $seourls === 'yes' || ($seourls === 'auto' && $seo !== null && $seo == 1);
+            $markerSet = $marker !== null && $marker == 1;
+            $check($form(UrlMode::PLAIN, $seourls, $seo, $marker) === 'path', "mode 0 writes path links: {$label}");
+            $check($form(UrlMode::FRIENDLY, $seourls, $seo, $marker) === 'friendly', "mode 2 writes friendly links: {$label}");
+            $check($form($queryMode, $seourls, $seo, $marker) === 'query', "mode 3 writes query links: {$label}");
+            $check($form(UrlMode::AUTOMATIC, $seourls, $seo, $marker) === (($coreAuto && $markerSet) ? 'friendly' : 'query'),
+                "Automatic writes friendly links with core's rule and the marker, query links otherwise: {$label}");
+        }
+    }
+}
+$check($form(UrlMode::AUTOMATIC, 'auto', 1, null) === 'query', 'Automatic without the marker falls back to query string, not path (D269)');
+$check($form(UrlMode::AUTOMATIC, 'no', null, null) === 'query', 'Automatic on a board with SEO URLs off writes query string');
+
 echo "{$checks} checks, {$failures} failed\n";
 exit($failures ? 1 : 0);
