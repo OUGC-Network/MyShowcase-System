@@ -210,7 +210,8 @@ rrmdir($linked->directory());
 
 rrmdir($base);
 
-echo "PASSED: {$passed}\n";
-echo "FAILED: {$failed}\n";
+// A count of checks, not a status: each failing check was printed above as "FAIL: <label>", and the exit code is the status.
+echo "checks passed: {$passed}\n";
+echo "checks failed: {$failed}\n";
 
 exit($failed === 0 ? 0 : 1);
