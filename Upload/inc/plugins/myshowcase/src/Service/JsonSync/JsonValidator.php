@@ -350,9 +350,9 @@ final class JsonValidator
             }
         }
 
-        // the links option is one of its three choices (decision D224); a column type alone allows any small number
+        // the links option is one of its four choices (decisions D224, D268); a column type alone allows any small number
         if (array_key_exists('url_mode', $data) && !(is_int($data['url_mode']) && UrlMode::isValid($data['url_mode']))) {
-            $errors[] = self::error('$.url_mode', 'must be 0 (No), 1 (Automatic) or 2 (Yes)');
+            $errors[] = self::error('$.url_mode', 'must be 0 (Path), 1 (Automatic), 2 (Friendly) or 3 (Query string)');
         }
 
         return $errors;

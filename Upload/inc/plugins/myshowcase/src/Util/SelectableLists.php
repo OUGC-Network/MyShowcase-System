@@ -138,6 +138,7 @@ readonly class SelectableLists
     public function urlModesList(): array
     {
         return [
+            UrlMode::QUERY => $this->language->myshowcase_admin_summary_create_update_url_mode_query,
             UrlMode::PLAIN => $this->language->myshowcase_admin_summary_create_update_url_mode_plain,
             UrlMode::AUTOMATIC => $this->language->myshowcase_admin_summary_create_update_url_mode_automatic,
             UrlMode::FRIENDLY => $this->language->myshowcase_admin_summary_create_update_url_mode_friendly,
