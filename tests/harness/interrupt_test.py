@@ -4,9 +4,9 @@
 Starts one of the features harnesses on its own board. When the ready port (the board's port, or the router's port with
 --ready-port, the one above the board's) listens, the harness is in its run; the test waits half a second and sends
 SIGINT: the harness gets a KeyboardInterrupt. A harness that has already ended before the interrupt fails the test. The
-test then checks that nothing of the run is left: no server listens on the board's port or on any of the 12 ports above
-it (url_mode's extra servers), and, on MySQL and PostgreSQL, no database of the run appeared. The test needs 13 free ports
-from its --port on: the verification uses a spacing of 14.
+test then checks that nothing of the run is left: no server listens on the board's port or on any of the 13 ports above
+it (url_mode's extra servers, the last one the server without PATH_INFO routing, decision D268), and, on MySQL and PostgreSQL,
+no database of the run appeared. The test needs 14 free ports from its --port on: the verification uses a spacing of 14.
 
 Before the repair the Ctx's server outlives the interrupted harness: the port stays in use. The test then kills that
 server, so that it does not stay behind.
@@ -36,8 +36,9 @@ def listeners(port):
 
 
 def run_ports():
-    """The board's port and the ports the harnesses open above it: url_mode uses up to +12 (its SEO and marker-less servers)."""
-    return range(a.port, a.port + 13)
+    """The board's port and the ports the harnesses open above it: url_mode uses up to +13 (its SEO, marker-less and
+    no-PATH_INFO servers)."""
+    return range(a.port, a.port + 14)
 
 
 def databases():
@@ -84,7 +85,7 @@ def main():
     checks.append((interrupted, 'the harness was still running when the interrupt was sent'))
     checks.append((code != 0, f'the harness ended with an error code after the interrupt (exit {code})'))
     left = [pid for port in run_ports() for pid in listeners(port)]
-    checks.append((not left, 'no server listens on the ports of the run (the board port and up to 12 above it) after the interrupt'
+    checks.append((not left, 'no server listens on the ports of the run (the board port and up to 13 above it) after the interrupt'
                    + (f' (pids {left})' if left else '')))
     for pid in left:  # the orphan server of a failed check is stopped, so that it does not stay behind
         os.kill(pid, signal.SIGTERM)
