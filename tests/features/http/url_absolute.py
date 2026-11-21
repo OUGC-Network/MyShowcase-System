@@ -214,27 +214,30 @@ def main():
     os.makedirs(scratch, exist_ok=True)
     port = a.port or {'sqlite': 18950, 'mysql': 18951, 'pgsql': 18952}[a.engine]
     ctx = None
-    server = None
+    cleanup_failed = False
     try:
-        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_absolute_{a.engine}_' + os.urandom(3).hex())
-        run(ctx, scratch, port)
-    except Exception as e:
-        FAILS.append(f'the run stopped: {e}')
-        print('FAIL the run stopped:', e)
-    print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine}); {sum(len(v) for v in PROBLEMS.values())} URL problems in {len(PROBLEMS)} kinds')
-    for kind, items in sorted(PROBLEMS.items(), key=lambda kv: -len(kv[1]))[:40]:
-        for example in items[:3]:
-            print(f'  {len(items):4d}  {kind}   e.g. {example[:200]}')
-    for f in FAILS[:20]:
-        print('  FAILED:', f)
-    sys.stdout.flush()
-    try:
+        try:
+            ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_absolute_{a.engine}_' + os.urandom(3).hex())
+            run(ctx, scratch, port)
+        except Exception as e:
+            FAILS.append(f'the run stopped: {e}')
+            print('FAIL the run stopped:', e)
+        print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine}); {sum(len(v) for v in PROBLEMS.values())} URL problems in {len(PROBLEMS)} kinds')
+        for kind, items in sorted(PROBLEMS.items(), key=lambda kv: -len(kv[1]))[:40]:
+            for example in items[:3]:
+                print(f'  {len(items):4d}  {kind}   e.g. {example[:200]}')
+        for f in FAILS[:20]:
+            print('  FAILED:', f)
+        sys.stdout.flush()
+    finally:
+        # also on KeyboardInterrupt (a BaseException): the board's server and database are closed in every case (D256)
         if ctx is not None:
-            ctx.close()
-    except Exception as e:
-        print('CLEANUP FAILED:', e)
-        return 1
-    return 1 if (FAILS or PROBLEMS) else 0
+            try:
+                ctx.close()
+            except Exception as e:
+                print('CLEANUP FAILED:', e)
+                cleanup_failed = True
+    return 1 if (FAILS or PROBLEMS or cleanup_failed) else 0
 
 
 def run(ctx, scratch, port):
@@ -267,9 +270,9 @@ def run(ctx, scratch, port):
     php(board_dir, 'attachment', 'blog', entry['entry_id'], png)
     server = subprocess.Popen(['php', '-S', f'127.0.0.1:{port + 10}', '-t', board_dir, os.path.join(board_dir, 'url_mode_router.php')],
                               stdout=open(os.path.join(scratch, 'php-absolute.log'), 'w'), stderr=subprocess.STDOUT)
-    time.sleep(1.5)
     base = f'http://127.0.0.1:{port + 10}'
-    try:
+    try:  # the router is stopped on every exit, also when the sleep is interrupted (D256)
+        time.sleep(1.5)
         showcase_forms = {
             'absolute with showcase.php': f'{base}/showcase.php',
             'absolute without showcase.php': base,
