@@ -261,10 +261,10 @@ switch ($command) {
         copy($argv[4], $folder . '/' . $stored);
         $public = substr(md5($stored), 0, 10);
         $id = (int)$db->insert_query('myshowcase_attachments', [
-            'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'user_id' => 1, 'post_hash' => '',
+            'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'user_id' => (int)($argv[5] ?? 1), 'post_hash' => '',
             'file_name' => $stored, 'mime_type' => 'image/png', 'file_size' => filesize($folder . '/' . $stored),
             'attachment_name' => $name, 'status' => 1, 'dateline' => $when(), 'update_dateline' => $when(),
-            'thumbnail_name' => '', 'field_id' => 0,
+            'comment_id' => (int)($argv[6] ?? 0), 'thumbnail_name' => '', 'field_id' => isset($argv[7]) && $argv[7] !== '' ? (int)$db->fetch_field($db->simple_select('myshowcase_fields', 'field_id', "field_key='" . $db->escape_string($argv[7]) . "' AND collection_id=(SELECT collection_id FROM " . $db->table_prefix . "myshowcase_config WHERE showcase_id='{$sid}')")) : 0,
         ]);
         $out(['attachment_id' => $id, 'public_id' => $public, 'name' => $name]);
         break;
