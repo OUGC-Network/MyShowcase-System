@@ -446,6 +446,17 @@ foreach ([$uploads_dir, $outside_dir] as $folder) {
 }
 @rmdir($stored_root);
 
+// The file name of a file URL (decision D268): a query string form names its route in the "route" parameter, so the name is
+// the route's last segment (the file of a board's own URL in the query string form), not the script's name.
+use MyShowcase\Service\ExternalFileAcceptance;
+use MyShowcase\Util\ExternalUrl;
+check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://example.com/forum/blog/attachment/ab12cd/photo.png')) === 'photo.png',
+    'the name of a path-form file URL is its last segment');
+check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://example.com/forum/showcase.php?route_identifier=blog&route=attachment/ab12cd/photo.png')) === 'photo.png',
+    'the name of a query string file URL is the last segment of its route, not showcase.php');
+check(ExternalFileAcceptance::nameOf(ExternalUrl::parse('https://example.com/forum/showcase.php?route_identifier=blog&route=attachment/ab12cd/photo.png&page=2')) === 'photo.png',
+    'the name of a query string file URL ignores the parameters after its route');
+
 echo "{$passes} passed, {$failures} failed\n";
 
 exit($failures === 0 ? 0 : 1);
