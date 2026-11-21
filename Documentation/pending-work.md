@@ -679,3 +679,15 @@ work.
   (ACP form never shows the value, empty keeps it, remove control clears it; gate uses password_verify; fixture hashes). After:
   showcase_password.py 9/0 on each engine; guest_grant 16/0; password_throttle 4/0; url_absolute 540/0; acp_bounds 13/0 (sqlite).
   Documentation/README.txt tells a board to set its showcase password again once.
+* B8b-rest (D303): done for the camelCase admin keys. Test 2a85aa0 (strings.py check C, before: 186 failing occurrences); rename
+  a261171 (119 keys, 187 occurrences; myShowcaseAdminErrorTableDrop gets a text; the seven admin labels whose camelCase key was
+  undefined now show their snake text). strings.py 1934/0 after; features run.py 147/0, json-sync run.py 157/0, url_absolute 540/0,
+  fields run.py 823 pass (91 n/a) on sqlite. The collection_id TODO is closed (the column already has that name). Not done: the
+  user-facing literal messages in the services (FieldService, ShowcaseService, CollectionService, JsonSync, CommentsManager, and
+  AttachmentsController's "File uploaded successfully"); the two files the brief names (AttachmentsManager, FieldTrait) have no
+  literal sentences left.
+* B6-gaps: done. Embed test d900ef4 (test), 08ec02f (plainmember as the other viewer), 9ef5d91 (fix: both loops of postbit use
+  postbitMayEmbed), ac0ec85 (fix: the post-bit query leaves out the bytea address column on PostgreSQL). forum_embed.py: sqlite 5/0,
+  mysql 5/0, pgsql 5/0. Before the fix on sqlite and mysql the embed leaked (E1 and E2 fail: 3 passed, 2 failed). access_matrix.py
+  112 cells, 0 failing on sqlite, mysql and pgsql. The owner-without-view matrix cell is still not added (no matrix user lacks the
+  view right; attachment_rules check D covers it).
