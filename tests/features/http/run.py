@@ -7,7 +7,7 @@ the features the gallery relies on: authorization, moderation, deletion, search,
 
 The database settings are the ones of tests/json-sync/README.md. The test users get passwords generated for the run.
 """
-import argparse, os, sys, tempfile
+import argparse, os, shutil, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'json-sync', 'http'))
@@ -21,12 +21,13 @@ p.add_argument('--scratch', default='')
 p.add_argument('--port', type=int, default=0)
 p.add_argument('--pluginlibrary', default='real', choices=['real', 'stub'])
 p.add_argument('--pluginlibrary-file', default='')
-p.add_argument('--keep', action='store_true', help='leave the PHP server running')
+p.add_argument('--keep', action='store_true', help='leave the PHP server running and keep the scratch folder (the logs)')
 a = p.parse_args()
 
 if not a.mybb or not os.path.isdir(a.mybb):
     sys.exit('give --mybb (or MYBB_SOURCE): a MyBB 1.9 source tree')
 
+made_scratch = not a.scratch  # a folder this run created is removed at the end, unless --keep (decision D256)
 scratch = a.scratch or tempfile.mkdtemp(prefix='myshowcase-features-')
 os.makedirs(scratch, exist_ok=True)
 port = a.port or {'sqlite': 8085, 'mysql': 8084, 'pgsql': 8086}[a.engine]
@@ -43,4 +44,6 @@ try:
 finally:
     if ctx is not None and not a.keep:
         ctx.close()
+    if made_scratch and not a.keep:
+        shutil.rmtree(scratch, ignore_errors=True)
 sys.exit(1 if features.FAILS else 0)
