@@ -16,7 +16,7 @@ showcase's link setting, and its scope is the board folder. The checks, for each
 
 Exit code 1 if a check fails.
 """
-import argparse, codecs, html, json, os, re, shutil, subprocess, sys, time, urllib.error, urllib.request
+import argparse, codecs, html, json, os, re, shutil, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'json-sync', 'http'))
@@ -108,6 +108,11 @@ def check_page(page_url, origin, form, label):
         ok(False, f'{form} form, {label} page: the manifest is JSON')
     ok(str(doc.get('start_url', '')).startswith('http') and str(doc.get('scope', '')).startswith('http'),
        f'{form} form, {label} page: the manifest start_url and scope are absolute')
+    # D316: the manifest scope is the board folder, the folder of the worker's scope, in every link form
+    manifest_scope = urllib.parse.urlparse(str(doc.get('scope', ''))).path
+    ok(manifest_scope == scope, f'{form} form, {label} page: the manifest scope is the worker\'s scope, the board folder [{manifest_scope!r} vs {scope!r}]')
+    start_path = urllib.parse.urlparse(str(doc.get('start_url', ''))).path
+    ok(start_path.startswith(manifest_scope), f'{form} form, {label} page: the manifest start_url lies inside its scope [{start_path!r}]')
     icons = doc.get('icons', [])
     ok(len(icons) > 0, f'{form} form, {label} page: the manifest lists icons')
     for icon in icons:
