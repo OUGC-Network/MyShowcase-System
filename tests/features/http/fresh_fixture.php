@@ -310,6 +310,16 @@ switch ($command) {
         $out(['inserted' => $argv[3]]);
         break;
 
+    case 'moderator-row':
+        // the moderator row of a user on a showcase: replaces any row of that user, with the entries and comments flags (B7)
+        $sid = $showcaseId($argv[2]);
+        $uid = (int)$argv[3];
+        $db->delete_query('myshowcase_moderators', "showcase_id='{$sid}' AND group_id='0' AND user_id='{$uid}'");
+        $id = (int)$db->insert_query('myshowcase_moderators', ['showcase_id' => $sid, 'user_id' => $uid, 'group_id' => 0,
+            'entries_can_view' => (int)$argv[4], 'can_manage_comments' => (int)$argv[5]]);
+        $out(['moderator_id' => $id]);
+        break;
+
     case 'set-ip':
         // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281).
         // The packed bytes are written as a literal of each engine (a blob literal, UNHEX or decode), not as an escaped string.
