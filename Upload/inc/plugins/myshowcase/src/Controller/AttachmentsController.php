@@ -159,7 +159,7 @@ class AttachmentsController extends BaseController
                     'size' => $upload_attachment_result['file_size'],
                     'type' => $upload_attachment_result['mime_type'],
                     'status' => 'success', // error, awaiting
-                    'message' => 'File uploaded successfully',
+                    'message' => $this->context->language->myshowcase_attachment_upload_success,
                     'key' => $upload_attachment_result['attachment_id'],
                     'metadata' => [
                         'width' => empty($upload_attachment_result['dimensions']) ? '' : explode(

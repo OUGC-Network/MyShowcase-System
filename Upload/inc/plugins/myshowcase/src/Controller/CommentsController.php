@@ -448,7 +448,7 @@ class CommentsController extends BaseController
                     Routes::EntryView,
                     ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
-                $lang->myshowcase_main_inline_moderation_redirect_restored ?? 'The comment was restored.'
+                $lang->myshowcase_main_inline_moderation_redirect_restored
             );
         }
 
@@ -470,7 +470,7 @@ class CommentsController extends BaseController
                     Routes::EntryView,
                     ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
                 ),
-                $lang->myshowcase_main_inline_moderation_redirect_deleted ?? 'The comment was deleted.'
+                $lang->myshowcase_main_inline_moderation_redirect_deleted
             );
         }
 
@@ -485,7 +485,7 @@ class CommentsController extends BaseController
                 Routes::EntryView,
                 ['entry_public_id' => $entry->public_id, 'entry_slug_custom' => $entry->entry_slug_custom]
             ),
-            $lang->myshowcase_main_inline_moderation_redirect_soft_deleted ?? 'The comment was soft deleted.'
+            $lang->myshowcase_main_inline_moderation_redirect_soft_deleted
         );
     }
 }

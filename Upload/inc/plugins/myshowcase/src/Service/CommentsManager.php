@@ -183,7 +183,7 @@ class CommentsManager
         $comment = $this->validation_data;
 
         if ($comment === null) {
-            $this->validateSetError('The comment to validate was not set.');
+            $this->validateSetError($this->context->language->myshowcase_validation_errors_comment_not_set);
 
             return false;
         }
@@ -226,7 +226,7 @@ class CommentsManager
                 ],
                 true
             )) {
-            $this->validateSetError('The comment status is invalid.');
+            $this->validateSetError($this->context->language->myshowcase_validation_errors_comment_status_invalid);
         }
 
         $this->validated = true;
