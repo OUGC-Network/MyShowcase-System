@@ -1191,7 +1191,7 @@ const TABLES_DATA = [
         ],
     ],
     'myshowcase_collections' => [
-        'collection_id' => [ // todo, rename to collection_id
+        'collection_id' => [ // the column is already named collection_id (the old TODO to rename it is closed)
             'type' => 'INT',
             'unsigned' => true,
             'auto_increment' => true,

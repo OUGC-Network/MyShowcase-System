@@ -89,7 +89,7 @@ final class ShowcaseService
 
         if (!empty($data['route_identifier']) && $isTaken('route_identifier', $data['route_identifier'])) {
             $errors[] = [
-                'key' => 'myShowcaseAdminErrorDuplicatedScriptFile',
+                'key' => 'myshowcase_admin_error_duplicated_script_file',
                 'message' => 'The route identifier is already in use.'
             ];
         }
@@ -115,7 +115,7 @@ final class ShowcaseService
 
         if (!empty($data['custom_template_prefix']) && $isTaken('custom_template_prefix', $data['custom_template_prefix'])) {
             $errors[] = [
-                'key' => 'myShowcaseAdminErrorDuplicatedTemplatePrefix',
+                'key' => 'myshowcase_admin_error_duplicated_template_prefix',
                 'message' => 'The template prefix is already in use.'
             ];
         }

@@ -74,15 +74,15 @@ class AdminManager
         $this->url = new UrlUtil('index.php?module=myshowcase-summary');
 
         $this->tabs = [
-            'myShowcaseAdminSummary' => [
-                'title' => $this->language->myShowcaseAdminSummary,
+            'myshowcase_admin_summary' => [
+                'title' => $this->language->myshowcase_admin_summary,
                 'link' => $this->url->build(),
-                'description' => $this->language->myShowcaseAdminSummaryDescription
+                'description' => $this->language->myshowcase_admin_summary_description
             ],
-            'myShowcaseAdminSummaryNew' => [
-                'title' => $this->language->myShowcaseAdminSummaryNew,
+            'myshowcase_admin_summary_new' => [
+                'title' => $this->language->myshowcase_admin_summary_new,
                 'link' => $this->url->build(['action' => 'create']),
-                'description' => $this->language->myShowcaseAdminSummaryNewDescription
+                'description' => $this->language->myshowcase_admin_summary_new_description
             ],
         ];
 
@@ -110,13 +110,13 @@ class AdminManager
 
         $this->page->add_breadcrumb_item($this->language->myshowcase_system, $this->url->build());
 
-        $this->page->add_breadcrumb_item($this->language->myShowcaseAdminSummary, $this->url->build());
+        $this->page->add_breadcrumb_item($this->language->myshowcase_admin_summary, $this->url->build());
 
         if ($this->mybb->get_input('action') === 'update') {
-            $this->tabs['myShowcaseAdminSummaryEdit'] = [
-                'title' => $this->language->myShowcaseAdminSummaryEdit,
+            $this->tabs['myshowcase_admin_summary_edit'] = [
+                'title' => $this->language->myshowcase_admin_summary_edit,
                 'link' => $this->url->build(['action' => 'update', 'showcase_id' => $this->showcase_id]),
-                'description' => $this->language->myShowcaseAdminSummaryEditDescription
+                'description' => $this->language->myshowcase_admin_summary_edit_description
             ];
         }
 
@@ -150,7 +150,7 @@ EOL;
             } catch (\Exception $e) {
                 flash_message($e->getMessage(), 'error');
 
-                admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+                admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
             }
         } elseif ($this->mybb->get_input('action') === 'drop_table') {
             $this->showcaseTableDrop();
@@ -168,9 +168,9 @@ EOL;
         $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase->context->showcase)) {
-            flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+            flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
-            admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+            admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
         }
 
         $permission_data = $showcase->context->permissions_repository->queryPermission(["group_id='{$this->group_id}'"],
@@ -193,7 +193,7 @@ EOL;
 
             $this->cache_manager->update(CacheDataTypes::Permissions);
 
-            flash_message($this->language->myShowcaseAdminSummaryPermissionsClearSuccess, 'success');
+            flash_message($this->language->myshowcase_admin_summary_permissions_clear_success, 'success');
 
             admin_redirect(
                 $this->url->build(
@@ -210,7 +210,7 @@ EOL;
                         'my_post_key' => $this->mybb->post_code
                     ]
                 ),
-                $this->language->myShowcaseAdminSummaryPermissionsClearConfirm
+                $this->language->myshowcase_admin_summary_permissions_clear_confirm
             );
         }
     }
@@ -220,9 +220,9 @@ EOL;
         $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase->context->showcase)) {
-            flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+            flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
-            admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+            admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
         }
 
         hooksRun('admin_forum_management_permissions', $this);
@@ -280,7 +280,7 @@ EOL;
             log_admin_action($this->showcase_id, $showcase->context->showcase->name);
 
             flash_message(
-                $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissionsSuccess,
+                $this->language->myshowcase_admin_summary_permissions_form_custom_permissions_success,
                 'success'
             );
 
@@ -294,7 +294,7 @@ EOL;
         $sub_tabs = [];
 
         $this->page->add_breadcrumb_item(
-            $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions
+            $this->language->myshowcase_admin_summary_permissions_form_custom_permissions
         );
 
         $permissions_url = $this->url->build(
@@ -306,12 +306,12 @@ EOL;
         );
 
         $sub_tabs['edit_permissions'] = [
-            'title' => $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions,
+            'title' => $this->language->myshowcase_admin_summary_permissions_form_custom_permissions,
             'link' => $permissions_url,
-            'description' => $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissionsDescription
+            'description' => $this->language->myshowcase_admin_summary_permissions_form_custom_permissions_description
         ];
 
-        $this->page->output_header($this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions);
+        $this->page->output_header($this->language->myshowcase_admin_summary_permissions_form_custom_permissions);
 
         $this->page->output_nav_tabs($sub_tabs, 'edit_permissions');
 
@@ -349,7 +349,7 @@ EOL;
             $form_container = new FormContainer(
                 "\"" . htmlspecialchars_uni(
                     $this->groups_cache[$this->group_id]['title']
-                ) . "\" " . $this->language->myShowcaseAdminSummaryPermissionsFormCustomPermissions
+                ) . "\" " . $this->language->myshowcase_admin_summary_permissions_form_custom_permissions
             );
 
             $permissions_list = [];
@@ -388,7 +388,7 @@ EOL;
         }
 
         $form->output_submit_wrapper(
-            [$form->generate_submit_button($this->language->myShowcaseAdminSummaryPermissionsFormSave)]
+            [$form->generate_submit_button($this->language->myshowcase_admin_summary_permissions_form_save)]
         );
 
         $form->end();
@@ -402,9 +402,9 @@ EOL;
             $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
             if (empty($showcase->context->showcase)) {
-                flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+                flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
-                admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+                admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
             }
         }
 
@@ -416,7 +416,7 @@ EOL;
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
                 flash_message($this->language->myshowcase_admin_error_invalid_post_key, 'error');
 
-                admin_redirect($this->tabs['myShowcaseAdminSummary']['link']);
+                admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
             }
 
             switch ($this->mybb->get_input('type')) {
@@ -532,7 +532,7 @@ EOL;
                                 $showcase_data['route_identifier']
                             )
                         )) {
-                        $error_messages[] = $this->language->myShowcaseAdminErrorDuplicatedScriptFile;
+                        $error_messages[] = $this->language->myshowcase_admin_error_duplicated_script_file;
                     }
 
                     if (isset($showcase_data['custom_template_prefix'])) {
@@ -556,7 +556,7 @@ EOL;
                         if ($is_create_page) {
                             log_admin_action(['showcase_id' => $this->showcase_id]);
 
-                            flash_message($this->language->myShowcaseAdminSuccessNewShowcase, 'success');
+                            flash_message($this->language->myshowcase_admin_success_new_showcase, 'success');
                         } else {
                             log_admin_action(
                                 ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
@@ -569,7 +569,7 @@ EOL;
                                     'error'
                                 );
                             } else {
-                                flash_message($this->language->myShowcaseAdminSuccessShowcaseUpdated, 'success');
+                                flash_message($this->language->myshowcase_admin_success_showcase_updated, 'success');
                             }
                         }
 
@@ -608,7 +608,7 @@ EOL;
                         );
 
                         if (!$this->database->num_rows($query)) {
-                            flash_message($this->language->myShowcaseAdminErrorInvalidGroup, 'error');
+                            flash_message($this->language->myshowcase_admin_error_invalid_group, 'error');
 
                             admin_redirect(
                                 $this->url->build(
@@ -631,7 +631,7 @@ EOL;
                         $userData = get_user_by_username($this->mybb->get_input('username'));
 
                         if (empty($userData['uid'])) {
-                            flash_message($this->language->myShowcaseAdminErrorInvalidGroup, 'error');
+                            flash_message($this->language->myshowcase_admin_error_invalid_group, 'error');
 
                             admin_redirect(
                                 $this->url->build(
@@ -658,7 +658,7 @@ EOL;
                         ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
                     );
 
-                    flash_message($this->language->myShowcaseAdminSuccessShowcaseEditModerators, 'success');
+                    flash_message($this->language->myshowcase_admin_success_showcase_edit_moderators, 'success');
 
                     admin_redirect(
                         $this->url->build(
@@ -679,7 +679,7 @@ EOL;
                     );
 
                     flash_message(
-                        $this->language->myShowcaseAdminSuccessShowcaseEditModeratorDelete,
+                        $this->language->myshowcase_admin_success_showcase_edit_moderator_delete,
                         'success'
                     );
 
@@ -693,11 +693,11 @@ EOL;
         }
 
         $this->page->add_breadcrumb_item(
-            $this->language->myShowcaseAdminSummaryEdit,
+            $this->language->myshowcase_admin_summary_edit,
             $this->url->build(['action' => $is_create_page ? 'create' : 'update', 'showcase_id' => $this->showcase_id])
         );
 
-        $this->page->output_header($this->language->myShowcaseAdminSummaryEdit);
+        $this->page->output_header($this->language->myshowcase_admin_summary_edit);
 
         if ($error_messages) {
             $this->page->output_inline_error($error_messages);
@@ -722,12 +722,12 @@ EOL;
         hooksRun('admin_summary_add_edit_start');
 
         if ($is_create_page) {
-            $this->page->output_nav_tabs($this->tabs, 'myShowcaseAdminSummaryNew');
+            $this->page->output_nav_tabs($this->tabs, 'myshowcase_admin_summary_new');
 
             echo '<p><a class="button" href="' . JsonUi::url(['action' => 'create', 'type' => 'showcase']) . '">'
                 . htmlspecialchars(JsonUi::text('create_from_json')) . '</a></p>';
         } else {
-            $this->page->output_nav_tabs($this->tabs, 'myShowcaseAdminSummaryEdit');
+            $this->page->output_nav_tabs($this->tabs, 'myshowcase_admin_summary_edit');
         }
 
         $this->page->output_tab_control($categories);
@@ -883,11 +883,11 @@ EOL;
         }
 
         $form_container = new FormContainer(
-            $this->language->myShowcaseAdminSummaryPermissionsFormPermissions
+            $this->language->myshowcase_admin_summary_permissions_form_permissions
         );
 
         $form_container->output_row_header(
-            $this->language->myShowcaseAdminSummaryPermissionsFormGroup,
+            $this->language->myshowcase_admin_summary_permissions_form_group,
             ['class' => 'align_center', 'style' => 'width: 20%']
         );
 
@@ -904,9 +904,9 @@ EOL;
             $group_title = format_name(htmlspecialchars_uni($group_data['title']), $group_data['gid']);
 
             if ($has_custom_permissions) {
-                $inherited_text = $this->language->myShowcaseAdminSummaryPermissionsFormCustom;
+                $inherited_text = $this->language->myshowcase_admin_summary_permissions_form_custom;
             } else {
-                $inherited_text = $this->language->myShowcaseAdminSummaryPermissionsFormInherited;
+                $inherited_text = $this->language->myshowcase_admin_summary_permissions_form_inherited;
             }
 
             $form_container->output_cell(
@@ -923,7 +923,7 @@ EOL;
 
             if ($has_custom_permissions) {
                 $form_container->output_cell(
-                    "<a href=\"{$permissions_url}\">{$this->language->myShowcaseAdminSummaryPermissionsFormEdit}</a>",
+                    "<a href=\"{$permissions_url}\">{$this->language->myshowcase_admin_summary_permissions_form_edit}</a>",
                     ['class' => 'align_center']
                 );
 
@@ -937,12 +937,12 @@ EOL;
                 );
 
                 $form_container->output_cell(
-                    "<a href=\"{$clear_permissions_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myShowcaseAdminSummaryPermissionsFormConfirmClear}')\">{$this->language->myShowcaseAdminSummaryPermissionsFormClear}</a>",
+                    "<a href=\"{$clear_permissions_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myshowcase_admin_summary_permissions_form_confirm_clear}')\">{$this->language->myshowcase_admin_summary_permissions_form_clear}</a>",
                     ['class' => 'align_center']
                 );
             } else {
                 $form_container->output_cell(
-                    "<a href=\"{$permissions_url}\">{$this->language->myShowcaseAdminSummaryPermissionsFormSet}</a>",
+                    "<a href=\"{$permissions_url}\">{$this->language->myshowcase_admin_summary_permissions_form_set}</a>",
                     ['class' => 'align_center', 'colspan' => 2]
                 );
             }
@@ -953,7 +953,7 @@ EOL;
         $form_container->end();
 
         $form->output_submit_wrapper(
-            [$form->generate_submit_button($this->language->myShowcaseAdminSummaryPermissionsFormButtonSubmit)]
+            [$form->generate_submit_button($this->language->myshowcase_admin_summary_permissions_form_button_submit)]
         );
 
         $form->end();
@@ -971,7 +971,7 @@ EOL;
 
         $form_container = new FormContainer(
             $this->language->sprintf(
-                $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAssigned,
+                $this->language->myshowcase_admin_summary_edit_moderator_permissions_assigned,
                 $showcase->context->showcase->name
             )
         );
@@ -984,7 +984,7 @@ EOL;
         ];
 
         $form_container->output_row_header(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsName
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_name
         );
 
         foreach ($moderatorFlags as $moderatorFlag) {
@@ -995,7 +995,7 @@ EOL;
         }
 
         $form_container->output_row_header(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsControls,
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_controls,
             ['width' => '30%', 'class' => 'align_center', 'colspan' => 2]
         );
 
@@ -1072,7 +1072,7 @@ EOL;
                 ]) . '#tab_moderators';
 
             $form_container->output_cell(
-                "<a href=\"{$delete_moderator_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myShowcaseAdminConfirmModeratorDelete}')\">{$this->language->myshowcase_admin_button_delete}</a>",
+                "<a href=\"{$delete_moderator_url}\" onclick=\"return AdminCP.deleteConfirmation(this, '{$this->language->myshowcase_admin_confirm_moderator_delete}')\">{$this->language->myshowcase_admin_button_delete}</a>",
                 ['class' => 'align_center']
             );
 
@@ -1081,7 +1081,7 @@ EOL;
 
         if (!$form_container->num_rows()) {
             $form_container->output_cell(
-                $this->language->myShowcaseAdminSummaryEditModeratorPermissionsEmpty,
+                $this->language->myshowcase_admin_summary_edit_moderator_permissions_empty,
                 ['colspan' => 8, 'class' => 'align_center']
             );
 
@@ -1113,12 +1113,12 @@ EOL;
         echo $form->generate_hidden_field('create', 'group');
 
         $form_container = new FormContainer(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroup
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_group
         );
 
         $form_container->output_row(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroupGroup . ' <em>*</em>',
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddGroupGroupDescription,
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_group_group . ' <em>*</em>',
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_group_group_description,
             $form->generate_select_box(
                 'usergroup',
                 (function (): array {
@@ -1129,7 +1129,7 @@ EOL;
 
                         $group_title = htmlspecialchars_uni($groupData['title']);
 
-                        $groupObjects[$this->group_id] = $this->language->myShowcaseAdminUserGroup . ' ' . $this->group_id . ': ' . $group_title;
+                        $groupObjects[$this->group_id] = $this->language->myshowcase_admin_user_group . ' ' . $this->group_id . ': ' . $group_title;
                     }
 
                     return $groupObjects;
@@ -1161,12 +1161,12 @@ EOL;
         echo $form->generate_hidden_field('create', 'user');
 
         $form_container = new FormContainer(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUser
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_user
         );
 
         $form_container->output_row(
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsername . ' <em>*</em>',
-            $this->language->myShowcaseAdminSummaryEditModeratorPermissionsAddUserUsernameDescription,
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_user_username . ' <em>*</em>',
+            $this->language->myshowcase_admin_summary_edit_moderator_permissions_add_user_username_description,
             $form->generate_text_box(
                 'showcase[username]',
                 '',
@@ -1238,7 +1238,7 @@ EOL;
         $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if (empty($showcase)) {
-            flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+            flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
             admin_redirect($this->url->build());
         }
@@ -1267,12 +1267,12 @@ EOL;
             ]);
 
             if ($table_existed) {
-                flash_message($this->language->myShowcaseAdminSuccessTableRebuilt, 'success');
+                flash_message($this->language->myshowcase_admin_success_table_rebuilt, 'success');
             } else {
-                flash_message($this->language->myShowcaseAdminSuccessTableCreated, 'success');
+                flash_message($this->language->myshowcase_admin_success_table_created, 'success');
             }
         } else {
-            flash_message($this->language->myShowcaseAdminErrorTableCreate, 'error');
+            flash_message($this->language->myshowcase_admin_error_table_create, 'error');
         }
 
         admin_redirect($this->url->build());
@@ -1283,7 +1283,7 @@ EOL;
         $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], ['name'], ['limit' => 1]);
 
         if (!$showcase_data) {
-            flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+            flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
             admin_redirect($this->url->build());
         }
@@ -1295,7 +1295,7 @@ EOL;
         $showcase = (new BuildShowcase())->getShowcase($this->showcase_id);
 
         if ($showcase->context->entries_repository->queryEntries()) {
-            flash_message($this->language->myShowcaseAdminErrorTableDrop, 'error');
+            flash_message($this->language->myshowcase_admin_error_table_drop, 'error');
 
             admin_redirect($this->url->build());
         }
@@ -1319,14 +1319,14 @@ EOL;
                 $showcase->context->showcases_repository->updateShowcase(['is_enabled' => 0]);
             }
 
-            flash_message($this->language->myShowcaseAdminSuccessTableDropped, 'success');
+            flash_message($this->language->myshowcase_admin_success_table_dropped, 'success');
 
             admin_redirect($this->url->build());
         }
 
         $this->page->output_confirm_action(
             $this->url->build(['action' => 'drop_table', 'showcase_id' => $this->showcase_id]),
-            $this->language->sprintf($this->language->myShowcaseAdminConfirmTableDrop, $showcaseName)
+            $this->language->sprintf($this->language->myshowcase_admin_confirm_table_drop, $showcaseName)
         );
     }
 
@@ -1335,7 +1335,7 @@ EOL;
         $showcase_data = showcaseGet(["showcase_id='{$this->showcase_id}'"], [], ['limit' => 1]);
 
         if (!$showcase_data) {
-            flash_message($this->language->myShowcaseAdminErrorInvalidShowcase, 'error');
+            flash_message($this->language->myshowcase_admin_error_invalid_showcase, 'error');
 
             admin_redirect($this->url->build());
         }
@@ -1366,9 +1366,9 @@ EOL;
             log_admin_action(['showcase_id' => $this->showcase_id]);
 
             if (showcaseGet(["showcase_id='{$this->showcase_id}'"], [], ['limit' => 1])) {
-                flash_message($this->language->myShowcaseAdminErrorShowcaseDelete, 'error');
+                flash_message($this->language->myshowcase_admin_error_showcase_delete, 'error');
             } else {
-                flash_message($this->language->myShowcaseAdminSuccessShowcaseDeleted, 'success');
+                flash_message($this->language->myshowcase_admin_success_showcase_deleted, 'success');
             }
 
             admin_redirect($this->url->build());
@@ -1377,7 +1377,7 @@ EOL;
         $this->page->output_confirm_action(
             $this->url->build(['action' => 'delete', 'showcase_id' => $this->showcase_id]),
             $this->language->sprintf(
-                $this->language->myShowcaseAdminConfirmShowcaseDelete,
+                $this->language->myshowcase_admin_confirm_showcase_delete,
                 $showcaseName
             )
         );
@@ -1387,9 +1387,9 @@ EOL;
     {
         hooksRun('admin_summary_main_start');
 
-        $this->page->output_header($this->language->myShowcaseAdminSummary);
+        $this->page->output_header($this->language->myshowcase_admin_summary);
 
-        $this->page->output_nav_tabs($this->tabs, 'myShowcaseAdminSummary');
+        $this->page->output_nav_tabs($this->tabs, 'myshowcase_admin_summary');
 
         $form_container = new FormContainer($this->language->myshowcase_summary_existing);
 

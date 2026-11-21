@@ -753,7 +753,7 @@ function buildPermissionsRow(
     string $name,
     array $definition,
     string $section = 'main',
-    string $language_prefix = 'myShowcaseAdminSummaryAddEdit',
+    string $language_prefix = 'myshowcase_admin_summary_add_edit',
     bool $display_extra_text = false,
     array $input = [],
     null|ShowcaseEntity|array $showcase_config = null,

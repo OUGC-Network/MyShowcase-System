@@ -500,7 +500,7 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
     $collectionData = collectionGet(["collection_id='{$collection_id}'"], ['name', 'json_file', 'json_version'], ['limit' => 1]);
 
     if (!$newPage && empty($collectionData)) {
-        flash_message($lang->myShowcaseAdminErrorInvalidShowcase, 'error');
+        flash_message($lang->myshowcase_admin_error_invalid_showcase, 'error');
 
         admin_redirect($pageTabs['myshowcase_admin_field_sets']['link']);
     }
