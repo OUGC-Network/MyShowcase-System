@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """A SIGINT during a harness run closes its board (decision D256).
 
-Starts one of the features harnesses on its own board. When the board's server listens (the install is done) the test
-waits three seconds, so that the harness is inside its run, and sends SIGINT: the harness gets a KeyboardInterrupt. The
-test then checks that nothing of the run is left: no server listens on the board's port or on the port above it (the
-quote_dates router), and, on MySQL and PostgreSQL, no database of the run appeared.
+Starts one of the features harnesses on its own board. When the ready port (the board's port, or the router's port with
+--ready-port, the one above the board's) listens, the harness is in its run; the test waits half a second and sends
+SIGINT: the harness gets a KeyboardInterrupt. A harness that has already ended before the interrupt fails the test. The
+test then checks that nothing of the run is left: no server listens on the board's port or on the port above it, and,
+on MySQL and PostgreSQL, no database of the run appeared.
 
 Before the repair the Ctx's server outlives the interrupted harness: the port stays in use. The test then kills that
 server, so that it does not stay behind.
@@ -25,6 +26,7 @@ p.add_argument('--engine', required=True, choices=['sqlite', 'mysql', 'pgsql'])
 p.add_argument('--mybb', default=os.environ.get('MYBB_SOURCE', ''))
 p.add_argument('--scratch', required=True)
 p.add_argument('--port', type=int, required=True)
+p.add_argument('--ready-port', type=int, default=0, help='the port whose listener means the harness is in its run (default: --port)')
 a = p.parse_args()
 
 
@@ -52,13 +54,15 @@ def main():
         sys.exit(f'ports {a.port} or {a.port + 10} are in use before the run: choose another --port')
     before_dbs = databases() if a.engine in ('mysql', 'pgsql') else set()
     log = open(os.path.join(a.scratch, 'interrupt-run.log'), 'w')
+    # A background job inherits SIGINT as ignored, and then Python in the child never raises KeyboardInterrupt: the child
+    # gets the default disposition, so that the signal is the one the test means.
     proc = subprocess.Popen([sys.executable, a.script, '--engine', a.engine, '--mybb', a.mybb, '--scratch', a.scratch, '--port', str(a.port)],
-                            stdout=log, stderr=subprocess.STDOUT)
+                            stdout=log, stderr=subprocess.STDOUT, preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
+    ready = a.ready_port or a.port
     started = time.time()
-    while not listeners(a.port) and proc.poll() is None and time.time() - started < 600:
-        time.sleep(0.5)
-    if proc.poll() is None:
-        time.sleep(3)  # inside the harness's run now
+    while not listeners(ready) and proc.poll() is None and time.time() - started < 600:
+        time.sleep(0.2)
+    time.sleep(0.5)  # the ready server is up: the harness is in its run (a fast run may end here, see below)
     interrupted = proc.poll() is None
     if interrupted:
         os.kill(proc.pid, signal.SIGINT)
