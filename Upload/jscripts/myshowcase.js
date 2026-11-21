@@ -104,9 +104,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     htmx.process(document.body);
 
-    if ('serviceWorker' in navigator) {
+    // the worker's address and scope come from the page (decision D309): the query string form, and the board folder as scope
+    if ('serviceWorker' in navigator && typeof myshowcase_service_worker !== 'undefined') {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register(url_showcase + '/service-worker.js')
+            navigator.serviceWorker.register(myshowcase_service_worker.url, { scope: myshowcase_service_worker.scope })
                 .then(registration => {
                     console.log('ServiceWorker registration successful');
                 })

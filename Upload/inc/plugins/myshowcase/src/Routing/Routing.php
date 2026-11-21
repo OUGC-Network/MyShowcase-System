@@ -20,6 +20,7 @@ use MyShowcase\Controller\CommentsController;
 use MyShowcase\Controller\EntriesController;
 use MyShowcase\Controller\ExportController;
 use MyShowcase\Controller\ImportController;
+use MyShowcase\Controller\PwaController;
 use MyShowcase\Enum\Routes;
 use MyShowcase\Showcase;
 use MyShowcase\ShowcaseContext;
@@ -459,6 +460,39 @@ class Routing
             )
         );
 
+        // The web app manifest and the service worker (decision D309): path form and query string form, like every route.
+        $this->routes->add(
+            Routes::Manifest,
+            new Route(
+                '/{showcase}/manifest.json',
+                [
+                    '_controller' => function (array $parameters): void {
+                        (new PwaController($this->context,))->manifest();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                ],
+            )
+        );
+
+        $this->routes->add(
+            Routes::ServiceWorker,
+            new Route(
+                '/{showcase}/service-worker.js',
+                [
+                    '_controller' => function (array $parameters): void {
+                        (new PwaController($this->context,))->serviceWorker();
+                    },
+                ],
+                [
+                    '_method' => 'GET',
+                    'showcase' => '[a-z0-9]+',
+                ],
+            )
+        );
+
         $this->routes->add(
             Routes::Search,
             new Route(
@@ -536,6 +570,21 @@ class Routing
             return $this->base() . $path;
         }
 
+        return $this->queryLink($path);
+    }
+
+    /**
+     * The link of a route in query string form, whatever the showcase's link setting (decision D309: the address the service
+     * worker is registered at, so its scope is the board folder).
+     */
+    public function queryUrl(string $name, array $parameters = []): string
+    {
+        return $this->queryLink($this->generateUrl($name, $parameters));
+    }
+
+    /** The query string form of a route path: the plain base with the route_identifier and route parameters, then the query. */
+    private function queryLink(string $path): string
+    {
         $query = '';
 
         if (str_contains($path, '?')) {
@@ -671,6 +720,14 @@ class Routing
         }
 
         return self::normalizeUrl($board . '/showcase.php');
+    }
+
+    /** The folder of the board on the server, with a leading and a trailing slash ("/" for a board at the host root). */
+    public function boardFolder(): string
+    {
+        $path = trim((string)parse_url($this->boardBase(), PHP_URL_PATH), '/');
+
+        return $path === '' ? '/' : '/' . $path . '/';
     }
 
     /** The board address (bburl) normalised: the base of the URLs that are not showcase links (D244). */

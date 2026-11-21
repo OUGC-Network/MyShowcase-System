@@ -2,7 +2,7 @@
 
 {% block head %}
     <title>{{ trans('myshowcase_import_export_title_export_view', export.export_id) }} - {{ mybb.settings.bbname }}</title>
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url.manifest }}">
 {% endblock head %}
 
 {% block body %}

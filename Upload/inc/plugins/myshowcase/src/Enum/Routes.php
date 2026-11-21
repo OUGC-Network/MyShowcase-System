@@ -23,6 +23,8 @@ enum Routes
     public const CommentView = 'comment_view';
     public const AttachmentDownload = 'attachment_download';
     public const AttachmentThumbnail = 'thumbnail_thumbnail';
+    public const Manifest = 'manifest';
+    public const ServiceWorker = 'service_worker';
     public const Search = 'search';
     public const SearchResults = 'search_results';
 }

@@ -13,7 +13,7 @@
             <meta property="{{ meta_data.property }}" content="{{ meta_data.content }}">
         {% endfor %}
     {% endif %}
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url.manifest }}">
 
     <style>
         .pagination-container {
@@ -63,6 +63,7 @@
             src="{{ mybb.settings.bburl }}/jscripts/myshowcase.js?ver={{ showcase.version }}"></script>
     <script type="text/javascript">
         <!--
+        const myshowcase_service_worker = { url: "{{ url.service_worker|escape('js') }}", scope: "{{ url.board_folder|escape('js') }}" };
         const url_showcase = "{{ url.base }}";
         // -->
     </script>

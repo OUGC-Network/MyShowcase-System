@@ -156,6 +156,10 @@ class RenderManager
                 'main' => $this->context->routing->url(Routes::Main),
                 // the showcase's base (absolute) for the scripts that need it (decision D244)
                 'base' => $this->context->routing->base(),
+                // the manifest through the builder; the worker in query string form whatever the link setting (decision D309)
+                'manifest' => $this->context->routing->url(Routes::Manifest),
+                'service_worker' => $this->context->routing->queryUrl(Routes::ServiceWorker),
+                'board_folder' => $this->context->routing->boardFolder(),
             ],
         ],
             array_merge([

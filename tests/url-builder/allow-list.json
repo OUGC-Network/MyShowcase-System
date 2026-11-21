@@ -4,8 +4,8 @@
     {
       "file": "Upload/inc/plugins/myshowcase/src/Routing/Routing.php",
       "pattern": "generateUrl(",
-      "count": 3,
-      "reason": "the builder: the path generator, the call inside url(), and the path accessor path() (compares a route, never a link)"
+      "count": 4,
+      "reason": "the builder: the path generator, the call inside url(), the path accessor path() (compares a route, never a link), and the query string form queryUrl() of the worker address (D309)"
     },
     {
       "file": "Upload/inc/plugins/myshowcase/src/Routing/Routing.php",
