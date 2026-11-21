@@ -153,7 +153,7 @@ def run(ctx, scratch, port):
     entry = php(board_dir, 'entry', 'blog', 'Pwa entry')
     port_router = port + 10
     origin = f'http://127.0.0.1:{port_router}'
-    SERVERS.append(subprocess.Popen(['php', '-S', f'127.0.0.1:{port_router}', '-t', board_dir, os.path.join(board_dir, 'pwa_router.php')],
+    SERVERS.append(subprocess.Popen(['php', '-d', 'opcache.revalidate_freq=0', '-S', f'127.0.0.1:{port_router}', '-t', board_dir, os.path.join(board_dir, 'pwa_router.php')],
                                     stdout=open(os.path.join(scratch, 'php-pwa.log'), 'w'), stderr=subprocess.STDOUT))
     time.sleep(1.5)
     php(board_dir, 'setting', 'seourls', 'no')
