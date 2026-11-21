@@ -105,10 +105,11 @@ Which property a field uses:
 
 A property a file does not mention is not managed: it keeps its value and its input stays editable.
 
-`url_mode` is a showcase property a file may set: `0` (No), `1` (Automatic) or `2` (Yes), the choices of the Links option
-(`Documentation/showcases/url-option.md`). A file that does not set it gives the showcase `1`, and a value that is not one
-of the three is refused, so nothing is applied. The export writes `url_mode` only when it is not `1`, as the other columns
-are written only when they differ from their defaults.
+`url_mode` is a showcase property a file may set: `0` (Path), `1` (Automatic), `2` (Friendly) or `3` (Query string), the four
+choices of the Links option (`Documentation/showcases/url-option.md`). A file that does not set it gives the showcase `1`, and
+a value that is not one of the four is refused, so nothing is applied. The export writes `url_mode` only when it is not `1`, as
+the other columns are written only when they differ from their defaults. The file URLs of an export are written in the
+showcase's own link form (decision D277), so a file of a showcase set to Query string carries query string file URLs.
 
 ## Identity
 
