@@ -126,6 +126,11 @@ final class AttachmentAccess
             if (!$this->context->entries_manager->canViewStatus((int)$entry['status'], (int)$entry['user_id'])) {
                 return self::HIDDEN;
             }
+
+            // Someone who may not view entries may not see their files either, the owner included (decision P6).
+            if (!$user->hasPermission(UserPermissions::EntriesCanView)) {
+                return self::FORBIDDEN;
+            }
         } elseif (!$is_owner) {
             return self::HIDDEN;
         }

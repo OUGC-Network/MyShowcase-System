@@ -1163,12 +1163,16 @@ class RenderManager
                 }
             }
 
-            // An attachment awaiting approval is shown only to its author and to the moderators of the entries (decision P6).
+            // An attachment awaiting approval is shown only to its author and to the moderators of its area (decision P6):
+            // the comments area for a comment's attachment (the entry page lists those too), the entries area for the rest.
             $is_author = (int)$this->context->current_user->uid > 0 &&
                 (int)$attachment_data->user_id === (int)$this->context->current_user->uid;
+            $area = $post_type === ContentTypes::Comment || (int)$attachment_data->comment_id > 0
+                ? EntriesManager::MODERATOR_AREA_COMMENTS
+                : EntriesManager::MODERATOR_AREA_ENTRIES;
 
             if ((int)$attachment_data->status === ContentStatuses::VisibleApproved || $is_author ||
-                $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES)) {
+                $this->context->entries_manager->isModerator($area)) {
                 $attachmentExtension = get_extension($attachment_data->attachment_name);
 
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
@@ -1235,7 +1239,11 @@ class RenderManager
         }
 
         $templatesContext['show_unapproved'] = $unapprovedCount > 0 &&
-            $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES);
+            $this->context->entries_manager->isModerator(
+                $post_type === ContentTypes::Comment
+                    ? EntriesManager::MODERATOR_AREA_COMMENTS
+                    : EntriesManager::MODERATOR_AREA_ENTRIES
+            );
 
         if ($templatesContext['show_unapproved']) {
             if ($unapprovedCount === 1) {
