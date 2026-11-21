@@ -154,6 +154,8 @@ class RenderManager
             'url' => [
                 'showcase_assets' => $this->context->routing->boardBase(),
                 'main' => $this->context->routing->url(Routes::Main),
+                // the showcase's base (absolute) for the scripts that need it (decision D244)
+                'base' => $this->context->routing->base(),
             ],
         ],
             array_merge([

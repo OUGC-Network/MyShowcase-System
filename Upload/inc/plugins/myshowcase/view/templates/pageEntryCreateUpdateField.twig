@@ -144,15 +144,15 @@
                                         name: '{{ attachment_data.attachment_name }}',
                                         size: {{ attachment_data.file_size }},
                                         type: '{{ attachment_data.mime_type }}',
-                                        url: '{{ attachment_data.url }}',
+                                        url: '{{ attachment_data.url|e('js') }}',
                                         id: {{ attachment_data.attachment_id }},
                                         fileId: {{ attachment_data.attachment_id }},
                                     },
                                     metadata: {
                                         id: {{ attachment_data.attachment_id }},
                                         fileId: {{ attachment_data.attachment_id }},
-                                        poster: '{{ attachment_data.url }}',
-                                        url: '{{ attachment_data.url }}',
+                                        poster: '{{ attachment_data.url|e('js') }}',
+                                        url: '{{ attachment_data.url|e('js') }}',
                                     }
                                 }
                             },
@@ -185,7 +185,7 @@
                         // Server
                         server: {
                             process: {
-                                url: '{{ url.upload }}',
+                                url: '{{ url.upload|e('js') }}',
                                 method: 'POST',
                                 body: function () {
                                     const form_data = new FormData();

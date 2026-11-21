@@ -158,7 +158,7 @@
 
             {# Reply to post button #}
             {% if comment_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                <a href="newreply.php?tid={{ comment_data.public_id }}&amp;replyto={{ comment_data.public_id }}"
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/newreply.php?tid={{ comment_data.public_id }}&amp;replyto={{ comment_data.public_id }}"
                    title="{{ lang.myshowcase_view_comment_action_quote_title }}"
                    class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
                             class="post-control__text">{{ lang.myshowcase_view_comment_action_quote }}</span></a>

@@ -129,8 +129,7 @@ abstract class BaseController
                 'pageAccess',
                 [
                     'display_error' => $display_error,
-                    'http_host' => $_SERVER['HTTP_HOST'],
-                    'request_uri' => $_SERVER['REQUEST_URI'],
+                    'form_action' => $this->absoluteRequestUrl(),
                 ]
             )
         );
@@ -615,6 +614,18 @@ abstract class BaseController
         }
 
         exit;
+    }
+
+    /**
+     * The address of the current request, on the board's own origin (decision D244): the password gate's form posts to it.
+     * Without an absolute board address the request's path alone is returned.
+     */
+    protected function absoluteRequestUrl(): string
+    {
+        $request_uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+        $origin = \MyShowcase\Routing\Routing::originOf(\MyShowcase\Routing\Routing::normalizeUrl((string)($this->context->mybb->settings['bburl'] ?? '')));
+
+        return preg_match('#^https?://[^/]+$#i', $origin) === 1 ? $origin . $request_uri : $request_uri;
     }
 
     #[NoReturn]

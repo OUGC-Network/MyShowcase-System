@@ -150,12 +150,13 @@
                 <em>{{ lang.postbit_editreason }}: {{ entry_data.update_note }}</em>{% endif %})</span>
         {% endif %}
 
-        {# IP address #}
+        {# IP address: the text for those who may see it; a moderator's search of the stored address (decision D281) #}
         {% if not is_preview and entry_data.extra_data.show_ip %}
             {{ lang.postbit_ipaddress }} {{ entry_data.extra_data.ip_address }}
-        {% elseif not is_preview and entry_data.extra_data.hide_ip %}
-            <a href="/getip/{{ entry_data.public_id }}"
-               onclick="MyBB.getIP('{{ entry_data.public_id }}'); return false;" class="post__ip-address">
+        {% endif %}
+        {% if not is_preview and entry_moderator and entry_data.extra_data.ip_address %}
+            <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/modcp.php?action=ipsearch&amp;ipaddress={{ entry_data.extra_data.ip_address|url_encode }}"
+               title="{{ lang.postbit_ipaddress }}" class="post__ip-address">
                 {{ include('partials/icon.twig', {icon: 'globe', class: 'button__icon', title: lang.postbit_ipaddress}, with_context = false) }}
             </a>
         {% endif %}
@@ -228,7 +229,7 @@
 
                 {# Reply to post button #}
                 {% if entry_data.status == 1 and (permissions.comments_can_post or permissions.can_manage_comments) %}
-                    <a href="newreply.php?tid={{ entry_data.public_id }}&amp;replyto={{ entry_data.public_id }}"
+                    <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/newreply.php?tid={{ entry_data.public_id }}&amp;replyto={{ entry_data.public_id }}"
                        title="{{ lang.myshowcase_view_entry_action_quote_title }}"
                        class="post-control post-control--reply"><i>{{ include('partials/icon.twig', {icon: 'comments', class: 'post-control__icon fa-fw'}, with_context = false) }}</i><span
                                 class="post-control__text">{{ lang.myshowcase_view_entry_action_quote }}</span></a>

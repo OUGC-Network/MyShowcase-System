@@ -37,5 +37,55 @@
       "count": 1,
       "reason": "the JSON-sync exclusion list (per-showcase value, never in a file)"
     }
+  ],
+  "relative": [
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageAccess.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageEntryCreateUpdate.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageExport.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageExportView.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageImport.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageImportExportMissingLibrary.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageMain.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    },
+    {
+      "file": "Upload/inc/plugins/myshowcase/view/templates/pageView.twig",
+      "kind": "host-root",
+      "count": 1,
+      "reason": "Batch 5 (PWA): the manifest link <link rel=\"manifest\" href=\"/manifest.json\"> (no manifest is shipped)"
+    }
   ]
 }

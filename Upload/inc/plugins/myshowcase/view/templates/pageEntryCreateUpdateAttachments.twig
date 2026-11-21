@@ -4,7 +4,7 @@
     <div class="section__container">
         <div class="row row--form field">
             <p class="field__description">{{ lang.attach_quota }} {{ lang.attach_usage|raw }} <a
-                        href="usercp.php?action=attachments">{{ lang.view_attachments }}</a></p>
+                        href="{{ mybb.settings.bburl|trim('/', 'right') }}/usercp.php?action=attachments">{{ lang.view_attachments }}</a></p>
         </div>
         <div id="upload_bar" style="background: #0066A2; height: 5px; width: 0%;"></div>
         <div id="dropzone"
