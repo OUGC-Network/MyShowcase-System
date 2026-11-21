@@ -635,3 +635,18 @@ work.
 * Test boards are SQLite, MySQL and PostgreSQL; the field matrix does not run on MariaDB.
 * This document was written without running anything: run-time claims are marked unverified and need a test before they are
   relied on.
+
+## Status after the integrity-audit run (commits on agent/integrity-audit)
+
+* TZ (password throttle time zone, D285): done. Test aa9c8e8, fix 7453005. The gate writes and compares its window in UTC on
+  SQLite, MySQL and PostgreSQL (tests/features/http/password_throttle.py: 4/0 on each engine, from 2/2).
+* B7 (per-area moderator model, P1): done. Test b837c30, fix 441c1cb, fixture 34fbad0, documentation 712fe1e. Entries and
+  comments are decided per area (EntriesManager::isModerator(area)); the attachments, reports and logs flags are removed from the
+  model. tests/features/http/moderator_areas.py: 6/0 on each engine (from 4/2).
+* B6 (visibility and access), part one: done for the attachments of an entry page. Test 0f771f7, fix 6f108cb (the "or true" in
+  RenderManager::buildAttachments() is replaced by the P6 rule). tests/features/http/unapproved_attachments.py: 4/0 on each
+  engine (from 1/3 on SQLite). Not done: the status-clause TODOs of FieldTrait (line 309), forum_hooks (line 335) and RenderManager
+  (line 355), which still list unapproved attachments without the P6 rule; the download rule in AttachmentAccess::decide() for an
+  owner without the entries right; the comment, export and thumbnail re-check.
+* B8a, B8b, B5, B9a, B9b, DOCS (section 4 gaps G5 to G14) and FR1: not started in this run.
+
