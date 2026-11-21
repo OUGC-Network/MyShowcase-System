@@ -650,3 +650,10 @@ work.
   owner without the entries right; the comment, export and thumbnail re-check.
 * B8a, B8b, B5, B9a, B9b, DOCS (section 4 gaps G5 to G14) and FR1: not started in this run.
 
+## Status after the integrity-audit-2 run (IA-2)
+
+* GG (guest password grant, D296, D297): done. Tests 44acd98 (unit), e947c92 (HTTP), 609e556 (throttle test); fix 7e84cea.
+  A guest's grant is a signed cookie per showcase (Util/PasswordGrant.php, key from the datacache: MyBB 1.9 has no board secret of
+  its own). A guest's failed attempts are counted per address (5 inside the interval). Counts: guest_grant.py 1/2 before, 16/0 after
+  on each engine; password_grant.php 19/0; password_throttle.py 4/0 on each engine.
+
