@@ -425,7 +425,7 @@ class Routing
                     '_controller' => function (array $parameters): void {
                         unset($parameters['showcase']);
 
-                        // todo, maybe check that only the current user is trying to view ?
+                        // the download is answered by AttachmentsController::downloadAttachment(), which checks the viewer with AttachmentAccess::decide()
                         (new AttachmentsController($this->context, is_api_request: true))
                             ->downloadAttachment(...$parameters);
                     },

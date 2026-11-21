@@ -327,9 +327,11 @@ def expected(user, label, att_status, entry_status, entry_owner, entry_gone, mod
         visible = user != 'guest' and (f['moderator'] or is_owner)
     if not visible:
         return 'HIDDEN'
+    # Someone who may not view entries may not see their files, the owner included (decision P6). No matrix user lacks the
+    # view right, so no cell tests this; attachment_rules.py (check D) does.
+    if not f['view']:
+        return 'FORBIDDEN'
     if not is_owner:
-        if not f['view']:
-            return 'FORBIDDEN'
         if att_status != 1 and not f['unapproved_att']:
             return 'HIDDEN'
         if not thumb and not f['dl']:

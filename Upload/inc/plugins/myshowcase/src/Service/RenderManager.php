@@ -352,7 +352,7 @@ class RenderManager
 
         foreach (
             $this->context->attachments_repository->queryAttachments(
-                $where_clauses,// todo, status clause
+                $where_clauses,// no status clause: buildAttachments() decides who sees each one (decision P6)
                 [
                     'attachment_id',
                     'showcase_id',

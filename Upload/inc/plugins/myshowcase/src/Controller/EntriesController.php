@@ -467,7 +467,7 @@ class EntriesController extends BaseController
                                 "','",
                                 $this->context->entries_manager->getEntries()->pluck('entry_id')
                             ) . "')",
-                            "status='1'" // todo, update to consider mod options
+                            "status='1'" // only approved attachments on the main render; the entry page lists the others to their viewers (decision P6)
                         ],
                         [
                             'attachment_id',
@@ -1082,7 +1082,7 @@ class EntriesController extends BaseController
             'attachment_objects' => $this->context->attachments_repository->queryAttachments(
                 [
                     "entry_id='{$entry->entry_id}' OR post_hash='{$this->context->database->escape_string((string)$entry->post_hash)}'"
-                ],// todo, status clause
+                ],// no status clause: the edit form is for the owner and the moderators only, who see all of the entry's attachments
                 [
                     'attachment_id',
                     'showcase_id',

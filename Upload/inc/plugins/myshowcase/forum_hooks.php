@@ -374,6 +374,18 @@ function postbit(array &$post): array
                         continue;
                     }
 
+                    // An attachment awaiting approval is embedded only for its author and the moderators of its area (decision P6).
+                    $viewer = $showcase->context->current_user;
+                    $is_author = (int)$viewer->uid > 0 && (int)$attachment->user_id === (int)$viewer->uid;
+                    $area = !empty($attachment->comment_id)
+                        ? \MyShowcase\Service\EntriesManager::MODERATOR_AREA_COMMENTS
+                        : \MyShowcase\Service\EntriesManager::MODERATOR_AREA_ENTRIES;
+
+                    if ((int)$attachment->status !== ContentStatuses::VisibleApproved && !$is_author &&
+                        !$showcase->context->entries_manager->isModerator($area)) {
+                        continue;
+                    }
+
                     //$attachment->is_image = str_starts_with($attachment->mime_type, 'image/');
 
                     //$attachment->has_thumbnail = !empty($attachment->thumbnail_name);
