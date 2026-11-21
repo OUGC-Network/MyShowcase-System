@@ -441,4 +441,6 @@ $l = array_merge([
 
 ], $l);
 
-
+// the icons of the moderator list (AdminManager): a group and a user
+$l['myshowcase_moderators_group'] = 'Group';
+$l['myshowcase_moderators_user'] = 'User';
