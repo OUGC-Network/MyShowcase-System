@@ -40,8 +40,8 @@ Composer packages (run this once after uploading the files, and again after ever
 The plugin does not install its own copy of Twig, symfony/http-foundation, symfony/routing,
 symfony/string or symfony/event-dispatcher. It uses the copies that MyBB 1.9 already ships in
 <mybb_root>/inc/vendor/ (Twig 3 and symfony/http-foundation among them), so a MyBB 1.9 board
-is required. Only the packages MyBB does not ship (symfony/form, symfony/dependency-injection,
-symfony/uid and teamtnt/tntsearch, plus what they need) are installed in the plugin's vendor folder.
+is required. Only the packages MyBB does not ship (symfony/form and symfony/dependency-injection, plus
+what they need) are installed in the plugin's vendor folder.
 
 ============================================================================================
 Installation:

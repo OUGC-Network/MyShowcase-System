@@ -2,8 +2,6 @@
   "require": {
     "php": "^8.2",
     "symfony/form": "^7.0 || ^8.0",
-    "teamtnt/tntsearch": "^4.0 || ^5.0",
-    "symfony/uid": "^7.0 || ^8.0",
     "symfony/dependency-injection": "^7.0 || ^8.0"
   },
   "replace": {
