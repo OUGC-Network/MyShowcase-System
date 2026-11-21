@@ -67,6 +67,9 @@ class Routing
 
         $this->routing_context->fromRequest($this->request);
 
+        // The route the request names: the path, or the route_identifier and route query parameters (decision D268).
+        $this->routing_context->setPathInfo($this->requestPath());
+
         $this->matcher = new UrlMatcher($this->routes, $this->routing_context);
     }
 
@@ -500,7 +503,65 @@ class Routing
 
     public function getMatch(): array
     {
-        return $this->matcher->match($this->request->getPathInfo());
+        return $this->matcher->match($this->routing_context->getPathInfo());
+    }
+
+    /**
+     * The route path of the request (decision D268). The query string form names the route in two parameters:
+     * showcase.php?route_identifier=<id>&route=<rest>, which is the path /<id>/<rest>. Any other request routes by its path.
+     * Every form is routed whatever the showcase's setting, so the setting only decides the links.
+     */
+    private function requestPath(): string
+    {
+        $identifier = $this->request->query->get('route_identifier');
+
+        if (is_string($identifier) && preg_match('/^[a-z0-9]+$/', $identifier) === 1) {
+            $route = $this->request->query->get('route');
+
+            return '/' . $identifier . '/' . ltrim(is_string($route) ? $route : '', '/');
+        }
+
+        return $this->request->getPathInfo();
+    }
+
+    /**
+     * The link of a route of the showcase in the form the showcase's setting writes (decisions D268, D269, D277): the base and
+     * the route path for path and friendly links; the plain base with the route_identifier and route parameters for the query
+     * string form, and the route's other query parameters after them.
+     */
+    public function url(string $name, array $parameters = []): string
+    {
+        $path = $this->generateUrl($name, $parameters);
+
+        if (self::linkFormOf($this->context) !== UrlMode::FORM_QUERY) {
+            return $this->base() . $path;
+        }
+
+        $query = '';
+
+        if (str_contains($path, '?')) {
+            [$path, $query] = explode('?', $path, 2);
+        }
+
+        $identifier = (string)$this->context->showcase->route_identifier;
+        $rest = substr($path, strlen('/' . $identifier . '/'));
+
+        // the route keeps its slashes and its encoding, as the path form has them; the router reads it back unchanged
+        $link = $this->plainBase() . '?route_identifier=' . rawurlencode($identifier) . '&route='
+            . str_replace('%2F', '/', rawurlencode($rest));
+
+        return $query === '' ? $link : $link . '&' . $query;
+    }
+
+    /** The form of the links of a showcase for the current request (decision D269): path, friendly or query. */
+    public static function linkFormOf(ShowcaseContext $context): string
+    {
+        return UrlMode::linkForm(
+            (int)$context->showcase->url_mode,
+            (string)($context->mybb->settings['seourls'] ?? 'no'),
+            $_SERVER['SEO_SUPPORT'] ?? null,
+            $_SERVER['SHOWCASE_SEO_SUPPORT'] ?? null
+        );
     }
 
     public function generateUrl(string $name, array $parameters = []): string
@@ -683,10 +744,6 @@ class Routing
      *
      * @param array<string, mixed> $parameters
      */
-    public function url(string $name, array $parameters = []): string
-    {
-        return $this->base() . $this->generateUrl($name, $parameters);
-    }
 
     public function routeIdentifier(): string|false
     {

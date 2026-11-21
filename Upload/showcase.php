@@ -60,11 +60,19 @@ $templatelist = '';
 
 $request_uri = $_SERVER['REQUEST_URI'] ?? '';
 
-if (str_contains($request_uri, '/attachment/') ||
-    str_contains($request_uri, '/thumbnail/') ||
-    str_contains($request_uri, '/attachment?') ||
-    str_contains($request_uri, '/files?') ||
-    str_contains($request_uri, '/upload?')) {
+// The query string form names its route in route_identifier and route (decision D268): the route is read as the path the
+// router will match, so the minimal-load routes are found in either form.
+$routed_path = $request_uri;
+
+if (isset($_GET['route_identifier'], $_GET['route']) && is_string($_GET['route_identifier']) && is_string($_GET['route'])) {
+    $routed_path = '/' . $_GET['route_identifier'] . '/' . ltrim($_GET['route'], '/') . '?';
+}
+
+if (str_contains($routed_path, '/attachment/') ||
+    str_contains($routed_path, '/thumbnail/') ||
+    str_contains($routed_path, '/attachment?') ||
+    str_contains($routed_path, '/files?') ||
+    str_contains($routed_path, '/upload?')) {
     define('NO_ONLINE', 1);
 
     global $mybb, $lang, $db, $cache, $templates;
