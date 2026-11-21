@@ -320,6 +320,13 @@ switch ($command) {
         $out(['moderator_id' => $id]);
         break;
 
+    case 'attachment-status':
+        // the status of an attachment of the showcase (B6): 1 approved, 0 awaiting approval
+        $sid = $showcaseId($argv[2]);
+        $db->update_query('myshowcase_attachments', ['status' => (int)$argv[4]], "showcase_id='{$sid}' AND attachment_id='" . (int)$argv[3] . "'");
+        $out(['attachment_id' => (int)$argv[3], 'status' => (int)$argv[4]]);
+        break;
+
     case 'set-ip':
         // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281).
         // The packed bytes are written as a literal of each engine (a blob literal, UNHEX or decode), not as an escaped string.
