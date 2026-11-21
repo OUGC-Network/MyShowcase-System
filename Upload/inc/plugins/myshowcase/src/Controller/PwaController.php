@@ -54,7 +54,8 @@ class PwaController
             'name' => $name,
             'short_name' => mb_substr($name, 0, 12),
             'start_url' => $routing->url(Routes::Main),
-            'scope' => $routing->base(),
+            // the board folder, the folder of the worker's scope, in every link form (decision D316)
+            'scope' => $this->boardUrl(''),
             'display' => 'standalone',
             'icons' => $icons,
         ];
