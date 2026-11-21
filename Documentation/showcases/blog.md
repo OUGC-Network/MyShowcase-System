@@ -67,8 +67,9 @@ In the shipped file every field is open to every group for filling in and for vi
 `allowed_groups_view` are `"all"`. A file never names a group; a board may restrict a field itself, and that restriction is its own
 (decision D148). The "Default" column is the value a new entry gets when the form leaves the field empty.
 
-The optional patterns accept an empty value: a pattern is checked for optional fields too, so each one allows nothing
-for an empty field.
+The patterns of the optional fields do not apply to an empty value: an empty optional field has nothing to check (no
+length, no format, no pattern), and it is stored empty, or with its default when it has one. A value that is not empty is
+checked against its pattern, and a default that is set is checked as a value like any other.
 
 `series` and `series_part` are meaningful together; the file does not require one when the other is set.
 
