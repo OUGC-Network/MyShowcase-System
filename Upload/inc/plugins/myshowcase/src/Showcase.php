@@ -16,7 +16,6 @@ declare(strict_types=1);
 namespace MyShowcase;
 
 use MyBB;
-use MyShowcase\Repository\ModeratorsRepository;
 use MyShowcase\Collection\Collection;
 use MyShowcase\Entity\CustomFieldEntity;
 use MyShowcase\Entity\UserEntity;
@@ -35,10 +34,8 @@ use MyShowcase\Service\UsersManager;
 use MyShowcase\Entity\ShowcaseEntity;
 use RuntimeException;
 
-use function MyShowcase\Plugin\Functions\getSetting;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\sanitizeTableFieldValue;
-use function MyShowcase\Plugin\Functions\showcaseDefaultModeratorPermissions;
 
 use const MyShowcase\Plugin\Core\GUEST_GROUP_ID;
 use const MyShowcase\Plugin\Core\TABLES_DATA;
@@ -307,56 +304,5 @@ class Showcase
         }
 
         return $permissions;
-    }
-
-    public function moderatorPermissionsGet(int $userID): array
-    {
-        $userData = get_user($userID);
-        $permissions = showcaseDefaultModeratorPermissions();
-
-        if (empty($userData['uid'])) {
-            return $permissions;
-        }
-
-        $userGroupIDs = $this->extractUserGroupIDs($userData);
-
-        if (is_member(getSetting('superModeratorGroups'), $userData)) {
-            $permissions = array_map(fn() => true, $permissions);
-        }
-
-        return $this->applyShowcaseModeratorPermissions($permissions, $userGroupIDs, $userID);
-    }
-
-    private function extractUserGroupIDs(array $userData): array
-    {
-        return array_filter(
-            array_map('intval', explode(',', "{$userData['usergroup']},{$userData['additionalgroups']}"))
-        );
-    }
-
-    private function applyShowcaseModeratorPermissions(
-        array $permissions,
-        array $userGroupIDs,
-        int $userID
-    ): array {
-        $moderatorsCache = $this->context->cache_manager->get(CacheDataTypes::Moderators);
-        $showcaseModerators = $moderatorsCache[$this->context->showcase->showcase_id] ?? [];
-
-        foreach ($showcaseModerators as $moderatorEntry) {
-            if (!$this->moderatorMatchesUser($moderatorEntry, $userGroupIDs, $userID)) {
-                continue;
-            }
-
-            foreach ($permissions as $key => &$value) {
-                $value = !empty($moderatorEntry[$key]) || !empty($value);
-            }
-        }
-
-        return $permissions;
-    }
-
-    private function moderatorMatchesUser(array $moderatorEntry, array $userGroupIDs, int $userID): bool
-    {
-        return ModeratorsRepository::matchesUser($moderatorEntry, $userGroupIDs, $userID);
     }
 }

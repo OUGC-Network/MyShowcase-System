@@ -135,14 +135,6 @@ function showcaseDefaultPermissions(): array
     ];
 }
 
-function showcaseDefaultModeratorPermissions(): array
-{
-    return [
-        ModeratorPermissions::EntriesCanView => false,
-        ModeratorPermissions::CanManageComments => false,
-    ];
-}
-
 function showcaseDelete(int $showcase_id): bool
 {
     global $db;
@@ -230,7 +222,6 @@ function showcaseGet(
     }
 
     if (!$tableExists) {
-        //return [];
     }
 
     global $mybb;
