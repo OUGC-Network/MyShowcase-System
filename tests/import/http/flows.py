@@ -631,11 +631,26 @@ def gallery_entry(i, image):
     return {'subject': f'Picture {i}', 'fields': {'title': f'Picture {i}', 'image': image, 'caption': f'Caption {i}'}}
 
 
+def downloads_option(field_key, label):
+    """The value id of an option of a downloads field, by its label, on this board (decision D262): option ids are not fixed,
+    so a hard-coded id goes stale. An empty string when the board has no such option (the caller then fails, it does not guess)."""
+    return one(
+        'select d.value_id from mybb_myshowcase_field_data d, mybb_myshowcase_fields f '
+        f"where d.field_id=f.field_id and f.field_key='{field_key}' and d.value='{label}' "
+        "and f.collection_id=(select collection_id from mybb_myshowcase_config where route_identifier='downloads')"
+    )
+
+
 def downloads_entry(i, archive):
-    # Select values are the option ids of the shipped downloads collection (Tools, Any, Freeware). The showcase requires a
-    # subject (entries_enable_subject), so every entry has one.
-    return {'subject': f'Download {i}', 'fields': {'archive': archive, 'category': 1, 'version': f'1.9.{i}',
-                                                  'release_date': '2026-11-01', 'platform': 1, 'license': 1, 'sha256': '0' * 64}}
+    # Select values are looked up by label: category Tools, platform Any, license Freeware of the shipped downloads collection.
+    # The showcase requires a subject (entries_enable_subject), so every entry has one.
+    ids = {key: downloads_option(key, label) for key, label in (('category', 'Tools'), ('platform', 'Any'), ('license', 'Freeware'))}
+    missing = [key for key, value in ids.items() if value in (None, '')]
+    if missing:
+        raise RuntimeError(f'the downloads collection has no option for {", ".join(missing)} on this board')
+    return {'subject': f'Download {i}', 'fields': {'archive': archive, 'category': ids['category'], 'version': f'1.9.{i}',
+                                                  'release_date': '2026-11-01', 'platform': ids['platform'], 'license': ids['license'],
+                                                  'sha256': '0' * 64}}
 
 
 def sha256_of(path):
