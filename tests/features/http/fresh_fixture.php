@@ -225,6 +225,27 @@ switch ($command) {
         $out(['entry_id' => $entryId, 'public_id' => $public, 'slug' => 'fresh']);
         break;
 
+    case 'forum-post':
+        // a forum thread with its first post (B6-gaps): a forum is created when the board has none. Args: uid, username, subject, message.
+        $fid = (int)$db->fetch_field($db->simple_select('forums', 'fid', "type='f'", ['order_by' => 'fid', 'limit' => 1]), 'fid');
+        if (!$fid) {
+            $fid = (int)$db->insert_query('forums', ['name' => 'Fixture forum', 'description' => '', 'type' => 'f', 'active' => 1, 'open' => 1,
+                'pid' => 0, 'parentlist' => '', 'usepostcounts' => 1, 'usethreadprefix' => 0, 'disporder' => 1]);
+            $db->update_query('forums', ['parentlist' => (string)$fid], "fid='{$fid}'");
+        }
+        $now = TIME_NOW;
+        $uid = (int)$argv[2];
+        $username = $db->escape_string($argv[3]);
+        $subject = $db->escape_string($argv[4]);
+        $tid = (int)$db->insert_query('threads', ['fid' => $fid, 'subject' => $subject, 'uid' => $uid, 'username' => $username,
+            'dateline' => $now, 'lastpost' => $now, 'lastposter' => $username, 'lastposteruid' => $uid, 'visible' => 1,
+            'replies' => 0, 'views' => 0, 'firstpost' => 0, 'notes' => '']);
+        $pid = (int)$db->insert_query('posts', ['tid' => $tid, 'fid' => $fid, 'subject' => $subject, 'uid' => $uid, 'username' => $username,
+            'dateline' => $now, 'message' => $db->escape_string($argv[5]), 'visible' => 1, 'includesig' => 0, 'smilieoff' => 0]);
+        $db->update_query('threads', ['firstpost' => $pid], "tid='{$tid}'");
+        $out(['tid' => $tid, 'pid' => $pid, 'fid' => $fid]);
+        break;
+
     case 'file-url':
         // the public URL an export writes for an attachment (decision D238): the plain form, whatever the mode
         $route = $argv[2];
