@@ -6,21 +6,23 @@ one place in PHP and mirrored by one SQL condition, and the two must agree.
 
 ## The moderator notion
 
-`EntriesManager::isModerator()` is the only moderator test. Entries and comments use the same answer.
+Moderation is per area (decision P1). `EntriesManager::isModerator(area)` is the one moderator test; it takes `'entries'`
+(`EntriesManager::MODERATOR_AREA_ENTRIES`) or `'comments'` (`EntriesManager::MODERATOR_AREA_COMMENTS`). The entry and comment
+edit, delete and moderation controls each ask the area they moderate, so a user may moderate the entries and not the comments,
+or the reverse.
 
-A user is a moderator of a showcase when either:
+A user moderates an area of a showcase when either:
 
 * one of their usergroups, primary or additional, has the MyBB super-moderator or administrator flag (`issupermod` or
-  `cancp`): MyBB merges the additional groups into `$mybb->usergroup`, which the test reads, or
-* a `myshowcase_moderators` row for the showcase matches them. `group_id` is the type of the row: 0 matches the user with
-  the uid in `user_id`; 1 matches any of the user's usergroups, with the usergroup id in `user_id`
-  (`ModeratorsRepository::matchesUser()`).
+  `cancp`): such a user moderates both areas. MyBB merges the additional groups into `$mybb->usergroup`, which the test reads, or
+* a `myshowcase_moderators` row for the showcase matches them and has that area's flag on. `group_id` is the type of the row: 0
+  matches the user with the uid in `user_id`; 1 matches any of the user's usergroups, with the usergroup id in `user_id`
+  (`ModeratorsRepository::matchesUser()`). The flag of the entries area is `entries_can_view`; the flag of the comments area is
+  `can_manage_comments`.
 
-The result is memoised per user for the request. The flags stored in a moderators row (`entries_can_view`,
-`can_manage_*`) and the ACP moderator permissions are stored but are not read by this test yet.
-
-`EntriesManager::moderatesShowcase()` is **not** a moderator test. It is true for every member with `EntriesCanView`,
-which is on by default. It must not be used to decide moderation.
+The answer is memoised per area and user for the request. A new moderator row starts with both flags on. The attachments,
+reports and logs flags of the earlier design are not in the table definition any more (a board's old columns stay and are not
+read), and the ACP moderators tab shows only the two flags.
 
 ## Entries
 

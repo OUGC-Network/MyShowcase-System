@@ -118,12 +118,12 @@ When you activate the plugin it updates the database by itself:
     cannot be indexed on MySQL). Then activate the plugin again.
   * Servers older than MySQL 5.7.7 and MariaDB 10.2.2 are the ones most likely to refuse an
     index, because of the 767 byte limit above.
-- The table myshowcase_moderators gets five new columns: entries_can_view, can_manage_comments,
-  can_manage_attachments, can_manage_reports and can_manage_logs. They store the permissions you
-  give to a moderator in ACP > MyShowcase Admin (edit a showcase, Moderators tab). They are added
-  by the same activation step that adds any other missing column, existing moderators keep all
-  their rows and start with every permission off (0), and the plugin cache of moderators is
-  rebuilt at the end of the activation.
+- The table myshowcase_moderators gets two new columns: entries_can_view and can_manage_comments. They store the rights you
+  give to a moderator in ACP > MyShowcase Admin (edit a showcase, Moderators tab): the entries right moderates the entries of the
+  showcase, the comments right moderates its comments. They are added by the same activation step that adds any other missing
+  column, existing moderators keep their rows and start with both rights off (0), and the plugin cache of moderators is rebuilt
+  at the end of the activation. A moderator row added from the Moderators tab starts with both rights on. (Earlier builds named
+  three more rights, for attachments, reports and logs; they are not used and not shown any more.)
 
 ============================================================================================
 Behavior notes (settings of a showcase):
@@ -171,7 +171,8 @@ and use its tabs (General, Main, Parser, Entries, Comments, Attachments, Subscri
 - Who moderates: the group permissions (Permissions tab of a showcase, or the MyShowcase tab of a
   user group) are about a user's own entries and comments. The entries and comments of other users
   are moderated by the showcase moderators: the super moderator groups, and the users and groups
-  added on the Moderators tab of the showcase with "entries" or "comments" on. Waiting content is
+  added on the Moderators tab of the showcase with "entries" (they moderate the entries) or "comments" (they moderate the
+  comments) on, each right on its own. Waiting content is
   visible to its author and to those moderators. The entry-page and comment templates use the
   `entry_moderator` / `comment_moderator` flags for moderator controls (inline moderation, close and
   sticky options, deleted-post tools), not the "view entries" group permission.

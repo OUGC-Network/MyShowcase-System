@@ -54,12 +54,12 @@ MyBB 1.9 also provides `mybb` (the `MyBB` object: `mybb.user`, `mybb.usergroup`,
 
 The group permissions cover a user's own entries and comments. The entries and comments of other users also need the
 showcase moderator rights: the super moderator groups, or a row on the Moderators tab of the showcase with "entries"
-or "comments" on. Waiting content is shown to its author and to those moderators.
+or "comments" on (each right is per area: an entries row does not moderate comments, and the reverse). Waiting content is shown to its author and to those moderators.
 
 | Variable | Set by | Meaning |
 |---|---|---|
-| `entry_moderator` | `EntriesController::main()`, `EntriesController::view()`, `RenderManager::buildPost()` | `EntriesManager::isEntryModerator()`: the user moderates the entries of this showcase. |
-| `comment_moderator` | `EntriesController::view()`, `RenderManager::buildPost()` | `EntriesManager::isCommentModerator()`: the user moderates the comments of this showcase. |
+| `entry_moderator` | `EntriesController::main()`, `EntriesController::view()`, `RenderManager::buildPost()` | `EntriesManager::isModerator('entries')` (the entries area): the user moderates the entries of this showcase. |
+| `comment_moderator` | `EntriesController::view()`, `RenderManager::buildPost()` | `EntriesManager::isModerator('comments')` (the comments area): the user moderates the comments of this showcase. |
 | `unapproved_entries` | `EntriesController::main()` | `''`, or `{url, text}` when the user is an entry moderator and entries wait for approval. |
 
 Templates use these flags, not `permissions.entries_can_view`, to show moderator tools.
