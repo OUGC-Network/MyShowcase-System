@@ -1163,7 +1163,12 @@ class RenderManager
                 }
             }
 
-            if ($attachment_data->status or true) { // todo, unapproved attachments should display regardless
+            // An attachment awaiting approval is shown only to its author and to the moderators of the entries (decision P6).
+            $is_author = (int)$this->context->current_user->uid > 0 &&
+                (int)$attachment_data->user_id === (int)$this->context->current_user->uid;
+
+            if ((int)$attachment_data->status === ContentStatuses::VisibleApproved || $is_author ||
+                $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES)) {
                 $attachmentExtension = get_extension($attachment_data->attachment_name);
 
                 $isImageAttachment = in_array($attachmentExtension, ['jpeg', 'gif', 'bmp', 'png', 'jpg']);
@@ -1229,9 +1234,8 @@ class RenderManager
             }
         }
 
-        $templatesContext['show_unapproved'] = $unapprovedCount > 0 && $this->context->current_user->hasPermission(
-                UserPermissions::CanManageAttachments
-            );
+        $templatesContext['show_unapproved'] = $unapprovedCount > 0 &&
+            $this->context->entries_manager->isModerator(EntriesManager::MODERATOR_AREA_ENTRIES);
 
         if ($templatesContext['show_unapproved']) {
             if ($unapprovedCount === 1) {
