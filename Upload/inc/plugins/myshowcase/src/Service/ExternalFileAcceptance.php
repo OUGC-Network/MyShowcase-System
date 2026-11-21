@@ -92,7 +92,19 @@ final class ExternalFileAcceptance
      */
     public static function nameOf(ExternalUrl $url): string
     {
-        $path = explode('?', $url->path, 2)[0];
+        $parts = explode('?', $url->path, 2);
+
+        $path = $parts[0];
+
+        // The query string form of a board's own file URL names its route in the "route" parameter (decision D268): the name is
+        // the route's last segment, not the script's name. The parameters after the route are not part of it.
+        if (isset($parts[1])) {
+            parse_str($parts[1], $query);
+
+            if (isset($query['route']) && is_string($query['route']) && $query['route'] !== '') {
+                $path = $query['route'];
+            }
+        }
 
         $segment = rawurldecode((string)substr((string)strrchr('/' . $path, '/'), 1));
 
