@@ -142,7 +142,8 @@ abstract class BaseController
         $where_clauses = [
             "user_id='{$this->context->current_user->uid}'",
             "is_valid='" . self::PASSWORD_IS_VALID . "'",
-            "dateline>'" . (TIME_NOW - $this->context->showcase->password_minutes_interval * 60) . "'",
+            // the access log's dateline is a DATETIME: the window is compared as the same kind of value that is written
+            "dateline>'" . date('Y-m-d H:i:s', TIME_NOW - $this->context->showcase->password_minutes_interval * 60) . "'",
         ];
 
         if ($this->context->showcase->password_ip_check) {
@@ -156,7 +157,8 @@ abstract class BaseController
     {
         $repo->insertAccessLog([
             'user_id' => $this->context->current_user->uid,
-            'dateline' => TIME_NOW,
+            // a DATETIME column: a DateTime value is written in the form each engine takes (an integer is not one on MySQL)
+            'dateline' => new \DateTime('@' . TIME_NOW),
             'is_valid' => $is_valid ? self::PASSWORD_IS_VALID : self::PASSWORD_IS_INVALID,
             'ipaddress' => $this->context->mybb->session->packedip,
         ]);
