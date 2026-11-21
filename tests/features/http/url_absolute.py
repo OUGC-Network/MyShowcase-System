@@ -148,6 +148,8 @@ class UrlCollector(HTMLParser):
 # usercp.php is not core chrome here: the plugin links to it (the attachments of the entry form), so those links are checked.
 CORE_CHROME = ('manifest.json', 'showteam.php', 'member.php', 'index.php', 'search.php', 'task.php', 'misc.php', 'private.php', 'memberlist.php', 'online.php', 'calendar.php', 'stats.php', 'modcp.php', 'portal.php', 'syndication.php', 'cache/', 'jscripts/', 'images/')
 CORE_CHROME_EXCEPT = ('images/attachtypes/',)
+# MyBB's own debug link, shown to administrators in the footer (not a plugin link): "?debug=1"
+CORE_CHROME_QUERY = ('debug=1',)
 
 
 def is_core_chrome(value):
@@ -156,6 +158,8 @@ def is_core_chrome(value):
     text = path.lstrip('/') + ('?' + query if query else '')
     if text.startswith(CORE_CHROME_EXCEPT):
         return False
+    if value.lstrip('/') in CORE_CHROME_QUERY or text in CORE_CHROME_QUERY:
+        return True
     return any(text.startswith(item) for item in CORE_CHROME)
 
 
@@ -173,8 +177,19 @@ def json_urls(value, out):
     return out
 
 
+DUMP_DIR = ''  # when set, the list page of a combination with a failing URL is kept there, for the reader (a diagnostic)
+
+
 def check_page(page_name, body, showcase_url, bburl, mode, label):
     """Checks the URLs of one page; returns how many were read (a page with none proves nothing)."""
+    before = sum(len(v) for v in PROBLEMS.values())
+    result = check_page_urls(page_name, body, showcase_url, bburl, mode, label)
+    if DUMP_DIR and page_name == 'list' and sum(len(v) for v in PROBLEMS.values()) > before:
+        open(os.path.join(DUMP_DIR, re.sub(r'[^A-Za-z0-9]+', '-', label) + '.html'), 'w', encoding='utf-8').write(body)
+    return result
+
+
+def check_page_urls(page_name, body, showcase_url, bburl, mode, label):
     collector = UrlCollector()
     if body.lstrip().startswith(('{', '[')):
         try:
@@ -233,6 +248,9 @@ def main():
         for kind, items in sorted(PROBLEMS.items(), key=lambda kv: -len(kv[1]))[:40]:
             for example in items[:3]:
                 print(f'  {len(items):4d}  {kind}   e.g. {example[:200]}')
+        # a URL that is not absolute, or is on the wrong base, is a failure of the run as well (it was only listed before)
+        for kind, items in PROBLEMS.items():
+            FAILS.append(f'{kind}: {len(items)} URL(s) not on the expected base or not absolute, e.g. {items[0][:160]}')
         for f in FAILS:
             print('  FAILED:', f)
         sys.stdout.flush()
@@ -248,6 +266,8 @@ def main():
 
 
 def run(ctx, scratch, port):
+    global DUMP_DIR
+    DUMP_DIR = scratch
     import features  # noqa: F401  (the same board setup as url_mode.py)
     board_dir = ctx.board
     acp = board.activate(ctx)

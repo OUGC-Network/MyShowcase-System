@@ -294,11 +294,14 @@ switch ($command) {
         break;
 
     case 'set-ip':
-        // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281)
+        // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281).
+        // The packed bytes are written as a literal of each engine (a blob literal, UNHEX or decode), not as an escaped string.
         $sid = $showcaseId($argv[2]);
-        $packed = my_inet_pton($argv[4]);
-        $db->update_query("myshowcase_data{$sid}", ['ipaddress' => $db->escape_string($packed)], "entry_id='" . (int)$argv[3] . "'");
-        $out(['entry_id' => (int)$argv[3], 'ip' => $argv[4]]);
+        $hex = bin2hex(my_inet_pton($argv[4]));
+        $literal = str_contains((string)$db->type, 'sqlite') ? "X'{$hex}'"
+            : (str_contains((string)$db->type, 'pg') ? "decode('{$hex}', 'hex')" : "UNHEX('{$hex}')");
+        $db->write_query("UPDATE {$db->table_prefix}myshowcase_data{$sid} SET ipaddress = {$literal} WHERE entry_id = '" . (int)$argv[3] . "'");
+        $out(['entry_id' => (int)$argv[3], 'ip' => $argv[4], 'stored' => strlen($hex) / 2]);
         break;
 
     default:
