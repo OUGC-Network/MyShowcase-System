@@ -711,7 +711,6 @@ class EntriesManager
             }
         }
 
-        //$entry_data['extra_data'] = $extra_data;
 
         $entry = new EntryEntity(...stringKeysOnly($entry_data));
 
@@ -1714,7 +1713,6 @@ class EntriesManager
         }
 
         // Assign any uploaded attachments with the specific post_hash to the newly created entry.
-        // TODO(verify): AttachmentsRepository::linkAttachmentsByPostHash() exists with this signature.
         if (!empty($this->validation_entry->post_hash)) {
             $this->context->attachments_repository->linkAttachmentsByPostHash(
                 $this->validation_entry->post_hash,

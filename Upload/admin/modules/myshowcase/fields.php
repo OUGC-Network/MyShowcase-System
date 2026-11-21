@@ -718,7 +718,6 @@ if (in_array($pageAction, ['newField', 'edit_field'])) {
             continue;
         }
 
-        //$key = str_replace(' ', '', ucwords(str_replace('_', ' ', $field_name)));
 
         $formContainer->output_row_header(
             $lang->{'myshowcase_admin_fields_table_header_' . $field_name} ?? 'myshowcase_admin_fields_table_header_' . $field_name,

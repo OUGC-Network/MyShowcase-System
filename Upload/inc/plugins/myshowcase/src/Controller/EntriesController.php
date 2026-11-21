@@ -993,7 +993,6 @@ class EntriesController extends BaseController
             if (isset($this->context->mybb->input[$field_key])) {
                 continue;
             }
-            //$this->context->mybb->input[$field_key] ??= (string)$entry->$field_key;
         }
 
         /**
@@ -1022,7 +1021,6 @@ class EntriesController extends BaseController
 
         foreach ($this->context->custom_fields_collection as $field_id => $field) {
             if (!isset($this->context->mybb->input[$field->field_key])) {
-                //$this->context->mybb->input[$field->field_key] = '';
             }
 
             // A submitted form replaces the values in the form; loading the page keeps the stored ones.
@@ -1115,7 +1113,6 @@ class EntriesController extends BaseController
             'user_attach_quota' => 0,
         ];
 
-        //$this->context->mybb->input = array_merge((array)$entry, $this->context->mybb->input);
 
         if ($entry->entry_id) {
             $where_clauses = ["entry_id='{$entry->entry_id}'"];
@@ -1129,7 +1126,6 @@ class EntriesController extends BaseController
                 ['attachment_id', 'field_id'],
             ) as $attachment_id => $attachment_data
         ) {
-            //$entry->addAttachment($attachment_data);
         }
 
         // What the user posted, before it is mixed with the entry. Only EntriesManager::allowedEntryInput() reads it
@@ -1180,18 +1176,14 @@ class EntriesController extends BaseController
         if ($this->context->mybb->request_method === 'post') {
             foreach ($this->context->custom_fields_collection as $field_id => $field) {
                 if (isset($this->context->mybb->input[$field->field_key])) {
-                    //$entry->setExtraData($field->field_key, $this->context->mybb->input[$field->field_key]);
                 }
             }
 
             $isPreview = isset($this->context->mybb->input['preview']);
 
-            //$entry->ipaddress = $this->context->mybb->session->packedip;
 
             if (!$is_update) {
-                //$entry->user_id = $this->context->mybb->user['uid'];
 
-                //$entry->dateline = TIME_NOW;
             }
 
             if ($is_update) {
@@ -1202,7 +1194,6 @@ class EntriesController extends BaseController
             //Require_once MYBB_ROOT . 'inc/datahandlers/myshowcase_dh.php';
 
             if (!$is_update) {
-                //$entry->dateline = TIME_NOW;
             }
 
             // The stored (or new) entry, then the posted values that are allowed, then the values only the server sets.
@@ -1347,7 +1338,6 @@ class EntriesController extends BaseController
         $this->loadEntryFields($entry, is_create_update_page: true);
 
         $templatesContext['attachmentsUpload'] = '';
-        //$templatesContext['attachmentsUpload'] = $this->context->render_manager->buildAttachmentsUpload($isEditPage);
 
         $templatesContext['post_icons'] = [];
 
@@ -1372,14 +1362,11 @@ class EntriesController extends BaseController
 
         $templatesContext['external_quotes'] = 1;
 
-        //$templatesContext['show_post_options'] = $templatesContext['show_signature'] = $templatesContext['show_disable_smilies'] = $templatesContext['show_attachments'] = false;
 
         if ($this->context->mybb->usergroup['canusesig'] && !$this->context->mybb->user['suspendsignature']) {
-            //$templatesContext['show_post_options'] = $templatesContext['show_signature'] = true;
         }
 
         if ($this->context->showcase->parser_allow_smiles_in_entries) {
-            //$templatesContext['show_post_options'] = $templatesContext['show_disable_smilies'] = true;
         }
 
         $templatesContext['moderator_options'] = $this->context->mybb->get_input(
@@ -1555,7 +1542,6 @@ class EntriesController extends BaseController
 
         // we redirect invalid custom slugs to the correct canonical url
         if ($entry->entry_slug_custom !== $entry_slug_custom) {
-            //$this->redirect($entry_public_id);
             // todo, check if slug is empty and fix if so
         }
 
@@ -1572,7 +1558,6 @@ class EntriesController extends BaseController
             $this->success($data);
         }
 
-        //$this->context->language->load('showthread');
 
         $this->forcedFieldBreadcrumb($entry->user_id);
 
@@ -1690,7 +1675,6 @@ class EntriesController extends BaseController
             $templatesContext['threaded_mode'] = true;
         }
 
-        //$templatesContext['subject'] = $this->context->entries_manager->buildSubject($entry);
 
         $templatesContext['meta']['canonical'] = $this->context->routing->url(
                 Routes::EntryView,

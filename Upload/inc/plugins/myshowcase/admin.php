@@ -281,7 +281,6 @@ function pluginActivation(): bool
     }
 
     if ($db->table_exists('myshowcase_reports')) {
-        //$db->drop_table('myshowcase_reports');
     }
 
     /*~*~* RUN UPDATES END *~*~*/

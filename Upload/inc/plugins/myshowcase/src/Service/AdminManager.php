@@ -410,7 +410,6 @@ EOL;
 
         $error_messages = [];
 
-        //$moderators_repository = new ModeratorsRepository($this->database, $showcase->context->showcase);
 
         if ($this->mybb->request_method === 'post') {
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {

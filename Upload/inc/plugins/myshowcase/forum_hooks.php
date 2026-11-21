@@ -404,9 +404,7 @@ function postbit(array &$post): array
                         continue;
                     }
 
-                    //$attachment->is_image = str_starts_with($attachment->mime_type, 'image/');
 
-                    //$attachment->has_thumbnail = !empty($attachment->thumbnail_name);
 
                     $attachment
                         ->setExtraData('file_size', get_friendly_size($attachment->file_size))

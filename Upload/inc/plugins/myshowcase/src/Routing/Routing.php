@@ -54,7 +54,6 @@ class Routing
     )
     {
         if ($this->showcase === null) {
-            //$this->showcase = $showcase;
         }
 
         $this->setRoutes();

@@ -392,7 +392,6 @@ class RenderManager
                 }
             ) as $attachment_data
         ) {
-            //$entry = $this->context->entries_manager->getEntryByID($attachment_data->entry_id);
 
             $attachment_data
                 ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
