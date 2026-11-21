@@ -4,8 +4,9 @@
 Starts one of the features harnesses on its own board. When the ready port (the board's port, or the router's port with
 --ready-port, the one above the board's) listens, the harness is in its run; the test waits half a second and sends
 SIGINT: the harness gets a KeyboardInterrupt. A harness that has already ended before the interrupt fails the test. The
-test then checks that nothing of the run is left: no server listens on the board's port or on the port above it, and,
-on MySQL and PostgreSQL, no database of the run appeared.
+test then checks that nothing of the run is left: no server listens on the board's port or on any of the 12 ports above
+it (url_mode's extra servers), and, on MySQL and PostgreSQL, no database of the run appeared. The test needs 13 free ports
+from its --port on: the verification uses a spacing of 14.
 
 Before the repair the Ctx's server outlives the interrupted harness: the port stays in use. The test then kills that
 server, so that it does not stay behind.
@@ -34,6 +35,11 @@ def listeners(port):
     return [int(x) for x in subprocess.run(['lsof', '-ti', f'tcp:{port}', '-sTCP:LISTEN'], capture_output=True, text=True).stdout.split()]
 
 
+def run_ports():
+    """The board's port and the ports the harnesses open above it: url_mode uses up to +12 (its SEO and marker-less servers)."""
+    return range(a.port, a.port + 13)
+
+
 def databases():
     """The names of the databases that start with msc_test_ (MySQL, PostgreSQL); nothing else is read."""
     env = board.db_env()
@@ -50,8 +56,9 @@ def main():
     if not a.mybb or not os.path.isdir(a.mybb):
         sys.exit('give --mybb: a MyBB 1.9 source tree with its vendor/ folder')
     os.makedirs(a.scratch, exist_ok=True)
-    if listeners(a.port) or listeners(a.port + 10):
-        sys.exit(f'ports {a.port} or {a.port + 10} are in use before the run: choose another --port')
+    busy = [port for port in run_ports() if listeners(port)]
+    if busy:
+        sys.exit(f'ports {busy} are in use before the run: choose another --port')
     before_dbs = databases() if a.engine in ('mysql', 'pgsql') else set()
     log = open(os.path.join(a.scratch, 'interrupt-run.log'), 'w')
     # A background job inherits SIGINT as ignored, and then Python in the child never raises KeyboardInterrupt: the child
@@ -76,8 +83,9 @@ def main():
     checks = []  # (passed, message)
     checks.append((interrupted, 'the harness was still running when the interrupt was sent'))
     checks.append((code != 0, f'the harness ended with an error code after the interrupt (exit {code})'))
-    left = listeners(a.port) + listeners(a.port + 10)
-    checks.append((not left, 'no server listens on the board port or the router port after the interrupt' + (f' (pids {left})' if left else '')))
+    left = [pid for port in run_ports() for pid in listeners(port)]
+    checks.append((not left, 'no server listens on the ports of the run (the board port and up to 12 above it) after the interrupt'
+                   + (f' (pids {left})' if left else '')))
     for pid in left:  # the orphan server of a failed check is stopped, so that it does not stay behind
         os.kill(pid, signal.SIGTERM)
     if a.engine in ('mysql', 'pgsql'):
