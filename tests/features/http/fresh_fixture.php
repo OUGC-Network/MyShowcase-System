@@ -150,6 +150,12 @@ switch ($command) {
         $out(['table' => $argv[2], 'exists' => $db->table_exists($argv[2])]);
         break;
 
+    case 'password-verify':
+        // the stored password of a showcase (PW, D306): whether a typed password verifies against it, and the start of the stored value
+        $stored = (string)$db->fetch_field($db->simple_select('myshowcase_config', 'password', "route_identifier='" . $db->escape_string($argv[2]) . "'"), 'password');
+        $out(['match' => $stored !== '' && password_verify($argv[3], $stored), 'prefix' => substr($stored, 0, 7), 'length' => strlen($stored)]);
+        break;
+
     case 'showcase-set':
         $db->update_query('myshowcase_config', [$argv[3] => $db->escape_string($argv[4])], "route_identifier='" . $db->escape_string($argv[2]) . "'");
         $rebuild();
