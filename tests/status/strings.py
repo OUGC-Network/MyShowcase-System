@@ -4,6 +4,8 @@
   K  each language key the PHP code (->language->KEY, $lang->KEY, lang->KEY) and the Twig templates (lang.KEY) read is defined in
      the English language file of the plugin (dynamic keys built from a variable are not checked);
   P  no key still carries the old spelling "purse" (the purge button's keys: entry and comment);
+  C  no camelCase admin key (myShowcaseAdmin*) remains in the plugin's PHP, Twig or language files: the admin keys are
+     myshowcase_admin_* (decision D303);
 
 The scan is static and does not depend on a database, so it runs once, not per engine.
 
@@ -63,6 +65,15 @@ def main():
         checks += 1
         if 'purse' in key:
             failures.append(f'P {key} still uses the old spelling "purse"')
+
+    camel = re.compile(r'\bmyShowcaseAdmin[A-Za-z0-9_]*')
+    for path in list(files(PLUGIN, ('.php', '.twig'))) + list(files(os.path.join(REPO, 'Upload', 'inc', 'languages'), ('.php',))):
+        if '/vendor/' in path.replace(os.sep, '/'):
+            continue
+        for number, line in enumerate(open(path, encoding='utf-8').read().splitlines(), 1):
+            for key in camel.findall(line):
+                checks += 1
+                failures.append(f'C {key} at {os.path.relpath(path, REPO)}:{number}')
 
     for f in failures:
         print('FAIL', f)
