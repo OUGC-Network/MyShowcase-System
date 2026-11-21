@@ -38,16 +38,8 @@ final class AttachmentAccess
     }
 
     /**
-     * The base of the public file URLs that a file writes (decision D238): always the plain form, whatever the url_mode.
-     * Without a trailing slash.
-     */
-    public function publicBase(): string
-    {
-        return rtrim($this->context->routing->plainBase(), '/');
-    }
-
-    /**
-     * The own-board bases a file URL may start with (decisions D52, D58): both forms of the same address.
+     * The own-board bases a file URL may start with (decisions D52, D58): the plain form (also the base of the query string
+     * form, which adds its parameters to it) and the friendly form of the same address.
      *
      * @return string[]
      */
@@ -57,17 +49,18 @@ final class AttachmentAccess
     }
 
     /**
-     * The public URL of an attachment, or '' when it has none: the base and the download route of the file, or nothing
-     * when the base is not an absolute http or https address.
+     * The public URL of an attachment, or '' when it has none. It is written in the showcase's own link form, the form its
+     * pages use under its setting (decision D277): path, friendly or query string; an export built outside a web request
+     * writes the query string form (decision D278). '' when the link is not an absolute http or https address.
      */
     public function publicUrl(string $public_id, string $attachment_name): string
     {
-        $path = $this->context->routing->path(
+        $url = $this->context->routing->url(
             Routes::AttachmentDownload,
             ['attachment_public_id' => $public_id, 'attachment_name' => $attachment_name]
         );
 
-        return self::joinUrl($this->publicBase(), $path);
+        return preg_match('#^https?://[^/?\#\s]+#i', $url) === 1 && preg_match('/[\x00-\x20\x7f]/', $url) !== 1 ? $url : '';
     }
 
     /**
@@ -218,7 +211,8 @@ final class AttachmentAccess
         $base = null;
 
         foreach ($this->ownBases() as $candidate) {
-            if (str_starts_with($text, $candidate . '/')) {
+            // a path form and a friendly form continue with "/", the query string form with "?" (decision D268)
+            if (str_starts_with($text, $candidate . '/') || str_starts_with($text, $candidate . '?')) {
                 $base = $candidate;
                 break;
             }
@@ -255,8 +249,23 @@ final class AttachmentAccess
             return null;
         }
 
-        // the plain form has the showcase.php segment after the base; the friendly form does not
-        $route = preg_replace('#^/showcase\.php(?=/)#', '', substr($url->text, strlen($base)));
+        $rest = substr($url->text, strlen($base));
+
+        if (str_starts_with($rest, '?')) {
+            // the query string form (decision D268): the route is the route_identifier and route parameters, as the router reads
+            // them, and the other parameters of the URL are not part of the route
+            $query = [];
+            parse_str(substr($rest, 1), $query);
+
+            if (!is_string($query['route_identifier'] ?? null) || !is_string($query['route'] ?? null)) {
+                return null;
+            }
+
+            $route = '/' . $query['route_identifier'] . '/' . ltrim($query['route'], '/');
+        } else {
+            // the plain form has the showcase.php segment after the base; the friendly form does not
+            $route = preg_replace('#^/showcase\.php(?=/)#', '', $rest);
+        }
 
         if (preg_match('#/attachment/([^/]+)/([^/]+)$#', $route, $parts) !== 1) {
             return null;
