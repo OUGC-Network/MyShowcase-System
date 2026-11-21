@@ -198,7 +198,7 @@ def _install(ctx, mybb, scratch, port, pl_mode, pl_file):
         if os.path.exists(p): os.remove(p)
     for f in ('inc/settings.php', 'inc/config.php'):
         open(os.path.join(board, f), 'w').close(); os.chmod(os.path.join(board, f), 0o666)
-    common =['-p', 'db_table_prefix=mybb_', '-p', 'bbname=Test', '-p', f'bburl={url}', '-p', 'adminemail=admin@example.com', '-p', f'account_username={user}',
+    common = ['-p', 'db_table_prefix=mybb_', '-p', 'bbname=Test', '-p', f'bburl={url}', '-p', 'adminemail=admin@example.com', '-p', f'account_username={user}',
               '-p', 'account_email=admin@example.com', '-p', f'account_password={password}', '-p', 'acp_pin=']
     if engine == 'sqlite':
         dbargs = ['-p', 'db_engine=sqlite', '-p', f'db_path={board}/inc/board.db']
