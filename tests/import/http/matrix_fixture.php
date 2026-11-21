@@ -177,7 +177,8 @@ switch ($switch) {
         // The moderator of the gallery (the moderators row the ACP writes for a moderator of a showcase).
         $gallery = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='gallery'"), 'showcase_id');
         $downloads = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='downloads'"), 'showcase_id');
-        $db->insert_query('myshowcase_moderators', ['showcase_id' => $gallery, 'user_id' => $users['modr']['uid'], 'group_id' => 0]);
+        // the moderator of the gallery holds both rights of its row (decision P1): entries (it sees the unapproved attachments of entries) and comments
+        $db->insert_query('myshowcase_moderators', ['showcase_id' => $gallery, 'user_id' => $users['modr']['uid'], 'group_id' => 0, 'entries_can_view' => 1, 'can_manage_comments' => 1]);
 
         // The uploads folder and the attachment types: PNG (gallery) and ZIP (downloads), every group but the excluded one.
         $uploads = rtrim(MYBB_ROOT, '/') . '/' . $uploads_rel;
