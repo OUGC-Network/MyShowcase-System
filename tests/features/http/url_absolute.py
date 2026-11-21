@@ -158,7 +158,7 @@ def is_core_chrome(value):
     text = path.lstrip('/') + ('?' + query if query else '')
     if text.startswith(CORE_CHROME_EXCEPT):
         return False
-    if value.lstrip('/') in CORE_CHROME_QUERY or text in CORE_CHROME_QUERY:
+    if value.lstrip('/?') in CORE_CHROME_QUERY or text in CORE_CHROME_QUERY:
         return True
     return any(text.startswith(item) for item in CORE_CHROME)
 
@@ -214,6 +214,12 @@ def check_page_urls(page_name, body, showcase_url, bburl, mode, label):
             parts = urlsplit(value)
             if parts.netloc != board_host:
                 continue  # another site
+            if page_name.startswith('password gate') and kind == 'form[action]':
+                # the gate's form posts back to the request it answers (the origin of the board and the request's own path):
+                # the test server serves a subfolder board from its root, so only the origin is checked here
+                if not value.startswith(urlsplit(bburl).scheme + '://' + board_host + '/'):
+                    PROBLEMS.setdefault(f'{page_name} {kind}', []).append(f'{label}: {value} (not on the board origin)')
+                continue
             if re.search(r'/showcase\.php(/|$)|/(blog|gallery|downloads)(/|\?|$)|route_identifier=', value):
                 # the query string form (decision D268) is the plain base with the route in its parameters
                 plain = resolve_base(showcase_url, bburl)
@@ -244,13 +250,13 @@ def main():
         except Exception as e:
             FAILS.append(f'the run stopped: {e}')
             print('FAIL the run stopped:', e)
+        # a URL that is not absolute, or is on the wrong base, is a failure of the run as well (it was only listed before)
+        for kind, items in PROBLEMS.items():
+            FAILS.append(f'{kind}: {len(items)} URL(s) not on the expected base or not absolute, e.g. {items[0][:160]}')
         print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine}); {sum(len(v) for v in PROBLEMS.values())} URL problems in {len(PROBLEMS)} kinds')
         for kind, items in sorted(PROBLEMS.items(), key=lambda kv: -len(kv[1]))[:40]:
             for example in items[:3]:
                 print(f'  {len(items):4d}  {kind}   e.g. {example[:200]}')
-        # a URL that is not absolute, or is on the wrong base, is a failure of the run as well (it was only listed before)
-        for kind, items in PROBLEMS.items():
-            FAILS.append(f'{kind}: {len(items)} URL(s) not on the expected base or not absolute, e.g. {items[0][:160]}')
         for f in FAILS:
             print('  FAILED:', f)
         sys.stdout.flush()
