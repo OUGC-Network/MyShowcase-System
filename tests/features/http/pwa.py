@@ -75,7 +75,8 @@ def js_string(raw):
     return codecs.decode(raw.replace('\\/', '/'), 'unicode_escape')
 
 
-def check_page(page_url, origin, form, label):
+def check_page(page_url, origin, form, label, folder='/'):
+    """The checks of one page for one link form; folder is the board folder ('/' at the root, '/sub/' in the subfolder run)."""
     """The checks of one page (M, W, C, L) for one link form."""
     page = fetch(page_url)
     text = page['text']
@@ -88,9 +89,9 @@ def check_page(page_url, origin, form, label):
     if reg is None:
         return
     sw_url, scope = js_string(reg.group(1)), js_string(reg.group(2))
-    ok(sw_url == origin + '/showcase.php?route_identifier=blog&route=service-worker.js',
+    ok(sw_url == origin + folder + 'showcase.php?route_identifier=blog&route=service-worker.js',
        f'{form} form, {label} page registers the worker in query form [{sw_url}]')
-    ok(scope == '/', f'{form} form, {label} page registers with the board folder as scope [{scope}]')
+    ok(scope == folder, f'{form} form, {label} page registers with the board folder as scope [{scope}]')
 
     # L: the manifest link is the builder's, not the root address
     link = re.search(r'<link rel="manifest" href="([^"]*)"', text)
@@ -125,7 +126,7 @@ def check_page(page_url, origin, form, label):
     worker = fetch(sw_url)
     ok(worker['status'] == 200, f'{form} form, {label} page: the worker answers 200 [{worker["status"]}]')
     ok(worker['type'].startswith('application/javascript'), f'{form} form, {label} page: the worker is application/javascript [{worker["type"]}]')
-    ok(worker['headers'].get('Service-Worker-Allowed') == '/', f'{form} form, {label} page: the worker allows the board folder [{worker["headers"].get("Service-Worker-Allowed")}]')
+    ok(worker['headers'].get('Service-Worker-Allowed') == folder, f'{form} form, {label} page: the worker allows the board folder [{worker["headers"].get("Service-Worker-Allowed")}]')
     ok('no-cache' in (worker['headers'].get('Cache-Control') or ''), f'{form} form, {label} page: the worker is sent no-cache')
 
     # C: the cache list names files that answer 200
@@ -134,7 +135,7 @@ def check_page(page_url, origin, form, label):
     ok(len(urls) > 0, f'{form} form, {label} page: the worker has a cache list')
     for url in urls:
         got = fetch(url)
-        ok(url.startswith(origin) and got['status'] == 200, f'{form} form, {label} page: cache list entry {url} answers 200 [{got["status"]}]')
+        ok(url.startswith(origin + folder) and got['status'] == 200, f'{form} form, {label} page: cache list entry {url} answers 200 [{got["status"]}]')
 
 
 def run(ctx, scratch, port):
@@ -142,7 +143,8 @@ def run(ctx, scratch, port):
     board_dir = ctx.board
     acp = board.activate(ctx)
     features.configure(ctx, scratch)
-    shutil.copy(os.path.join(HERE, 'url_mode_router.php'), os.path.join(board_dir, 'url_mode_router.php'))
+    shutil.copy(os.path.join(HERE, 'pwa_router.php'), os.path.join(board_dir, 'pwa_router.php'))
+    os.symlink('.', os.path.join(board_dir, 'sub'))  # the board's /sub/ folder: the root, behind a symlink (PWA-SUB)
     adm = '/admin/index.php?module=myshowcase-json_sync'
     acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/blog.json'})
     acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/blog.json', 'name': 'Blog',
@@ -151,7 +153,7 @@ def run(ctx, scratch, port):
     entry = php(board_dir, 'entry', 'blog', 'Pwa entry')
     port_router = port + 10
     origin = f'http://127.0.0.1:{port_router}'
-    SERVERS.append(subprocess.Popen(['php', '-S', f'127.0.0.1:{port_router}', '-t', board_dir, os.path.join(board_dir, 'url_mode_router.php')],
+    SERVERS.append(subprocess.Popen(['php', '-S', f'127.0.0.1:{port_router}', '-t', board_dir, os.path.join(board_dir, 'pwa_router.php')],
                                     stdout=open(os.path.join(scratch, 'php-pwa.log'), 'w'), stderr=subprocess.STDOUT))
     time.sleep(1.5)
     php(board_dir, 'setting', 'seourls', 'no')
@@ -161,6 +163,16 @@ def run(ctx, scratch, port):
         php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
         check_page(origin + '/showcase.php/blog/', origin, form, 'list')
         check_page(origin + f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}", origin, form, 'entry')
+
+    # PWA-SUB: the same board in the subfolder /sub/ (bburl and showcase_url under it); the folder of every address is /sub/
+    print('--- subfolder board: bburl and showcase_url under /sub/')
+    php(board_dir, 'setting', 'bburl', origin + '/sub/')
+    php(board_dir, 'showcase-set', 'blog', 'showcase_url', origin + '/sub/showcase.php')
+    for mode, form in LINK_FORMS:
+        print(f'--- subfolder, link form {form} (url_mode {mode})')
+        php(board_dir, 'showcase-set', 'blog', 'url_mode', mode)
+        check_page(origin + '/sub/showcase.php/blog/', origin, form, 'list', '/sub/')
+        check_page(origin + f"/sub/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}", origin, form, 'entry', '/sub/')
 
     print('--- static guard: no Batch 5 entry in the URL allow-list')
     allow = json.load(open(os.path.join(HERE, '..', '..', 'url-builder', 'allow-list.json')))
