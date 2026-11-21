@@ -296,6 +296,30 @@ function showthread_start(): bool
  * @throws RuntimeError
  * @throws LoaderError
  */
+/**
+ * An attachment awaiting approval is embedded in a post only for its author and for the moderators of its area (decision P6):
+ * the comments area for a comment's attachment, the entries area for the rest. An approved attachment is embedded for everyone
+ * who may see the post (the entry's visibility is checked by the caller).
+ */
+function postbitMayEmbed(AttachmentEntity $attachment, object $context): bool
+{
+    if ((int)$attachment->status === ContentStatuses::VisibleApproved) {
+        return true;
+    }
+
+    $viewer = $context->current_user;
+
+    if ((int)$viewer->uid > 0 && (int)$attachment->user_id === (int)$viewer->uid) {
+        return true;
+    }
+
+    return $context->entries_manager->isModerator(
+        !empty($attachment->comment_id)
+            ? \MyShowcase\Service\EntriesManager::MODERATOR_AREA_COMMENTS
+            : \MyShowcase\Service\EntriesManager::MODERATOR_AREA_ENTRIES
+    );
+}
+
 function postbit(array &$post): array
 {
     static $cache_manager = null;
@@ -374,15 +398,7 @@ function postbit(array &$post): array
                         continue;
                     }
 
-                    // An attachment awaiting approval is embedded only for its author and the moderators of its area (decision P6).
-                    $viewer = $showcase->context->current_user;
-                    $is_author = (int)$viewer->uid > 0 && (int)$attachment->user_id === (int)$viewer->uid;
-                    $area = !empty($attachment->comment_id)
-                        ? \MyShowcase\Service\EntriesManager::MODERATOR_AREA_COMMENTS
-                        : \MyShowcase\Service\EntriesManager::MODERATOR_AREA_ENTRIES;
-
-                    if ((int)$attachment->status !== ContentStatuses::VisibleApproved && !$is_author &&
-                        !$showcase->context->entries_manager->isModerator($area)) {
+                    if (!postbitMayEmbed($attachment, $showcase->context)) {
                         continue;
                     }
 
@@ -427,8 +443,10 @@ function postbit(array &$post): array
                 foreach ($matches[1] as $attachment_public_id) {
                     $attachment = $showcase->context->attachments_manager->getAttachmentByPublicId($attachment_public_id);
 
+                    // The same rule as the listing: the embed code of an attachment the viewer may not see is left as it is (P6).
                     if (!$attachment ||
-                        !$showcase->context->entries_manager->getEntries()->offsetExists($attachment->entry_id)) {
+                        !$showcase->context->entries_manager->getEntries()->offsetExists($attachment->entry_id) ||
+                        !postbitMayEmbed($attachment, $showcase->context)) {
                         continue;
                     }
 
