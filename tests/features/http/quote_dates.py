@@ -58,23 +58,27 @@ def main():
     os.makedirs(scratch, exist_ok=True)
     port = a.port or {'sqlite': 18970, 'mysql': 18971, 'pgsql': 18972}[a.engine]
     ctx = None
+    cleanup_failed = False
     try:
-        ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_quotes_{a.engine}_' + os.urandom(3).hex())
-        run(ctx, scratch, port)
-    except Exception as e:
-        FAILS.append(f'the run stopped: {e}')
-        print('FAIL the run stopped:', e)
-    print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
-    for f in FAILS[:20]:
-        print('  FAILED:', f)
-    sys.stdout.flush()
-    try:
+        try:
+            ctx = board.make_board(a.engine, a.mybb, scratch, port, 'real', None, dbname=f'msc_test_quotes_{a.engine}_' + os.urandom(3).hex())
+            run(ctx, scratch, port)
+        except Exception as e:
+            FAILS.append(f'the run stopped: {e}')
+            print('FAIL the run stopped:', e)
+        print(f'\n{PASSES} passed, {len(FAILS)} failed ({a.engine})')
+        for f in FAILS[:20]:
+            print('  FAILED:', f)
+        sys.stdout.flush()
+    finally:
+        # also on KeyboardInterrupt (a BaseException): the board's server and database are closed in every case (D256)
         if ctx is not None:
-            ctx.close()
-    except Exception as e:
-        print('CLEANUP FAILED:', e)
-        return 1
-    return 1 if FAILS else 0
+            try:
+                ctx.close()
+            except Exception as e:
+                print('CLEANUP FAILED:', e)
+                cleanup_failed = True
+    return 1 if (FAILS or cleanup_failed) else 0
 
 
 def run(ctx, scratch, port):
@@ -94,8 +98,8 @@ def run(ctx, scratch, port):
         php(board_dir, 'comment', 'blog', entry['entry_id'], message)
     server = subprocess.Popen(['php', '-S', f'127.0.0.1:{port + 10}', '-t', board_dir, os.path.join(board_dir, 'url_mode_router.php')],
                               stdout=open(os.path.join(scratch, 'php-quotes.log'), 'w'), stderr=subprocess.STDOUT)
-    time.sleep(1.5)
-    try:
+    try:  # the router is stopped on every exit, also when the sleep is interrupted (D256)
+        time.sleep(1.5)
         guest = Front(f'http://127.0.0.1:{port + 10}')
         r = guest.get(f"/showcase.php/blog/view/{entry['public_id']}/{entry['slug']}")
         ok(r['status'] == 200, f'the entry page with the stored quotes answers 200 (answered {r["status"]})')
