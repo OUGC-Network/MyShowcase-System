@@ -7,7 +7,7 @@ the features the gallery relies on: authorization, moderation, deletion, search,
 
 The database settings are the ones of tests/json-sync/README.md. The test users get passwords generated for the run.
 """
-import argparse, os, shutil, sys, tempfile
+import argparse, json, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'json-sync', 'http'))
@@ -38,6 +38,16 @@ try:
     acp = board.activate(ctx)
     features.configure(ctx, scratch)
     features.run(acp)
+    # the read-only integrity report at the end of the run (B9b): no orphan of the five kinds may remain
+    report = subprocess.run(['php', os.path.join(HERE, 'integrity_report.php')], cwd=ctx.board, capture_output=True, text=True)
+    integrity = json.loads(report.stdout.strip().splitlines()[-1]) if report.returncode == 0 and report.stdout.strip() else None
+    if integrity is None:
+        features.FAILS.append(f'integrity report did not run: {report.stderr[-200:]}')
+    else:
+        for kind, data in integrity['orphans'].items():
+            if data['count']:
+                features.FAILS.append(f"integrity: {kind} has {data['count']} orphan(s), e.g. {data['sample']}")
+        print(f"integrity information: {integrity['information']}")
     print(f'\n{features.PASSES} passed, {len(features.FAILS)} failed ({a.engine}, PluginLibrary: {a.pluginlibrary})')
     for f in features.FAILS:
         print('  FAILED:', f)
