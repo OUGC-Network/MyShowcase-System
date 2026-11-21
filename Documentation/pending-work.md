@@ -686,3 +686,12 @@ fixed, deleted, or documented with an item ID. The per-marker list of the first 
   url_absolute, url_mode, quote_dates, fresh install, JSON-sync HTTP, acp bounds, field matrix 823 pass 91 n/a, abort and cleanup
   harnesses, second board 40/0, import HTTP 205/0 twice on sqlite); interrupt harness on sqlite for the four features harnesses: 3/0
   each. Static: unit suites, guard, strings and status tests, seeds coverage, php -l and py_compile all pass.
+
+## IA-4 (continuation): status
+
+### B5. PWA: manifest and service worker (IA-4)
+- Done on sqlite, mysql (MySQL 8.4.7) and pgsql (PostgreSQL 18.1), this Mac (x86_64, DBngin binaries, own servers on 3307 and 5433).
+- Test: `tests/features/http/pwa.py` (862f610, e41d000). Fix: eeb7470 (the worker and manifest routes, query-form registration, cache list at the worker origin, icons), 96a52ce (manifest scope is the board folder, D316).
+- pwa.py: 185 passed / 0 failed on all three engines (177 / 8 before D316). url_absolute 540/0 and url_mode 615/0 on all three engines; URL guard PASS.
+- Held back, not in this run: MSG, LEG, NEW5, HOOK and END (see the status file for the reasons).
+
