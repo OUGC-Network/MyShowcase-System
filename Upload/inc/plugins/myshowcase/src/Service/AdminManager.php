@@ -457,6 +457,16 @@ EOL;
                         }
                     }
 
+                    // The password is stored as a hash (decision D306): an empty field keeps the stored one, the remove control
+                    // clears it, and a typed value is hashed. The typed value is never stored as it is.
+                    if ((int)$this->mybb->get_input('showcase_password_clear', MyBB::INPUT_INT) === 1) {
+                        $showcase_data['password'] = '';
+                    } elseif (isset($showcase_data['password']) && $showcase_data['password'] !== '') {
+                        $showcase_data['password'] = password_hash((string)$showcase_data['password'], PASSWORD_DEFAULT);
+                    } else {
+                        unset($showcase_data['password']);
+                    }
+
                     if (isset($showcase_data['collection_id']) &&
                         showcaseDataTableExists($this->showcase_id) &&
                         (!empty($showcase->context->showcase->collection_id))) {

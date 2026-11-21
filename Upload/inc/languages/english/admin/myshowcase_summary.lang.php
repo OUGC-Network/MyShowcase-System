@@ -444,3 +444,4 @@ $l = array_merge([
 // the icons of the moderator list (AdminManager): a group and a user
 $l['myshowcase_moderators_group'] = 'Group';
 $l['myshowcase_moderators_user'] = 'User';
+$l['myshowcase_admin_summary_create_update_password_clear'] = 'Remove the stored password';

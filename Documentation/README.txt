@@ -64,6 +64,11 @@ permissions you want (recommended all of them)
 
 Browse to ACP > MyShowcase Admin > Help Page for detailed instructions and notes.
 
+Showcase passwords (upgrade note): a showcase password is stored as a hash, not as the typed text (decision D306).
+A board that had a showcase password before this change must set it again: open the showcase's General tab in
+ACP > MyShowcase Admin, type the password and save. Until then the old value does not open the gate. The form never shows the
+stored password; leave the box empty to keep it, and tick "Remove the stored password" to clear it.
+
 ============================================================================================
 Upgrading earlier 3.0 development installs:
 ============================================================================================

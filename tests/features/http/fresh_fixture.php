@@ -157,7 +157,10 @@ switch ($command) {
         break;
 
     case 'showcase-set':
-        $db->update_query('myshowcase_config', [$argv[3] => $db->escape_string($argv[4])], "route_identifier='" . $db->escape_string($argv[2]) . "'");
+        // the showcase password is stored as a hash (PW, decision D306): the fixture stores the same form the ACP stores
+        // an empty password stays empty (no password): only a typed value is hashed
+        $stored = $argv[3] === 'password' && $argv[4] !== '' ? password_hash($argv[4], PASSWORD_DEFAULT) : $argv[4];
+        $db->update_query('myshowcase_config', [$argv[3] => $db->escape_string($stored)], "route_identifier='" . $db->escape_string($argv[2]) . "'");
         $rebuild();
         $out(['route' => $argv[2], $argv[3] => $argv[4]]);
         break;

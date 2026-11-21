@@ -894,7 +894,19 @@ function buildPermissionsRow(
                 $input_code .= '</small><br />';
             }
 
-            if ($definition['input_type'] === FormTypes::Text) {
+            if ($name === 'password') {
+                // The stored password is a hash and is never shown (decision D306): the box is empty, an empty box keeps the
+                // stored password, and a stored one can be removed with the control below.
+                $input_code .= $form->generate_password_box("showcase[{$name}]", '', $options);
+
+                if (!empty($input[$name])) {
+                    $input_code .= '<br />' . $form->generate_check_box(
+                        'showcase_password_clear',
+                        '1',
+                        $lang->myshowcase_admin_summary_create_update_password_clear
+                    );
+                }
+            } elseif ($definition['input_type'] === FormTypes::Text) {
                 $input_code .= $form->generate_text_box(
                     "showcase[{$name}]",
                     $input[$name] ?? $mybb->get_input($name),

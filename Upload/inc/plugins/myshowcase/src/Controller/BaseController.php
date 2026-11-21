@@ -123,7 +123,8 @@ abstract class BaseController
             if ((int)$this->context->current_user->uid < 1 && $this->guestIsLockedOut($repo)) {
                 // too many wrong passwords from this address: the password is not even checked (decision D297)
                 $locked = true;
-            } elseif (!hash_equals($this->context->showcase->password, $this->context->mybb->get_input('password'))) {
+            } elseif (!password_verify((string)$this->context->mybb->get_input('password'), $this->context->showcase->password)) {
+                // the showcase password is stored as a hash (decision D306): the typed value is verified, never compared
                 $display_error = true;
 
                 $this->recordPasswordAccess($repo, false);
