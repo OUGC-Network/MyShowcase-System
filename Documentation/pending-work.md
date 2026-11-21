@@ -657,3 +657,13 @@ work.
   its own). A guest's failed attempts are counted per address (5 inside the interval). Counts: guest_grant.py 1/2 before, 16/0 after
   on each engine; password_grant.php 19/0; password_throttle.py 4/0 on each engine.
 
+* B6 (visibility and access, P6): done for the paths the brief lists. Test 67a9e1d (fixture) with the before state 4 passed,
+  3 failed on each engine; fix 0ee39e5 (comment attachments follow the comments area; the owner needs the view right); remainder
+  26377cd (forum post embeds follow the rule; status-clause TODOs closed with reasons). tests/features/http/attachment_rules.py:
+  7/0 on each engine (from 4/3). unapproved_attachments.py 4/0 and moderator_areas.py 6/0 on each engine. Not covered by a test:
+  the forum post embed (forum_hooks.php) has no HTTP test yet; the matrix cell for the owner without the view right is not added
+  (no matrix user lacks the view right; attachment_rules.py check D covers it).
+* B8a (status codes, P2): done. Static test 30dec39 (23 calls; 13/10 before). Fix f95b10f: upload and import/export refusals
+  answer 400; unknown report targets 404; the version check 500; page not found 404 and the fault branches of showcase.php 500
+  (MyBB's error() takes the status as its fourth argument). url_absolute.py 540/0 and fields run.py 823/0 (91 n/a) on each
+  engine; run.py 147/0 each. The fields fixture's moderator row now carries the B7 flags (it had none and failed on all engines).
