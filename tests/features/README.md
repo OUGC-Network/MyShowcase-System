@@ -44,10 +44,14 @@ expectations with it, and the form check (S6) keeps the form and the seeded rows
 
 ## URL option (decision D224)
 
-`tests/features/http/url_mode.py` checks the links of a showcase for each Links choice (0 No, 1 Automatic, 2 Yes) against
-each seourls setting (no, auto, yes), on a plain request and on a request with SEO_SUPPORT, on the list page, the entry
-page and the who's-online location; both forms of an address answer the same entry; a custom prefix gives identical
-forms; the ACP form saves and refuses; and the JSON-sync file carries the option. It runs on one engine per call:
+`tests/features/http/url_mode.py` checks the links of a showcase for each Links choice (0 Path, 1 Automatic, 2 Friendly, 3
+Query string) against each seourls setting (no, auto, yes), on a plain request, on a request with SEO_SUPPORT and on one
+with SEO_SUPPORT but no marker, on the list page, the entry page and the who's-online location; each link is in the form the
+rule gives (Automatic writes the query string form unless the request carries the marker and core's rule holds); the path,
+friendly and query string addresses of an entry answer the same entry; a server that does not route PATH_INFO
+(`url_mode_nopathinfo.php`, port + 13) answers the query string links and not the path form; a custom prefix gives identical
+forms; the ACP form offers four choices and saves and refuses; and the JSON-sync file carries the option (3 is stored, 4 is
+refused). It runs on one engine per call:
 
     python3 tests/features/http/url_mode.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
 
@@ -55,7 +59,8 @@ The Automatic rule itself is a board-less unit test: `php tests/url-mode/run.php
 
 Since the full migration, the same run also covers the comment, attachment, export, import and canonical links (as a guest
 and as a member), with the prefix as stored and with an empty one, and the export file URL and the own-board check of an
-import (both forms, every mode). The static guard that every link goes through the builder is `php tests/url-builder/guard_test.py`
+import (the path, friendly and query string forms, every mode). The export file URL is in the showcase's own form (decision
+D277); a command-line export has no request markers, so Automatic writes the query string form there (decision D278). The static guard that every link goes through the builder is `php tests/url-builder/guard_test.py`
 (no board needed; its allow-list and reasons are in `tests/url-builder/allow-list.json`).
 
 ## Absolute URLs (decision D244)
@@ -64,8 +69,12 @@ import (both forms, every mode). The static guard that every link goes through t
 srcset, poster, data-*url*, meta and canonical content, url() in CSS, URL-like strings in scripts): each must be absolute,
 and on the expected base (the showcase base for a route of the showcase, the board address otherwise). It covers five
 showcase URL forms, two board address forms (the root, a subfolder with a trailing slash) and url_mode 0, 1 and 2, for a
-guest and a member, on nine pages. MyBB's own header and theme are not checked (an explicit list in the test). The unknown
-entry's status is Batch 8 and is accepted here.
+guest and a member, on the pages a visitor sees, and, for the same combinations, the password gate (a guest), the threaded
+view, the reply button (a member with the comment right) and the moderator's entry with a stored address: the IP search
+link of a moderator is absolute and shown to no guest (decision D281). MyBB's own header, footer and theme are not checked
+(an explicit list in the test; usercp.php is not on it, because the plugin links to it). The unknown entry's status is Batch 8
+and is accepted here. A failing list page is kept in the scratch folder (the diagnostic dump). The fixture command set-ip
+stores the packed address of an entry on each engine.
 
     python3 tests/features/http/url_absolute.py --engine sqlite|mysql|pgsql --mybb <MyBB 1.9 source tree> --scratch <directory>
 
