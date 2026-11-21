@@ -672,3 +672,10 @@ work.
   defined. features run.py 147/0 on each engine. Not done: the camelCase admin keys (myShowcaseAdmin*, 119 keys, 8 of them already
   exist in snake form and need a value comparison); the hard-coded English sentences of Upload/showcase.php (the errorSentence
   fallbacks, by design D146), AttachmentsManager and FieldTrait; the collection_id TODO in Plugin/Core.php.
+
+## Status after the integrity-audit-3 run (IA-3)
+
+* PW (showcase password stored as a hash, D306): done. Test 25b5f04 (before: 2 passed, 7 failed on each engine); fix 4cbbae8
+  (ACP form never shows the value, empty keeps it, remove control clears it; gate uses password_verify; fixture hashes). After:
+  showcase_password.py 9/0 on each engine; guest_grant 16/0; password_throttle 4/0; url_absolute 540/0; acp_bounds 13/0 (sqlite).
+  Documentation/README.txt tells a board to set its showcase password again once.
