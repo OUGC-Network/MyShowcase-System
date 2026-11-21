@@ -6,7 +6,7 @@
 
 mysql also covers MariaDB (point MYSQL_BIN/MYSQL_HOST/MYSQL_PORT at it). See tests/json-sync/README.md.
 """
-import argparse, os, sys, tempfile
+import argparse, os, shutil, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import board, flows
@@ -19,12 +19,13 @@ p.add_argument('--port', type=int, default=0)
 p.add_argument('--pluginlibrary', default='real', choices=['real', 'stub'])
 p.add_argument('--pluginlibrary-file', default='')
 p.add_argument('--screenshots', default='', help='instead of the flow: build a board showing every status and take screenshots into this directory (needs Playwright)')
-p.add_argument('--keep', action='store_true', help='leave the PHP server running')
+p.add_argument('--keep', action='store_true', help='leave the PHP server running and keep the scratch folder (the logs)')
 a = p.parse_args()
 
 if not a.mybb or not os.path.isdir(a.mybb):
     sys.exit('give --mybb (or MYBB_SOURCE): a MyBB 1.9 source tree')
 
+made_scratch = not a.scratch  # a folder this run created is removed at the end, unless --keep (decision D256)
 scratch = a.scratch or tempfile.mkdtemp(prefix='myshowcase-http-')
 os.makedirs(scratch, exist_ok=True)
 port = a.port or {'sqlite': 8082, 'mysql': 8081, 'pgsql': 8083}[a.engine]
@@ -53,4 +54,6 @@ try:
 finally:
     if ctx is not None and not a.keep:
         ctx.close()
+    if made_scratch and not a.keep:
+        shutil.rmtree(scratch, ignore_errors=True)
 sys.exit(1 if flows.FAILS else 0)
