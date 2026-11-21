@@ -695,3 +695,19 @@ fixed, deleted, or documented with an item ID. The per-marker list of the first 
 - pwa.py: 185 passed / 0 failed on all three engines (177 / 8 before D316). url_absolute 540/0 and url_mode 615/0 on all three engines; URL guard PASS.
 - Held back, not in this run: MSG, LEG, NEW5, HOOK and END (see the status file for the reasons).
 
+## IA-5: status
+
+### PWA-SUB: the PWA test with the board in /sub/
+- The subfolder run is in tests/features/http/pwa.py (2b6d8d3, the test; f49dc05, the harness fix). Before the harness fix:
+  sqlite 337 / 32 failed, mysql 345 / 24, pgsql 363 / 6. The failures were the test server serving a stale settings file
+  (opcache revalidation, up to 2 seconds): the plugin was correct. After: 369 passed, 0 failed on all three engines.
+- The static guard passes. No plugin code changed for this item.
+
+### MSG: user-facing messages in src/Service and src/Controller
+- Test: the strings check M (748a076, e144136). It finds 34 sentences before the move, then 32 after the allow-list of
+  date formats and an HTTP header (e144136 states 47 in its message; the correct count is 32).
+- MSG-a (7761ac1): the six front-end messages are keys in myshowcase.lang.php; the three redirect literals after "??" were dead.
+- MSG-b (5fc99af): the 28 ACP and JSON-sync messages are keys in the admin language files; the JSON-sync step labels are keys
+  resolved by the page. The helper Util/AdminText.php reads the admin files for the services without a language object.
+- The strings check: 1968 passed, 0 failed after MSG-b.
+
