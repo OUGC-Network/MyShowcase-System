@@ -575,53 +575,23 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 
 ## 5. TODO and FIXME inventory
 
-Counts: 65 markers in code (`Upload/` 65, `tests/` 0) and 3 in documentation prose. Format: `file:line` and the marker text,
-mapped to an item.
+Counts after IA-3 (B9a):       54 markers in the plugin's PHP, Twig and JavaScript (`Upload/`), 0 in `tests/`. Every marker is one of:
+fixed, deleted, or documented with an item ID. The per-marker list of the first audit is superseded by this table.
 
-**Schema and install (`Plugin/Core.php`, 22): B9 unless noted.**
-`:143` update_dateline should be attachment_history_id (NEW-3); `:146`, `:420`, `:2526` edit_user_id should be entry_history_id
-(NEW-3); `:440` update old data from varchar to varbinary (Q4); `:1194` rename to collection_id (B8); `:1993` remove legacy
-update and TINYINT (B9); `:2157` drop this redundant field (B9); `:2361` Extra Forum Permissions, `:2362` ougc Online Users
-List, `:2363` attachment display type, `:2399` general settings, `:2404` collection settings, `:2409` notice for unapproved
-content, `:2411` order by, `:2412` block by, `:2413` record changes by, `:2414` search fields, `:2415` DVZ Stream, `:2416`
-NewPoints, `:2418` users see own unapproved content, `:2419` Pages menu (all NEW-4).
+| Disposition | What | Where it went |
+|---|---|---|
+| Fixed (earlier runs) | `Plugin/Core.php:1194` rename to collection_id (the column already has the name); `RenderManager.php:1164` `or true`; `forum_hooks.php` status clauses and the embed rule; `EntriesController.php` status-clause TODOs closed with a reason | IA-2 and IA-3 records (B6, B8b) |
+| Fixed (IA-3) | `EntriesManager.php` TODO(verify) (verified: `linkAttachmentsByPostHash()` has the called signature) | B9a commit 7c9d2c4 |
+| Deleted (IA-3) | 25 commented-out PHP statements; the dead `Showcase::moderatorPermissionsGet()` chain and `showcaseDefaultModeratorPermissions()`; two unused imports | B9a commits 7c9d2c4 and 201ab5e |
+| Documented, schema (B9) | `Plugin/Core.php` `update_dateline` and `edit_user_id` should be history ids (NEW-3); `:440` varchar to varbinary (Q4); `:1993` legacy update and the TINYINT format change (kept: it runs on old boards, D1 decides); `:2157` drop the redundant field; `admin.php:160` drop old columns | pending-work B9, NEW-3, Q4 |
+| Documented, planned features | `Plugin/Core.php` the lines 2361 to 2419 (Extra Forum Permissions, ougc, display type, settings, notices, ordering, search, DVZ, NewPoints, users' own unapproved content, Pages menu) | NEW-4 |
+| Documented, rendering and controllers | `RenderManager.php` `:300` post-icon setting (B8), `:326` empty when previewing (B9), `:915` unread comments (NEW-2), `:917` reports table (G2c), `:1121` one route for attachments (B6), `:454` additional groups (B6); `EntriesController.php` `:464` mod options (B6), `:540`, `:637` unread comments (NEW-2), `:1223` slug loads field data (B9), `:1553` empty slug (B9); `Routing.php:425` viewing user (B6) | pending-work B6, B8, B9, NEW-2, G2c |
+| Documented, forum hooks and attachments | `forum_hooks.php` `:332` cache (G2c), `:445`, `:446`, `:456` (G2c); `AttachmentsManager.php` `:220`, `:221` (B9, T6), `:547` phpThumb (T6), `:594` (B9) | G2c, T6, B9 |
+| Documented, entries and fields | `EntriesManager.php` `:168` offsetUnset (B9), `:226` stale matchesUser note (B9), `:1326` data handler (B9); `FieldTrait.php:366` separator description (B8); `Plugin/Functions.php` `:656` TEXT defaults, `:718` uid key (B9); `pageEntryCreateUpdateField.twig:204` (B9) | B8, B9 |
+| Documented, permissions | `UsersManager.php:230`, `:232` (B7); `PermissionsFactory.php:10` (unassigned); `UserPermissions.php:76` (B6) | B6, B7 |
+| Documented, prose and planned phrases | the `Documentation/` prose lines (NEW-3, B9); the planned-behaviour phrases (Q7, NEW-1) | Q7, NEW-1, NEW-3, B9 |
 
-**Rendering (`Service/RenderManager.php`, 8):** `:300` setting for post icons (B8); `:326` empty when previewing (B9); `:353` status
-clause (B6); `:454` additional groups (B6); `:915` unread comments (NEW-2); `:917` entry query should read the reports table
-(G2c); `:1121` one route for attachments (B6); `:1164` unapproved attachments, with `or true` (B6).
-
-**Controllers (`Controller/EntriesController.php`, 6; `Routing/Routing.php`, 1):** `:464` mod options (B6); `:540`, `:637` unread
-comments (NEW-2); `:1079` status clause (B6); `:1223` slug should load field data (B9); `:1553` fix empty slug (B9);
-`Routing.php:425` only the current user viewing (B6).
-
-**Forum hooks (`forum_hooks.php`, 5):** `:332` cache attachment objects (G2c); `:335` status clause (B6); `:445` link tools (G2c);
-`:446` `asset_url()` for images (G2c); `:456` report id mapping (G2c).
-
-**Attachments (`Service/AttachmentsManager.php`, 5):** `:220` `$is_update` (B9); `:221` `$do_watermark` (T6); `:320` update lang
-(B8); `:547` phpThumb (T6); `:594` maybe ignore (B9).
-
-**Entries manager (`Service/EntriesManager.php`, 4):** `:168` verify Collection offsetUnset (B9); `:226` verify matchesUser, stale
-(B9, G3); `:1326` send user to data handler (B9); `:1748` verify linkAttachmentsByPostHash (B9).
-
-**Permissions and users:** `Service/UsersManager.php:230` user permissions, `:232` moderator permissions (B7);
-`Security/PermissionsFactory.php:10` search users by permission (unassigned); `Enum/UserPermissions.php:76` cannot view means
-cannot download (B6).
-
-**Fields and functions:** `Fields/FieldTrait.php:309` status clause (B6), `:366` separator description (B8);
-`Plugin/Functions.php:656` TEXT fields cannot have defaults (B9), `:718` key for uid and approved (B9); `admin.php:160` drop old
-columns (B9).
-
-**Templates and admin:** `view/templates/pageMainEntry.twig:99` "Entry attachments" (B6);
-`pageEntryCreateUpdateField.twig:204` refresh attachment list (B9); `admin/modules/myshowcase/help.php:76`,
-`module_meta.php:112`, `fields.php:1712` "review hooks here" (unassigned).
-
-**Documentation prose:** `Documentation/schema/public-id.md:91` (NEW-3); `Documentation/schema/gallery-schema-changes.md:165`
-(B9); `docs/import-export-design.md:933` (B6). `decision-gate-template-mybb19.md:488`, `:541` are text of a template, not
-work.
-
-**Planned-behaviour phrases (15 lines):** `Plugin/Functions.php:865`, `:872`, `FieldService.php:525`, `JsonValidator.php:165`,
-`admin/myshowcase.lang.php:35`, `imports/README.md:56` and the test lines on `poll` and `rating` (Q7);
-`tests/features/http/features.py:329` (NEW-1).
+`CanManageAttachments` is not referenced anywhere (nothing to remove). `moderatesShowcase()` no longer exists in the code.
 
 ## 6. Known limits accepted for now
 
@@ -691,3 +661,11 @@ work.
   mysql 5/0, pgsql 5/0. Before the fix on sqlite and mysql the embed leaked (E1 and E2 fail: 3 passed, 2 failed). access_matrix.py
   112 cells, 0 failing on sqlite, mysql and pgsql. The owner-without-view matrix cell is still not added (no matrix user lacks the
   view right; attachment_rules check D covers it).
+* B9a (markers, dead code, composer, P5): done in part. Commits 002eb46 (symfony/uid and teamtnt/tntsearch removed from composer.json
+  and the lock: the lock drops predis/predis, symfony/uid, symfony/polyfill-uuid and tntsearch; symfony/form and
+  symfony/dependency-injection stay), 7c9d2c4 (the dead moderator-permission chain of Showcase.php, the unused function and imports,
+  the verified TODO(verify)), 201ab5e (25 commented-out statements). Section 5 is rewritten: 54 markers remain, each fixed, deleted or
+  documented with an item ID. Checks: unit suites all pass; features run.py 147/0, json-sync run.py 157/0, access_matrix 112/0 on
+  sqlite; the URL guard passes with 0 sites outside the allow-list. Not done: the legacy update code of Plugin/Core.php (:1993, kept:
+  it runs on boards upgraded from old versions, a compatibility decision for the owner); docs/import-export-design.md NEW-5 (not
+  re-checked in this run).
