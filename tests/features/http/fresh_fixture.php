@@ -293,6 +293,23 @@ switch ($command) {
         $out(['types' => $ids]);
         break;
 
+    case 'password-rows':
+        // the access log rows of the showcase's password gate: the stored time as the engine returns it, and is_valid (D285)
+        $rows = [];
+        $query = $db->simple_select('myshowcase_access_logs', 'access_log_id, dateline, is_valid', '', ['order_by' => 'access_log_id']);
+        while ($row = $db->fetch_array($query)) {
+            $rows[] = ['id' => (int)$row['access_log_id'], 'dateline' => (string)$row['dateline'], 'is_valid' => (int)$row['is_valid']];
+        }
+        $out(['rows' => $rows]);
+        break;
+
+    case 'password-row':
+        // one access log row written with the given time (a 'Y-m-d H:i:s' string in UTC, as the gate writes it) and validity
+        $sid = $showcaseId($argv[2]);
+        $db->insert_query('myshowcase_access_logs', ['showcase_id' => $sid, 'user_id' => 0, 'dateline' => $db->escape_string($argv[3]), 'is_valid' => (int)$argv[4]]);
+        $out(['inserted' => $argv[3]]);
+        break;
+
     case 'set-ip':
         // the stored address of an entry, packed as the plugin stores it (my_inet_pton), for the moderator's IP link (D281).
         // The packed bytes are written as a literal of each engine (a blob literal, UNHEX or decode), not as an escaped string.
