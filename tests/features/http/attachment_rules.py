@@ -100,6 +100,8 @@ def main():
         # F: a field's attachment (the cover image), awaiting approval
         entry_f = php(board_dir, 'entry', 'blog', 'Field attachment entry')
         att_f = php(board_dir, 'attachment', 'blog', entry_f['entry_id'], png, 1, 0, 'cover_image')
+        if 'error' in att_f:
+            raise RuntimeError(f"the attachment fixture failed for the field: {att_f['error']}")
         php(board_dir, 'attachment-status', 'blog', att_f['attachment_id'], 0)
         page_f = f"/showcase.php/blog/view/{entry_f['public_id']}/{entry_f['slug']}"
         time.sleep(1.5)

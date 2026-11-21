@@ -257,6 +257,12 @@ switch ($command) {
             mkdir($folder, 0777, true);
         }
         $name = 'fresh-' . $entryId . '.png';
+        // the field of a file field named by its key (the showcase's collection); 0 for an attachment of no field
+        $fieldId = 0;
+        if (isset($argv[7]) && $argv[7] !== '') {
+            $collectionId = (int)$db->fetch_field($db->simple_select('myshowcase_config', 'collection_id', "showcase_id='{$sid}'"), 'collection_id');
+            $fieldId = (int)$db->fetch_field($db->simple_select('myshowcase_fields', 'field_id', "collection_id='{$collectionId}' AND field_key='" . $db->escape_string($argv[7]) . "'"), 'field_id');
+        }
         $stored = 'fresh_' . $entryId . '_' . bin2hex(random_bytes(4)) . '.attach';
         copy($argv[4], $folder . '/' . $stored);
         $public = substr(md5($stored), 0, 10);
@@ -264,7 +270,7 @@ switch ($command) {
             'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'user_id' => (int)($argv[5] ?? 1), 'post_hash' => '',
             'file_name' => $stored, 'mime_type' => 'image/png', 'file_size' => filesize($folder . '/' . $stored),
             'attachment_name' => $name, 'status' => 1, 'dateline' => $when(), 'update_dateline' => $when(),
-            'comment_id' => (int)($argv[6] ?? 0), 'thumbnail_name' => '', 'field_id' => isset($argv[7]) && $argv[7] !== '' ? (int)$db->fetch_field($db->simple_select('myshowcase_fields', 'field_id', "field_key='" . $db->escape_string($argv[7]) . "' AND collection_id=(SELECT collection_id FROM " . $db->table_prefix . "myshowcase_config WHERE showcase_id='{$sid}')")) : 0,
+            'comment_id' => (int)($argv[6] ?? 0), 'thumbnail_name' => '', 'field_id' => $fieldId,
         ]);
         $out(['attachment_id' => $id, 'public_id' => $public, 'name' => $name]);
         break;
