@@ -77,7 +77,6 @@ def js_string(raw):
 
 def check_page(page_url, origin, form, label, folder='/'):
     """The checks of one page for one link form; folder is the board folder ('/' at the root, '/sub/' in the subfolder run)."""
-    """The checks of one page (M, W, C, L) for one link form."""
     page = fetch(page_url)
     text = page['text']
     ok(page['status'] == 200, f'{form} form, {label} page answers 200 [{page["status"]}]')
