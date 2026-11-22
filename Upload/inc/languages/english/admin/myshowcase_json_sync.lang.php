@@ -66,5 +66,7 @@ $l['myshowcase_json_sync_warning_language_dir'] = 'The language directory is not
 $l['myshowcase_json_sync_error_file_too_large'] = 'The file is larger than 512 KB.';
 $l['myshowcase_json_sync_error_top_level_object'] = 'The top level of the file must be an object.';
 $l['myshowcase_json_sync_error_file_missing'] = 'The file does not exist.';
+$l['myshowcase_json_sync_error_step_failed'] = 'Step "{1}" failed: {2}';
+$l['myshowcase_json_sync_error_invalid_json'] = 'Invalid JSON: {1}';
 $l['myshowcase_json_sync_error_data_table_not_created'] = 'The entries table was not created.';
 $l['myshowcase_json_sync_error_data_table_holder'] = 'The name of the entries table is already used by a {1} of the database, so the table cannot be created.';

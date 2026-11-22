@@ -112,7 +112,7 @@ final class JsonApplier
 
                 $result['failed'] = $step;
 
-                $result['error'] = 'Step "' . JsonUi::text($step['key'], ...$step['values']) . '" failed: ' . $exception->getMessage();
+                $result['error'] = JsonUi::text('error_step_failed', JsonUi::text($step['key'], ...$step['values']), $exception->getMessage());
 
                 $this->context = array_merge($outer, ['collection_id' => $this->context['collection_id'], 'showcase_id' => $this->context['showcase_id']]);
 

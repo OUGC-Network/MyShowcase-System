@@ -132,7 +132,7 @@ final class JsonFiles
         try {
             $data = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
-            return ['data' => null, 'error' => 'Invalid JSON: ' . $exception->getMessage(), 'raw' => $raw];
+            return ['data' => null, 'error' => JsonUi::text('error_invalid_json', $exception->getMessage()), 'raw' => $raw];
         }
 
         if (!is_array($data) || array_is_list($data)) {
