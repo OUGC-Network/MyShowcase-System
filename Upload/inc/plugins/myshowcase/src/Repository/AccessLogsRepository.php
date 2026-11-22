@@ -146,11 +146,6 @@ class AccessLogsRepository
             AccessLogDeletedEvent::NAME
         );
 
-        $access_log_data = $this->queryAccessLog(
-            ["access_log_id='{$access_log_id}'"],
-            ['access_log_name', 'thumbnail_name', 'status']
-        );
-
         $this->database->delete_query(
             'myshowcase_access_logs',
             "showcase_id='{$this->showcase->showcase_id}' AND access_log_id='{$access_log_id}'"
