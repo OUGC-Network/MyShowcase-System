@@ -6,6 +6,8 @@
   P  no key still carries the old spelling "purse" (the purge button's keys: entry and comment);
   C  no camelCase admin key (myShowcaseAdmin*) remains in the plugin's PHP, Twig or language files: the admin keys are
      myshowcase_admin_* (decision D303);
+  F  no error text of the JSON sync (JsonApplier.php, JsonFiles.php) is built by joining a quoted fragment with other text: the
+     message is a language key with placeholders (decision D325);
 
 The scan is static and does not depend on a database, so it runs once, not per engine.
 
@@ -95,6 +97,26 @@ def main():
                         continue
                     checks += 1
                     failures.append(f'M {text!r} at {rel}:{number} (a user-facing English sentence in a service or controller)')
+
+    # F (MSG2, D325): an error text of the JSON sync is a language key, not a string built in the PHP. In the two services that
+    # report the sync's errors to the admin page, a quoted fragment with a lowercase word is never joined to other text with a
+    # concatenation: the message is one key with placeholders, resolved through JsonUi::text().
+    for name in ('JsonApplier.php', 'JsonFiles.php'):
+        path = os.path.join(PLUGIN, 'src', 'Service', 'JsonSync', name)
+        for number, line in enumerate(open(path, encoding='utf-8').read().splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith(('//', '*', '/*')):
+                continue
+            # a literal of words (a space and a lowercase letter), not a key prefix, a path or an expression, that is joined
+            # to the text after it with a concatenation
+            for literal in re.finditer(r"'([^'\n]*)'", line):
+                text = literal.group(1)
+                if not re.match(r'\s*\.', line[literal.end():]) or not re.search(r'\s', text) or not re.search(r'[a-z]', text):
+                    continue
+                if re.search(r'[$.=]', text):
+                    continue
+                checks += 1
+                failures.append(f'F {text!r} at src/Service/JsonSync/{name}:{number} (an error text built in PHP, not a language key)')
 
     for f in failures:
         print('FAIL', f)
