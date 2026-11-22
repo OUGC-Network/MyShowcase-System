@@ -410,6 +410,36 @@ EOL;
 
         $error_messages = [];
 
+        // The delete link of the moderator list is a GET link that carries my_post_key. It is answered here, before the
+        // POST handling below, which a click on the link never reaches.
+        if (isset($showcase) && $this->mybb->get_input('type') === 'delete' && $this->mybb->request_method !== 'post') {
+            if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
+                flash_message($this->language->myshowcase_admin_error_invalid_post_key, 'error');
+
+                admin_redirect($this->tabs['myshowcase_admin_summary']['link']);
+            }
+
+            $showcase->context->moderators_repository->deleteModerator(
+                $this->mybb->get_input('moderator_id', MyBB::INPUT_INT)
+            );
+
+            $this->cache_manager->update(CacheDataTypes::Moderators);
+
+            log_admin_action(
+                ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
+            );
+
+            flash_message(
+                $this->language->myshowcase_admin_success_showcase_edit_moderator_delete,
+                'success'
+            );
+
+            admin_redirect(
+                $this->url->build(
+                    ['action' => 'update', 'type' => 'moderators', 'showcase_id' => $this->showcase_id]
+                ) . '#tab_moderators'
+            );
+        }
 
         if ($this->mybb->request_method === 'post') {
             if (!verify_post_check($this->mybb->get_input('my_post_key'), true)) {
@@ -663,28 +693,6 @@ EOL;
                         ) . '#tab_moderators'
                     );
 
-                    break;
-                case 'delete':
-                    $showcase->context->moderators_repository->deleteModerator(
-                        $this->mybb->get_input('moderator_id', MyBB::INPUT_INT)
-                    );
-
-                    $this->cache_manager->update(CacheDataTypes::Moderators);
-
-                    log_admin_action(
-                        ['showcase_id' => $this->showcase_id, 'type' => $this->mybb->get_input('type')]
-                    );
-
-                    flash_message(
-                        $this->language->myshowcase_admin_success_showcase_edit_moderator_delete,
-                        'success'
-                    );
-
-                    admin_redirect(
-                        $this->url->build(
-                            ['action' => 'update', 'type' => 'moderators', 'showcase_id' => $this->showcase_id]
-                        ) . '#tab_moderators'
-                    );
                     break;
             }
         }
