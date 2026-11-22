@@ -15,7 +15,7 @@ worktree.
 
 Exit code 1 if any check fails.
 """
-import argparse, os, random, shutil, string, subprocess, sys, time
+import argparse, json, os, random, shutil, string, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
@@ -80,6 +80,18 @@ try:
     flows.create_showcase(acp, 'gallery', 'Gallery')
     flows.create_showcase(acp, 'downloads', 'Downloads')
     flows.run()
+
+    # the read-only integrity report at the end of the import suite (D311, as the features suite runs it): no orphan of the five
+    # kinds may remain, whatever the import did, its deliberate failures included
+    report = subprocess.run(['php', os.path.join(HERE, '..', '..', 'features', 'http', 'integrity_report.php')], cwd=ctx.board, capture_output=True, text=True)
+    integrity = json.loads(report.stdout.strip().splitlines()[-1]) if report.returncode == 0 and report.stdout.strip() else None
+    if integrity is None:
+        flows.FAILS.append(f'integrity report did not run: {report.stderr[-200:]}')
+    else:
+        for kind, data in integrity['orphans'].items():
+            if data['count']:
+                flows.FAILS.append(f"integrity: {kind} has {data['count']} orphan(s), e.g. {data['sample']}")
+        print(f"integrity information: {integrity['information']}")
 
     print(f'\n{flows.PASSES} passed, {len(flows.FAILS)} failed ({a.engine}, PluginLibrary: {pl_file})')
 
