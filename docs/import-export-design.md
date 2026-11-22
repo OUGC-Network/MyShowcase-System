@@ -969,6 +969,41 @@ listeners are not registered in the request (issue 5) and would leave attachment
 
 ---
 
+### Re-check at IA-6 (NEW-5): the verdict of each issue against the code
+
+Checked in the code of commit c38141e (IA-6 start), by reading the named code. "Still live" means the code still does what the
+issue says; "resolved" names the code that changed it; "not re-verified" means the item needs a booted board or a test that
+this re-check did not run, and it stays open.
+
+| # | Verdict | Evidence |
+|---|---|---|
+| 1 | Not re-verified (open) | `FieldFactory::create()` exists (src/Fields/FieldFactory.php:43) and resolves classes through a static map; the fatal on load needs a booted board to reproduce. |
+| 2 | Not re-verified (open) | Limits are read from the permission row (src/Service/EntriesManager.php:452); the zero-means-unlimited rule was not re-tested. |
+| 3 | Still live (by design) | `STATUS_CLOSED = 0`, `STATUS_OPEN = 1` (src/Service/EntriesManager.php:52-53) are unchanged; the import goes through the status methods. |
+| 4 | Still live | `RenderManager::buildAttachmentsUpload()` returns `''` before its body (src/Service/RenderManager.php:1276); the body is unreachable. Whether the upload is meant to be off needs an owner decision (P-NEW5-4). |
+| 5 | Resolved | The listeners are registered in `Showcase::registerEntryDeletedListeners()` (src/Showcase.php:200-214), not in the managers' constructors. Not covered by a test in this run. |
+| 6 | Resolved | `AttachmentsRepository::deleteAttachment()` uses `$this->showcase->attachments_uploads_path` (src/Repository/AttachmentsRepository.php:228). |
+| 7 | Still live | `AccessLogsRepository::deleteAccessLog()` reads `access_log_name` and `status` (src/Repository/AccessLogsRepository.php:151); the table definition in Plugin/Core.php has neither column. Fix needs a test first (open). |
+| 8 | Resolved | `AttachmentsController` loads `messages` before its messages are read (src/Controller/AttachmentsController.php:270). |
+| 9 | Not re-verified (open) | Amount limits per entry, comment and upload were not searched in this run. |
+| 10 | Not re-verified (open) | The hidden `post_hash` is set in CommentsController (lines 137 and 303); the template field was not read. |
+| 11 | Not applicable | No `LIKE` query for search keywords exists in src (the only LIKE match is a constant name), and search is not implemented (item 16). |
+| 12 | Resolved | No `task_myshowcase()` function and no `prune_time` reference exist in the plugin. |
+| 13 | Resolved (commits 2ac66dd, cefc866, 0db3bfc on security/moderation-access) | Commit history; the listing and detail rules are the entry rule of section 4. |
+| 14 | Resolved (commit cefc866) | Each inline tool maps to a permission and is checked per entry (EntriesManager::MODERATION_TOOLS). |
+| 15 | Resolved (commit 2ac66dd) | The moderator table is read by `isModerator()`. The front-page display (item 20) was not changed. |
+| 16 | Still live | The search routes `Routes::Search` and `Routes::SearchResults` are registered (src/Routing/Routing.php:497, 516) and no `Search` class exists in src. |
+| 17 | Still live (by design) | Comment lists use `commentVisibilityWhereClause()` (src/Controller/BaseController.php:313; src/Service/EntriesManager.php:382). |
+| 18 | Not re-verified (open) | The entry view's moderation forms were not traced in this run. |
+| 19 | Not re-verified (open) | The per-entry delete and restore handlers were not traced in this run. |
+| 20 | Not re-verified (open) | The front-page moderator display was not read in this run. |
+| 21 | Resolved | `verifyPermission()` no longer names `UserPermissions::EntriesCanModerate` (src/Controller/BaseController.php:316-324); the constant is not in src. |
+| 22 | Not re-verified (open) | The ACP moderator delete link was not traced (the admin module files were not searched in this run). |
+| 23 | Resolved | No `current_user->user_id` read in src. |
+
+Open items of this re-check: 1, 2, 9, 10, 18, 19, 20, 22 (not re-verified) and 4, 7, 16, 17 (still live). Each still-live fix that is a
+behaviour change needs its own test first; none was made in IA-6.
+
 ## Decisions taken
 
 All of the following are final unless you change them.
