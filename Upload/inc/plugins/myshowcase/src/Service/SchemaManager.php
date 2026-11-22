@@ -404,15 +404,6 @@ final class SchemaManager
         return "ALTER TABLE {$prefix}{$table} RENAME COLUMN {$oldColumn} TO {$newColumn}";
     }
 
-    public static function renameTableSql(string $oldTable, string $newTable, string $engine, string $prefix): string
-    {
-        if ($engine === self::ENGINE_MYSQL) {
-            return "RENAME TABLE `{$prefix}{$oldTable}` TO `{$prefix}{$newTable}`";
-        }
-
-        return "ALTER TABLE {$prefix}{$oldTable} RENAME TO {$prefix}{$newTable}";
-    }
-
     /** PostgreSQL only: rename_table leaves the sequence of a serial column named after the old table. */
     public static function renameSequenceSql(string $oldSequence, string $newSequence, string $prefix): string
     {
@@ -581,15 +572,6 @@ final class SchemaManager
         if ($query instanceof \PDOStatement) {
             $query->closeCursor();
         }
-    }
-
-    private static function countRows(string $table, string $where = ''): int
-    {
-        global $db;
-
-        return (int)(self::queryRow(
-            "SELECT COUNT(*) AS total FROM {$db->table_prefix}{$table}" . ($where !== '' ? " WHERE {$where}" : '')
-        )['total'] ?? 0);
     }
 
     public static function indexExists(string $table, string $key): bool
@@ -781,14 +763,9 @@ final class SchemaManager
             . ' so the MyShowcase tables were left as they are. Convert any MyISAM table to InnoDB by hand.',
         'myshowcase_admin_warning_innodb_table_failed' => 'The table {1} could not be converted to InnoDB and was left'
             . ' as it is: {2}',
-        'myshowcase_admin_warning_collections_both_tables_have_rows' => 'MyShowcase: both {1} and {2} contain rows. The'
-            . ' field sets were not migrated to collections; merge the two tables manually and activate the plugin'
-            . ' again.',
         'myshowcase_admin_warning_column_conversion_failed' => 'MyShowcase: the column {2} of table {1} could not be'
             . ' changed from {3} to {4} and was left as it is ({5}). No data was changed. Fix the data and rebuild the'
             . ' table or activate the plugin again to retry.',
-        'myshowcase_admin_warning_legacy_column_not_dropped' => 'MyShowcase: the old column {1} of {2} could not be'
-            . ' dropped ({3}). Its values were copied to {4}.',
         'myshowcase_admin_warning_column_loss_table_rebuild' => 'another column of the same table would lose data, and on'
             . ' SQLite a table is changed as one unit.',
     ];
@@ -2296,174 +2273,5 @@ final class SchemaManager
         }
 
         return $executed;
-    }
-
-    // ------------------------------------------------------------------------------------------------------------
-    // Field sets to collections migration
-    // ------------------------------------------------------------------------------------------------------------
-
-    /**
-     * Detection-based, idempotent migration from the field set names (legacy and 3.0 development builds) to the
-     * collection names. IDs and rows are preserved; it never deletes rows.
-     *
-     * @param array $tablesData TABLES_DATA
-     * @return string[] Statements that were run.
-     */
-    public static function migrateCollections(array $tablesData): array
-    {
-        global $db;
-
-        $engine = self::engine();
-
-        $prefix = $db->table_prefix;
-
-        $escape = self::escaper();
-
-        $statements = [];
-
-        $execute = static function (string $sql) use (&$statements): void {
-            $statements[] = $sql;
-
-            self::run($sql);
-        };
-
-        $oldTable = 'myshowcase_fieldsets';
-
-        $newTable = 'myshowcase_collections';
-
-        if ($db->table_exists($oldTable)) {
-            if ($db->table_exists($newTable)) {
-                $newRows = self::countRows($newTable);
-
-                $oldRows = self::countRows($oldTable);
-
-                if ($newRows > 0 && $oldRows > 0) {
-                    self::warnKey(
-                        'myshowcase_admin_warning_collections_both_tables_have_rows',
-                        [$prefix . $oldTable, $prefix . $newTable]
-                    );
-
-                    return $statements;
-                }
-
-                if ($newRows === 0) {
-                    $execute(self::dropTableSql($newTable, $engine, $prefix));
-                } else {
-                    // The old table is empty and the new one already holds the data: nothing to migrate.
-                    $oldTable = null;
-                }
-            }
-
-            if ($oldTable !== null) {
-                $execute(self::renameTableSql($oldTable, $newTable, $engine, $prefix));
-
-                if ($engine === self::ENGINE_PGSQL) {
-                    foreach (['set_id', 'setid'] as $oldColumn) {
-                        $execute(
-                            self::renameSequenceSql(
-                                "{$oldTable}_{$oldColumn}_seq",
-                                "{$newTable}_collection_id_seq",
-                                $prefix
-                            )
-                        );
-                    }
-                }
-            }
-        }
-
-        $columnMap = [
-            'myshowcase_collections' => [
-                'collection_id' => ['set_id', 'setid', 'fieldset_id'],
-                'name' => ['set_name', 'setname'],
-            ],
-            'myshowcase_config' => [
-                'collection_id' => ['field_set_id', 'fieldsetid'],
-            ],
-            'myshowcase_fields' => [
-                'collection_id' => ['set_id', 'setid'],
-            ],
-            'myshowcase_field_data' => [
-                'collection_id' => ['set_id', 'setid'],
-            ],
-        ];
-
-        foreach ($columnMap as $table => $columns) {
-            if (!$db->table_exists($table)) {
-                continue;
-            }
-
-            foreach ($columns as $newColumn => $oldColumns) {
-                if (!isset($tablesData[$table][$newColumn])) {
-                    continue;
-                }
-
-                if ($db->field_exists($newColumn, $table)) {
-                    // An earlier activation already added the new column next to the old one (left at its default):
-                    // carry the old values over and drop the old column once every row matches.
-                    if ($table !== 'myshowcase_collections') {
-                        self::carryOverColumn($table, $newColumn, $oldColumns, $tablesData[$table][$newColumn], $execute);
-                    }
-
-                    continue;
-                }
-
-                foreach ($oldColumns as $oldColumn) {
-                    if (!$db->field_exists($oldColumn, $table)) {
-                        continue;
-                    }
-
-                    $execute(
-                        self::renameColumnSql(
-                            $table,
-                            $oldColumn,
-                            $newColumn,
-                            $tablesData[$table][$newColumn],
-                            $engine,
-                            $prefix,
-                            $escape
-                        )
-                    );
-
-                    break;
-                }
-            }
-        }
-
-        return $statements;
-    }
-
-    private static function carryOverColumn(
-        string $table,
-        string $newColumn,
-        array $oldColumns,
-        array $definition,
-        callable $execute
-    ): void {
-        global $db;
-
-        $prefix = $db->table_prefix;
-
-        $emptyValue = in_array(strtolower((string)$definition['type']), self::INT_TYPES, true) ? '0' : "''";
-
-        foreach ($oldColumns as $oldColumn) {
-            if (!$db->field_exists($oldColumn, $table)) {
-                continue;
-            }
-
-            $execute("UPDATE {$prefix}{$table} SET {$newColumn}={$oldColumn} WHERE {$newColumn}={$emptyValue}");
-
-            $mismatch = self::countRows($table, "{$newColumn}<>{$oldColumn}");
-
-            if ($mismatch === 0) {
-                try {
-                    $execute("ALTER TABLE {$prefix}{$table} DROP COLUMN {$oldColumn}");
-                } catch (\Throwable $exception) {
-                    self::warnKey(
-                        'myshowcase_admin_warning_legacy_column_not_dropped',
-                        [$oldColumn, $prefix . $table, $exception->getMessage(), $newColumn]
-                    );
-                }
-            }
-        }
     }
 }

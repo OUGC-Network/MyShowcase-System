@@ -127,163 +127,7 @@ function pluginActivation(): bool
 
     taskInstallation();
 
-    /*~*~* RUN UPDATES START *~*~*/
-
     global $db;
-
-    SchemaManager::migrateCollections(TABLES_DATA);
-
-    foreach (
-        [
-            'myshowcase_attachments' => [
-                'aid' => 'attachment_id',
-                'gid' => 'entry_id',
-                'id' => 'showcase_id',
-                'posthash' => 'post_hash',
-                'uid' => 'user_id',
-                'filename' => 'file_name',
-                'filetype' => 'mime_type',
-                'filesize' => 'file_size',
-                'attachname' => 'attachment_name',
-                'dateuploaded' => 'dateline',
-                'uploaddate' => 'update_dateline',
-                'visible' => 'status',
-                'thumbnail' => 'thumbnail_name',
-            ],
-            'myshowcase_comments' => [
-                'cid' => 'comment_id',
-                'id' => 'showcase_id',
-                'gid' => 'entry_id',
-                'uid' => 'user_id',
-            ],
-            'myshowcase_config' => [
-                // todo, drop thumb_width, thumb_height, maximum_text_field_length (prune_time replaced by main_prune_age)
-                'id' => 'showcase_id',
-                'fieldsetid' => 'collection_id',
-                'f2gpath' => 'showcase_url',
-                'allowsmilies' => 'parser_allow_smilies',
-                'allowbbcode' => 'parser_allow_mycode_in_entries',
-                'allowhtml' => 'parser_allow_mycode_in_entries',
-                'othermaxlength' => 'maximum_text_field_length',
-                'maximum_text_field_lenght' => 'maximum_text_field_length',
-                'comment_dispinit' => 'comments_per_page',
-                'disp_attachcols' => 'attachments_grouping',
-                'attachments_per_row' => 'attachments_grouping',
-                'disp_empty' => 'entries_display_empty_fields',
-                'link_in_postbit' => 'display_in_posts',
-                'allow_attachments' => 'attachments_allow_in_entries',
-                'use_attach' => 'attachments_main_render',
-                'defaultimage' => 'attachments_main_render_default_image',
-                'default_image' => 'attachments_main_render_default_image',
-                'imgfolder' => 'attachments_uploads_path',
-                'images_directory' => 'attachments_uploads_path',
-                'watermarkloc' => 'attachments_watermark_location',
-                'water_mark_image_location' => 'attachments_watermark_location',
-                'portal_random' => 'attachments_portal_build_widget',
-                'build_random_entry_widget' => 'attachments_portal_build_widget',
-                'mainfile' => 'route_identifier',
-                'modnewedit' => 'moderate_entries_update',
-                'moderate_edits' => 'moderate_entries_update',
-                'comment_length' => 'comments_message_maximum_length',
-                'allow_html' => 'parser_allow_html_in_entries',
-                'allow_mycode' => 'parser_allow_mycode_in_entries',
-                'allow_smilies' => 'parser_allow_smilies',
-                'allow_image_code' => 'parser_allow_image_code_in_entries',
-                'allow_video_code' => 'parser_allow_video_code_in_entries',
-                'allow_comments' => 'comments_enable',
-                'display_signatures' => 'entries_display_signatures',
-            ],
-            'myshowcase_permissions' => [
-                // drop candelauthcomment
-                'pid' => 'permission_id',
-                'id' => 'showcase_id',
-                'gid' => 'group_id',
-                'canview' => 'main_can_view',
-                'canadd' => 'entries_can_post',
-                'canedit' => 'entries_can_update',
-                'canviewcomment' => 'comments_can_view',
-                'cancomment' => 'comments_can_post',
-                'candelowncomment' => 'comments_can_delete',
-                'canviewattach' => 'attachments_can_view',
-                'canattach' => 'attachments_can_upload',
-                'canwatermark' => 'attachments_watermark_images',
-                'cansearch' => 'can_search_entries',
-            ],
-            'myshowcase_moderators' => [
-                'mid' => 'moderator_id',
-                'id' => 'showcase_id',
-                'uid' => 'user_id',
-                'isgroup' => 'group_id',
-            ],
-            'myshowcase_collections' => [
-                'setid' => 'collection_id',
-                'setname' => 'name',
-            ],
-            'myshowcase_fields' => [
-                'fid' => 'field_id',
-                'setid' => 'collection_id',
-                'name' => 'field_key',
-                'min_length' => 'minimum_length',
-                'max_length' => 'maximum_length',
-                'require' => 'is_required',
-                'requiredField' => 'is_required',
-                'field_order' => 'display_order',
-                'list_table_order' => 'render_order',
-                'searchable' => 'enable_search',
-            ],
-            'myshowcase_field_data' => [
-                //'value_id' => 'field_data_id',
-                'fieldDataID' => 'field_data_id',
-                'valueid' => 'value_id',
-                'disporder' => 'display_order',
-                'setid' => 'collection_id',
-                'fid' => 'field_id',
-            ],
-            'myshowcase_data' => [
-                'gid' => 'entry_id',
-                'uid' => 'user_id',
-                'posthash' => 'post_hash',
-            ],
-        ] as $tableName => $tableData
-    ) {
-        if ($db->table_exists($tableName)) {
-            foreach ($tableData as $oldColumnName => $newColumnName) {
-                if ($db->field_exists($oldColumnName, $tableName) &&
-                    !$db->field_exists($newColumnName, $tableName) &&
-                    isset(TABLES_DATA[$tableName][$newColumnName])) {
-                    SchemaManager::renameColumn(
-                        $tableName,
-                        $oldColumnName,
-                        $newColumnName,
-                        TABLES_DATA[$tableName][$newColumnName]
-                    );
-                }
-            }
-        }
-
-        if ($tableName === 'myshowcase_data' && $db->table_exists('myshowcase_config')) {
-            foreach (showcaseGet() as $showcase_id => $showcase_data) {
-                if (showcaseDataTableExists($showcase_id)) {
-                    foreach ($tableData as $oldColumnName => $newColumnName) {
-                        if ($db->field_exists($oldColumnName, 'myshowcase_data' . $showcase_id) &&
-                            !$db->field_exists($newColumnName, 'myshowcase_data' . $showcase_id)) {
-                            SchemaManager::renameColumn(
-                                'myshowcase_data' . $showcase_id,
-                                $oldColumnName,
-                                $newColumnName,
-                                DATA_TABLE_STRUCTURE[$tableName][$newColumnName]
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if ($db->table_exists('myshowcase_reports')) {
-    }
-
-    /*~*~* RUN UPDATES END *~*~*/
 
     $tablesData = TABLES_DATA;
 
@@ -301,16 +145,6 @@ function pluginActivation(): bool
     cachesRebuild();
 
     dbConvertTablesToInnoDb();
-
-    /*~*~* RUN UPDATES START *~*~*/
-
-    $db->update_query(
-        'myshowcase_config',
-        ['attachments_watermark_location' => 0],
-        'attachments_watermark_location NOT IN (1,2,3,4,5)'
-    );
-
-    /*~*~* RUN UPDATES END *~*~*/
 
     foreach (showcaseGet() as $showcase_id => $showcase_data) {
         $dataTableStructure = dataTableStructureGet($showcase_id);
@@ -421,15 +255,6 @@ function pluginUninstallation(): bool
                 $tableName,
                 array_filter([$tableSchema['primary']])
             );
-        }
-
-        // Sequences left behind on PostgreSQL by installations that were migrated from field sets.
-        if (SchemaManager::engine() === SchemaManager::ENGINE_PGSQL) {
-            foreach (['set_id', 'setid'] as $legacyColumn) {
-                $db->write_query(
-                    SchemaManager::dropSequenceSql("myshowcase_fieldsets_{$legacyColumn}_seq", $db->table_prefix)
-                );
-            }
         }
 
         foreach (FIELDS_DATA as $tableName => $tableData) {

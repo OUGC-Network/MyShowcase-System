@@ -1975,7 +1975,6 @@ const TABLES_DATA = [
             'default' => 0,
             //'input_type' => FormTypes::Number,
         ],
-        // todo, remove this legacy updating the database and updating the format field to TINYINT
         'format' => [
             'type' => 'VARCHAR',
             'size' => 10,
@@ -2139,7 +2138,7 @@ const TABLES_DATA = [
             'size' => 120,
             'default' => 0,
             'input_type' => FormTypes::Text,
-        ],// todo, drop this redundant field
+        ],
         'value' => [
             'type' => 'VARCHAR',
             'size' => 120,
