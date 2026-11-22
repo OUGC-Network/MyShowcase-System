@@ -74,10 +74,12 @@ while ($row = $db->fetch_array($query)) {
     $sid = (int)$row['showcase_id'];
     $entry = (int)$row['entry_id'];
     $comment = (int)$row['comment_id'];
-    $names[$sid][basename((string)$row['file_name'])] = true;
+    // A file is named by the rows of every showcase: the showcases may share one uploads folder, so a file of another
+    // showcase is not an orphan of this one.
+    $names[basename((string)$row['file_name'])] = true;
 
     if (!empty($row['thumbnail_name'])) {
-        $names[$sid][basename((string)$row['thumbnail_name'])] = true;
+        $names[basename((string)$row['thumbnail_name'])] = true;
     }
 
     $missingEntry = $entry > 0 && !isset($entryIds[$sid][(string)$entry]);
@@ -120,17 +122,22 @@ while ($row = $db->fetch_array($query)) {
     }
 }
 
+$scanned = [];
+
 foreach ($showcases as $sid => $directory) {
     $root = $directory !== '' ? (is_dir($directory) ? $directory : MYBB_ROOT . $directory) : '';
 
-    if ($root === '' || !is_dir($root)) {
+    // Each uploads folder is scanned once, however many showcases share it.
+    if ($root === '' || !is_dir($root) || isset($scanned[realpath($root)])) {
         continue;
     }
+
+    $scanned[realpath($root)] = true;
 
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
 
     foreach ($iterator as $file) {
-        if ($file->isFile() && !isset($names[$sid][$file->getFilename()])) {
+        if ($file->isFile() && !isset($names[$file->getFilename()])) {
             $orphans['files_without_row'][] = $file->getPathname();
         }
     }
