@@ -1536,12 +1536,21 @@ def section_seeds():
     fixture('files-setup', 'import-test-uploads')
     fixture('external-setting', '1')
     time.sleep(3)
-    # the entries removed as data by the earlier checks leave their files in the table, and an entry id can come again: the
-    # files of entries that no longer exist are removed first, so an export of the seeds holds only their own files
+    # the entries removed as data by the earlier checks leave their attachment rows, field values and files behind, and an
+    # entry id can come again: those are removed first, so an export of the seeds holds only their own files. The files go
+    # with the rows, as the plugin's attachment delete does: a row removed by SQL alone leaves its file in the uploads folder.
     for route in ('blog', 'downloads', 'gallery'):
         sid = showcase_of(route)
-        CTX.execute(f"delete from mybb_myshowcase_attachments where showcase_id={sid} and entry_id>0 "
-                    f"and entry_id not in (select entry_id from mybb_myshowcase_data{sid})")
+        gone = f"entry_id not in (select entry_id from mybb_myshowcase_data{sid})"
+        uploads = one(f"select attachments_uploads_path from mybb_myshowcase_config where showcase_id={sid}")
+        for file_name, thumbnail in db(f"select file_name, thumbnail_name from mybb_myshowcase_attachments "
+                                       f"where showcase_id={sid} and entry_id>0 and {gone}"):
+            for name in (file_name, thumbnail):
+                path = os.path.join(uploads, name) if name else ''
+                if path and os.path.isfile(path) and not os.path.islink(path):
+                    os.remove(path)
+        CTX.execute(f"delete from mybb_myshowcase_attachments where showcase_id={sid} and entry_id>0 and {gone}")
+        CTX.execute(f"delete from mybb_myshowcase_field_values where showcase_id={sid} and {gone}")
     member = logged_in('member1')
     uid = USERS['member1']['uid']
     for name, route, count in SEED_EXPECTED:
