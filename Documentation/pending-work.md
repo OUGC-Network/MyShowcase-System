@@ -64,7 +64,7 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | NEW-2 | Unread comments | Features | Not started | S | none |
 | NEW-3 | History records and `edit_user_id` | Data | Not started | L | none |
 | NEW-4 | Wish-list comments in `Core.php` | Features | Not started | L | none |
-| NEW-5 | Design-document known issues not re-verified | Docs, code | Re-checked (IA-6): verdicts in docs/import-export-design.md; open items listed there | S | none |
+| NEW-5 | Design-document known issues not re-verified | Docs, code | Open (IA-6b): 1, 2, 9, 10, 18, 19, 20, 22 not re-verified; 4 kept (PD-IA6B-1). Resolved: 7. Closed by design: 3, 17. Not a defect: 16 (PD-IA6B-2). See docs/import-export-design.md | S | owner decision on 4 |
 
 ## 3. Items
 
@@ -532,7 +532,7 @@ build, defer or delete.
 
 ### NEW-5. Design-document known issues not re-verified
 
-**Status (IA-6):** re-checked one by one against the code; the verdict table is in `docs/import-export-design.md` (section "Re-check at IA-6"). Still live: 4, 7, 16, 17. Not re-verified in IA-6 (need a booted board or a trace): 1, 2, 9, 10, 18, 19, 20, 22. Resolved: 5, 6, 8, 12, 13, 14, 15, 21, 23. Not applicable: 11. No code fix was made in this item.
+**Status (IA-6, IA-6b):** re-checked one by one against the code; the verdict table is in `docs/import-export-design.md` (section "Re-check at IA-6"). Resolved: 5, 6, 7 (IA-6b), 8, 12, 13, 14, 15, 21, 23. Not applicable: 11. Closed by design: 3, 17. Not a defect: 16 (search is implemented in `EntriesController::search()`; the planned 404 would break a working route; PD-IA6B-2). Kept, owner decision: 4 (PD-IA6B-1). Still open, not re-verified in IA-6b (need a booted board or a trace): 1, 2, 9, 10, 18, 19, 20, 22. NEW-5 is therefore open. NEW-6 (search) is not added: search exists.
 
 **Current state: Cannot tell.** `docs/import-export-design.md:896-970` lists known issues such as "The field-class factory fatals
 on load" (`FieldFactory::create()`), and `:1048` says no decisions are needed. They were not re-checked against the current code.
@@ -572,7 +572,7 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 | G11 | `Documentation/README.txt:55-58`: permissions are the "same values the ACP group form shows" | No document tabulates the default values; the code defaults sit in `Plugin/Functions.php` and `Core.php` |
 | G12 | Root `README` (13 lines) | It contains template-edit code, not a description of the plugin |
 | G13 | `LANGUAGE_REFACTORING_SUMMARY.md` | A historical summary at the root; linked from no document (unverified) |
-| G14 | `docs/import-export-design.md:896-970` known issues | Re-checked (IA-6, NEW-5): verdict table in the design document; still-live items 4, 7, 16, 17 and not-re-verified items 1, 2, 9, 10, 18, 19, 20, 22 stay open |
+| G14 | `docs/import-export-design.md:896-970` known issues | Open (IA-6b): not-re-verified items 1, 2, 9, 10, 18, 19, 20, 22 stay open; item 4 is an owner decision (PD-IA6B-1). Items 3, 7, 16, 17 are settled (see NEW-5) |
 | G15 (fixed, 4e1866c) | `Documentation/showcases/url-option.md:19-90` (three modes) | Rewritten for the four values (commit 4e1866c). |
 
 ## 5. TODO and FIXME inventory
