@@ -20,12 +20,6 @@
       "reason": "the TABLES_DATA definition of the column"
     },
     {
-      "file": "Upload/inc/plugins/myshowcase/admin.php",
-      "pattern": "showcase_url",
-      "count": 1,
-      "reason": "the ACP field mapping f2gpath (a form field name, not a link)"
-    },
-    {
       "file": "Upload/inc/plugins/myshowcase/src/Entity/ShowcaseEntity.php",
       "pattern": "showcase_url",
       "count": 1,
