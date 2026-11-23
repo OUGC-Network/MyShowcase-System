@@ -383,6 +383,16 @@ switch ($command) {
         $out(['moderator_id' => $id]);
         break;
 
+    case 'moderator-cache':
+        // the moderator ids the moderator cache holds (IA-6 item 22). "refresh" rebuilds the cache from the table first,
+        // as the ACP does after a change (CacheManager::update, key myshowcase_<CacheDataTypes::Moderators> = myshowcase_4).
+        if (($argv[2] ?? '') === 'refresh') {
+            (new \MyShowcase\Service\CacheManager($db, $cache))->update(4);
+        }
+        $cached = $cache->read('myshowcase_4');
+        $out(['moderator_ids' => is_array($cached) ? array_map('intval', array_keys($cached)) : []]);
+        break;
+
     case 'attachment-status':
         // the status of an attachment of the showcase (B6): 1 approved, 0 awaiting approval
         $sid = $showcaseId($argv[2]);
