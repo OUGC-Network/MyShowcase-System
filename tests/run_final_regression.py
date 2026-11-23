@@ -22,7 +22,7 @@ Each run's full output goes to its own log file in --logs. The console shows one
 (runner, engine, passed, failed, exit code) and the FAIL lines of each failed run (at most 20 per run).
 Exit code 0 only when every run exits 0.
 
-Engine-free runners run once (engine "none"). Board runners run once per selected engine, in the order sqlite, mysql,
+Engine-free runners run once (engine "static"). Board runners run once per selected engine, in the order sqlite, mysql,
 pgsql. Runners are never run in parallel: each one starts and stops its own PHP server on its own port.
 """
 import argparse, os, re, subprocess, sys
@@ -103,7 +103,7 @@ def runner_names():
 
 def plan(engines):
     """The runs in order: (path, kind, engine, extra)."""
-    runs = [(p, kind, 'none', []) for p, kind in FREE]
+    runs = [(p, kind, 'static', []) for p, kind in FREE]
     for engine in ENGINE_ORDER:
         if engine not in engines:
             continue
@@ -196,7 +196,7 @@ def main():
     results = []
     for number, (path, kind, engine, extra) in enumerate(runs, 1):
         name = names[path]
-        label = f'{name} ({engine})' if engine != 'none' else name
+        label = f'{name} ({engine})' if engine != 'static' else name
         if kind == 'php':
             cmd = [a.php, os.path.join(REPO, path)]
         elif kind == 'py':
