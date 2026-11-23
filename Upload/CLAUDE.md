@@ -97,7 +97,7 @@ Content statuses use the `ContentStatuses` enum. The column/constant name is `aw
 
 - **HTMX** for AJAX pagination and dynamic content
 - **FilePond / flow.min.js** for file uploads
-- **Service worker and manifest**: `inc/plugins/myshowcase/pwa/service-worker.js` (a template) and `PwaController`, served by showcase routes (`service-worker.js`, `manifest.json`); the worker is registered in query string form at the board folder
+- **Service worker and manifest**: `inc/plugins/myshowcase/pwa/service-worker.js` (a template: `PwaController::serviceWorker()` writes in its version and its precache list) and `PwaController`, served by the showcase routes `service-worker.js` and `manifest.json` (path and query string forms). The main and entry pages (`view/templates/pageMain.twig`, `pageView.twig`) set `myshowcase_service_worker` with the worker's address and scope, and `jscripts/myshowcase.js` registers the worker in query string form with the board folder as its scope. The worker response sends `Service-Worker-Allowed` with the board folder, its cache name carries a hash of the plugin version and the precached files, and the manifest's `scope` is the board folder (decisions D309, D316)
 - Templates are Twig files under `inc/plugins/myshowcase/view/templates/`
 
 ## Conventions
