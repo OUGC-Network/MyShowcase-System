@@ -8,8 +8,7 @@
     {# The first image of the entry's file fields #}
     {% if entry.extra_data.main_image %}
         <a href="{{ entry.extra_data.url }}" class="thread__image">
-            <img src="{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"
-                 style="max-width: 80px; max-height: 80px;"/>
+            <img src="{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"/>
         </a>
     {% endif %}
 

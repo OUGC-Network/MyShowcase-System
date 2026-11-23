@@ -4,6 +4,10 @@
     <title>{{ trans('myshowcase_create_update_entry_title_create', config.name) }}
         - {{ mybb.settings.bbname }}</title>
     <link rel="manifest" href="{{ url.manifest }}">
+
+    {% if template_effective_prefix %}
+        {% include showcase_template('partialPackageStyles.twig') %}
+    {% endif %}
 {% endblock head %}
 
 {% block jscripts %}

@@ -15,6 +15,10 @@
     {% endif %}
     <link rel="manifest" href="{{ url.manifest }}">
 
+    {% if template_effective_prefix %}
+        {% include showcase_template('partialPackageStyles.twig') %}
+    {% endif %}
+
     <style>
         .pagination-container {
             transition: opacity 0.3s;
@@ -212,7 +216,7 @@
 
             <div class="column-headings__column thread__replies">
                 <a href="{{ url.sort.comments }}"
-                   class="sort-results__link sort-results__link--comments-approved">123-{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments' %}{{ ascDesc }}{% endif %}</a>
+                   class="sort-results__link sort-results__link--comments-approved">{{ lang.myshowcase_main_table_head_comments }}{% if url_params.order_by is defined and url_params.order_by == 'comments' %}{{ ascDesc }}{% endif %}</a>
             </div>
             <div class="column-headings__column thread__latest">
                 <a href="{{ url.sort.last_comment }}"
@@ -258,7 +262,7 @@
             </div>
         {% else %}
             {% if stuck_entries is not empty %}
-                <div class="thread-list thread-list--sticky-threads">
+                <div class="thread-list thread-list--sticky-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
                     <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
                 </div>
                 {% for entry in stuck_entries %}
@@ -273,7 +277,7 @@
             {% endif %}
 
             {% if normal_entries is not empty %}
-                <div class="thread-list thread-list--normal-threads">
+                <div class="thread-list thread-list--normal-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
                     <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
                 </div>
                 {% for entry in normal_entries %}

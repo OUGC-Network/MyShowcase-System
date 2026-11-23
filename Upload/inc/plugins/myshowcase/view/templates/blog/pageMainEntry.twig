@@ -1,8 +1,3 @@
-<style>
-    .myshowcase-blog-entry { border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.25rem; margin: 0.75rem 0; background: #fff; }
-    .myshowcase-blog-entry .thread__subject { font-size: 1.25rem; margin: 0 0 0.35rem; }
-    .myshowcase-blog-entry .thread__fields { margin-top: 0.5rem; font-size: 0.95rem; color: #444; }
-</style>
 <div class="row row--thread thread thread--default inline_row myshowcase-blog-entry
     {% if entry.extra_data.unread_comments %} thread--unread{% endif %}
     {% if entry.is_sticky %} thread--sticky{% endif %}
@@ -10,10 +5,11 @@
     {% if entry.status == 2 %} thread--deleted{% endif %}
     {% if entry.status == 0 %} thread--awaiting-approval{% endif %}">
 
+    {# The first image of the entry's file fields #}
     {% if entry.extra_data.main_image %}
         <a href="{{ entry.extra_data.url }}" class="thread__image">
             <img src="{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"
-                 style="max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px;"/>
+                 style="max-width: 80px; max-height: 80px;"/>
         </a>
     {% endif %}
 
@@ -22,12 +18,23 @@
             <a href="{{ entry.extra_data.url }}">{{ entry.extra_data.subject_html|raw }}</a>
         </h3>
 
+        {# Only their author and moderators see waiting entries, only moderators deleted ones #}
         {% if entry.status == 2 %}
             <span class="thread__status tag tag--thread-status tag--deleted">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
         {% endif %}
 
         {% if entry.status == 0 %}
             <span class="thread__status tag tag--thread-status tag--awaiting-approval">{{ lang.myshowcase_main_table_row_awaiting_approval }}</span>
+        {% endif %}
+    </div>
+
+    <div class="thread__icons">
+        {% if entry.is_closed %}
+            {{ include('partials/icon.twig', {icon: 'lock', class: 'thread__icon thread__icon--closed fa-fw', title: lang.myshowcase_main_table_row_closed_entry}, with_context = false) }}
+        {% endif %}
+
+        {% if entry.is_sticky %}
+            {{ include('partials/icon.twig', {icon: 'thumbtack', class: 'thread__icon thread__icon--sticky fa-fw', title: lang.sticky}, with_context = false) }}
         {% endif %}
     </div>
 
@@ -43,19 +50,42 @@
         <span class="thread__date">{{ entry.extra_data.dateline_timestamp|my_date }}</span>
     </div>
 
+    <div class="thread__replies thread__count thread__count--replies">
+        <span class="thread__reply-count">{{ entry.comments_approved|my_number_format }}</span>
+        <span class="thread__legend">{% if entry.comments_approved == 1 %}{{ lang.myshowcase_main_table_row_comment }}{% else %}{{ lang.myshowcase_main_table_row_comments }}{% endif %}</span>
+    </div>
+
+    <div class="thread__views thread__count thread__count--views">
+        {{ entry.views|my_number_format }}
+        <span class="thread__legend">{% if entry.views == 1 %}{{ lang.myshowcase_main_table_row_view }}{% else %}{{ lang.myshowcase_main_table_row_views }}{% endif %}</span>
+    </div>
+
+    {# Custom fields shown in the list, in render order; the values are escaped or parsed by the field classes. #}
+    {# The image of the row stands for the file fields. #}
     {% set main_fields = entry.getFields()|filter(field_data => field_data.isViewableInMain() and not (entry.extra_data.main_image and field_data.field_definition.html_type == 'file') and (field_data.getUserValue() is not same as('') or field_data.attachments_rendered is not empty))|sort((a, b) => a.field_definition.render_order <=> b.field_definition.render_order) %}
     {% if main_fields is not empty %}
         <div class="thread__fields">
             {% for field_data in main_fields %}
-                <div class="thread__field thread__field--{{ field_data.field_definition.field_key }}">
-                    {% if field_data.field_definition.field_key != 'message' %}
-                        <span class="thread__field-label">{{ field_data.getLabel() }}:</span>
-                    {% endif %}
+                <span class="thread__field thread__field--{{ field_data.field_definition.field_key }}">
+                    <span class="thread__field-label">{{ field_data.getLabel() }}:</span>
                     <span class="thread__field-value">{% if field_data.hasOptions() %}{{ field_data.getUserValueDisplay()|raw }}{% else %}{{ field_data.getUserValue()|raw }}{{ field_data.attachments_rendered|raw }}{% endif %}</span>
-                </div>
+                </span>
             {% endfor %}
         </div>
     {% endif %}
+
+    <div class="thread__latest latest-post">
+        <span class="latest-post__text">{{ lang.lastpost_by }}</span>
+        <span class="latest-post__author">
+            {% if entry.extra_data.last_commenter_user_data %}
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(entry.extra_data.last_commenter_user_data.uid) }}">{{ entry.extra_data.last_commenter_user_data.uid|format_name }}</a>
+            {% else %}
+                {{ entry.last_comment_username ?? lang.guest }}
+            {% endif %}
+        </span>
+        <a href="{{ entry.extra_data.url_last_comment }}"
+           class="latest-post__date">{{ entry.extra_data.last_comment_date.getTimestamp() }}</a>
+    </div>
 
     {% if entry_moderator %}
         <div class="thread__checkbox">
@@ -66,3 +96,10 @@
         </div>
     {% endif %}
 </div>
+{# TODO, Entry attachments
+        {% if config.attachments_allow_in_entries and config.attachments_main_render and permissions.attachments_can_view and entry.getAttachments() is not empty %}
+            {% for attachment_id,attachment_data in entry.getAttachments() %}
+                {% include showcase_template('pageMainEntryAttachment.twig') %}
+            {% endfor %}
+        {% endif %}
+#}
