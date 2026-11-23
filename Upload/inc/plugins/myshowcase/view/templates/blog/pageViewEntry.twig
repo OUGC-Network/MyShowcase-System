@@ -1,0 +1,13 @@
+<div class="myshowcase-blog-detail">
+    <header class="myshowcase-blog-detail__header" aria-label="{{ lang.myshowcase_package_blog_detail_intro }}">
+        <p class="myshowcase-blog-detail__meta">
+            {% if user_data.uid > 0 %}
+                <a href="{{ url(get_profile_link(user_data.uid)) }}">{{ user_data.uid|format_name }}</a>
+            {% else %}
+                {{ user_data.username|default(lang.guest) }}
+            {% endif %}
+            <span class="myshowcase-blog-detail__date">{{ entry_data.dateline|date }}</span>
+        </p>
+    </header>
+    {% include '@ext.myshowcase/pageViewEntry.twig' %}
+</div>

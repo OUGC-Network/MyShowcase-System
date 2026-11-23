@@ -1,0 +1,16 @@
+<div class="myshowcase-gallery-detail">
+    <figure class="myshowcase-gallery-detail__hero">
+        {% if entry_data.extra_data.main_image %}
+            <a href="{{ entry_data.extra_data.main_image.url }}" class="myshowcase-gallery-detail__hero-link" target="_blank" rel="noopener">
+                <img src="{{ entry_data.extra_data.main_image.url }}" alt="{{ entry_data.extra_data.main_image.name|default(entry_data.subject) }}"
+                     class="myshowcase-gallery-detail__hero-image"/>
+            </a>
+            {% if entry_data.extra_data.main_image.name %}
+                <figcaption class="myshowcase-gallery-detail__caption">{{ entry_data.extra_data.main_image.name }}</figcaption>
+            {% endif %}
+        {% else %}
+            <p class="myshowcase-gallery-detail__hero-missing">{{ lang.myshowcase_package_gallery_detail_hero_missing }}</p>
+        {% endif %}
+    </figure>
+    {% include '@ext.myshowcase/pageViewEntry.twig' %}
+</div>
