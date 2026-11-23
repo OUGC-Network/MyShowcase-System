@@ -284,6 +284,22 @@ No upgrade required, as this is the initial public release
 ============================================================================================
 Change Log
 ============================================================================================
+Unreleased (no version number yet)
+- Showcase links: four link options (see showcases/url-option.md); the choice is in the showcase's URL setting.
+- Absolute URLs: links, file addresses and exports are written as absolute addresses.
+- Progressive web app: a showcase serves a manifest and a service worker (manifest.json and service-worker.js).
+- Per-area moderators: a moderator row covers the entries area, the comments area or both.
+- Showcase passwords are stored as hashes (decision D306). A board that had a showcase password must set it again:
+  open the showcase's General tab, type the password and save.
+- Password-protected showcases: a visitor who enters the password gets a grant cookie for that showcase; the cookie is
+  tied to the stored password.
+- Status codes: refused input gets 400, permission refusals 401 or 403, unknown things 404, faults 500 (decision P2).
+- Language keys changed in places. A custom language pack must be checked against the English file.
+- Composer packages that the plugin no longer uses were removed.
+- Legacy update code was removed from the plugin.
+- ACP: the moderator delete link in a showcase's moderator list now deletes the moderator (it had no effect).
+- Restore no longer approves content that is awaiting approval: restore only acts on soft-deleted entries and comments.
+
 v2.5.2
 - fixed issue with creating indexes on text type fields when creating showcase table
 - fixed issue with some button not displaying when the showcase file is in MyBB root
