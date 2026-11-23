@@ -12,7 +12,7 @@ or a file that should not be fetched from anywhere.
 ```
 package.zip
 ├── manifest.json              the package's description and the checksums of its files
-├── entry.xml                  the entries format (version 2) with exactly one entry
+├── entry.xml                  the entries format (version 3, option value ids) with exactly one entry
 ├── files/
 │   └── <field_key>/
 │       └── <file name>        one file per file field of the entry that has a file
@@ -116,7 +116,7 @@ references only; a package reference needs no network and is not affected by it.
 
 ## Export counterpart (later)
 
-"Export as package" writes the same layout for one entry: the entry's XML (format version 2, with `package:` references to
+"Export as package" writes the same layout for one entry: the entry's XML (format version 3, option value ids, with `package:` references to
 the files it writes into `files/`), the manifest with the checksums, and the files the exporting user may download. It
 uses the rules of the export of file fields (see [exports.md](exports.md#file-fields)).
 
