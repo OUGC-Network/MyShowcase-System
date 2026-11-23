@@ -15,6 +15,7 @@ final class ShowcaseTwigExtension extends AbstractExtension
     {
         return [
             new TwigFunction('showcase_template', TemplateSelectionRegistry::resolveTwigTemplateName(...)),
+            new TwigFunction('showcase_template_exists', TemplateSelectionRegistry::templateExists(...)),
         ];
     }
 }

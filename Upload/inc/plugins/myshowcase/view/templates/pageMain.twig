@@ -15,7 +15,7 @@
     {% endif %}
     <link rel="manifest" href="{{ url.manifest }}">
 
-    {% if template_effective_prefix %}
+    {% if template_effective_prefix and showcase_template_exists('partialPackageStyles') %}
         {% include showcase_template('partialPackageStyles.twig') %}
     {% endif %}
 
@@ -264,31 +264,31 @@
             {% if stuck_entries is not empty %}
                 <div class="thread-list thread-list--sticky-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
                     <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
+                    {% for entry in stuck_entries %}
+
+                        {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                            {% include showcase_template('pageMainEntryDeleted.twig') %}
+                        {% else %}
+                            {% include showcase_template('pageMainEntry.twig') %}
+                        {% endif %}
+
+                    {% endfor %}
                 </div>
-                {% for entry in stuck_entries %}
-
-                    {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                        {% include showcase_template('pageMainEntryDeleted.twig') %}
-                    {% else %}
-                        {% include showcase_template('pageMainEntry.twig') %}
-                    {% endif %}
-
-                {% endfor %}
             {% endif %}
 
             {% if normal_entries is not empty %}
                 <div class="thread-list thread-list--normal-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
                     <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
+                    {% for entry in normal_entries %}
+
+                        {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                            {% include showcase_template('pageMainEntryDeleted.twig') %}
+                        {% else %}
+                            {% include showcase_template('pageMainEntry.twig') %}
+                        {% endif %}
+
+                    {% endfor %}
                 </div>
-                {% for entry in normal_entries %}
-
-                    {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                        {% include showcase_template('pageMainEntryDeleted.twig') %}
-                    {% else %}
-                        {% include showcase_template('pageMainEntry.twig') %}
-                    {% endif %}
-
-                {% endfor %}
             {% endif %}
         {% endif %}
 

@@ -59,6 +59,24 @@ check(
     'unknown preset does not guess a package'
 );
 
+check(
+    TemplateSelection::resolveCreateTemplatePrefix(
+        TemplateSelection::TEMPLATE_PREFIX_USE_PRESET,
+        'showcases/gallery.json'
+    ) === 'gallery',
+    'ACP create presetdefault applies the shipped gallery package'
+);
+
+check(
+    TemplateSelection::resolveCreateTemplatePrefix('', 'showcases/blog.json') === '',
+    'ACP create explicit global keeps global templates even when a preset is selected'
+);
+
+check(
+    TemplateSelection::resolveCreateTemplatePrefix('downloads', 'showcases/blog.json') === 'downloads',
+    'ACP create explicit named package wins over preset'
+);
+
 foreach (['blog', 'downloads', 'gallery'] as $package) {
     check(in_array($package, ShowcaseService::templateSets(), true), "shipped folder {$package} is discoverable");
 }
@@ -97,6 +115,9 @@ foreach (
         'downloads/partialPackageStyles.twig',
         'gallery/pageMainEntry.twig',
         'gallery/partialPackageStyles.twig',
+        'blog/pageViewEntry.twig',
+        'downloads/pageViewEntry.twig',
+        'gallery/pageViewEntry.twig',
     ] as $relative
 ) {
     check(is_file("{$twigRoot}/{$relative}"), "package template exists: {$relative}");
@@ -110,9 +131,38 @@ $globalMain = file_get_contents("{$twigRoot}/pageMain.twig");
 check(
     $globalMain !== false
     && str_contains($globalMain, 'showcase_template(')
+    && str_contains($globalMain, 'showcase_template_exists')
     && str_contains($globalMain, 'myshowcase-gallery-entries'),
-    'global pageMain uses package includes and scopes gallery grid to entry lists'
+    'global pageMain uses optional package styles and gallery grid markers'
 );
+
+check(
+    $globalMain !== false
+    && preg_match(
+        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in normal_entries %}/',
+        $globalMain
+    ) === 1,
+    'gallery grid container wraps normal entry cards'
+);
+
+check(
+    $globalMain !== false
+    && preg_match(
+        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in stuck_entries %}/',
+        $globalMain
+    ) === 1,
+    'gallery grid container wraps sticky entry cards'
+);
+
+foreach (['blog', 'downloads', 'gallery'] as $package) {
+    $packageMainEntry = file_get_contents("{$twigRoot}/{$package}/pageMainEntry.twig");
+    check(
+        $packageMainEntry !== false
+        && str_contains($packageMainEntry, 'url(get_profile_link(')
+        && !str_contains($packageMainEntry, 'mybb.settings.bburl'),
+        "{$package} list entry uses Routing absolute profile URLs"
+    );
+}
 
 $toggle = file_get_contents("{$twigRoot}/partialTemplateViewToggle.twig");
 check(
@@ -120,6 +170,13 @@ check(
     && str_contains($toggle, 'url_template_view_post')
     && !str_contains($toggle, 'absolute_request_url'),
     'toggle form uses Routing-built post URL'
+);
+
+$twigExtension = file_get_contents(\MyShowcase\ROOT . '/src/Twig/ShowcaseTwigExtension.php');
+check(
+    $twigExtension !== false
+    && str_contains($twigExtension, 'showcase_template_exists'),
+    'ShowcaseTwigExtension registers optional template existence helper'
 );
 
 echo PHP_EOL . ($failures === 0 ? "OK {$passes} checks\n" : "FAILED {$failures}, passed {$passes}\n");

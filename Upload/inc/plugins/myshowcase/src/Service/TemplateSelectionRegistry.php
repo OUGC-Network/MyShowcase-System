@@ -33,4 +33,17 @@ final class TemplateSelectionRegistry
 
         return '@ext.myshowcase/' . $logicalName . '.twig';
     }
+
+    public static function templateExists(string $logicalName): bool
+    {
+        $selection = self::$current;
+
+        if ($selection !== null) {
+            return $selection->templateExists($logicalName);
+        }
+
+        $logicalName = preg_replace('/\.twig$/i', '', $logicalName) ?? $logicalName;
+
+        return is_file(\MyShowcase\ROOT . '/view/templates/' . $logicalName . '.twig');
+    }
 }
