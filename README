@@ -1,13 +1,60 @@
+MyShowcase System for MyBB 1.9
+===============================
 
-    include MYBB_ROOT . '/inc/adminfunctions_templates.php';
+What it is
+----------
+MyShowcase is a plugin for MyBB 1.9. It turns a board into showcases: collections of entries with their own custom fields
+(text, numbers, dates, choices and files), with comments, attachments, moderation, search, import and export of entries
+as XML, and a web app manifest and service worker for each showcase.
 
-    find_replace_templatesets('header', '#' . preg_quote('{$myShowcaseGlobalMessagesUnapprovedEntries}') . '#', '');
+Requirements
+------------
+- MyBB 1.9. The plugin is declared compatible with MyBB 1.9 (19*). MyBB 1.9 already ships Twig and several Symfony
+  packages, and the plugin uses those copies.
+- PHP 8.2 or higher, the version the plugin needs. MyBB 1.9's own PHP requirements also apply.
+- A database engine that MyBB 1.9 supports: MySQL or MariaDB, PostgreSQL, or SQLite. The plugin creates its tables with
+  the SQL of the engine your board runs on, when you activate it.
+- PluginLibrary 13 or higher, installed at <mybb_root>/inc/plugins/pluginlibrary.php.
+- Composer, to install the packages that MyBB 1.9 does not ship (symfony/form, symfony/dependency-injection and what they
+  need; see step 3 below). If Composer is not available on your server, run it on your own computer and upload the
+  resulting vendor folder.
 
-    find_replace_templatesets('header', '#' . preg_quote('{$myShowcaseGlobalMessagesReportedEntries}') . '#', '');
-    require_once MYBB_ROOT . 'inc/adminfunctions_templates.php';
+Installation
+------------
+1. Back up your database and your MyBB files.
+2. Copy the files and folders of the Upload folder of this repository into your MyBB root (not its CLAUDE.md, which is
+   a note for developers), so that these paths exist:
+   - <mybb_root>/inc/plugins/myshowcase.php (the plugin file)
+   - <mybb_root>/inc/plugins/myshowcase/ (the plugin's code, its composer.json and its templates)
+   - <mybb_root>/inc/tasks/myshowcase.php (the scheduled task)
+   - <mybb_root>/inc/languages/ (the language files)
+   - <mybb_root>/admin/modules/myshowcase/ (the admin pages)
+   - <mybb_root>/showcase.php (the forum entry point of the showcases)
+   - <mybb_root>/jscripts/ and <mybb_root>/images/ (scripts and images)
+3. Install the plugin's Composer packages once, and again after each upgrade:
 
-    find_replace_templatesets(
-        'header',
-        '#' . preg_quote('{$pm_notice}') . '#',
-        '{$pm_notice}{$myShowcaseGlobalMessagesUnapprovedEntries}{$myShowcaseGlobalMessagesReportedEntries}'
-    );
+       cd <mybb_root>/inc/plugins/myshowcase
+       composer install
+
+   This creates <mybb_root>/inc/plugins/myshowcase/vendor/.
+4. In the Admin CP, go to Configuration > Plugins and choose Activate & Install for MyShowcase System.
+5. In the Admin CP, go to Users and Groups > Admin Permissions, select the administrators who should manage the
+   MyShowcase System, open the MyShowcase tab and grant the permissions you want.
+6. Open MyShowcase Admin > Help Page for the detailed instructions.
+
+Every user group starts with the default permissions listed in Documentation/permissions.md. Change a group's permissions
+on its MyShowcase tab (Users and Groups > Usergroups) only where you want something other than the default.
+
+Documentation
+-------------
+The documentation is in the Documentation folder of this repository:
+
+- Documentation/README.txt: installation and upgrade notes, the settings of a showcase, and the change log.
+- Documentation/permissions.md: the default permissions of the user groups.
+- Documentation/import.md, Documentation/import-packages.md and Documentation/exports.md: importing and exporting entries.
+- Documentation/visibility.md: who may see which entries, comments and attachments.
+- Documentation/showcases/: the settings of a showcase, such as the URL option.
+- Documentation/templates/template-reference.md: the templates of the plugin.
+- Documentation/schema/: planned changes to the database schema.
+- Documentation/pending-work.md: open items for the maintainers.
+- Documentation/history/: earlier summaries that are kept for reference.
