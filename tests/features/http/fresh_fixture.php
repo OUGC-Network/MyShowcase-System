@@ -209,7 +209,7 @@ switch ($command) {
         // the columns the collection requires (NOT NULL) get a value; a gallery entry's title is its subject
         $columns = [
             'public_id' => $public, 'entry_slug_custom' => 'fresh', 'subject' => $db->escape_string($argv[3]),
-            'user_id' => 1, 'status' => 1, 'dateline' => $when(), 'update_dateline' => $when(), 'post_hash' => $public,
+            'user_id' => 1, 'status' => (int)($argv[4] ?? 1), 'dateline' => $when(), 'update_dateline' => $when(), 'post_hash' => $public,
             'category' => 1,
         ];
         if ($route === 'gallery') {
@@ -273,7 +273,7 @@ switch ($command) {
         $id = (int)$db->insert_query('myshowcase_comments', [
             'public_id' => $public, 'showcase_id' => $sid, 'entry_id' => $entryId, 'post_hash' => $public, 'user_id' => 1,
             'username' => 'admin', 'message' => $db->escape_string($argv[4] ?? 'Url mode comment'), 'dateline' => $when(), 'update_dateline' => $when(),
-            'status' => 1,
+            'status' => (int)($argv[5] ?? 1),
         ]);
         $out(['comment_id' => $id, 'public_id' => $public]);
         break;
