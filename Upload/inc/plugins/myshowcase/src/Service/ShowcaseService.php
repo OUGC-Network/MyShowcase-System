@@ -114,13 +114,6 @@ final class ShowcaseService
             ];
         }
 
-        if (!empty($data['custom_template_prefix']) && $isTaken('custom_template_prefix', $data['custom_template_prefix'])) {
-            $errors[] = [
-                'key' => 'myshowcase_admin_error_duplicated_template_prefix',
-                'message' => AdminText::text('myshowcase_summary', 'myshowcase_admin_error_template_prefix_in_use')
-            ];
-        }
-
         return $errors;
     }
 
