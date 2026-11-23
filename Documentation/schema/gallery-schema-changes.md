@@ -1,9 +1,20 @@
 # Gallery schema changes
 
 This document describes the database changes planned for gallery-type showcases: category option metadata,
-multi-select tags, folders (albums), image variants and password hardening. Only the items under
-[Other approved changes](#other-approved-changes) are implemented; the status of every item is given in its group and
-in the [change log](#change-log).
+multi-select tags, folders (albums), image variants and password hardening.
+
+Implemented, checked against `Upload/inc/plugins/myshowcase/Plugin/Core.php` (`TABLES_DATA`) and the code:
+
+* the table `myshowcase_field_values` (Group B; read by `Repository/FieldValuesRepository.php`);
+* the column `main_prune_age` of `myshowcase_config` and its pruning task (`Upload/inc/tasks/myshowcase.php`;
+  [Other approved changes](#other-approved-changes));
+* the password column of `myshowcase_config` (`VARCHAR` 255), which the existing schema already satisfies.
+
+Not implemented: every other column and table of Groups A, B and C. That covers the columns of `myshowcase_fields`
+(`display_option_image`, `display_in_filter_bar`, `enable_option_create`, `allowed_groups_create`), of `myshowcase_field_data`
+(`value_slug`, `parent_field_data_id`, `image`, `description`, `is_enabled`, `status`, `user_id`), the folder tables and the
+folder columns of `myshowcase_config`. The image variant and tag tables (`myshowcase_attachment_variants`, the tags table) are
+not in `TABLES_DATA` either. The status of every item is given in its group and in the [change log](#change-log).
 
 The tables are defined in `Upload/inc/plugins/myshowcase/Plugin/Core.php` (`TABLES_DATA`) and created or altered by
 `Upload/inc/plugins/myshowcase/src/Service/SchemaManager.php` when the plugin is activated. How JSON files describe
@@ -232,8 +243,9 @@ None before it. Group B builds on it.
 
 ## Group B — Multi-select and tags
 
-**Status: Approved — not implemented.** Implementing tracks: **T2** (multi-select storage) and **T2b** (creatable
-tags with moderation).
+**Status: Partly implemented.** The table `myshowcase_field_values` is in `TABLES_DATA` and read by `FieldValuesRepository`. The
+other Group B changes are not implemented. Implementing tracks: **T2** (multi-select storage) and **T2b** (creatable tags with
+moderation).
 
 ### Purpose
 
@@ -724,7 +736,7 @@ Before group C reuses the gate.
 |---|---|---|---|---|
 | 2026-11-11 | A | `myshowcase_field_data`: `value_slug`, `parent_field_data_id`, `image`, `description`, `is_enabled`; unique `(field_id, value_id)` and `(field_id, value_slug)` after backfill; index `(field_id, parent_field_data_id)` | Approved — not implemented | Uriel |
 | 2026-11-11 | A | `myshowcase_fields`: `display_option_image`, `display_in_filter_bar` | Approved — not implemented | Uriel |
-| 2026-11-11 | B | New table `myshowcase_field_values` | Approved — not implemented | Uriel |
+| 2026-11-11 | B | New table `myshowcase_field_values` | Implemented (`TABLES_DATA`; `FieldValuesRepository`) | Uriel |
 | 2026-11-11 | B | `myshowcase_fields`: `enable_option_create`, `allowed_groups_create`; multiple values reuse the existing `allow_multiple_values` | Approved — not implemented | Uriel |
 | 2026-11-11 | B | `myshowcase_field_data`: `status` | Approved — not implemented | Uriel |
 | 2026-11-11 | B | `myshowcase_field_data`: `user_id` | Approved — not implemented | Uriel |
