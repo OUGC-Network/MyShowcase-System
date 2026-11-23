@@ -758,3 +758,38 @@ fixed, deleted, or documented with an item ID. The per-marker list of the first 
   resolved by the page. The helper Util/AdminText.php reads the admin files for the services without a language object.
 - The strings check: 1968 passed, 0 failed after MSG-b.
 
+
+## Integrity audit close-out (IA-F, decision D352)
+
+Base: local main at c38141e. Branch agent/integrity-audit-6 has 40 commits above it (`git rev-list --count c38141e..HEAD`).
+No test was executed in this run (D348). Every check added in this run is written, not run, until the owner's run (D349).
+
+| Item | Commits (on the branch) | Status |
+|---|---|---|
+| TZ | c06bcc3, b3cbb50 | Done (before this run, on main) |
+| B7 | 9b57f59, 2fca7f7, fa1b036, 879075d | Done (before this run, on main) |
+| B6 | afbb965, aa701e7, 8a011de, 8843a1c, 8038d5a, f6f1fbb, 3872d0d, 65fa029, 27b1c4a, 6f18014 | Done (before this run, on main) |
+| GG | f0cebb0, 45e6ca7, 5409102, 7baf010 | Done (before this run, on main) |
+| B8a | bff313b, 164d681 | Done (before this run, on main) |
+| B8b | 28f965c, df3e1c9, e888e91 | Done (before this run, on main) |
+| PW | b3c6c6b, 8a22c02 | Done (before this run, on main) |
+| B9a | e80a8ba, 41f22ff, 9705c7b | Done (before this run, on main) |
+| B9b | 7667a88 | Done (before this run, on main) |
+| B5 | 32ed93c, d5a27e3, de5b9e4, 04fcc63 | Done (before this run, on main) |
+| PWA-SUB | c20c72f (the subfolder board in pwa.py) | Done (before this run, on main) |
+| MSG | 5486720, 202e179, dae9f0d, ed80860, e12b5d8, cdcb473 | Done (before this run, on main) |
+| LEG | 60802c2, 3c44016 | Done (IA-6) |
+| NEW5 | f4945b8 (verdict table), then items 1 and 11: eff0603, de984e2, 124eb41 | Done; items 1, 2, 10, 11, 18, 20, 22 written, not run |
+| HOOK | 034faac, 0aa252e, 9a34a0a | Done (IA-6) |
+| MSG2 | ce2cd3d | Done (IA-6) |
+| R19 | e02127e (test), ef94a81 (fix) | Done (passed 6/6 per engine before D348) |
+| BOARD | c413dc6, 7357949, 87a72bd, 1f1b7a6, 0df335a | Done; written, not run |
+| DOCS6 | ded083f, 1153f34 | Done |
+| DOCS | 8678a33, fed0ff0, d5943dd, a49bf3b, 1f7946b, e6973af, 9bd6187, 4aaccca, e33cb4e (G5 to G13) | Done; G14 done with NEW-5 |
+| FR1 | 989c9ef (tests/FINAL-REGRESSION.md), 9147712 (tests/run_final_regression.py) | Prepared (tests/FINAL-REGRESSION.md, tests/run_final_regression.py); result pending the owner's run (D352) |
+
+Tests written after D348 and not run: `tests/features/http/new5_board.py` (items 1, 2, 10, 11, 18, 20, 22); `tests/run_final_regression.py`
+(compiled only). The list of runners is in `tests/FINAL-REGRESSION.md`.
+
+Open work, not part of IA-F: gallery tracks; media embeds; template packages; Q1 to Q7; NEW-1 to NEW-4; NEW-6 (limit permissions
+not enforced); NEW-7 (attachment upload box). The owner's decisions PD-IA6B-1 and PD-IA6B-3 are still open.
