@@ -31,7 +31,9 @@ use MyShowcase\Repository\AccessLogsRepository;
 use MyShowcase\Util\PasswordGrant;
 use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
+use MyShowcase\Routing\Routing;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\TemplateSelection;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\StringUtil;
 use MyShowcase\ValueObjects\EntryCustomField;
@@ -666,6 +668,44 @@ abstract class BaseController
      * anything that does not have that shape can only be a tampered post and is replaced instead of rejected. The same
      * value is returned for the rest of the request, for the entries and the comments form alike.
      */
+    /**
+     * Per-showcase visitor template preference (TP-D5). Returns true when the request was handled (redirect issued).
+     */
+    protected function handleTemplateViewPreferencePost(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            return;
+        }
+
+        if ($this->context->mybb->get_input('myshowcase_action') !== 'template_view') {
+            return;
+        }
+
+        verify_post_check($this->context->mybb->get_input('my_post_key'));
+
+        $mode = $this->context->mybb->get_input('template_view_mode');
+
+        if ($mode !== TemplateSelection::MODE_GLOBAL && $mode !== TemplateSelection::MODE_CONFIGURED) {
+            $this->error($this->context->language->myshowcase_error_invalid_request ?? 'Invalid request', 400);
+        }
+
+        $this->context->render_manager->templateSelection()->setVisitorMode($mode);
+
+        $return_url = Routing::normalizeUrl($this->context->mybb->get_input('return_url'));
+        $showcase_origin = Routing::originOf(
+            Routing::normalizeUrl($this->context->routing->url(Routes::Main))
+        );
+
+        if ($return_url === '' || !str_starts_with($return_url, $showcase_origin . '/')) {
+            $return_url = $this->context->routing->url(Routes::Main);
+        }
+
+        redirect(
+            $return_url,
+            $this->context->language->myshowcase_template_view_redirect ?? ''
+        );
+    }
+
     protected function requestPostHash(): string
     {
         if ($this->request_post_hash === null) {

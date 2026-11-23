@@ -129,9 +129,11 @@ class EntriesController extends BaseController
      * @throws RandomException
      */
     #[NoReturn]
-    #[Route('/', name: 'main', methods: ['GET'])]
+    #[Route('/', name: 'main', methods: ['GET', 'POST'])]
     public function main(): string
     {
+        $this->handleTemplateViewPreferencePost();
+
         $this->verifyPassword();
 
         if ($this->context->mybb->get_input('clear_password', MyBB::INPUT_INT) === 1) {
@@ -903,6 +905,8 @@ class EntriesController extends BaseController
     #[Route('/create', name: 'entry_create', methods: ['GET', 'POST'])]
     public function create(string $entry_public_id = '', bool $is_update = false): string
     {
+        $this->handleTemplateViewPreferencePost();
+
         $this->verifyPassword();
 
         if (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
@@ -1449,10 +1453,12 @@ class EntriesController extends BaseController
      * @throws SyntaxError|RandomException
      */
     #[NoReturn]
-    #[Route('/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
+    #[Route('/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET', 'POST'])]
     #[Route('/api/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     public function view(string $entry_public_id, string $entry_slug_custom = '', ?string $comment_public_id = null): string
     {
+        $this->handleTemplateViewPreferencePost();
+
         $this->verifyPassword();
 
         $entry = $this->context->entries_repository->fetchEntry(

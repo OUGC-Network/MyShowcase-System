@@ -665,4 +665,11 @@ $l = array_merge($l, [
     'myshowcase_validation_errors_comment_not_set' => 'The comment to validate was not set.',
     'myshowcase_validation_errors_comment_status_invalid' => 'The comment status is invalid.',
     'myshowcase_attachment_upload_success' => 'File uploaded successfully',
+
+    'myshowcase_template_view_heading' => 'Template appearance',
+    'myshowcase_template_view_mode_package' => 'Showcase style',
+    'myshowcase_template_view_mode_global' => 'Global templates',
+    'myshowcase_template_view_apply' => 'Apply',
+    'myshowcase_template_view_redirect' => 'Template appearance updated.',
+    'myshowcase_error_invalid_request' => 'The request could not be processed.',
 ]);
