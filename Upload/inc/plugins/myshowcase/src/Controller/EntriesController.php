@@ -909,8 +909,6 @@ class EntriesController extends BaseController
     {
         $this->verifyPassword();
 
-        $this->handleTemplateViewPreferencePost();
-
         if (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
             $this->errorNoPermission();
         }
@@ -971,6 +969,8 @@ class EntriesController extends BaseController
 
             $this->context->entries_manager->attachFields($entry);
         }
+
+        $this->handleTemplateViewPreferencePost();
 
         if ($this->context->mybb->request_method === 'post') {
             verify_post_check($this->context->mybb->get_input('my_post_key'));
@@ -1469,8 +1469,6 @@ class EntriesController extends BaseController
     {
         $this->verifyPassword();
 
-        $this->handleTemplateViewPreferencePost();
-
         $entry = $this->context->entries_repository->fetchEntry(
             $this->context->custom_fields_collection,
             [
@@ -1489,6 +1487,8 @@ class EntriesController extends BaseController
          * @var EntryEntity $entry
          */
         $entry = $this->context->entries_manager->getEntryByID((int)$entry['entry_id']);
+
+        $this->handleTemplateViewPreferencePost();
 
         switch ($this->context->mybb->get_input('action')) {
             case 'subscribe':
