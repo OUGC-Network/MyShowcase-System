@@ -2081,9 +2081,20 @@ class EntriesController extends BaseController
             $exact = !empty($this->context->render_manager->url_params['exact_match']);
 
             $match = function (string $column, string $keyword) use ($exact): string {
-                $keyword = $this->context->database->escape_string($keyword);
+                if ($exact) {
+                    $keyword = $this->context->database->escape_string($keyword);
 
-                return $exact ? "{$column}='{$keyword}'" : "{$column} LIKE '%{$keyword}%'";
+                    return "{$column}='{$keyword}'";
+                }
+
+                // A LIKE pattern: % and _ in the keyword are literal characters, so they are escaped with '!', which is
+                // then named by the ESCAPE clause. MyBB's escape_string_like() escapes with a backslash, which needs the
+                // ESCAPE clause on SQLite (no default escape character) and a doubled backslash on PostgreSQL, so '!' is used
+                // on all three engines (decision D356).
+                $like = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $keyword);
+                $like = $this->context->database->escape_string($like);
+
+                return "{$column} LIKE '%{$like}%' ESCAPE '!'";
             };
 
             foreach ($keywords as $keyword) {
