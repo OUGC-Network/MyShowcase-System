@@ -98,7 +98,7 @@ Content statuses use the `ContentStatuses` enum. The column/constant name is `aw
 - **HTMX** for AJAX pagination and dynamic content
 - **FilePond / flow.min.js** for file uploads
 - **Service worker and manifest**: `inc/plugins/myshowcase/pwa/service-worker.js` (a template) and `PwaController`, served by showcase routes (`service-worker.js`, `manifest.json`); the worker is registered in query string form at the board folder
-- Templates are Twig files under `inc/plugins/myshowcase/src/view/templates/`
+- Templates are Twig files under `inc/plugins/myshowcase/view/templates/`
 
 ## Conventions
 
