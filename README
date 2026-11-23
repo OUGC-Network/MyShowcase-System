@@ -57,4 +57,5 @@ The documentation is in the Documentation folder of this repository:
 - Documentation/templates/template-reference.md: the templates of the plugin.
 - Documentation/schema/: planned changes to the database schema.
 - Documentation/pending-work.md: open items for the maintainers.
-- Documentation/history/: earlier summaries that are kept for reference.
+- Documentation/history/LANGUAGE_REFACTORING_SUMMARY.md: the change of the language keys from camelCase to snake_case,
+  kept for reference.
