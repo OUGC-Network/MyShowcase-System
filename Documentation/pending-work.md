@@ -64,7 +64,9 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | NEW-2 | Unread comments | Features | Not started | S | none |
 | NEW-3 | History records and `edit_user_id` | Data | Not started | L | none |
 | NEW-4 | Wish-list comments in `Core.php` | Features | Not started | L | none |
-| NEW-5 | Design-document known issues not re-verified | Docs, code | Open (IA-6b): 9 is an open defect (27 limit permissions, 2 enforced; PD-IA6B-3); 19 is an open defect (restore skips the soft-deleted check); 1, 2, 10, 18, 20 traced or partly checked, not run on a board. Fixed: 7, 22. 4 kept (PD-IA6B-1). Closed by design: 3, 17. Not a defect: 16 (PD-IA6B-2). See docs/import-export-design.md | S | owner decisions on 4 and 9; fix for 19 |
+| NEW-5 | Design-document known issues not re-verified | Docs, code | Open (IA-6-F): 19 fixed (ef94a81); 2, 10, 18, 22 written, not run (D348), verdict pass; 20 defect fixed (7357949), written not run. 4 moved to NEW-7, 9 moved to NEW-6. Open: 1 (PHP warnings not scanned; PD-IAF-1), 11 (LIKE wildcards in search; PD-IAF-2). See docs/import-export-design.md | S | PD-IAF-1, PD-IAF-2 |
+| NEW-6 | Limit permissions not enforced | Features, ACP | Open: 27 of 29 limit permissions are not read in src; 2 are enforced | M | owner decision (PD-IA6B-3) |
+| NEW-7 | Attachment upload box in the entry and comment forms | Front end, features | Open: the box is never built (RenderManager::buildAttachmentsUpload() returns first; the entry form passes '') | M | owner decision (PD-IA6B-1) |
 
 ## 3. Items
 
@@ -532,11 +534,53 @@ build, defer or delete.
 
 ### NEW-5. Design-document known issues not re-verified
 
-**Status (IA-6, IA-6b):** re-checked one by one against the code; the verdict table is in `docs/import-export-design.md` (section "Re-check at IA-6"). Resolved: 5, 6, 7 (IA-6b), 8, 12, 13, 14, 15, 21, 23, 22 (IA-6b, static check 3645983 and fix 79d3023). Not applicable: 11. Closed by design: 3, 17. Not a defect: 16 (search is implemented in `EntriesController::search()`; the planned 404 would break a working route; PD-IA6B-2). Kept, owner decision: 4 (PD-IA6B-1). Open defects found in IA-6b: 9 (only 2 of 27 limit permissions are enforced; PD-IA6B-3, a feature decision) and 19 (restore does not check that the item was soft-deleted, so it can approve an awaiting item; not fixed, needs a failing board test first). Traced or partly checked, not run on a board: 1 (check 7fc845b, no load fatal found), 2, 10, 18, 20. NEW-5 is therefore open. NEW-6 (search) is not added: search exists.
+**Status (IA-6-F, end of the final IA-6 run; no test executed, D348):** all 23 items are checked one by one in `docs/import-export-design.md` ("Re-check at IA-6"). Resolved: 5, 6, 7, 8, 12, 13, 14, 15, 19 (test e02127e, fix ef94a81; passed 6/6 per engine before D348), 21, 22 (fix 79d3023), 23. Written, not run, reasoning verdict pass: 2, 10, 18, 22 (`tests/features/http/new5_board.py`). Defect found by reading and fixed, written not run: 20 (check 20b in c413dc6, fix 7357949). Closed by design: 3, 17. Not a defect: 16 (search is implemented in `EntriesController::search()`; PD-IA6B-2). Moved with a pointer: 4 to NEW-7 (PD-IA6B-1, owner decision) and 9 to NEW-6 (PD-IA6B-3, owner decision). Still open: 1 (the board matrix does not scan for PHP warnings; PD-IAF-1) and 11 (search keywords: `%` and `_` are not escaped for LIKE, a live defect the documentation run does not change; PD-IAF-2). NEW-5 stays open until 1 and 11 are decided.
 
-**Current state: Cannot tell.** `docs/import-export-design.md:896-970` lists known issues such as "The field-class factory fatals
-on load" (`FieldFactory::create()`), and `:1048` says no decisions are needed. They were not re-checked against the current code.
-**What remains.** Re-check each known issue and move live ones into B9.
+**What remains.** Item 1: a scan for PHP warnings in the board matrix (PD-IAF-1). Item 11: escape `%` and `_` in the LIKE keyword
+filter, with a test first (PD-IAF-2). Then NEW-5 and G14 are done.
+
+### NEW-6. Limit permissions not enforced
+
+**Current state: Open; owner decision (PD-IA6B-3).** The ACP group tab shows the 29 limit permissions that
+`src/Security/PermissionsFactory.php` defines, all flagged `is_group_permission`. Counted from the code in this run: 2 are read in
+`src`, 27 are not. (D338 gives 25 and 27; the code gives 27 and 29 because `CanBypassDownloadLimits`, a yes/no flag read in three
+places, is not an amount and the factory defines 29 amounts. The owner should confirm the count when deciding.)
+
+- Read and enforced: `UserPermissions::EntriesLimitPostAmount` (`entries_limit_post_amount`): `EntriesManager::entryPostLimit()` and
+  `canPostEntries()`, checked in `EntriesController::create()` (refused with 403) and in the import (`EntriesImporter.php:799`).
+- Read and enforced: `UserPermissions::AttachmentsLimitUploadQuotaAmount` (`attachments_limit_upload_quota_amount`):
+  `AttachmentsManager.php:170` and `RenderManager.php:1328` and `:1339`.
+- Not read in `src` (27): `EntriesLimitViewAmount`, `EntriesLimitViewInterval`, `EntriesLimitViewIntervalAmount`,
+  `EntriesLimitPostInterval`, `EntriesLimitPostIntervalAmount`, `EntriesReputationLimitAmount`, `EntriesReputationLimitInterval`,
+  `EntriesReputationLimitIntervalAmount`, `CommentsLimitPostAmount`, `CommentsLimitPostInterval`,
+  `CommentsLimitPostIntervalAmount`, `CommentsReputationLimitAmount`, `CommentsReputationLimitInterval`,
+  `CommentsReputationLimitIntervalAmount`, `AttachmentsLimitUploadAmount`, `AttachmentsLimitUploadInterval`,
+  `AttachmentsLimitUploadIntervalAmount`, `AttachmentsLimitUploadQuotaInterval`, `AttachmentsLimitUploadQuotaIntervalAmount`,
+  `AttachmentsLimitDownloadAmount`, `AttachmentsLimitDownloadInterval`, `AttachmentsLimitDownloadIntervalAmount`,
+  `AttachmentsLimitDownloadQuotaAmount`, `AttachmentsLimitDownloadQuotaInterval`, `AttachmentsLimitDownloadQuotaIntervalAmount`,
+  `AttachmentsLimitPerEntry`, `AttachmentsLimitPerComment` (constants in `src/Enum/UserPermissions.php`, the names in snake case as
+  their values). The ACP sets them and nothing uses them.
+
+**What remains.** For each limit the owner decides what it counts and per which action; then enforce it (test first) or remove it
+from the ACP. **Default applied in this run:** no code change; the ACP keeps showing all 29.
+
+### NEW-7. Attachment upload box in the entry and comment forms
+
+**Current state: Open; owner decision (PD-IA6B-1).** The code, as read in this run:
+
+- `RenderManager::buildAttachmentsUpload()` (`src/Service/RenderManager.php:1272`) returns `''` as its first statement (line 1276).
+  The code after that return is the only code that builds the box.
+- The entry form sets `attachmentsUpload` to `''` (`src/Controller/EntriesController.php:1355`), so the entry form never shows it.
+  The comment form calls the builder (`src/Controller/CommentsController.php:161`) and receives `''`.
+- Upload works through the upload API, for entries only: `EntryCreateUploadApi`, `/{showcase}/update/{post_hash}/upload`
+  (`src/Routing/Routing.php:235-243`), for an entry being created; and `EntryUpdateUploadApi`,
+  `/{showcase}/api/view/{entry_public_id}/upload` (`Routing.php:275-283`), for an existing entry. The tests are in
+  `tests/features/http/features.py`: the `upload` helper (line 94) and the uploads at lines 256 and 476. No route uploads a file for a
+  comment; a comment's draft files are linked to the new comment by its `post_hash` (`src/Service/CommentsManager.php:311`).
+
+**What remains.** The owner chooses one: (a) bring the box back: the entry form stops passing `''`, the builder's body runs, and a
+comment upload route is designed first; or (b) remove the body and the two placeholders (`RenderManager.php:1276`,
+`EntriesController.php:1355`) and keep the `post_hash` link for drafts. **Default applied in this run:** no code change.
 
 ### Proposed decisions (defaults applied)
 
@@ -552,6 +596,8 @@ on load" (`FieldFactory::create()`), and `:1048` says no decisions are needed. T
 | P8 | Final regression list | Every runner listed under FR1, serial, each engine each runner supports. |
 | P9 | Documentation fixes | Made in the batch that touches the code, plus one small documentation batch for the gaps in section 4. |
 | P10 | `url_mode` numbering | Settled and done: the query form is value 3; Automatic's fallback is the query form. |
+| PD-IAF-1 | Item 1 of the IA-6 re-check: scan the board matrix for PHP warnings and notices | Not added in IA-6-F (no run was possible, D348); the owner's run decides: add the scan to `tests/fields/http/run.py` with the known-failure list updated from its output. |
+| PD-IAF-2 | Item 11 of the IA-6 re-check: `%` and `_` in search keywords | Not changed in IA-6-F (documentation-only run); the default for the next code run: escape `%`, `_` and the escape character for LIKE, per engine, with a failing test first. |
 
 ## 4. Documentation gaps
 
@@ -572,7 +618,7 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 | G11 | `Documentation/README.txt:55-58`: permissions are the "same values the ACP group form shows" | No document tabulates the default values; the code defaults sit in `Plugin/Functions.php` and `Core.php` |
 | G12 | Root `README` (13 lines) | It contains template-edit code, not a description of the plugin |
 | G13 | `LANGUAGE_REFACTORING_SUMMARY.md` | A historical summary at the root; linked from no document (unverified) |
-| G14 | `docs/import-export-design.md:896-970` known issues | Open (IA-6b): item 9 (PD-IA6B-3) and item 19 are open defects; items 1, 2, 10, 18, 20 are traced or partly checked; item 4 is an owner decision (PD-IA6B-1). Items 3, 7, 16, 17, 22 are settled (see NEW-5) |
+| G14 | `docs/import-export-design.md:896-970` known issues | Open (IA-6-F): item 1 (PD-IAF-1) and item 11 (PD-IAF-2) are open; items 4 and 9 moved to NEW-7 and NEW-6 (PD-IA6B-1, PD-IA6B-3); 19 fixed; 2, 10, 18, 20, 22 written, not run (D348). Items 3, 7, 8, 12 to 17, 21, 23 are settled (see NEW-5) |
 | G15 (fixed, 4e1866c) | `Documentation/showcases/url-option.md:19-90` (three modes) | Rewritten for the four values (commit 4e1866c). |
 
 ## 5. TODO and FIXME inventory
