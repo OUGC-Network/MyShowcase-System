@@ -11,7 +11,14 @@
   22  ACP moderator delete link: a valid my_post_key deletes the row and the moderator cache entry; an invalid or missing key
       deletes nothing and shows the error.
 
+  1   every field html type of the FieldKit showcase (one per type, first field of each type): the create form, the post
+      response and, when an entry is stored, its entry page contain no "Warning:", "Notice:", "Deprecated:" or "Fatal error",
+      and the board's error.log and the server's PHP log gain no message during that type (decision D355). Entries are posted
+      with a generic value for the text-like types only; a type whose required fields the generic value does not fill is
+      refused, and its pages are still scanned;
+
 Expected results on the code of agent/integrity-audit-6 at the start of this run, by reading (not executed):
+  1: unknown until run (the matrix does not scan for PHP warnings, so this is the first scan of those pages);
   2, 10, 18, 22: pass (the code paths are as the checks assume; see docs/import-export-design.md, "Re-check at IA-6");
   20: FAILS before the fix. The front page reads the moderator TYPE column as a usergroup id, so a group moderator row is
       listed under the usergroup whose id is 1 (MODERATOR_TYPE_GROUP), not under the group it names. Check 20b fails.
@@ -20,7 +27,7 @@ Expected results on the code of agent/integrity-audit-6 at the start of this run
 
 Exit code 1 if a check fails.
 """
-import argparse, json, os, re, sys
+import argparse, json, os, re, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', '..', 'json-sync', 'http'))
@@ -222,6 +229,70 @@ def main():
         r = acp.get(base + '&my_post_key=' + acp.post_key)
         ok(rows() == 0 and not cached(),
            f'22c: a valid my_post_key deletes the row and the cache entry [rows {rows()}, cached {cached()}]')
+
+        # ---------------------------------------------------------------- item 1: every field html type
+        print('--- item 1: one entry per field html type, no warning, notice, deprecation or fatal error')
+        fields_dir = os.path.join(HERE, '..', '..', 'fields')
+        imp = os.path.join(board_dir, 'inc', 'plugins', 'myshowcase', 'imports', 'JSON')
+        shutil.copy(os.path.join(fields_dir, 'collections', 'fieldkit.json'), os.path.join(imp, 'collections', 'fieldkit.json'))
+        shutil.copy(os.path.join(fields_dir, 'showcases', 'fieldkit.json'), os.path.join(imp, 'showcases', 'fieldkit.json'))
+        for action in ('preview', 'run'):
+            acp.post(adm, {'action': action, 'mode': 'create', 'type': 'showcase', 'file': 'showcases/fieldkit.json', 'name': 'FieldKit',
+                           'route_identifier': 'fieldkit', 'custom_template_prefix': ''})
+        php(board_dir, 'enable', 'fieldkit')
+        fieldkit = json.load(open(os.path.join(fields_dir, 'collections', 'fieldkit.json')))
+        first_of_type = {}
+        for f in fieldkit['fields']:
+            first_of_type.setdefault(f['html_type'], f)
+
+        # the generic values of the text-like types; the choice, file and user/entry/thread types are scanned without a value
+        generic = {'text': 'Hello', 'textarea': 'Hello', 'email': 'a@example.com', 'url': 'https://example.com', 'tel': '0123456789',
+                   'password': 'Passw0rd!x', 'search': 'Hello', 'number': '5', 'range': '5', 'color': '#336699',
+                   'date': '2026-01-02', 'datetime-local': '2026-01-02T10:00', 'time': '10:00', 'month': '2026-01', 'week': '2026-W01'}
+        php_log = os.path.join(a.scratch, f'php_{a.engine}.log')
+        board_log = os.path.join(board_dir, 'error.log')
+        marks = {}
+
+        def log_mark(path):
+            marks[path] = os.path.getsize(path) if os.path.exists(path) else 0
+
+        def log_since(path):
+            """The bytes added to a log since its mark, and the mark moves to the end (so each type reads its own lines)."""
+            if not os.path.exists(path):
+                return ''
+            with open(path, 'rb') as handle:
+                handle.seek(marks.get(path, 0))
+                text = handle.read().decode('utf-8', errors='replace')
+            log_mark(path)
+            return text
+
+        for path in (php_log, board_log):
+            log_mark(path)
+        warning = re.compile(r'Warning:|Notice:|Deprecated:|Fatal error')
+        covered = 0
+        for html_type, f in first_of_type.items():
+            form = member.get('/showcase.php/fieldkit/create')
+            pages = [('create form', form)]
+            hash_match = re.search(r'name="post_hash"\s+value="([^"]*)"', form['body'])
+            token = f'Type {html_type} {os.urandom(2).hex()}'
+            data = {'subject': token, 'message': f'Entry for {html_type}', 'post_hash': hash_match.group(1) if hash_match else '',
+                    'my_post_key': post_key(form['body']), 'submit': 'Post'}
+            if html_type in generic:
+                data[f['field_key']] = generic[html_type]
+            pages.append(('post response', member.post('/showcase.php/fieldkit/create', data)))
+            made = entry('fieldkit', 'subject', token)
+            if made:
+                pages.append(('entry page', member.get(f"/showcase.php/fieldkit/view/{made['public_id']}/fresh")))
+            found = {label: sorted(set(warning.findall(r['body']))) for label, r in pages}
+            found = {label: w for label, w in found.items() if w}
+            logged = log_since(php_log) + log_since(board_log)
+            noise = [line for line in logged.splitlines() if warning.search(line) or '<message>' in line]
+            ok(not found and not noise,
+               f'1: {html_type} ({f["field_key"]}): no warning, notice, deprecation or fatal error in the pages or the logs '
+               f'[entry {"stored" if made else "not stored"}; in pages {found or "none"}; in logs {len(noise)} lines]')
+            covered += 1
+        ok(covered == len(first_of_type) and covered >= 20,
+           f'1 coverage: one entry attempt for each of the {covered} field html types of FieldKit')
     except Exception as e:  # a crash is a failed check, reported with the summary below
         FAILS.append(f'the run stopped: {e}')
         print('FAIL the run stopped:', e)
