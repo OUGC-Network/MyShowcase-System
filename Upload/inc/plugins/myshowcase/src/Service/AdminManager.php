@@ -569,6 +569,18 @@ EOL;
                         );
                     }
 
+                    if ($is_create_page) {
+                        $presetJson = trim((string)($this->showcase_input['install_preset_json'] ?? ''));
+
+                        if ($presetJson !== '' && ($showcase_data['custom_template_prefix'] ?? '') === '') {
+                            $presetPrefix = TemplateSelection::presetPackageForShowcaseJsonFile($presetJson);
+
+                            if ($presetPrefix !== '') {
+                                $showcase_data['custom_template_prefix'] = $presetPrefix;
+                            }
+                        }
+                    }
+
                     foreach ((new ShowcaseService($this->cache_manager))->validate($showcase_data, $this->showcase_id) as $error) {
                         $error_messages[] = $this->language->{$error['key']} ?? $error['message'];
                     }
@@ -800,6 +812,26 @@ EOL;
                     ($this->language->{'myshowcase_admin_summary_create_update_' . $field_name . '_description'} ?? 'myshowcase_admin_summary_create_update_' . $field_name . '_description')
                     . ($isManaged ? JsonUi::managedNote() : ''),
                     $isManaged ? JsonUi::disable($settingHtml) : $settingHtml
+                );
+            }
+
+            if ($category_key === 'general' && $is_create_page) {
+                $presetOptions = [
+                    '' => $this->language->myshowcase_admin_summary_install_preset_json_none ?? 'No preset',
+                    'showcases/blog.json' => $this->language->myshowcase_admin_summary_install_preset_json_blog ?? 'Blog',
+                    'showcases/downloads.json' => $this->language->myshowcase_admin_summary_install_preset_json_downloads ?? 'Downloads',
+                    'showcases/gallery.json' => $this->language->myshowcase_admin_summary_install_preset_json_gallery ?? 'Gallery',
+                ];
+
+                $form_container->output_row(
+                    $this->language->myshowcase_admin_summary_install_preset_json ?? 'Shipped showcase preset',
+                    $this->language->myshowcase_admin_summary_install_preset_json_description ?? 'When you leave the template set empty, the matching blog, downloads or gallery folder is selected.',
+                    $form->generate_select_box(
+                        'showcase[install_preset_json]',
+                        $presetOptions,
+                        (string)($this->mybb->input['showcase']['install_preset_json'] ?? ''),
+                        ['id' => 'install_preset_json']
+                    )
                 );
             }
 
