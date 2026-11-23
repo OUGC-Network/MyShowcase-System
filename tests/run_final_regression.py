@@ -19,8 +19,11 @@
   --from        resume from this runner (its name); the runs before it in the order are skipped.
 
 Each run's full output goes to its own log file in --logs. The console shows one line per run and, at the end, a table
-(runner, engine, passed, failed, exit code) and the FAIL lines of each failed run (at most 20 per run).
-Exit code 0 only when every run exits 0.
+(runner, engine, passed, failed, exit code) and the FAIL lines of each failed run (at most 40 lines per run; a row of tildes
+is shown with the 3 lines above it). A run that reports no checks counts as failed (D372), unless it is listed in NO_COUNT.
+The runners' counts: "N passed, M failed"; "N checks, M failed" (url-mode/run.php: passed = N - M); "cells: N; failing: M"
+(access_matrix.py: passed = N - M, the matrix's cells); "cells {'pass': N, ...}" (fields/http/run.py: its pass cells).
+Exit code 0 only when every run exits 0 and reports checks.
 
 Engine-free runners run once (engine "static"). Board runners run once per selected engine, in the order sqlite, mysql,
 pgsql. Runners are never run in parallel: each one starts and stops its own PHP server on its own port.
@@ -89,6 +92,21 @@ BOARD = [
 PASS_PATTERNS = [re.compile(r'(\d+) passed'), re.compile(r'checks passed: (\d+)')]
 FAIL_PATTERNS = [re.compile(r'(\d+) failed')]
 FAIL_LINE = re.compile(r'^\s*(FAIL\b|FAILED:|  FAILED)')
+RULE_ROW = re.compile(r'^\s*~{5,}\s*$')  # MyBB's CLI error block opens and closes with a row of tildes
+RULE_IN = re.compile(r'~{5,}')
+
+# The summary line each runner prints, in the formats the runners really use (D372). The last matching line of a log counts;
+# each entry gives (passed, failed) from its match. A log without one of these lines is read with PASS_PATTERNS and FAIL_PATTERNS.
+SUMMARY = [
+    (re.compile(r'(\d+) passed, (\d+) failed'), lambda m: (int(m[1]), int(m[2]))),
+    (re.compile(r'(\d+) checks, (\d+) failed'), lambda m: (int(m[1]) - int(m[2]), int(m[2]))),  # url-mode/run.php
+    (re.compile(r'cells: (\d+); failing: (\d+)'), lambda m: (int(m[1]) - int(m[2]), int(m[2]))),  # access_matrix.py
+    (re.compile(r"cells \{'pass': (\d+)(?:, 'fail': (\d+))?"), lambda m: (int(m[1]), int(m[2] or 0))),  # fields/http/run.py
+]
+
+# Runners that truly have no countable checks may report none; the exit code is their evidence. Each entry gives the reason.
+# Empty: no run of the owner's 91 logs reported zero checks once SUMMARY is read, so a run that reports 0 checks counts as failed.
+NO_COUNT = {}
 
 
 def runner_names():
@@ -126,13 +144,44 @@ def safe_name(name):
     return re.sub(r'[^A-Za-z0-9._-]', '-', name)
 
 
+def report_lines(lines):
+    """The FAIL lines of a run, with the 3 lines before each row of tildes. A row of tildes is not the error: MyBB's CLI block
+    puts the title and the message above it, so the lines above are the ones that name the error (D372)."""
+    out = []
+    rows = 0
+    for i, line in enumerate(lines):
+        if FAIL_LINE.match(line):
+            if RULE_IN.search(line):
+                out.append(RULE_IN.sub('', line).rstrip() + '   [its rule row: the 3 lines before it follow]')
+                out.extend('    | ' + x.strip() for x in lines[max(0, i - 3):i] if x.strip())
+            else:
+                out.append(line)
+        elif RULE_ROW.match(line) and rows < 2:
+            rows += 1
+            out.append('  a row of tildes; the 3 lines before it:')
+            out.extend('    | ' + x.strip() for x in lines[max(0, i - 3):i] if x.strip())
+    return out
+
+
 def summarize(text, code):
     lines = text.splitlines()
-    passed = [int(x) for pat in PASS_PATTERNS for x in pat.findall(text)]
-    failed = [int(x) for pat in FAIL_PATTERNS for x in pat.findall(text)]
-    fail_lines = [l for l in lines if FAIL_LINE.match(l)]
-    n_pass = passed[-1] if passed else sum(1 for l in lines if l.startswith('PASS '))
-    n_fail = failed[-1] if failed else len(fail_lines)
+    fail_lines = report_lines(lines)
+    counted = None
+    for line in reversed(lines):
+        for pattern, how in SUMMARY:
+            m = pattern.search(line)
+            if m:
+                counted = how(m)
+                break
+        if counted:
+            break
+    if counted:
+        n_pass, n_fail = counted
+    else:
+        passed = [int(x) for pat in PASS_PATTERNS for x in pat.findall(text)]
+        failed = [int(x) for pat in FAIL_PATTERNS for x in pat.findall(text)]
+        n_pass = passed[-1] if passed else sum(1 for l in lines if l.startswith('PASS '))
+        n_fail = failed[-1] if failed else sum(1 for l in lines if FAIL_LINE.match(l))
     if code != 0 and n_fail == 0:
         n_fail = 1  # the run failed without a count of its own: its exit code is the evidence
     return n_pass, n_fail, fail_lines
@@ -214,20 +263,25 @@ def main():
             code = subprocess.run(cmd, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT).returncode
         text = open(log_path, encoding='utf-8', errors='replace').read()
         n_pass, n_fail, fail_lines = summarize(text, code)
-        results.append((name, engine, n_pass, n_fail, code, fail_lines, log_path))
+        # a run that reports no checks counts as failed, unless the runner is listed in NO_COUNT with its reason (D372)
+        zero = n_pass + n_fail == 0 and name not in NO_COUNT
+        if zero:
+            n_fail = 1
+            fail_lines = ['no checks reported: the run counts as failed (D372); see the log'] + fail_lines
+        results.append((name, engine, n_pass, n_fail, code, fail_lines, log_path, zero))
         print(f'      {label}: passed {n_pass}, failed {n_fail}, exit {code}, log {log_path}', flush=True)
 
     print('\n| runner | engine | passed | failed | exit code |')
     print('|---|---|---:|---:|---:|')
-    for name, engine, n_pass, n_fail, code, _, _ in results:
+    for name, engine, n_pass, n_fail, code, _, _, _ in results:
         print(f'| {name} | {engine} | {n_pass} | {n_fail} | {code} |')
-    for name, engine, _, _, code, fail_lines, log_path in results:
-        if code != 0:
-            print(f'\nFAIL lines of {name} ({engine}), log {log_path} (at most 20):')
-            for line in fail_lines[:20] or ['  (no FAIL line: the exit code is the only evidence; see the log)']:
+    for name, engine, _, n_fail, code, fail_lines, log_path, _ in results:
+        if code != 0 or n_fail:
+            print(f'\nFAIL lines of {name} ({engine}), log {log_path} (at most 40 lines):')
+            for line in fail_lines[:40] or ['  (no FAIL line: the exit code is the only evidence; see the log)']:
                 print('  ' + line.strip())
-    overall = all(r[4] == 0 for r in results)
-    print(f'\n{"ALL GREEN" if overall else "NOT GREEN"}: {sum(1 for r in results if r[4] == 0)} of {len(results)} runs exit 0.')
+    overall = all(r[4] == 0 and not r[7] for r in results)
+    print(f'\n{"ALL GREEN" if overall else "NOT GREEN"}: {sum(1 for r in results if r[4] == 0 and not r[7])} of {len(results)} runs exit 0 and report checks.')
     return 0 if overall else 1
 
 
