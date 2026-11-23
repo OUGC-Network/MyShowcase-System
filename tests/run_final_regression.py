@@ -121,6 +121,11 @@ def check_php(php):
         sys.exit(f'--php must be a PHP 8.2 binary; {php} is {version or "unknown"}')
 
 
+def safe_name(name):
+    """A runner name as one file or folder name: every character outside [A-Za-z0-9._-] becomes '-'."""
+    return re.sub(r'[^A-Za-z0-9._-]', '-', name)
+
+
 def summarize(text, code):
     lines = text.splitlines()
     passed = [int(x) for pat in PASS_PATTERNS for x in pat.findall(text)]
@@ -197,10 +202,11 @@ def main():
         elif kind == 'py':
             cmd = [sys.executable, os.path.join(REPO, path)]
         else:
-            scratch = os.path.join(a.logs, 'scratch', f'{number:02d}-{name}-{engine}')
+            scratch = os.path.join(a.logs, 'scratch', f'{number:02d}-{safe_name(name)}-{engine}')
             os.makedirs(scratch, exist_ok=True)
             cmd = [sys.executable, os.path.join(REPO, path), '--engine', engine, '--mybb', a.mybb, '--scratch', scratch] + extra
-        log_path = os.path.join(a.logs, f'{number:02d}-{name}-{engine}.log')
+        # a runner's name can contain '/' (tests/util/run.php): the log file name must not make a folder of it
+        log_path = os.path.join(a.logs, f'{number:02d}-{safe_name(name)}-{engine}.log')
         print(f'[{number:02d}/{len(runs)}] running {label} ...', flush=True)
         with open(log_path, 'w', encoding='utf-8') as log:
             log.write('$ ' + ' '.join(cmd) + '\n')
