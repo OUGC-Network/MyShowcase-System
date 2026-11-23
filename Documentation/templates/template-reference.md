@@ -306,8 +306,12 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
 * **Preset defaults:** creating a showcase from `showcases/blog.json`, `showcases/downloads.json`, or
   `showcases/gallery.json` via JSON sync defaults the prefix to the matching folder when the form omits
   `custom_template_prefix`. An explicit empty value keeps the global templates.
-  On ACP Summary **create**, the optional **Shipped showcase preset** control applies the same mapping when the
-  template set is left at global templates (none); an explicit template set choice always wins.
+  On ACP Summary **create**, the template set defaults to **Use preset template package** (`presetdefault`).
+  With that choice, the optional **Shipped showcase preset** control applies the matching folder.
+  Choosing **Global templates (none)** or a named package is always stored as typed.
+* **Optional package CSS:** `partialPackageStyles.twig` is optional. Parent pages call
+  `showcase_template_exists('partialPackageStyles')` before including styles; a custom set with unrelated
+  overrides only still renders.
 * **Visitor toggle:** `partialTemplateViewToggle.twig` on the main list, entry view, and create/edit form posts
   `myshowcase_action=template_view` with `template_view_mode` `c` (configured package) or `g` (global templates).
   Preferences are stored in the session cookie `myshowcase_tpl_prefs` keyed by `showcase_id` (JSON object keys may
@@ -315,7 +319,12 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
   Toggle POST and return URLs are built through `Routing::url()`; `template_return_route` plus optional entry ids
   select the return destination. Template context: `template_effective_prefix`, `template_visitor_mode`,
   `template_show_view_toggle`, `url_template_view_post`, `template_return_route`.
-* **Gallery list:** when the effective package is `gallery`, entry rows inside the sticky/normal lists use
-  `myshowcase-gallery-entries` grid CSS; sorting and moderation controls stay outside the grid.
-* **Entry view:** `pageView` / `pageViewEntry` add `myshowcase-entry-view--{package}` and
-  `myshowcase-package-entry--{package}` classes; each package supplies `partialPackageStyles.twig` once per page.
+* **Gallery list:** when the effective package is `gallery`, the sticky and normal entry loops render **inside**
+  the `myshowcase-gallery-entries` grid containers; sorting and moderation controls stay outside the grid.
+* **Entry view:** each shipped package provides `pageViewEntry.twig` (article, resource, or image-forward layout).
+  `pageView` / `pageViewEntry` add `myshowcase-entry-view--{package}` and `myshowcase-package-entry--{package}`
+  classes; package CSS is included at most once per page when the partial exists.
+* **Twig helpers:** `showcase_template()` resolves package-first nested includes; `showcase_template_exists()`
+  checks whether the resolved template is on disk before optional includes.
+* **Profile links in new package templates:** use `url(get_profile_link(uid))` for absolute board URLs (MyBB
+  `UrlExtension`), not manual `bburl` concatenation.
