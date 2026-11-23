@@ -57,6 +57,7 @@ use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 
 use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\MODERATOR_TYPE_GROUP;
 
 class EntriesController extends BaseController
 {
@@ -304,12 +305,17 @@ class EntriesController extends BaseController
             );
 
             foreach ($moderators_repository->queryModerators(query_fields: ['user_id', 'group_id']) as $moderator) {
-                if ($moderator['group_id'] &&
-                    $group_data = $this->context->mybb->cache->read('usergroups')[$moderator['group_id']]) {
-                    $templatesContext['moderators']['groups'][$moderator['group_id']] = [
-                        'title' => $group_data['title'],
-                        'group_id' => $moderator['group_id'],
-                    ];
+                // group_id is the row type (ModeratorsRepository::matchesUser()): a group row's user_id is a usergroup id,
+                // a user row's user_id is a user id. A group row is listed under its own usergroup only.
+                if ((int)$moderator['group_id'] === MODERATOR_TYPE_GROUP) {
+                    $group_id = (int)$moderator['user_id'];
+
+                    if ($group_data = $this->context->mybb->cache->read('usergroups')[$group_id] ?? null) {
+                        $templatesContext['moderators']['groups'][$group_id] = [
+                            'title' => $group_data['title'],
+                            'group_id' => $group_id,
+                        ];
+                    }
                 } elseif ($user_data = get_user($moderator['user_id'])) {
                     $templatesContext['moderators']['users'][$moderator['user_id']] = [
                         'user_id' => $moderator['user_id'],
