@@ -102,6 +102,9 @@ def main():
         acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'showcase', 'file': 'showcases/blog.json', 'name': 'Blog',
                        'route_identifier': 'blog', 'custom_template_prefix': ''})
         php(board_dir, 'enable', 'blog')
+        # the uploads folder and the PNG attachment type of the blog, as the other attachment runners set them: the shipped
+        # showcase JSON leaves the uploads path empty, and the attachment fixture then cannot copy its file (item 10 setup)
+        php(board_dir, 'types', 'blog')
         php(board_dir, 'setting', 'seourls', 'no')
         users_file = os.path.join(a.scratch, 'users.json')
         php(board_dir, 'users', users_file)
