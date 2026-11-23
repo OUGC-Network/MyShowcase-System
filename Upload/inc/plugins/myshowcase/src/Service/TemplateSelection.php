@@ -23,6 +23,9 @@ final class TemplateSelection
 
     public const MODE_GLOBAL = 'g';
 
+    /** Create-form sentinel: apply the shipped preset template package when a preset is chosen (TP-D3 C). */
+    public const TEMPLATE_PREFIX_USE_PRESET = 'presetdefault';
+
     public const RETURN_ROUTE_MAIN = 'main';
 
     public const RETURN_ROUTE_ENTRY_VIEW = 'entry_view';
@@ -70,6 +73,24 @@ final class TemplateSelection
         }
 
         return $prefix;
+    }
+
+    /**
+     * Resolves the stored template prefix on ACP Summary create from the raw select value and optional preset file.
+     */
+    public static function resolveCreateTemplatePrefix(string $rawPrefix, string $presetJsonFile): string
+    {
+        if ($rawPrefix === self::TEMPLATE_PREFIX_USE_PRESET) {
+            $presetJsonFile = trim($presetJsonFile);
+
+            if ($presetJsonFile === '') {
+                return '';
+            }
+
+            return self::presetPackageForShowcaseJsonFile($presetJsonFile);
+        }
+
+        return ShowcaseService::normalizeTemplatePrefix($rawPrefix);
     }
 
     /**

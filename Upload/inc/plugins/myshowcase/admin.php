@@ -682,7 +682,11 @@ function buildPermissionsRow(
             } elseif ($definition['input_type'] === FormTypes::SelectUrlMode) {
                 $select_array = (new SelectableLists($lang))->urlModesList();
             } elseif ($definition['input_type'] === FormTypes::SelectTemplateSet) {
-                $select_array = (new SelectableLists($lang))->templateSetsList((string)($input[$name] ?? $mybb->get_input($name)));
+                $isCreateForm = empty($showcase_config['showcase_id']);
+                $select_array = (new SelectableLists($lang))->templateSetsList(
+                    (string)($input[$name] ?? $mybb->get_input($name)),
+                    $isCreateForm
+                );
             } else {
                 $select_array = [
                     0 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_none'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_none',

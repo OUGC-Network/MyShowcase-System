@@ -563,22 +563,17 @@ EOL;
                         $error_messages[] = $this->language->myshowcase_admin_error_duplicated_script_file;
                     }
 
-                    if (isset($showcase_data['custom_template_prefix'])) {
+                    if ($is_create_page) {
+                        $rawTemplatePrefix = (string)($this->showcase_input['custom_template_prefix'] ?? TemplateSelection::TEMPLATE_PREFIX_USE_PRESET);
+                        $presetJson = (string)($this->showcase_input['install_preset_json'] ?? '');
+                        $showcase_data['custom_template_prefix'] = TemplateSelection::resolveCreateTemplatePrefix(
+                            $rawTemplatePrefix,
+                            $presetJson
+                        );
+                    } elseif (isset($showcase_data['custom_template_prefix'])) {
                         $showcase_data['custom_template_prefix'] = ShowcaseService::normalizeTemplatePrefix(
                             $showcase_data['custom_template_prefix']
                         );
-                    }
-
-                    if ($is_create_page) {
-                        $presetJson = trim((string)($this->showcase_input['install_preset_json'] ?? ''));
-
-                        if ($presetJson !== '' && ($showcase_data['custom_template_prefix'] ?? '') === '') {
-                            $presetPrefix = TemplateSelection::presetPackageForShowcaseJsonFile($presetJson);
-
-                            if ($presetPrefix !== '') {
-                                $showcase_data['custom_template_prefix'] = $presetPrefix;
-                            }
-                        }
                     }
 
                     foreach ((new ShowcaseService($this->cache_manager))->validate($showcase_data, $this->showcase_id) as $error) {
@@ -817,15 +812,15 @@ EOL;
 
             if ($category_key === 'general' && $is_create_page) {
                 $presetOptions = [
-                    '' => $this->language->myshowcase_admin_summary_install_preset_json_none ?? 'No preset',
-                    'showcases/blog.json' => $this->language->myshowcase_admin_summary_install_preset_json_blog ?? 'Blog',
-                    'showcases/downloads.json' => $this->language->myshowcase_admin_summary_install_preset_json_downloads ?? 'Downloads',
-                    'showcases/gallery.json' => $this->language->myshowcase_admin_summary_install_preset_json_gallery ?? 'Gallery',
+                    '' => $this->language->myshowcase_admin_summary_install_preset_json_none,
+                    'showcases/blog.json' => $this->language->myshowcase_admin_summary_install_preset_json_blog,
+                    'showcases/downloads.json' => $this->language->myshowcase_admin_summary_install_preset_json_downloads,
+                    'showcases/gallery.json' => $this->language->myshowcase_admin_summary_install_preset_json_gallery,
                 ];
 
                 $form_container->output_row(
-                    $this->language->myshowcase_admin_summary_install_preset_json ?? 'Shipped showcase preset',
-                    $this->language->myshowcase_admin_summary_install_preset_json_description ?? 'When you leave the template set empty, the matching blog, downloads or gallery folder is selected.',
+                    $this->language->myshowcase_admin_summary_install_preset_json,
+                    $this->language->myshowcase_admin_summary_install_preset_json_description,
                     $form->generate_select_box(
                         'showcase[install_preset_json]',
                         $presetOptions,

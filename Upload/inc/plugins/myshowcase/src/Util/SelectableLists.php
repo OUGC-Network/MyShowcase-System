@@ -21,6 +21,7 @@ use MyShowcase\Enum\SortFields;
 use MyShowcase\Enum\WatermarkLocations;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\ShowcaseService;
+use MyShowcase\Service\TemplateSelection;
 use MysqlPdoDbDriver;
 use PostgresPdoDbDriver;
 
@@ -117,9 +118,16 @@ readonly class SelectableLists
      * The global templates and every template set (folder of view/templates). A stored prefix whose folder no longer
      * exists is listed as missing so that the form keeps it until another choice is saved.
      */
-    public function templateSetsList(string $current = ''): array
+    public function templateSetsList(string $current = '', bool $forCreate = false): array
     {
-        $list = ['' => $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_global ?? 'Global templates (none)'];
+        $list = [];
+
+        if ($forCreate) {
+            $list[TemplateSelection::TEMPLATE_PREFIX_USE_PRESET] =
+                $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_preset_default;
+        }
+
+        $list[''] = $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_global;
 
         foreach (ShowcaseService::templateSets() as $set) {
             $list[$set] = $set;
@@ -127,7 +135,7 @@ readonly class SelectableLists
 
         if ($current !== '' && !isset($list[$current])) {
             $list[$current] = $this->language->sprintf(
-                $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_missing ?? '{1} (missing)',
+                $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_missing,
                 $current
             );
         }
