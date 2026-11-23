@@ -64,7 +64,7 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | NEW-2 | Unread comments | Features | Not started | S | none |
 | NEW-3 | History records and `edit_user_id` | Data | Not started | L | none |
 | NEW-4 | Wish-list comments in `Core.php` | Features | Not started | L | none |
-| NEW-5 | Design-document known issues not re-verified | Docs, code | Open (IA-6-F): 19 fixed (ef94a81); 2, 10, 18, 22 written, not run (D348), verdict pass; 20 defect fixed (7357949), written not run. 4 moved to NEW-7, 9 moved to NEW-6. Open: 1 (PHP warnings not scanned; PD-IAF-1), 11 (LIKE wildcards in search; PD-IAF-2). See docs/import-export-design.md | S | PD-IAF-1, PD-IAF-2 |
+| NEW-5 | Design-document known issues not re-verified | Docs, code | Done (IA-6-F and IAF): 19 fixed (ef94a81); 2, 10, 18, 22 written, not run (D348), verdict pass; 20 defect fixed (7357949), written not run; 1 scan added (1f1b7a6, D355), written not run; 11 test (eff0603) and fix (de984e2, D356), written not run. 4 moved to NEW-7, 9 moved to NEW-6. See docs/import-export-design.md | S | PD-IAF-1, PD-IAF-2 (decided, D355 and D356) |
 | NEW-6 | Limit permissions not enforced | Features, ACP | Open: 27 of 29 limit permissions are not read in src; 2 are enforced | M | owner decision (PD-IA6B-3) |
 | NEW-7 | Attachment upload box in the entry and comment forms | Front end, features | Open: the box is never built (RenderManager::buildAttachmentsUpload() returns first; the entry form passes '') | M | owner decision (PD-IA6B-1) |
 
@@ -534,10 +534,9 @@ build, defer or delete.
 
 ### NEW-5. Design-document known issues not re-verified
 
-**Status (IA-6-F, end of the final IA-6 run; no test executed, D348):** all 23 items are checked one by one in `docs/import-export-design.md` ("Re-check at IA-6"). Resolved: 5, 6, 7, 8, 12, 13, 14, 15, 19 (test e02127e, fix ef94a81; passed 6/6 per engine before D348), 21, 22 (fix 79d3023), 23. Written, not run, reasoning verdict pass: 2, 10, 18, 22 (`tests/features/http/new5_board.py`). Defect found by reading and fixed, written not run: 20 (check 20b in c413dc6, fix 7357949). Closed by design: 3, 17. Not a defect: 16 (search is implemented in `EntriesController::search()`; PD-IA6B-2). Moved with a pointer: 4 to NEW-7 (PD-IA6B-1, owner decision) and 9 to NEW-6 (PD-IA6B-3, owner decision). Still open: 1 (the board matrix does not scan for PHP warnings; PD-IAF-1) and 11 (search keywords: `%` and `_` are not escaped for LIKE, a live defect the documentation run does not change; PD-IAF-2). NEW-5 stays open until 1 and 11 are decided.
+**Status (IA-6-F, end of the final IA-6 run; no test executed, D348):** all 23 items are checked one by one in `docs/import-export-design.md` ("Re-check at IA-6"). Resolved: 5, 6, 7, 8, 12, 13, 14, 15, 19 (test e02127e, fix ef94a81; passed 6/6 per engine before D348), 21, 22 (fix 79d3023), 23. Written, not run, reasoning verdict pass: 2, 10, 18, 22 (`tests/features/http/new5_board.py`). Defect found by reading and fixed, written not run: 20 (check 20b in c413dc6, fix 7357949). Closed by design: 3, 17. Not a defect: 16 (search is implemented in `EntriesController::search()`; PD-IA6B-2). Moved with a pointer: 4 to NEW-7 (PD-IA6B-1, owner decision) and 9 to NEW-6 (PD-IA6B-3, owner decision). Item 1 (IAF, decision D355): a PHP warning scan of every field html type, section "item 1" of `new5_board.py` (commit 1f1b7a6). Item 11 (IAF, decision D356): the test first (eff0603, checks 11a and 11b), then the fix (de984e2): `%` and `_` are escaped with `!` and the LIKE clause has `ESCAPE '!'`. All of these are written, not run (D348).
 
-**What remains.** Item 1: a scan for PHP warnings in the board matrix (PD-IAF-1). Item 11: escape `%` and `_` in the LIKE keyword
-filter, with a test first (PD-IAF-2). Then NEW-5 and G14 are done.
+**What remains.** Nothing open in NEW-5. The owner's run (D349) decides whether the written checks pass; the expected results are in the commit messages and in `new5_board.py`.
 
 ### NEW-6. Limit permissions not enforced
 
@@ -596,8 +595,8 @@ comment upload route is designed first; or (b) remove the body and the two place
 | P8 | Final regression list | Every runner listed under FR1, serial, each engine each runner supports. |
 | P9 | Documentation fixes | Made in the batch that touches the code, plus one small documentation batch for the gaps in section 4. |
 | P10 | `url_mode` numbering | Settled and done: the query form is value 3; Automatic's fallback is the query form. |
-| PD-IAF-1 | Item 1 of the IA-6 re-check: scan the board matrix for PHP warnings and notices | Not added in IA-6-F (no run was possible, D348); the owner's run decides: add the scan to `tests/fields/http/run.py` with the known-failure list updated from its output. |
-| PD-IAF-2 | Item 11 of the IA-6 re-check: `%` and `_` in search keywords | Not changed in IA-6-F (documentation-only run); the default for the next code run: escape `%`, `_` and the escape character for LIKE, per engine, with a failing test first. |
+| PD-IAF-1 | Item 1 of the IA-6 re-check: scan for PHP warnings and notices | Decided (D355): the scan is a section of `tests/features/http/new5_board.py` (commit 1f1b7a6), not a change to the field matrix's known-failure list. Written, not run (D348); the owner's run settles it. |
+| PD-IAF-2 | Item 11 of the IA-6 re-check: `%` and `_` in search keywords | Decided (D356): test first (eff0603), then the fix (de984e2) escapes `!`, `%` and `_` with `!` and uses `ESCAPE '!'`, because MyBB's `escape_string_like()` escapes with a backslash, which needs an ESCAPE clause on SQLite and a doubled backslash on PostgreSQL. Written, not run (D348). |
 
 ## 4. Documentation gaps
 
@@ -618,7 +617,7 @@ Each row gives the documentation side and the code side. Nothing was fixed.
 | G11 | `Documentation/README.txt:55-58`: permissions are the "same values the ACP group form shows" | No document tabulates the default values; the code defaults sit in `Plugin/Functions.php` and `Core.php` |
 | G12 | Root `README` (13 lines) | It contains template-edit code, not a description of the plugin |
 | G13 | `LANGUAGE_REFACTORING_SUMMARY.md` | A historical summary at the root; linked from no document (unverified) |
-| G14 | `docs/import-export-design.md:896-970` known issues | Open (IA-6-F): item 1 (PD-IAF-1) and item 11 (PD-IAF-2) are open; items 4 and 9 moved to NEW-7 and NEW-6 (PD-IA6B-1, PD-IA6B-3); 19 fixed; 2, 10, 18, 20, 22 written, not run (D348). Items 3, 7, 8, 12 to 17, 21, 23 are settled (see NEW-5) |
+| G14 | `docs/import-export-design.md:896-970` known issues | Done (IAF): items 1 (1f1b7a6) and 11 (eff0603, de984e2) are written, not run (D355, D356); items 4 and 9 moved to NEW-7 and NEW-6 (PD-IA6B-1, PD-IA6B-3); 19 fixed; 2, 10, 18, 20, 22 written, not run (D348). Items 3, 7, 8, 12 to 17, 21, 23 are settled (see NEW-5) |
 | G15 (fixed, 4e1866c) | `Documentation/showcases/url-option.md:19-90` (three modes) | Rewritten for the four values (commit 4e1866c). |
 
 ## 5. TODO and FIXME inventory
