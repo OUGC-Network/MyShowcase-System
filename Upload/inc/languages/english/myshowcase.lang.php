@@ -160,6 +160,7 @@ $l = array_merge($l, [
     'myshowcase_main_inline_moderation_redirect_deleted' => 'The selected entries have been deleted.<br />You will now be returned to your previous location.',
     'myshowcase_error_page_not_found' => 'The page you asked for does not exist in this showcase.',
     'myshowcase_error_unexpected' => 'The request could not be completed. The cause has been written to the error log.',
+    'myshowcase_error_restore_not_deleted' => 'Only a deleted item can be restored. This one is not deleted.',
 
     'myshowcase_create_update_entry_title_create' => 'New Entry in {1}',
     'myshowcase_create_update_entry_your_message' => 'Your Message',

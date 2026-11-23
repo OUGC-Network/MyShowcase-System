@@ -437,6 +437,11 @@ class CommentsController extends BaseController
         $lang = $this->context->language;
 
         if ($restore) {
+            // Restore only acts on soft-deleted content (D337): an awaiting comment is not made visible by it.
+            if ((int)$comment->status !== ContentStatuses::SoftDeleted) {
+                $this->error($lang->myshowcase_error_restore_not_deleted, 400);
+            }
+
             $this->context->comments_repository->updateComment(
                 ['status' => ContentStatuses::VisibleApproved],
                 (int)$comment->comment_id

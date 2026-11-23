@@ -222,7 +222,11 @@ class EntriesController extends BaseController
                     $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_soft_deleted);
                     break;
                 case 'restore':
-                    $this->performBatchEntryUpdate($selected_entries, ['status' => ContentStatuses::VisibleApproved]);
+                    // Only soft-deleted entries are restored (D337); the others of the selection are skipped.
+                    $this->performBatchEntryUpdate(
+                        $selected_entries->filter(static fn(EntryEntity $entry): bool => $entry->status === ContentStatuses::SoftDeleted),
+                        ['status' => ContentStatuses::VisibleApproved]
+                    );
                     $this->redirectAfterModeration($lang->myshowcase_main_inline_moderation_redirect_restored);
                     break;
                 case 'delete':
@@ -728,6 +732,11 @@ class EntriesController extends BaseController
         }
 
         $lang = $this->context->language;
+
+        // Restore only acts on soft-deleted content (D337): an awaiting entry is not made visible by it.
+        if ($action === 'restore' && $entry->status !== ContentStatuses::SoftDeleted) {
+            $this->error($lang->myshowcase_error_restore_not_deleted, 400);
+        }
 
         if ($columns === null) {
             $this->context->entries_manager->deleteEntry($entry->entry_id);
