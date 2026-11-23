@@ -103,21 +103,6 @@ A file field writes the public URL of its file, as before. A file field that tak
 list of the URLs of the files the exporting user may download, in display order (decision D182); a file field with one file
 keeps its single URL. A file the user may not download is not written, and it is counted in the export's notes.
 
-## Option fields
-
-An export writes each select, radio and checkbox field as the **value id** of the chosen option (format version 3), which
-is the token the option has in the collection. It is not the id the option has on this board, so an option keeps its token
-on every board built from the same collection. The file itself is still meant for the same showcase on the same board: its
-users, groups and file URLs do not carry over to another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
-written empty, and the export counts those values in its notes (`options_not_exported`).
-
-A multiple-choice field (a checkbox, or a select whose `allow_multiple_values` is 1; decision D184) is written as an
-**ordered list** of the value ids of its selected options, in the option order of the field (decision D182): an indexed
-array of value ids. A multiple-choice field with no value is written empty, and a file with one value is a list of one
-or the single value id (both are read). Format version 3 is kept: the list is an additional shape of these fields.
-
-## File fields
-
 An export writes each file field of an entry as the public URL of its file (format version 2). The URL is the route the
 board serves the file through, on the showcase's address (its "Url to Showcase", or the board's address when that is
 empty):
@@ -139,6 +124,19 @@ An import of the export into the same board does not download these URLs: it cop
 fails if the importing user may not download that file. An import into another board fetches the URLs under the rules in
 [import.md](import.md#file-fields). The file's URL is only as durable as
 the file: a file deleted from the entry is no longer served at its URL.
+
+## Option fields
+
+An export writes each select, radio and checkbox field as the **value id** of the chosen option (format version 3), which
+is the token the option has in the collection. It is not the id the option has on this board, so an option keeps its token
+on every board built from the same collection. The file itself is still meant for the same showcase on the same board: its
+users, groups and file URLs do not carry over to another board. An empty field is written empty. An option that no longer exists, or that has no value id, is also
+written empty, and the export counts those values in its notes (`options_not_exported`).
+
+A multiple-choice field (a checkbox, or a select whose `allow_multiple_values` is 1; decision D184) is written as an
+**ordered list** of the value ids of its selected options, in the option order of the field (decision D182): an indexed
+array of value ids. A multiple-choice field with no value is written empty, and a file with one value is a list of one
+or the single value id (both are read). Format version 3 is kept: the list is an additional shape of these fields.
 
 ## Retention
 
