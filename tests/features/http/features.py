@@ -707,5 +707,7 @@ def run(acp):
     edit_form(j)
     main_list()
     template_set()
+    import template_packages
+    template_packages.run(acp)
     deletion(e2)
     logs()

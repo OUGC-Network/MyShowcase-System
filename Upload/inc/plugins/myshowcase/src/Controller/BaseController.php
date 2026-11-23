@@ -681,28 +681,21 @@ abstract class BaseController
             return;
         }
 
+        $this->verifyPassword();
+
         verify_post_check($this->context->mybb->get_input('my_post_key'));
 
         $mode = $this->context->mybb->get_input('template_view_mode');
 
         if ($mode !== TemplateSelection::MODE_GLOBAL && $mode !== TemplateSelection::MODE_CONFIGURED) {
-            $this->error($this->context->language->myshowcase_error_invalid_request ?? 'Invalid request', 400);
+            $this->error($this->context->language->myshowcase_error_invalid_request, 400);
         }
 
         $this->context->render_manager->templateSelection()->setVisitorMode($mode);
 
-        $return_url = Routing::normalizeUrl($this->context->mybb->get_input('return_url'));
-        $showcase_origin = Routing::originOf(
-            Routing::normalizeUrl($this->context->routing->url(Routes::Main))
-        );
-
-        if ($return_url === '' || !str_starts_with($return_url, $showcase_origin . '/')) {
-            $return_url = $this->context->routing->url(Routes::Main);
-        }
-
         redirect(
-            $return_url,
-            $this->context->language->myshowcase_template_view_redirect ?? ''
+            $this->context->render_manager->templateSelection()->buildReturnUrlFromRequest(),
+            $this->context->language->myshowcase_template_view_redirect
         );
     }
 

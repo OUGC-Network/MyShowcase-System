@@ -41,7 +41,7 @@ use MyShowcase\Repository\{AccessLogsRepository,
     ModeratorsRepository,
     SubscriptionsRepository
 };
-use MyShowcase\Service\{CommentsManager, EntriesManager};
+use MyShowcase\Service\{CommentsManager, EntriesManager, TemplateSelection};
 use MyShowcase\Util\{FieldDefaultUtil, SelectableLists, StringUtil};
 use MyShowcase\ValueObjects\EntryCustomField;
 use Random\RandomException;
@@ -132,9 +132,9 @@ class EntriesController extends BaseController
     #[Route('/', name: 'main', methods: ['GET', 'POST'])]
     public function main(): string
     {
-        $this->handleTemplateViewPreferencePost();
-
         $this->verifyPassword();
+
+        $this->handleTemplateViewPreferencePost();
 
         if ($this->context->mybb->get_input('clear_password', MyBB::INPUT_INT) === 1) {
             $this->clearPassword();
@@ -709,6 +709,8 @@ class EntriesController extends BaseController
 
         hooksRun('controller_main_intermediate', $this);
 
+        $this->context->render_manager->prepareTemplateViewToggle(TemplateSelection::RETURN_ROUTE_MAIN);
+
         return $this->context->render_manager->templateGet(
             'pageMain',
             $templatesContext
@@ -905,9 +907,9 @@ class EntriesController extends BaseController
     #[Route('/create', name: 'entry_create', methods: ['GET', 'POST'])]
     public function create(string $entry_public_id = '', bool $is_update = false): string
     {
-        $this->handleTemplateViewPreferencePost();
-
         $this->verifyPassword();
+
+        $this->handleTemplateViewPreferencePost();
 
         if (!$is_update && !$this->context->current_user->hasPermission(UserPermissions::EntriesCanPost)) {
             $this->errorNoPermission();
@@ -1430,6 +1432,14 @@ class EntriesController extends BaseController
 
         hooksRun('controller_create_end', $this);
 
+        $this->context->render_manager->prepareTemplateViewToggle(
+            $is_update ? TemplateSelection::RETURN_ROUTE_ENTRY_UPDATE : TemplateSelection::RETURN_ROUTE_ENTRY_CREATE,
+            $is_update ? [
+                'entry_public_id' => $entry->public_id,
+                'entry_slug_custom' => $entry->entry_slug_custom,
+            ] : []
+        );
+
         return $this->context->render_manager->templateGet(
             'pageEntryCreateUpdate',
             $templatesContext,
@@ -1457,9 +1467,9 @@ class EntriesController extends BaseController
     #[Route('/api/view/{entry_public_id}/{entry_slug_custom}', name: 'entries_view', methods: ['GET'])]
     public function view(string $entry_public_id, string $entry_slug_custom = '', ?string $comment_public_id = null): string
     {
-        $this->handleTemplateViewPreferencePost();
-
         $this->verifyPassword();
+
+        $this->handleTemplateViewPreferencePost();
 
         $entry = $this->context->entries_repository->fetchEntry(
             $this->context->custom_fields_collection,
@@ -1964,6 +1974,14 @@ class EntriesController extends BaseController
         }
 
         hooksRun('controller_view_end', $this);
+
+        $this->context->render_manager->prepareTemplateViewToggle(
+            TemplateSelection::RETURN_ROUTE_ENTRY_VIEW,
+            [
+                'entry_public_id' => $entry->public_id,
+                'entry_slug_custom' => $entry->entry_slug_custom,
+            ]
+        );
 
         return $this->context->render_manager->templateGet('pageView', $templatesContext);
     }

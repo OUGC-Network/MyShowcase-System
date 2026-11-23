@@ -154,6 +154,11 @@ class RenderManager
         return $this->templateSelection;
     }
 
+    public function prepareTemplateViewToggle(string $returnRoute, array $routeParameters = []): void
+    {
+        $this->templateSelection->configureToggleReturn($returnRoute, $routeParameters);
+    }
+
     public function resolveTwigTemplateName(string $logicalName): string
     {
         return $this->templateSelection->resolveTwigTemplateName($logicalName);

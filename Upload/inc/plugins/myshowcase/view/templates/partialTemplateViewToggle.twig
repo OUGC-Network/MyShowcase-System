@@ -1,10 +1,14 @@
 {% if template_show_view_toggle %}
     <section class="myshowcase-template-view" aria-labelledby="myshowcase-template-view-heading">
         <h2 id="myshowcase-template-view-heading" class="myshowcase-template-view__title">{{ lang.myshowcase_template_view_heading }}</h2>
-        <form class="myshowcase-template-view__form" method="post" action="{{ absolute_request_url }}">
+        <form class="myshowcase-template-view__form" method="post" action="{{ url_template_view_post }}">
             <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
             <input type="hidden" name="myshowcase_action" value="template_view"/>
-            <input type="hidden" name="return_url" value="{{ absolute_request_url }}"/>
+            <input type="hidden" name="template_return_route" value="{{ template_return_route }}"/>
+            {% if template_return_route == 'entry_view' or template_return_route == 'entry_update' %}
+                <input type="hidden" name="template_return_entry_public_id" value="{{ entry_data.public_id is defined ? entry_data.public_id : '' }}"/>
+                <input type="hidden" name="template_return_entry_slug_custom" value="{{ entry_data.entry_slug_custom is defined ? entry_data.entry_slug_custom : '' }}"/>
+            {% endif %}
             <fieldset class="myshowcase-template-view__options">
                 <legend class="visually-hidden">{{ lang.myshowcase_template_view_heading }}</legend>
                 <label class="myshowcase-template-view__option">
