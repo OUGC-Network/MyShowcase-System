@@ -230,8 +230,16 @@ def main():
             sys.exit(f'--from: {a.start_from} is not among the selected runs')
         runs = runs[idx:]
 
+    # The runners call 'php' by name. The PHP folder itself is no answer: in Herd's bin folder 'php' is another version (php85),
+    # so the run gets a folder of its own, holding a link named php to the --php binary, first on PATH (D372).
+    shim = os.path.join(a.logs, 'bin')
+    os.makedirs(shim, exist_ok=True)
+    link = os.path.join(shim, 'php')
+    if os.path.lexists(link):
+        os.remove(link)  # this driver's own link from an earlier run
+    os.symlink(os.path.abspath(a.php), link)
     env = dict(os.environ)
-    env['PATH'] = os.path.dirname(os.path.abspath(a.php)) + os.pathsep + env.get('PATH', '')
+    env['PATH'] = shim + os.pathsep + env.get('PATH', '')
     env['MYBB_SOURCE'] = a.mybb
     env['MYSQL_HOST'] = '127.0.0.1'
     if a.mysql_port is not None:
