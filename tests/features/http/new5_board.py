@@ -282,7 +282,7 @@ def main():
             if html_type in generic:
                 data[f['field_key']] = generic[html_type]
             pages.append(('post response', member.post('/showcase.php/fieldkit/create', data)))
-            made = entry('fieldkit', 'subject', token)
+            made = features.entry('fieldkit', 'subject', token)
             if made:
                 pages.append(('entry page', member.get(f"/showcase.php/fieldkit/view/{made['public_id']}/fresh")))
             found = {label: sorted(set(warning.findall(r['body']))) for label, r in pages}
