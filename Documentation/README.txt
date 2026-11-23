@@ -56,7 +56,8 @@ The groups have their MyShowcase permissions from the installation on: every use
 default permissions (decision D217), the same values the ACP group form shows for a group. Saving a
 group form is not needed for the defaults to apply, and a group created later gets the defaults too.
 Change a permission in ACP > Users and Groups > Usergroups (the MyShowcase tab of a group) only where
-you want something other than the default.
+you want something other than the default. The default value of every permission is listed in
+permissions.md.
 
 Then browse to ACP > Users and Groups > Admin Permissions and select the administrators you
 want to have access to the MyShowcase System, click the MyShowcase tab and assign the
