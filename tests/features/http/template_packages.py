@@ -1,9 +1,64 @@
-"""HTTP checks for template packages (TP): visitor toggle, cookies, and package markup."""
-from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q
+"""HTTP checks for template packages (TP): visitor toggle, cookies, package markup, and authorization order."""
+import json
+import os
+import re
+
+from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH
+from front import Front
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def _cookie_names(client):
     return [c.name for c in client.jar]
+
+
+def _cookie_value(client, name):
+    for c in client.jar:
+        if c.name == name:
+            return c.value
+    return ''
+
+
+def _toggle_main(client, base_path, mode):
+    page = client.get(base_path)
+    return client.post(base_path, {
+        'my_post_key': post_key(page['body']),
+        'myshowcase_action': 'template_view',
+        'template_view_mode': mode,
+        'template_return_route': 'main',
+    })
+
+
+def _gallery_card_inside_grid(body):
+    return re.search(
+        r'myshowcase-gallery-entries[\s\S]{0,12000}?class="[^"]*\bthread\b',
+        body,
+        re.IGNORECASE,
+    ) is not None
+
+
+def _decode_cookie_preferences(raw):
+    if not raw or len(raw) > 2048:
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(decoded, dict):
+        return {}
+    out = {}
+    for key, value in decoded.items():
+        if isinstance(key, int):
+            key = str(key)
+        if not isinstance(key, str) or not re.fullmatch(r'\d{1,10}', key):
+            continue
+        if value not in ('c', 'g'):
+            continue
+        out[key] = value
+        if len(out) >= 40:
+            break
+    return out
 
 
 def run(_acp):
@@ -15,14 +70,21 @@ def run(_acp):
     gsid, bsid = sid('gallery'), sid('blog')
     prefix_before = q(f"select custom_template_prefix from mybb_myshowcase_config where showcase_id={gsid}")[0][0]
 
-    g_page = m.get(f'{G}/')
-    m.post(f'{G}/', {
-        'my_post_key': post_key(g_page['body']),
-        'myshowcase_action': 'template_view',
-        'template_view_mode': 'g',
-        'template_return_route': 'main',
-    })
+    g_configured = m.get(f'{G}/')
+    ok(_gallery_card_inside_grid(g_configured['body']), 'configured gallery places entry cards inside the grid container')
+    ok('myshowcase-gallery-entries' in g_configured['body'], 'configured gallery list exposes the grid container')
+    ok('myshowcase-template-view' in g_configured['body'], 'configured gallery package shows the visitor toggle')
+
+    _toggle_main(m, f'{G}/', 'g')
     ok('myshowcase_tpl_prefs' in _cookie_names(m), 'gallery template toggle stores the session preference cookie')
+
+    g_global = m.get(f'{G}/')
+    ok('myshowcase-gallery-entries' not in g_global['body'], 'gallery global mode omits gallery-only grid markup')
+
+    _toggle_main(m, f'{G}/', 'c')
+    g_back = m.get(f'{G}/')
+    ok('myshowcase-gallery-entries' in g_back['body'] and _gallery_card_inside_grid(g_back['body']),
+       'gallery returns to package presentation when switched back to configured')
 
     b_page = m.get(f'{B}/')
     m.post(f'{B}/', {
@@ -31,15 +93,51 @@ def run(_acp):
         'template_view_mode': 'c',
         'template_return_route': 'main',
     })
-    ok('myshowcase_tpl_prefs' in _cookie_names(m), 'blog showcase keeps an independent preference cookie entry')
 
-    ok('myshowcase-gallery-entries' in m.get(f'{G}/')['body'], 'gallery list exposes the image grid container')
-    ok('myshowcase-template-view' in m.get(f'{G}/')['body'], 'configured gallery package shows the visitor toggle')
+    cookie_raw = _cookie_value(m, 'myshowcase_tpl_prefs')
+    prefs = json.loads(cookie_raw)
+    ok(prefs.get(str(gsid)) == 'c' and prefs.get(str(bsid)) == 'c',
+       'two showcases sharing packages keep independent visitor preferences')
+
+    _toggle_main(m, f'{G}/', 'g')
+    prefs = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    ok(prefs.get(str(gsid)) == 'g' and prefs.get(str(bsid)) == 'c',
+       'switching gallery does not change blog visitor preference')
+
+    users_file = os.path.join(SCRATCH, 'users.json')
+    with open(users_file, encoding='utf-8') as users_handle:
+        member_password = json.load(users_handle)['member1']['password']
+    fresh = Front(CTX.url)
+    fresh.login('member1', member_password)
+    fresh_g = fresh.get(f'{G}/')
+    ok('myshowcase_tpl_prefs' not in _cookie_names(fresh) and 'myshowcase-gallery-entries' in fresh_g['body'],
+       'new browser session uses configured package defaults without a preference cookie')
+
+    ok(_decode_cookie_preferences('{"not-a-showcase-id":"g","1":"g","2":"x","3":"g"}') == {'3': 'g'},
+       'invalid cookie keys and modes are discarded safely')
+
+    b_list = m.get(f'{B}/')
+    ok('myshowcase-blog-entry' in b_list['body'], 'configured blog list uses package row markup')
 
     e = entry('gallery', 'title', 'Member one photo')
     if e is not None:
         view = m.get(view_url(e))
-        ok('myshowcase-entry-view--gallery' in view['body'], 'gallery entry view uses package presentation markup')
+        ok('myshowcase-gallery-detail' in view['body'], 'gallery entry view uses image-forward package markup')
+        ok('myshowcase-entry-view--gallery' in view['body'], 'gallery entry view retains package page classes')
+
+        view_page = m.get(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}")
+        m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
+            'my_post_key': post_key(view_page['body']),
+            'myshowcase_action': 'template_view',
+            'template_view_mode': 'g',
+            'template_return_route': 'entry_view',
+            'template_return_entry_public_id': e['public_id'],
+            'template_return_entry_slug_custom': e['entry_slug_custom'] or '',
+        })
+        view_global = m.get(view_url(e))
+        ok('myshowcase-gallery-detail' not in view_global['body'],
+           'gallery entry global mode omits package-only detail markup')
+
         bad = m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
             'my_post_key': '0' * 32,
             'myshowcase_action': 'template_view',
@@ -50,6 +148,27 @@ def run(_acp):
         })
         ok('Invalid Post Key' in bad['body'] or 'invalid post key' in bad['body'].lower(),
            'invalid post key refuses template toggle submission')
+
+    guest = user('guest')
+    create_page = guest.get(f'{B}/create')
+    deny = guest.post(f'{B}/create', {
+        'my_post_key': post_key(create_page['body']) if 'my_post_key' in create_page['body'] else '0' * 32,
+        'myshowcase_action': 'template_view',
+        'template_view_mode': 'g',
+        'template_return_route': 'entry_create',
+    })
+    ok(no_permission(deny) or bad_post_key(deny), 'guest cannot change template preference on denied create page')
+
+    bogus = m.post(f'{G}/view/notarealid/notaslug', {
+        'my_post_key': post_key(m.get(f'{G}/')['body']),
+        'myshowcase_action': 'template_view',
+        'template_view_mode': 'g',
+        'template_return_route': 'entry_view',
+        'template_return_entry_public_id': 'notarealid',
+        'template_return_entry_slug_custom': 'x',
+    })
+    ok(bogus['status'] == 404 or 'invalid' in bogus['body'].lower(),
+       'template toggle on a missing entry is refused with the normal entry error')
 
     prefix_after = q(f"select custom_template_prefix from mybb_myshowcase_config where showcase_id={gsid}")[0][0]
     ok(prefix_before == prefix_after == 'gallery', 'visitor toggle does not change the administrator template prefix')
