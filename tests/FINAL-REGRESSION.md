@@ -8,7 +8,9 @@ it (decision D348): the owner runs the suite (D349).
 ## Requirements
 
 - **PHP 8.2** for every PHP runner and for every board runner (the board runners call `php` on the PATH). The driver takes
-  the binary with `--php` and puts its folder first on the PATH.
+  the binary with `--php` and puts first on the PATH a folder of its own, `<logs>/bin`, that holds a link named `php` to that
+  binary. Its own folder is not enough: in Herd's bin folder `php` is another version (`php85`), so the owner's first run
+  of the field matrix printed `PHP 8.5.13` (logs 19, 46, 69).
 - **Python 3**, standard library only, for the Python runners. Their commands below say `python3`; the driver uses the
   interpreter it runs under.
 - **A MyBB 1.9 source tree with its vendor/ folder** for every board runner (`--mybb`, or the `MYBB_SOURCE` variable). The
@@ -69,7 +71,7 @@ Each prints its own summary line; exit code 0 is the pass criterion for all runn
 | A1 | `tests/util/run.php` | `php tests/util/run.php` | `N passed, M failed` |
 | A2 | `tests/util/password_grant.php` (the password-grant unit test) | `php tests/util/password_grant.php` | `N passed, M failed` |
 | A3 | `tests/post-hash/run.php` | `php tests/post-hash/run.php` | `N passed, M failed` |
-| A4 | `tests/url-mode/run.php` (the Automatic rule of the URL option) | `php tests/url-mode/run.php` | the runner's own lines |
+| A4 | `tests/url-mode/run.php` (the Automatic rule of the URL option) | `php tests/url-mode/run.php` | `N checks, M failed` (the table's passed is N − M; the owner's run: 2206 checks, 0 failed) |
 | A5 | `tests/xml-file/run.php` | `php tests/xml-file/run.php` | `N passed, M failed` |
 | A6 | `tests/exports-storage/run.php` | `php tests/exports-storage/run.php` | `checks passed: N` |
 | A7 | `tests/import/run.php` | `php tests/import/run.php` | `N passed, M failed` |
@@ -93,7 +95,7 @@ from the repository root. The scratch folder is new for each run and may be dele
 
 | # | Runner | Engines | Extra arguments | Result it prints |
 |---|---|---|---|---|
-| B1 | `tests/fields/http/run.py` (the field matrix; known failures in `tests/fields/http/known_failures.json`) | sqlite, mysql, pgsql | none | a matrix in `matrix-<engine>.json`; exit 0 only when the failing cells equal the known-failure list |
+| B1 | `tests/fields/http/run.py` (the field matrix; known failures in `tests/fields/http/known_failures.json`) | sqlite, mysql, pgsql | none | a matrix in `matrix-<engine>.json`; its line `cells {'pass': N, 'na': K}` (the table's passed is N, its pass cells; `na` cells are not run and are not counted); exit 0 only when the failing cells equal the known-failure list |
 | B2 | `tests/fields/http/acp_bounds_test.py` (stage a of the matrix) | sqlite, mysql, pgsql | none | the checks, exit 0 when all pass |
 | B3 | `tests/features/http/run.py` | sqlite, mysql, pgsql | none (the PluginLibrary as in Requirements) | the checks and `N passed, M failed` |
 | B4 | `tests/features/http/url_mode.py` | sqlite, mysql, pgsql | none | the checks |
@@ -114,7 +116,7 @@ from the repository root. The scratch folder is new for each run and may be dele
 | B19 | `tests/import/http/run.py` (the HTTP tests of the entries import) | sqlite, mysql, pgsql | none | the checks |
 | B20 | `tests/import/http/second_board.py` (two boards, D142 c) | sqlite, mysql, pgsql | none | the checks |
 | B21 | `tests/import/http/abort_test.py` (an import that ends early, D59) | sqlite, mysql, pgsql | none; it fetches its files from placehold.co | the checks; exit 1 when case 1 or 2 leaves anything behind |
-| B22 | `tests/import/http/access_matrix.py` (the download route, D58) | sqlite, mysql, pgsql | none (`--old-upload` is optional and not used here) | the matrix; exit 1 on a failed cell |
+| B22 | `tests/import/http/access_matrix.py` (the download route, D58) | sqlite, mysql, pgsql | none (`--old-upload` is optional and not used here) | its line `cells: N; failing: M`; the table's passed is N − M and counts the matrix's **cells**, not checks (112 per engine in the owner's run); exit 1 on a failed cell |
 | B23 | `tests/harness/cleanup_test.py` (cleanup after a failed install, D252) | sqlite, mysql, pgsql | none | the checks; nothing left behind |
 | B24 | `tests/harness/interrupt_test.py --script tests/features/http/run.py --port 18997` | sqlite only | `--script`, `--port` | the checks (D256) |
 | B25 | `tests/harness/interrupt_test.py --script tests/features/http/quote_dates.py --port 18997` | sqlite only | `--script`, `--port` | the checks |
@@ -140,4 +142,5 @@ python3 tests/run_final_regression.py --php /path/to/php-8.2 --logs /path/to/log
 
 `--only NAME[,NAME]` runs named runners (the names are printed in the table: the file's base name, or its path under tests/
 where the base name is not unique, such as `util/run`). `--from NAME` resumes from a runner. The driver exits 0 only when
-every run exits 0.
+every run exits 0 and reports checks. A run that reports no checks counts as failed (D372); a runner may be listed in the
+driver's `NO_COUNT` only with its reason, and none is listed.
