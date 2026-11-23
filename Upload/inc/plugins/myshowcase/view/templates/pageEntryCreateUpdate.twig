@@ -91,12 +91,12 @@
                 {% endif %}
 
                 {% if config.entries_allow_post_icons and post_icons is not empty %}
-                    {% include '@ext.myshowcase/pageEntryCreateUpdatePostIcons.twig' %}
+                    {% include showcase_template('pageEntryCreateUpdatePostIcons.twig') %}
                 {% endif %}
 
                 {% for field_data in entry.getFields() %}
                     {% if field_data.isViewableInForm() %}
-                        {% include '@ext.myshowcase/pageEntryCreateUpdateField.twig' %}
+                        {% include showcase_template('pageEntryCreateUpdateField.twig') %}
                     {% endif %}
                 {% endfor %}
 
@@ -230,13 +230,13 @@
             {% endif %}
 
             {% if mybb.user.uid %}
-                {% include '@ext.myshowcase/pageEntryCreateUpdateSubscription.twig' %}
+                {% include showcase_template('pageEntryCreateUpdateSubscription.twig') %}
             {% endif %}
 
             {{ permissions.main_require_captcha ? captcha|raw }}
 
             {% if config.attachments_allow_in_entries %}
-                {% include '@ext.myshowcase/pageEntryCreateUpdateAttachments.twig' %}
+                {% include showcase_template('pageEntryCreateUpdateAttachments.twig') %}
             {% endif %}
 
             <div class="block__footer">
@@ -256,6 +256,6 @@
     </div>
     {{ attachmentsUpload|raw }}
 
-
+    {% include showcase_template('partialTemplateViewToggle.twig') %}
 
 {% endblock body %}

@@ -99,7 +99,7 @@
 {# TODO, Entry attachments
         {% if config.attachments_allow_in_entries and config.attachments_main_render and permissions.attachments_can_view and entry.getAttachments() is not empty %}
             {% for attachment_id,attachment_data in entry.getAttachments() %}
-                {% include '@ext.myshowcase/pageMainEntryAttachment.twig' %}
+                {% include showcase_template('pageMainEntryAttachment.twig') %}
             {% endfor %}
         {% endif %}
 #}

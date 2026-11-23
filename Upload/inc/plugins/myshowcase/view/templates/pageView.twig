@@ -314,7 +314,7 @@
             </div>
 
             {% if entry_moderator %}
-                {% include '@ext.myshowcase/pageViewInlineModeration.twig' %}
+                {% include showcase_template('pageViewInlineModeration.twig') %}
             {% endif %}
 
             {% if mybb.settings.showsimilarthreads and thread.similarthreads %}
@@ -432,4 +432,5 @@
     <script>
         const entries_enable_update_notes = '{{ config.entries_enable_update_notes }}' === '1';
     </script>
+    {% include showcase_template('partialTemplateViewToggle.twig') %}
 {% endblock body %}

@@ -106,7 +106,7 @@
 
     {# Approval queue #}
     {% if unapproved_entries %}
-        {% include '@ext.myshowcase/globalMessageUnapprovedEntries.twig' with {unapprovedEntriesUrl: unapproved_entries.url, unapprovedText: unapproved_entries.text} %}
+        {% include showcase_template('globalMessageUnapprovedEntries.twig') with {unapprovedEntriesUrl: unapproved_entries.url, unapprovedText: unapproved_entries.text} %}
     {% endif %}
 
     {# Forum rules #}
@@ -264,9 +264,9 @@
                 {% for entry in stuck_entries %}
 
                     {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                        {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
+                        {% include showcase_template('pageMainEntryDeleted.twig') %}
                     {% else %}
-                        {% include '@ext.myshowcase/pageMainEntry.twig' %}
+                        {% include showcase_template('pageMainEntry.twig') %}
                     {% endif %}
 
                 {% endfor %}
@@ -279,9 +279,9 @@
                 {% for entry in normal_entries %}
 
                     {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                        {% include '@ext.myshowcase/pageMainEntryDeleted.twig' %}
+                        {% include showcase_template('pageMainEntryDeleted.twig') %}
                     {% else %}
-                        {% include '@ext.myshowcase/pageMainEntry.twig' %}
+                        {% include showcase_template('pageMainEntry.twig') %}
                     {% endif %}
 
                 {% endfor %}
@@ -387,7 +387,7 @@
 
             {# Inline moderation #}
             {% if inline_tools %}
-                {% include '@ext.myshowcase/pageMainInlineModeration.twig' %}
+                {% include showcase_template('pageMainInlineModeration.twig') %}
             {% endif %}
         </div>
 
@@ -413,4 +413,5 @@
             </div>
         {% endif %}
     </footer>
+    {% include showcase_template('partialTemplateViewToggle.twig') %}
 {% endblock body %}

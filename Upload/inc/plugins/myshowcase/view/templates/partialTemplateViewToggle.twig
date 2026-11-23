@@ -1,0 +1,26 @@
+{% if template_show_view_toggle %}
+    <section class="myshowcase-template-view" aria-labelledby="myshowcase-template-view-heading">
+        <h2 id="myshowcase-template-view-heading" class="myshowcase-template-view__title">{{ lang.myshowcase_template_view_heading }}</h2>
+        <form class="myshowcase-template-view__form" method="post" action="{{ absolute_request_url }}">
+            <input type="hidden" name="my_post_key" value="{{ mybb.post_code }}"/>
+            <input type="hidden" name="myshowcase_action" value="template_view"/>
+            <input type="hidden" name="return_url" value="{{ absolute_request_url }}"/>
+            <fieldset class="myshowcase-template-view__options">
+                <legend class="visually-hidden">{{ lang.myshowcase_template_view_heading }}</legend>
+                <label class="myshowcase-template-view__option">
+                    <input type="radio" name="template_view_mode" value="c"
+                           {% if template_visitor_mode == 'c' %}checked="checked"{% endif %}/>
+                    <span>{{ lang.myshowcase_template_view_mode_package }}</span>
+                </label>
+                <label class="myshowcase-template-view__option">
+                    <input type="radio" name="template_view_mode" value="g"
+                           {% if template_visitor_mode == 'g' %}checked="checked"{% endif %}/>
+                    <span>{{ lang.myshowcase_template_view_mode_global }}</span>
+                </label>
+                <button type="submit" class="button button--small button--secondary">
+                    <span class="button__text">{{ lang.myshowcase_template_view_apply }}</span>
+                </button>
+            </fieldset>
+        </form>
+    </section>
+{% endif %}

@@ -34,6 +34,8 @@ use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Enum\Routes;
 use MyShowcase\ShowcaseContext;
+use MyShowcase\Service\TemplateSelectionRegistry;
+use MyShowcase\Twig\ShowcaseTwigExtension;
 use MyShowcase\Util\SelectableLists;
 use Twig\Environment;
 use Twig\Error\LoaderError;
@@ -41,6 +43,7 @@ use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function MyBB\app;
+use function MyBB\registerTwigExtension;
 use function MyBB\View\template;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -62,9 +65,20 @@ class RenderManager
     public array $collection_display_fields = [];
     public array $template_context = [];
 
+    private readonly TemplateSelection $templateSelection;
+
+    private static bool $twigExtensionRegistered = false;
+
     public function __construct(
         public readonly ShowcaseContext $context,
     ) {
+        $this->templateSelection = new TemplateSelection($this->context);
+        TemplateSelectionRegistry::set($this->templateSelection);
+
+        if (!self::$twigExtensionRegistered) {
+            registerTwigExtension(ShowcaseTwigExtension::class);
+            self::$twigExtensionRegistered = true;
+        }
         $this->url_params['page'] = 1;
 
         if ($this->context->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
@@ -135,6 +149,16 @@ class RenderManager
         }
     }
 
+    public function templateSelection(): TemplateSelection
+    {
+        return $this->templateSelection;
+    }
+
+    public function resolveTwigTemplateName(string $logicalName): string
+    {
+        return $this->templateSelection->resolveTwigTemplateName($logicalName);
+    }
+
     /**
      * @throws SyntaxError
      * @throws RuntimeError
@@ -173,33 +197,22 @@ class RenderManager
                 ),
                 'version' => DEBUG ? TIME_NOW : VERSION_CODE,
                 'pagination' => '',
-            ], $context));
+            ],
+                $this->templateSelection->templateContext(),
+                $context
+            ));
 
         hooksRun('render_template_get', $this);
 
-
-        if ($this->context->showcase->custom_template_prefix !== '' &&
-            $this->templateExists($this->context->showcase->custom_template_prefix . '/' . $name)) {
-            return template(
-                '@ext.myshowcase/' . $this->context->showcase->custom_template_prefix . '/' . $name . '.twig',
-                $this->template_context
-            );
-        } else {
-            return template(
-                '@ext.myshowcase/' . $name . '.twig',
-                $this->template_context
-            );
-        }
+        return template(
+            $this->templateSelection->resolveTwigTemplateName($name),
+            $this->template_context
+        );
     }
 
     public function templateExists(string $template_name): bool
     {
-        /** @var Environment $twig */
-        $twig = app(Environment::class);
-
-        $loader = $twig->getLoader();
-
-        return $loader->exists("@ext.myshowcase/{$template_name}.twig");
+        return $this->templateSelection->templateExists($template_name);
     }
 
     public function groupUserTitlesGet(): array

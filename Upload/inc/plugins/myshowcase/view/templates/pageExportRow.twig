@@ -6,7 +6,7 @@
     </td>
     <td>{{ export.entry_count }}</td>
     <td>{{ export.size }}</td>
-    <td>{% include '@ext.myshowcase/pageExportRules.twig' with {rules: export.rules} only %}</td>
+    <td>{% include showcase_template('pageExportRules.twig') with {rules: export.rules} only %}</td>
     <td>
         {% if export.file_deleted %}
             <em>{{ lang.myshowcase_import_export_file_deleted }}</em>

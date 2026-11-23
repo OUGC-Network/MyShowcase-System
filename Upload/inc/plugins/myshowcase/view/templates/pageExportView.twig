@@ -16,7 +16,7 @@
                 {{ export.created }} -
                 {{ trans('myshowcase_import_export_detail_summary', export.entry_count, export.size) }}
             </p>
-            {% include '@ext.myshowcase/pageExportRules.twig' with {rules: export.rules} only %}
+            {% include showcase_template('pageExportRules.twig') with {rules: export.rules} only %}
             <p>
                 {% if export.file_deleted %}
                     <em>{{ lang.myshowcase_import_export_file_deleted }}</em>
