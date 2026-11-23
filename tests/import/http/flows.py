@@ -13,6 +13,7 @@ FAILS = []
 NOT_RUN = []
 PASSES = 0
 CTX = None
+ACP = None  # the administrator's session: set by run.py (flows.ACP = acp) before run(); read by create_showcase_copy()
 SCRATCH = BOARD = ENGINE = ERROR_LOG = None
 USERS = {}
 SHOWCASE = '/showcase.php/blog'
