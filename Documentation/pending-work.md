@@ -51,7 +51,7 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | T6 | Image variants pipeline and watermark options | Gallery | Partial | L | none |
 | M1 | Media library showcase, references, embeds | Media | Not started | L | T5 |
 | M2 | Media in private messages | Media | Not started | M | M1 |
-| TP | Template packages for blog, downloads and gallery | Templates | Implemented (pending owner test run) | L | agent/template-packages-b1 |
+| TP | Template packages for blog, downloads and gallery | Templates | Complete on agent/template-packages-b1; owner verification pending | L | agent/template-packages-b1 |
 | FR2 | Final regression 2 | Tests | Not started | M | G2c to T6, M1, M2, TP |
 | Q1 | Quote SQL identifiers instead of the reserved-word list | Fields | Partial | M | none |
 | Q2 | MariaDB keyword probe | Fields | Cannot tell | S | Q1 |

@@ -306,7 +306,16 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
 * **Preset defaults:** creating a showcase from `showcases/blog.json`, `showcases/downloads.json`, or
   `showcases/gallery.json` via JSON sync defaults the prefix to the matching folder when the form omits
   `custom_template_prefix`. An explicit empty value keeps the global templates.
+  On ACP Summary **create**, the optional **Shipped showcase preset** control applies the same mapping when the
+  template set is left at global templates (none); an explicit template set choice always wins.
 * **Visitor toggle:** `partialTemplateViewToggle.twig` on the main list, entry view, and create/edit form posts
   `myshowcase_action=template_view` with `template_view_mode` `c` (configured package) or `g` (global templates).
-  Preferences are stored in the session cookie `myshowcase_tpl_prefs` keyed by `showcase_id`. Template context:
-  `template_effective_prefix`, `template_visitor_mode`, `template_show_view_toggle`, `absolute_request_url`.
+  Preferences are stored in the session cookie `myshowcase_tpl_prefs` keyed by `showcase_id` (JSON object keys may
+  decode as integers in PHP; both are accepted). The cookie is session-scoped (`my_setcookie(..., -1, ...)`).
+  Toggle POST and return URLs are built through `Routing::url()`; `template_return_route` plus optional entry ids
+  select the return destination. Template context: `template_effective_prefix`, `template_visitor_mode`,
+  `template_show_view_toggle`, `url_template_view_post`, `template_return_route`.
+* **Gallery list:** when the effective package is `gallery`, entry rows inside the sticky/normal lists use
+  `myshowcase-gallery-entries` grid CSS; sorting and moderation controls stay outside the grid.
+* **Entry view:** `pageView` / `pageViewEntry` add `myshowcase-entry-view--{package}` and
+  `myshowcase-package-entry--{package}` classes; each package supplies `partialPackageStyles.twig` once per page.
