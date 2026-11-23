@@ -125,8 +125,10 @@ def main():
         # ---------------------------------------------------------------- item 10: comment post hash
         print('--- item 10: comment post hash and attachment links')
         target = php(board_dir, 'entry', 'blog', 'Comment target', VISIBLE)
-        view = f"/showcase.php/blog/view/{target['public_id']}/fresh"
-        form = member.get(view)
+        # The comment form that carries post_hash and the attachment upload is the create page (CommentsController::create).
+        # The quick reply on the entry page has neither (pageView.twig, quick_comment_form), so it is not the form read here.
+        comment_form = f"/showcase.php/blog/view/{target['public_id']}/create/comment"
+        form = member.get(comment_form)
         m = re.search(r'name="post_hash"\s+value="([^"]*)"', form['body'])
         hash_own = m.group(1) if m else ''
         ok(bool(hash_own), f'10a: the comment form carries a hidden post_hash [{"found" if hash_own else "missing"}]')
@@ -146,7 +148,7 @@ def main():
            f'10b: a valid post_hash links the member\'s draft to the new comment [comment {comment_id or "none"}, linked to {linked or "none"}]')
 
         # another user's draft (the administrator's, user 1), under a valid hash that a second form of the member gave out
-        other_form = member.get(view)
+        other_form = member.get(comment_form)
         mo = re.search(r'name="post_hash"\s+value="([^"]*)"', other_form['body'])
         foreign_hash = mo.group(1) if mo else ''
         ok(bool(foreign_hash) and foreign_hash != hash_own, '10c setup: a second form gives a different valid post_hash')
