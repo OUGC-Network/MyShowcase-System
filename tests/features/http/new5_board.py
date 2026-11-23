@@ -60,11 +60,24 @@ def ok(cond, message):
         FAILS.append(message)
 
 
+def fixture_error(out):
+    """The first error of a fixture's output. MyBB's CLI error block is: a rule of tildes, the title (MyBB SQL Error, ...),
+    the message, a rule, the technical details, a rule. The rule is not the error, so the title and the message are shown."""
+    lines = out.splitlines()
+    rules = [i for i, l in enumerate(lines) if re.match(r'^~{10,}\s*$', l)]
+    if rules:
+        shown = [l.strip() for l in lines[rules[0] + 1:rules[0] + 3] if l.strip()]
+        if shown:
+            return ' | '.join(shown)[:300]
+    lines = [l for l in lines if l.strip()]
+    return lines[-1] if lines else out[-200:]
+
+
 def php(board_dir, *args):
     r = subprocess.run(['php', os.path.join(HERE, 'fresh_fixture.php'), *[str(x) for x in args]], cwd=board_dir, capture_output=True, text=True)
     lines = [l for l in r.stdout.splitlines() if l.strip()]
     if r.returncode or not lines or 'SQL Error' in r.stdout:
-        raise RuntimeError('fixture failed: ' + (lines[-1] if lines else r.stdout[-200:]))
+        raise RuntimeError('fixture failed: ' + fixture_error(r.stdout))
     return json.loads(lines[-1])
 
 
