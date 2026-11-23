@@ -294,3 +294,19 @@ A showcase attachment embedded in a forum post with `[attachment=<hash>]`. Rende
 A random entry box for the MyBB portal. Variables: `config`, `theme`, `entry_data.extra_data.url` (EntryView route,
 the same helper as the main list; the template prefixes `config.showcase_url`), `entryDescription`, `userName`,
 `entryViews`, `entryComments`, `entryImage`. No code renders it at present: there is no portal hook.
+
+## Shipped template packages (blog, downloads, gallery)
+
+Folders under `view/templates/{blog,downloads,gallery}/` override the global templates for a showcase whose
+`custom_template_prefix` matches that folder. Nested includes use `showcase_template()` so partials resolve in the
+active package first, then the global tree (`RenderManager::templateGet()` and `ShowcaseTwigExtension`).
+
+* **Shared folders:** several showcases may use the same prefix; editing the folder affects every showcase that
+  selects it.
+* **Preset defaults:** creating a showcase from `showcases/blog.json`, `showcases/downloads.json`, or
+  `showcases/gallery.json` via JSON sync defaults the prefix to the matching folder when the form omits
+  `custom_template_prefix`. An explicit empty value keeps the global templates.
+* **Visitor toggle:** `partialTemplateViewToggle.twig` on the main list, entry view, and create/edit form posts
+  `myshowcase_action=template_view` with `template_view_mode` `c` (configured package) or `g` (global templates).
+  Preferences are stored in the session cookie `myshowcase_tpl_prefs` keyed by `showcase_id`. Template context:
+  `template_effective_prefix`, `template_visitor_mode`, `template_show_view_toggle`, `absolute_request_url`.
