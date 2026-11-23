@@ -1,0 +1,68 @@
+<style>
+    .myshowcase-blog-entry { border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.25rem; margin: 0.75rem 0; background: #fff; }
+    .myshowcase-blog-entry .thread__subject { font-size: 1.25rem; margin: 0 0 0.35rem; }
+    .myshowcase-blog-entry .thread__fields { margin-top: 0.5rem; font-size: 0.95rem; color: #444; }
+</style>
+<div class="row row--thread thread thread--default inline_row myshowcase-blog-entry
+    {% if entry.extra_data.unread_comments %} thread--unread{% endif %}
+    {% if entry.is_sticky %} thread--sticky{% endif %}
+    {% if entry_moderator %} thread--moderator{% endif %}
+    {% if entry.status == 2 %} thread--deleted{% endif %}
+    {% if entry.status == 0 %} thread--awaiting-approval{% endif %}">
+
+    {% if entry.extra_data.main_image %}
+        <a href="{{ entry.extra_data.url }}" class="thread__image">
+            <img src="{{ entry.extra_data.main_image.url }}" alt="{{ entry.extra_data.main_image.name }}"
+                 style="max-width: 120px; max-height: 90px; object-fit: cover; border-radius: 4px;"/>
+        </a>
+    {% endif %}
+
+    <div class="thread__title">
+        <h3 class="thread__subject">
+            <a href="{{ entry.extra_data.url }}">{{ entry.extra_data.subject_html|raw }}</a>
+        </h3>
+
+        {% if entry.status == 2 %}
+            <span class="thread__status tag tag--thread-status tag--deleted">{{ lang.myshowcase_main_table_row_deleted_entry }}</span>
+        {% endif %}
+
+        {% if entry.status == 0 %}
+            <span class="thread__status tag tag--thread-status tag--awaiting-approval">{{ lang.myshowcase_main_table_row_awaiting_approval }}</span>
+        {% endif %}
+    </div>
+
+    <div class="thread__author">
+        {{ lang.myshowcase_main_table_row_by }}
+        <span class="thread__overflow">
+            {% if entry.user_id > 0 %}
+                <a href="{{ mybb.settings.bburl|trim('/', 'right') }}/{{ get_profile_link(entry.user_id) }}">{{ entry.user_id|format_name }}</a>
+            {% else %}
+                {{ entry.username ?: lang.guest }}
+            {% endif %}
+        </span>
+        <span class="thread__date">{{ entry.extra_data.dateline_timestamp|my_date }}</span>
+    </div>
+
+    {% set main_fields = entry.getFields()|filter(field_data => field_data.isViewableInMain() and not (entry.extra_data.main_image and field_data.field_definition.html_type == 'file') and (field_data.getUserValue() is not same as('') or field_data.attachments_rendered is not empty))|sort((a, b) => a.field_definition.render_order <=> b.field_definition.render_order) %}
+    {% if main_fields is not empty %}
+        <div class="thread__fields">
+            {% for field_data in main_fields %}
+                <div class="thread__field thread__field--{{ field_data.field_definition.field_key }}">
+                    {% if field_data.field_definition.field_key != 'message' %}
+                        <span class="thread__field-label">{{ field_data.getLabel() }}:</span>
+                    {% endif %}
+                    <span class="thread__field-value">{% if field_data.hasOptions() %}{{ field_data.getUserValueDisplay()|raw }}{% else %}{{ field_data.getUserValue()|raw }}{{ field_data.attachments_rendered|raw }}{% endif %}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if entry_moderator %}
+        <div class="thread__checkbox">
+            <label for="selected-entry-{{ entry.public_id }}"></label>
+            <input type="checkbox" class="checkbox checkbox--select-row" data-slug="{{ entry.public_id }}"
+                   id="selected-entry-{{ entry.public_id }}"
+                   {% if entry.extra_data.selected %}checked="checked"{% endif %} />
+        </div>
+    {% endif %}
+</div>
