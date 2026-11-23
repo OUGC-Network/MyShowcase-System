@@ -19,6 +19,7 @@ use MyShowcase\Service\CollectionService;
 use MyShowcase\Service\FieldService;
 use MyShowcase\Service\SchemaManager;
 use MyShowcase\Service\ShowcaseService;
+use MyShowcase\Service\TemplateSelection;
 
 use function MyShowcase\Admin\dbVerifyTables;
 use function MyShowcase\Plugin\Functions\dataTableStructureGet;
@@ -458,10 +459,16 @@ final class JsonApplier
             return;
         }
 
+        if (array_key_exists('custom_template_prefix', $options)) {
+            $templatePrefix = ShowcaseService::normalizeTemplatePrefix((string)$options['custom_template_prefix']);
+        } else {
+            $templatePrefix = TemplateSelection::presetPackageForShowcaseJsonFile($this->context['file']);
+        }
+
         $identity = [
             'name' => (string)($options['name'] ?? ''),
             'route_identifier' => (string)($options['route_identifier'] ?? ''),
-            'custom_template_prefix' => ShowcaseService::normalizeTemplatePrefix((string)($options['custom_template_prefix'] ?? '')),
+            'custom_template_prefix' => $templatePrefix,
         ];
 
         if ($identity['name'] === '' || $identity['route_identifier'] === '') {

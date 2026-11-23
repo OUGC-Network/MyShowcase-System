@@ -312,8 +312,13 @@ switch ($action) {
                     'file' => $file,
                     'name' => trim($mybb->get_input('name')),
                     'route_identifier' => trim($mybb->get_input('route_identifier')),
-                    'custom_template_prefix' => ShowcaseService::normalizeTemplatePrefix($mybb->get_input('custom_template_prefix')),
                 ];
+
+                if (array_key_exists('custom_template_prefix', $mybb->input)) {
+                    $values['custom_template_prefix'] = ShowcaseService::normalizeTemplatePrefix(
+                        $mybb->get_input('custom_template_prefix')
+                    );
+                }
 
                 $errors = [];
 
@@ -331,7 +336,11 @@ switch ($action) {
                     break;
                 }
 
-                $options = array_intersect_key($values, array_flip(['name', 'route_identifier', 'custom_template_prefix']));
+                $options = array_intersect_key($values, array_flip(['name', 'route_identifier']));
+
+                if (array_key_exists('custom_template_prefix', $values)) {
+                    $options['custom_template_prefix'] = $values['custom_template_prefix'];
+                }
             }
         } else {
             $row = $loadRow();
