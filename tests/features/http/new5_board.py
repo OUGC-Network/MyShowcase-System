@@ -9,7 +9,9 @@
       moderator without the permission, done for a moderator with it;
   20  front page moderators: a user moderator and a group moderator are listed by name; the line is absent when there are none;
   22  ACP moderator delete link: a valid my_post_key deletes the row and the moderator cache entry; an invalid or missing key
-      deletes nothing and shows the error.
+      deletes nothing and shows the error;
+  11  keyword search: a search for % lists only the entry with a literal %, a search for _ lists neither entry (PD-IAF-2,
+      D356). Fails before the fix in EntriesController::match (both entries are listed for % and for _).
 
   1   every field html type of the FieldKit showcase (one per type, first field of each type): the create form, the post
       response and, when an entry is stored, its entry page contain no "Warning:", "Notice:", "Deprecated:" or "Fatal error",
@@ -293,6 +295,20 @@ def main():
             covered += 1
         ok(covered == len(first_of_type) and covered >= 20,
            f'1 coverage: one entry attempt for each of the {covered} field html types of FieldKit')
+
+        # ---------------------------------------------------------------- item 11: % and _ in the keyword search
+        print('--- item 11: the keyword search takes % and _ as literal characters')
+        from urllib.parse import quote  # noqa: E402
+        php(board_dir, 'entry', 'blog', 'IA11 100% cotton', VISIBLE)
+        php(board_dir, 'entry', 'blog', 'IA11 plain', VISIBLE)
+        by_percent = member.get('/showcase.php/blog/search?keywords=' + quote('%'))['body']
+        ok('IA11 100% cotton' in by_percent and 'IA11 plain' not in by_percent,
+           f'11a: a search for % lists only the entry that contains a literal % '
+           f'[cotton listed {"IA11 100% cotton" in by_percent}, plain listed {"IA11 plain" in by_percent}]')
+        by_underscore = member.get('/showcase.php/blog/search?keywords=' + quote('_'))['body']
+        ok('IA11 100% cotton' not in by_underscore and 'IA11 plain' not in by_underscore,
+           f'11b: a search for _ lists neither entry, as neither contains a literal underscore '
+           f'[cotton listed {"IA11 100% cotton" in by_underscore}, plain listed {"IA11 plain" in by_underscore}]')
     except Exception as e:  # a crash is a failed check, reported with the summary below
         FAILS.append(f'the run stopped: {e}')
         print('FAIL the run stopped:', e)
