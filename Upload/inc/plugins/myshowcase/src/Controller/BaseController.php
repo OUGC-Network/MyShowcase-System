@@ -604,7 +604,11 @@ abstract class BaseController
                     $this->context->mybb->input
                 );
 
-            $field->attachmentsBuild($this->context->render_manager, $entry);
+            $field->attachmentsBuild(
+                $this->context->render_manager,
+                $entry,
+                !$is_create_update_page
+            );
 
             if ($field->field_definition['html_type'] === FieldHtmlTypes::File) {
                 $field->setExtraData(

@@ -448,10 +448,14 @@ trait FieldTrait
      * @throws SyntaxError
      * @throws LoaderError
      */
-    public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry): void
+    public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry, bool $renderTemplates = true): void
     {
         $render_manager->attachments_type = ContentTypes::CustomField;
 
-        $this->attachments_rendered = $render_manager->buildAttachments($entry, $this->getAttachments());
+        $this->attachments_rendered = $render_manager->buildAttachments(
+            $entry,
+            $this->getAttachments(),
+            renderTemplates: $renderTemplates
+        );
     }
 }

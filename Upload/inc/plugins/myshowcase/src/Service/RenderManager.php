@@ -1106,6 +1106,7 @@ class RenderManager
         Collection $attachment_objects,
         array &$entry_fields = [],
         int $post_type = ContentTypes::Entry,
+        bool $renderTemplates = true,
     ): string {
         if ($attachment_objects->count() < 1) {
             return '';
@@ -1275,6 +1276,10 @@ class RenderManager
                     $unapprovedCount
                 );
             }
+        }
+
+        if (!$renderTemplates) {
+            return '';
         }
 
         if ($templatesContext) {

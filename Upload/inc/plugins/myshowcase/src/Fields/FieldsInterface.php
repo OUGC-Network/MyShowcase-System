@@ -58,7 +58,7 @@ interface FieldsInterface
 
     public function addAttachment(AttachmentEntity|array $attachment_data): void;
 
-    public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry): void;
+    public function attachmentsBuild(RenderManager $render_manager, EntryEntity $entry, bool $renderTemplates = true): void;
 
     public function getSelectableValues(): Collection;
 

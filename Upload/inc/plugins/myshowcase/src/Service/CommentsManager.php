@@ -26,7 +26,7 @@ use function MyShowcase\Plugin\Functions\castTableFieldValue;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
 
-use const MyShowcase\Plugin\Core\DATA_TABLE_STRUCTURE;
+use const MyShowcase\Plugin\Core\TABLES_DATA;
 
 class CommentsManager
 {
@@ -99,7 +99,11 @@ class CommentsManager
             }
         }
 
-        foreach (DATA_TABLE_STRUCTURE['myshowcase_data'] as $field_name => $field_definition) {
+        foreach (TABLES_DATA['myshowcase_comments'] as $field_name => $field_definition) {
+            if (!is_array($field_definition) || !isset($field_definition['type'])) {
+                continue;
+            }
+
             if (isset($comment_data[$field_name])) {
                 $comment_data[$field_name] = castTableFieldValue(
                     $comment_data[$field_name],

@@ -180,6 +180,7 @@ class CommentsController extends BaseController
             'createUpdateUrl' => $createUpdateUrl,
             'attachmentsUpload' => $attachmentsUpload,
             'comment_data' => $comment_data,
+            'background_class' => '',
         ]);
     }
 
