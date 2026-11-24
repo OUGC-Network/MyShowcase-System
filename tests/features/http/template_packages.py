@@ -195,7 +195,7 @@ def run(_acp):
     fix('template-set', 'downloads', 'downloads')
     fix('language-set', 'blog', 'article')
     fix('language-set', 'gallery', 'previews')
-    fix('language-set', 'downloads', 'resources')
+    fix('language-set', 'downloads', '')
 
     m = user('member1')
     gsid, bsid, dsid = sid('gallery'), sid('blog'), sid('downloads')
@@ -284,6 +284,15 @@ def run(_acp):
     ok(de is not None, 'seed downloads entry for template-package list checks')
     _create_downloads_entry(m, 'TP downloads package B')
 
+    if de is not None:
+        dl_global_lang = m.get(_downloads_view_url(de))
+        ok(
+            'aria-label="Attachments"' in dl_global_lang['body'],
+            'downloads package without a custom language file uses global attachment heading',
+        )
+
+    fix('language-set', 'downloads', 'resources')
+
     d_configured = m.get(f'{D}/')
     ok('myshowcase-download-entry' in d_configured['body'], 'configured downloads list uses package row markup')
     ok(
@@ -334,6 +343,10 @@ def run(_acp):
         ok(
             'tp-template-package.zip' in detail['body'] or '/attachment/' in detail['body'],
             'downloads entry detail exposes the archive through the normal attachment URLs',
+        )
+        ok(
+            'aria-label="Downloads"' in detail['body'],
+            'downloads package uses selected custom language overrides for attachment heading',
         )
 
     _toggle_main(m, f'{B}/', 'c')
@@ -423,7 +436,3 @@ def run(_acp):
     if blog_entry is not None:
         blog_view = m.get(f"{B}/view/{blog_entry['public_id']}/{blog_entry['entry_slug_custom'] or 'x'}")
         ok('aria-label="Article"' in blog_view['body'], 'blog package entry detail uses the selected custom language file')
-
-    if de is not None:
-        dl_view = m.get(_downloads_view_url(de))
-        ok('aria-label="Downloads"' in dl_view['body'], 'downloads package entry detail uses the selected custom language file')

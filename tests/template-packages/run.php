@@ -263,28 +263,61 @@ foreach (['blog', 'downloads', 'gallery'] as $package) {
     }
 }
 
+$languageSelectionSource = file_get_contents(\MyShowcase\ROOT . '/src/Service/LanguageSelection.php');
+check(
+    $languageSelectionSource !== false
+    && !str_contains($languageSelectionSource, 'PRESET_SHOWCASE_LANGUAGE_FILES')
+    && !str_contains($languageSelectionSource, 'presetLanguageFileForShowcaseJsonFile'),
+    'language selection has no JSON preset mapping'
+);
+check(
+    $adminPhp !== false
+    && !str_contains($adminPhp, 'LanguageSelection::LANGUAGE_PREFIX_USE_PRESET'),
+    'ACP language selector does not default to a language preset sentinel'
+);
+
+$globalDefaults = [
+    'myshowcase_custom_entry_detail_label' => 'Entry',
+    'myshowcase_custom_attachments_heading' => 'Attachments',
+    'myshowcase_custom_attachments_empty' => 'No attachments are available for this entry.',
+    'myshowcase_custom_preview_unavailable' => 'No preview image is available.',
+];
+foreach ($globalDefaults as $key => $value) {
+    check(
+        $globalLang !== false
+        && preg_match("/'{$key}'\\s*=>\\s*'" . preg_quote($value, '/') . "'/", $globalLang) === 1,
+        "global language defines {$key}"
+    );
+}
+
 check(
     LanguageSelection::languageSectionForPrefix('article') === 'myshowcase_showcase_article',
     'language section resolves bundled article file'
 );
 check(
     LanguageSelection::languageSectionForPrefix('../etc/passwd') === '',
-    'invalid language prefix is rejected'
+    'invalid language basename yields no loadable section'
 );
 check(
-    LanguageSelection::presetLanguageFileForShowcaseJsonFile('showcases/blog.json') === 'article',
-    'blog JSON preset maps to article language file without using template folder'
+    LanguageSelection::languageSectionForPrefix('Article') === 'myshowcase_showcase_article',
+    'language section accepts normalised valid basename'
 );
-check(in_array('article', LanguageSelection::languageSets(), true), 'article language file is discoverable');
+check(!LanguageSelection::isValidBasename('../etc/passwd'), 'traversal basename is invalid');
+check(!LanguageSelection::isValidBasename('bad/name'), 'slash basename is invalid');
+check(in_array('article', LanguageSelection::languageSets(), true), 'article language file is discoverable dynamically');
+check(in_array('resources', LanguageSelection::languageSets(), true), 'resources language file is discoverable dynamically');
 check(
-  in_array('custom_language_prefix', JsonSchema::SHOWCASE_EXCLUDED, true),
+    in_array('custom_language_prefix', JsonSchema::SHOWCASE_EXCLUDED, true),
     'showcase JSON files cannot own custom_language_prefix'
 );
 
-$articleLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase_showcase_article.lang.php');
-foreach ($neutralKeys as $neutralKey) {
-    check($articleLang !== false && str_contains($articleLang, $neutralKey), "article language file defines neutral key {$neutralKey}");
-}
+$resourcesLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase_showcase_resources.lang.php');
+check(
+    $resourcesLang !== false
+    && str_contains($resourcesLang, 'myshowcase_custom_attachments_heading')
+    && !str_contains($resourcesLang, 'myshowcase_custom_preview_unavailable'),
+    'example resources language file may override only selected neutral keys'
+);
 
 $baseController = file_get_contents(\MyShowcase\ROOT . '/src/Controller/BaseController.php');
 check(
