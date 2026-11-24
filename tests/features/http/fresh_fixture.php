@@ -390,7 +390,17 @@ switch ($command) {
             (new \MyShowcase\Service\CacheManager($db, $cache))->update(4);
         }
         $cached = $cache->read('myshowcase_4');
-        $out(['moderator_ids' => is_array($cached) ? array_map('intval', array_keys($cached)) : []]);
+        $moderator_ids = [];
+        if (is_array($cached)) {
+            foreach ($cached as $by_showcase) {
+                if (is_array($by_showcase)) {
+                    foreach (array_keys($by_showcase) as $moderator_id) {
+                        $moderator_ids[] = (int)$moderator_id;
+                    }
+                }
+            }
+        }
+        $out(['moderator_ids' => $moderator_ids]);
         break;
 
     case 'attachment-status':
