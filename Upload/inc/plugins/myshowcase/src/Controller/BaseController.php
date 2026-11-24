@@ -673,7 +673,7 @@ abstract class BaseController
      */
     protected function handleTemplateViewPreferencePost(): void
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        if ($this->context->mybb->request_method !== 'post') {
             return;
         }
 

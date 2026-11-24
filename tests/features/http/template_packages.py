@@ -2,6 +2,7 @@
 import json
 import os
 import re
+from html.parser import HTMLParser
 
 from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH
 from front import Front
@@ -30,12 +31,42 @@ def _toggle_main(client, base_path, mode):
     })
 
 
+class _GalleryGridAncestry(HTMLParser):
+    """True when a gallery grid element is an ancestor of a thread row card."""
+
+    def __init__(self):
+        super().__init__()
+        self._stack = []
+        self._grid_active = False
+        self.thread_inside_grid = False
+
+    def handle_starttag(self, tag, attrs):
+        classes = ''
+        for key, value in attrs:
+            if key == 'class':
+                classes = value
+                break
+        self._stack.append(classes)
+        if 'myshowcase-gallery-entries' in classes.split():
+            self._grid_active = True
+        if self._grid_active and tag == 'div' and 'thread' in classes.split():
+            self.thread_inside_grid = True
+
+    def handle_endtag(self, tag):
+        if self._stack:
+            classes = self._stack.pop()
+            if 'myshowcase-gallery-entries' in classes.split():
+                self._grid_active = False
+
+
 def _gallery_card_inside_grid(body):
-    return re.search(
-        r'myshowcase-gallery-entries[\s\S]{0,12000}?class="[^"]*\bthread\b',
-        body,
-        re.IGNORECASE,
-    ) is not None
+    parser = _GalleryGridAncestry()
+    parser.feed(body)
+    return parser.thread_inside_grid
+
+
+def _package_markers_absent(body, markers):
+    return not any(marker in body for marker in markers)
 
 
 def _decode_cookie_preferences(raw):
@@ -79,7 +110,8 @@ def run(_acp):
     ok('myshowcase_tpl_prefs' in _cookie_names(m), 'gallery template toggle stores the session preference cookie')
 
     g_global = m.get(f'{G}/')
-    ok('myshowcase-gallery-entries' not in g_global['body'], 'gallery global mode omits gallery-only grid markup')
+    ok(_package_markers_absent(g_global['body'], ['myshowcase-gallery-entries', 'myshowcase-gallery-detail']),
+       'gallery global mode omits gallery-only presentation markup')
 
     _toggle_main(m, f'{G}/', 'c')
     g_back = m.get(f'{G}/')
@@ -119,11 +151,19 @@ def run(_acp):
     b_list = m.get(f'{B}/')
     ok('myshowcase-blog-entry' in b_list['body'], 'configured blog list uses package row markup')
 
+    _toggle_main(m, f'{B}/', 'g')
+    b_global = m.get(f'{B}/')
+    ok(_package_markers_absent(b_global['body'], ['myshowcase-blog-entry', 'myshowcase-blog-detail']),
+       'blog global mode omits blog-only presentation markup')
+    _toggle_main(m, f'{B}/', 'c')
+
     e = entry('gallery', 'title', 'Member one photo')
     if e is not None:
         view = m.get(view_url(e))
         ok('myshowcase-gallery-detail' in view['body'], 'gallery entry view uses image-forward package markup')
         ok('myshowcase-entry-view--gallery' in view['body'], 'gallery entry view retains package page classes')
+        ok('myshowcase-gallery-detail__hero-image' in view['body'] or 'myshowcase-gallery-detail__hero-missing' in view['body'],
+           'gallery entry detail shows hero image or an explicit missing-image fallback')
 
         view_page = m.get(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}")
         m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {

@@ -1790,6 +1790,18 @@ class EntriesController extends BaseController
             $entry->setExtraData('username', $this->context->language->guest);
         }
 
+        $file_field_ids = [];
+        foreach ($this->context->custom_fields_collection as $field) {
+            if ($field->html_type === FieldHtmlTypes::File) {
+                $file_field_ids[] = (int)$field->field_id;
+            }
+        }
+
+        $main_image = $this->mainImage($entry, $file_field_ids);
+        if ($main_image !== false) {
+            $entry->setExtraData('main_image', $main_image);
+        }
+
         //trick MyBB into thinking its in archive so it adds bburl to smile link inside parser
         //doing this now should not impact anyhting. no issues with gomobile beta4
         define('IN_ARCHIVE', 1);

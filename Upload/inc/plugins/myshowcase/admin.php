@@ -27,6 +27,7 @@ use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\ExportsStorage;
 use MyShowcase\Service\SchemaManager;
+use MyShowcase\Service\TemplateSelection;
 use MyShowcase\Showcase;
 use MyShowcase\Util\SelectableLists;
 use Random\RandomException;
@@ -683,8 +684,12 @@ function buildPermissionsRow(
                 $select_array = (new SelectableLists($lang))->urlModesList();
             } elseif ($definition['input_type'] === FormTypes::SelectTemplateSet) {
                 $isCreateForm = empty($showcase_config['showcase_id']);
+                $selectedTemplateSet = (string)($input[$name] ?? $mybb->get_input($name));
+                if ($isCreateForm && $selectedTemplateSet === '' && !array_key_exists($name, $input)) {
+                    $selectedTemplateSet = TemplateSelection::TEMPLATE_PREFIX_USE_PRESET;
+                }
                 $select_array = (new SelectableLists($lang))->templateSetsList(
-                    (string)($input[$name] ?? $mybb->get_input($name)),
+                    $selectedTemplateSet,
                     $isCreateForm
                 );
             } else {
@@ -696,10 +701,15 @@ function buildPermissionsRow(
                 ];
             }
 
+            $selectedValue = $input[$name] ?? $mybb->get_input($name);
+            if ($definition['input_type'] === FormTypes::SelectTemplateSet) {
+                $selectedValue = $selectedTemplateSet ?? $selectedValue;
+            }
+
             $input_code .= $form->generate_select_box(
                 "showcase[{$name}]",
                 $select_array,
-                [$input[$name] ?? $mybb->get_input($name)],
+                [$selectedValue],
                 $options
             );
 
