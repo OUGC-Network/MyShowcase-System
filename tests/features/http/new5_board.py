@@ -85,6 +85,16 @@ def grant(board_dir, column, value):
     php(board_dir, 'save-row', 2, column, value)
 
 
+def other_valid_post_hash(reference):
+    """Another post_hash in the same shape the plugin uses ([0-9a-z]{slugLength}), for drafts the comment will not match."""
+    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+    last = reference[-1] if reference else '0'
+    i = alphabet.index(last) if last in alphabet else 0
+    tail = reference[:-1] if len(reference) > 1 else ''
+    pad = (tail + '0' * 9)[:9]
+    return pad + alphabet[(i + 1) % len(alphabet)]
+
+
 def main():
     import board  # noqa: E402
     import features  # noqa: E402
@@ -177,7 +187,8 @@ def main():
 
         # a malformed post_hash is replaced by a fresh one: the comment is stored and links nothing
         malformed = php(board_dir, 'attachment', 'blog', target['entry_id'], note, member_uid)
-        ctx.execute(f"update mybb_myshowcase_attachments set entry_id=0, post_hash='{hash_own}x' where attachment_id={malformed['attachment_id']}")
+        draft_hash = other_valid_post_hash(hash_own)
+        ctx.execute(f"update mybb_myshowcase_attachments set entry_id=0, post_hash='{draft_hash}' where attachment_id={malformed['attachment_id']}")
         member.post(f"/showcase.php/blog/view/{target['public_id']}/create/comment",
                     {'message': 'Comment with malformed hash', 'post_hash': 'x<script>', 'my_post_key': key, 'submit': 'Post'})
         stored_c = features.one("select count(*) from mybb_myshowcase_comments where message='Comment with malformed hash'")
