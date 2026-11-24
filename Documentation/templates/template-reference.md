@@ -342,3 +342,30 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
   checks whether the resolved template is on disk before optional includes.
 * **Profile links in new package templates:** use `url(get_profile_link(uid))` for absolute board URLs (MyBB
   `UrlExtension`), not manual `bburl` concatenation.
+
+### Custom showcase language (TP-D8)
+
+**Global vs custom.** Core plugin strings stay in `inc/languages/<lang>/myshowcase.lang.php`. Collection field labels use
+`myshowcase_fs{collection_id}.lang.php` (managed from the Fields ACP). Showcase presentation phrases use **reusable**
+files `inc/languages/<lang>/myshowcase_showcase_<basename>.lang.php` and optional per-showcase overrides
+`myshowcase{showcase_id}.lang.php`.
+
+**Selection.** `myshowcase_config.custom_language_prefix` (General tab) chooses a bundled basename (`article`,
+`resources`, `previews`, …). It is independent of `custom_template_prefix`, the route, and JSON showcase files (JSON
+sync must not set it). Several showcases may share one file; two showcases from the same JSON preset may pick different
+files. ACP create defaults to **Use preset language file** when a shipped preset is chosen; explicit **None** keeps only
+the global plugin language plus optional `myshowcase{id}.lang.php`.
+
+**Loading.** `BaseController` loads the global plugin language, then `LanguageSelection::sectionsForShowcase()`:
+first the selected `myshowcase_showcase_*` file, then `myshowcase{showcase_id}` when present (MyBB `MyLanguage::load()`,
+`suppress_error` for missing files). MyBB falls back to the board’s English pack when a phrase is absent in the visitor
+language. Visitor template-mode cookies affect only Twig package resolution, not language-file selection.
+
+**Neutral keys in package templates.** Package entry templates use semantic keys such as
+`myshowcase_custom_entry_detail_label`, `myshowcase_custom_attachments_heading`, `myshowcase_custom_attachments_empty`,
+and `myshowcase_custom_preview_unavailable`. Values live in the selected custom language file; templates omit optional
+text when the phrase is empty (MyBB returns `''` for undefined keys). Do not add package-specific keys to the global
+plugin dictionary.
+
+**Translators.** Add another language by copying the shipped `myshowcase_showcase_*.lang.php` files into
+`inc/languages/<yourlang>/` with the same basenames and keys.

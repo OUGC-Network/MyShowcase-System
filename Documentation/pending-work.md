@@ -51,7 +51,7 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | T6 | Image variants pipeline and watermark options | Gallery | Partial | L | none |
 | M1 | Media library showcase, references, embeds | Media | Not started | L | T5 |
 | M2 | Media in private messages | Media | Not started | M | M1 |
-| TP | Template packages for blog, downloads and gallery | Templates | Implemented on agent/template-packages-b1 (TP-D7 global neutrality + follow-up #3); owner runtime verification pending | L | agent/template-packages-b1 |
+| TP | Template packages for blog, downloads and gallery | Templates | Implemented on agent/template-packages-b1 (TP-D7/D8 language + packages); owner runtime verification pending | L | agent/template-packages-b1 |
 | FR2 | Final regression 2 | Tests | Not started | M | G2c to T6, M1, M2, TP |
 | Q1 | Quote SQL identifiers instead of the reserved-word list | Fields | Partial | M | none |
 | Q2 | MariaDB keyword probe | Fields | Cannot tell | S | Q1 |
@@ -441,15 +441,18 @@ access matrix covers each level. **Depends on.** T5 for folders. **Risks.** Priv
 
 ### TP. Template packages
 
-**Current state: Partial.** The mechanism for a per-showcase set exists: `myshowcase_config.custom_template_prefix`, chosen on the
-General tab, with files in `view/templates/<prefix>/` (`Documentation/templates/template-reference.md:11-27`). No shipped set was
-found for blog, downloads or gallery (`Documentation/showcases/gallery.md:80-101` says the gallery set is separate work), and no global or
-custom toggle was found (unverified: not searched beyond the language and template folders).
+**Current state: Implemented on agent/template-packages-b1; owner runtime verification pending (SQLite/MySQL/PostgreSQL).**
+Shorthand packages for blog, downloads and gallery live under `view/templates/{blog,downloads,gallery}/` with global template
+neutrality (TP-D7), visitor toggle (TP-D5), and neutral showcase phrases in reusable language files (TP-D8), not in the global
+`myshowcase.lang.php`. Select template set and custom language file independently on the showcase General tab
+(`custom_template_prefix`, `custom_language_prefix`). Static and HTTP regression hooks exist under D348; suites were written,
+not run by the agent.
 
-**What remains.** Ship one set per example showcase in its own folder, a toggle at the bottom of showcase pages that stores one
-session cookie (no database write, no new route), and the guard for custom sets (B4). **Acceptance.** A visitor can switch sets
-and the choice persists for the session; every shipped set passes the URL and variable checks. **Depends on.** none (B4 for
-guard). **Risks.** Sets drift from the global templates.
+**What remains for the owner.** Run `php tests/template-packages/run.php`, the features HTTP suite, JSON sync and URL guard on a
+board with the cumulative branch; confirm ACP create/edit for language files on boards that predate `custom_language_prefix`
+(may need a schema sync from `Plugin/Core.php`).
+
+**Risks.** Template and language folders drifting from global templates; boards missing the new config column until upgraded.
 
 ### FR2. Final regression 2
 
