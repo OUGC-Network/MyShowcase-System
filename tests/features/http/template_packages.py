@@ -7,7 +7,7 @@ import zipfile
 from html.parser import HTMLParser
 from urllib.parse import unquote
 
-from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id, mybb_error_summary
+from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, one, count, field_id, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id, mybb_error_summary
 from front import Front
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -91,16 +91,53 @@ def _downloads_view_url(e):
     return f"{D}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}"
 
 
-def _downloads_seed_diag(form, upload_resp, post_resp, expected_showcase_id, subject):
+def _downloads_upload_hint(response):
+    body = response.get('body') or ''
+    status = response.get('status', 0)
+    if status < 400:
+        return ''
+    plain = re.sub(r'\s+', ' ', body)
+    for pattern in (
+        r'inline_error[^<]{0,160}',
+        r'(?:upload|attachment)[^<]{0,80}(?:failed|error|not allow|invalid)[^<]{0,80}',
+        r'error_(?:attach|upload)[^<]{0,80}',
+    ):
+        match = re.search(pattern, plain, re.I)
+        if match:
+            return match.group(0).strip()[:140]
+    summary = mybb_error_summary(body)
+    return summary[:140] if summary else ''
+
+
+def _downloads_seed_diag(form, upload_resp, post_resp, expected_showcase_id, subject, post_hash=''):
     parts = [
         f"create_form_http={form['status']}",
         f"showcase_id={expected_showcase_id}",
+        f"archive_field={field_id('downloads', 'archive')}",
         f"archive_upload_http={upload_resp['status']}",
         f"entry_post_http={post_resp['status']}",
         f"entry_row={1 if entry('downloads', 'subject', subject) else 0}",
     ]
+    uploads_path = one(f"select attachments_uploads_path from mybb_myshowcase_config where showcase_id='{expected_showcase_id}'")
+    parts.append(f"uploads_path={'set' if uploads_path else 'MISSING'}")
+    zip_rows = q("select enabled, myshowcase_ids, maxsize from mybb_attachtypes where extension='zip'")
+    if zip_rows:
+        enabled, showcase_ids, maxsize = zip_rows[0]
+        parts.append(f"zip_attachtype_enabled={enabled}")
+        parts.append(f"zip_showcase_ids={showcase_ids or 'none'}")
+        parts.append(f"zip_maxsize_kb={maxsize}")
+    if post_hash:
+        safe_hash = post_hash.replace("'", "''")
+        parts.append('attachment_rows=' + str(count('mybb_myshowcase_attachments', f"post_hash='{safe_hash}'")))
+    upload_hint = _downloads_upload_hint(upload_resp)
+    if upload_hint:
+        parts.append(f"upload_error={upload_hint}")
+    if not uploads_path and upload_resp.get('status', 0) >= 400:
+        parts.append('storage_class=missing_showcase_uploads_path')
+    elif upload_resp.get('status', 0) >= 400:
+        parts.append('storage_class=upload_rejected_or_filesystem')
     summary = mybb_error_summary(post_resp.get('body') or form.get('body') or '')
-    if summary:
+    if summary and not upload_hint:
         parts.append(f"error={summary[:120]}")
     if no_permission(form):
         parts.append('permission=create_form_denied')
@@ -123,6 +160,14 @@ def _create_downloads_entry(client, subject):
         return None, {'status': form['status'], 'body': form['body'], '_diag': 'create_form_http=' + str(form['status']) + '; post_key=missing'}
     zip_name = _downloads_zip_in_media()
     upload_resp = upload(client, D, 'archive', post_hash, key, zip_name)
+    upload_ok = upload_resp['status'] == 200
+    if not upload_ok:
+        empty_post = {'status': 0, 'body': ''}
+        return None, {
+            'status': upload_resp['status'],
+            'body': upload_resp['body'],
+            '_diag': _downloads_seed_diag(form, upload_resp, empty_post, expected_sid, subject, post_hash),
+        }
     with open(os.path.join(MEDIA, zip_name), 'rb') as handle:
         digest = hashlib.sha256(handle.read()).hexdigest()
     response = client.post(f'{D}/create', {
@@ -137,8 +182,11 @@ def _create_downloads_entry(client, subject):
         'my_post_key': key,
         'submit': 'Post',
     })
-    response['_diag'] = _downloads_seed_diag(form, upload_resp, response, expected_sid, subject)
-    return entry('downloads', 'subject', subject), response
+    response['_diag'] = _downloads_seed_diag(form, upload_resp, response, expected_sid, subject, post_hash)
+    row = entry('downloads', 'subject', subject)
+    if row is None and response['status'] == 200:
+        response['_diag'] += '; entry_create=validation_or_missing_archive'
+    return row, response
 
 
 def _class_attr(attrs):
@@ -356,8 +404,12 @@ def run(_acp):
     de, de_resp = _create_downloads_entry(m, 'TP downloads package A')
     ok(de is not None, 'seed downloads entry for template-package list checks'
        + ('' if de is not None else f" [{de_resp.get('_diag', '')}]"))
-    _create_downloads_entry(m, 'TP downloads package B')
-    downloads_seeded = de is not None and entry('downloads', 'subject', 'TP downloads package B') is not None
+    de2, de2_resp = (None, {})
+    if de is not None:
+        de2, de2_resp = _create_downloads_entry(m, 'TP downloads package B')
+    else:
+        ok(False, 'seed second downloads entry for template-package list checks [blocked: archive upload failed]')
+    downloads_seeded = de is not None and de2 is not None
 
     if de is not None:
         dl_global_lang = m.get(_downloads_view_url(de))

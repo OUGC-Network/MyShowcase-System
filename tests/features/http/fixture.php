@@ -79,8 +79,12 @@ $applyGrants = static function (int $moderatedGroup) use ($db): void {
         $db->insert_query('myshowcase_permissions', $row);
     }
 
-    // JSON-synced showcases are created after setup with is_enabled defaulting to 0; enable every showcase for this scratch board.
-    $db->update_query('myshowcase_config', ['is_enabled' => 1]);
+    // JSON-synced showcases are created after setup with is_enabled defaulting to 0 and no uploads path; mirror setup's board defaults.
+    $db->update_query('myshowcase_config', [
+        'is_enabled' => 1,
+        'attachments_uploads_path' => 'uploads/myshowcase',
+    ]);
+    @mkdir(MYBB_ROOT . 'uploads/myshowcase', 0777, true);
 
     $showcaseIds = [];
     $query = $db->simple_select('myshowcase_config', 'showcase_id');
