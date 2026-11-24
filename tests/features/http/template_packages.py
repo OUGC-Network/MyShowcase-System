@@ -5,6 +5,7 @@ import os
 import re
 import zipfile
 from html.parser import HTMLParser
+from urllib.parse import unquote
 
 from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id
 from front import Front
@@ -22,11 +23,27 @@ def _cookie_names(client):
     return [c.name for c in client.jar]
 
 
-def _cookie_value(client, name):
+def _cookie_value(client, name='myshowcase_tpl_prefs'):
     for c in client.jar:
-        if c.name == name:
-            return c.value
+        if c.name == name or c.name.endswith(name):
+            # MyBB my_setcookie() urlencodes the Set-Cookie value (inc/functions.php).
+            return unquote(c.value or '')
     return ''
+
+
+def _template_prefs(client):
+    raw = _cookie_value(client)
+    return _decode_cookie_preferences(raw)
+
+
+def _cookie_diag(client):
+    raw = _cookie_value(client)
+    if not raw:
+        return 'cookie=missing'
+    if raw[0] not in '{[':
+        return f'cookie=unexpected_prefix len={len(raw)}'
+    prefs = _decode_cookie_preferences(raw)
+    return f'cookie=parsed keys={len(prefs)}'
 
 
 def _toggle_main(client, base_path, mode):
@@ -165,6 +182,7 @@ def _package_markers_absent(body, markers):
 def _decode_cookie_preferences(raw):
     if not raw or len(raw) > 2048:
         return {}
+    raw = unquote(raw)
     try:
         decoded = json.loads(raw)
     except json.JSONDecodeError:
@@ -251,20 +269,19 @@ def run(_acp):
         'blog returns to package presentation when switched back to configured',
     )
 
-    cookie_raw = _cookie_value(m, 'myshowcase_tpl_prefs')
-    prefs = json.loads(cookie_raw)
+    prefs = _template_prefs(m)
     ok(prefs.get(str(gsid)) == 'c' and prefs.get(str(bsid)) == 'c',
-       'two showcases sharing packages keep independent visitor preferences')
+       'two showcases sharing packages keep independent visitor preferences' + (f' [{_cookie_diag(m)}]' if not prefs else ''))
 
     _toggle_main(m, f'{G}/', 'g')
-    prefs = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    prefs = _template_prefs(m)
     ok(prefs.get(str(gsid)) == 'g' and prefs.get(str(bsid)) == 'c',
-       'switching gallery does not change blog visitor preference')
+       'switching gallery does not change blog visitor preference' + (f' [{_cookie_diag(m)}]' if prefs.get(str(gsid)) != 'g' else ''))
 
     _toggle_main(m, f'{B}/', 'g')
-    prefs_blog_global = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    prefs_blog_global = _template_prefs(m)
     ok(prefs_blog_global.get(str(bsid)) == 'g' and prefs_blog_global.get(str(gsid)) == 'g',
-       'switching blog does not change gallery visitor preference')
+       'switching blog does not change gallery visitor preference' + (f' [{_cookie_diag(m)}]' if prefs_blog_global.get(str(bsid)) != 'g' else ''))
 
     users_file = os.path.join(SCRATCH, 'users.json')
     with open(users_file, encoding='utf-8') as users_handle:
@@ -272,12 +289,19 @@ def run(_acp):
     fresh = Front(CTX.url)
     fresh.login('member1', member_password)
     fresh_g = fresh.get(f'{G}/')
-    ok('myshowcase_tpl_prefs' not in _cookie_names(fresh) and 'myshowcase-gallery-entries' in fresh_g['body'],
-       'new browser session uses configured package defaults without a preference cookie')
+    ok(
+        not any(n == 'myshowcase_tpl_prefs' or n.endswith('myshowcase_tpl_prefs') for n in _cookie_names(fresh))
+        and 'myshowcase-gallery-entries' in fresh_g['body'],
+        'new browser session uses configured package defaults without a preference cookie',
+    )
 
     ok(
         _decode_cookie_preferences('{"not-a-showcase-id":"g","1":"g","2":"x","3":"g"}') == {'1': 'g', '3': 'g'},
         'invalid cookie keys and modes are discarded safely',
+    )
+    ok(
+        _decode_cookie_preferences('%7B%221%22%3A%22c%22%2C%222%22%3A%22g%22%7D') == {'1': 'c', '2': 'g'},
+        'urlencoded MyBB Set-Cookie JSON decodes to visitor preferences',
     )
 
     de, _ = _create_downloads_entry(m, 'TP downloads package A')
@@ -321,9 +345,9 @@ def run(_acp):
         'downloads returns to package presentation when switched back to configured',
     )
 
-    prefs_before_dl = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    prefs_before_dl = _template_prefs(m)
     _toggle_main(m, f'{D}/', 'g')
-    prefs_after_dl = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    prefs_after_dl = _template_prefs(m)
     ok(
         prefs_after_dl.get(str(dsid)) == 'g'
         and prefs_after_dl.get(str(bsid)) == prefs_before_dl.get(str(bsid))

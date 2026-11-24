@@ -148,6 +148,26 @@ def comment_public_id(entry_id, status=None):
     return rows[0][0] if rows else ''
 
 
+def mybb_error_summary(body):
+    plain = re.sub(r'\s+', ' ', body)
+    for pattern in (
+        r'<div[^>]*class="[^"]*error[^"]*"[^>]*>([^<]{1,240})',
+        r'<blockquote[^>]*>([^<]{1,240})',
+        r'class="[^"]*error[^"]*">([^<]{1,240})',
+    ):
+        match = re.search(pattern, plain, re.I)
+        if match:
+            text = re.sub(r'\s+', ' ', match.group(1)).strip()
+            if text and text.lower() not in ('board message', 'error'):
+                return text[:160]
+    match = re.search(r'<title>([^<]+)</title>', plain, re.I)
+    if match:
+        title = match.group(1).strip()
+        if title.lower() not in ('board message', 'error', 'mybb'):
+            return f'title={title[:120]}'
+    return ''
+
+
 def describe_comment_failure(entry, r):
     """Actionable summary when an expected comment row is missing (no secrets)."""
     total = count('mybb_myshowcase_comments', f"entry_id='{entry['entry_id']}'")
@@ -165,6 +185,9 @@ def describe_comment_failure(entry, r):
     err = php_errors(r)
     if err:
         parts.append(f"response_signal={err}")
+    summary = mybb_error_summary(r['body'])
+    if summary:
+        parts.append(f'error_summary={summary}')
     if no_permission(r):
         parts.append('post_body=permission_denied')
     elif bad_post_key(r):
@@ -329,12 +352,16 @@ def security():
     ok(comment_ok, 'member comments on an entry' + ('' if comment_ok else f' [{describe_comment_failure(e1, r)}]'))
     c = comment_public_id(e1['entry_id'])
     ok(c != '', 'member comment row has a public_id for follow-up checks' + ('' if c else f' [{describe_comment_failure(e1, r)}]'))
-    page = m1.get(view_url(e1))
-    r = m1.post(f"{G}/view/{e1['public_id']}/update/comment/{c}", {'message': 'Edited by someone else', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
-    ok(no_permission(r) and count('mybb_myshowcase_comments', "message='Edited by someone else'") == 0, "member: another user's comment cannot be edited")
-    r = m2.post(f"{G}/view/{e2['public_id']}/update/comment/{c}", {'message': 'Moved', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
-    ok(count('mybb_myshowcase_comments', f"public_id='{c}' and entry_id='{e1['entry_id']}'") == 1 and count('mybb_myshowcase_comments', "message='Moved'") == 0,
-       "a comment cannot be edited (or moved) through another entry's address")
+    if comment_ok and c:
+        page = m1.get(view_url(e1))
+        r = m1.post(f"{G}/view/{e1['public_id']}/update/comment/{c}", {'message': 'Edited by someone else', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
+        ok(no_permission(r) and count('mybb_myshowcase_comments', "message='Edited by someone else'") == 0, "member: another user's comment cannot be edited")
+        r = m2.post(f"{G}/view/{e2['public_id']}/update/comment/{c}", {'message': 'Moved', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
+        ok(count('mybb_myshowcase_comments', f"public_id='{c}' and entry_id='{e1['entry_id']}'") == 1 and count('mybb_myshowcase_comments', "message='Moved'") == 0,
+           "a comment cannot be edited (or moved) through another entry's address")
+    else:
+        ok(False, "member: another user's comment cannot be edited [blocked: comment prerequisite missing]")
+        ok(False, "a comment cannot be edited (or moved) through another entry's address [blocked: comment prerequisite missing]")
     moderate(mod, 'close', [e1])
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '1', 'moderator: inline close')
     r = comment(m2, e1, 'Comment on a closed entry')
@@ -371,27 +398,38 @@ def security():
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'moderator opens it again')
     ok('value="copy"' not in mod.get(f'{G}/')['body'] and 'value="copy"' not in mod_page, 'main list and entry page hide the unimplemented copy action')
     # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
-    cslug = comment_public_id(e1['entry_id'], '1')
-    ok(cslug != '', 'comment public_id available before moderation delete checks')
-    r = mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1")
-    ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
-       'comment soft delete without my_post_key is refused')
-    r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
-    ok(no_permission(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
-       "member cannot soft-delete another user's comment")
-    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
-    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
-    page = mod.get(view_url(e1))['body']
-    ok(f"/update/comment/{cslug}?action=restore" in page.replace('&amp;', '&') and 'editpost.php' not in page,
-       'deleted comment shows a plugin restore link to moderators, no editpost.php')
-    r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
-    # A member does not even see another user's soft-deleted comment: refused as missing or as no permission.
-    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1 and 'restored' not in r['body'].lower(),
-       "member cannot restore another user's comment")
-    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(page)}")
-    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1, 'moderator restores the comment through the plugin')
-    mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
-    ok(count('mybb_myshowcase_comments', f"public_id='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
+    cslug = comment_public_id(e1['entry_id'], '1') if comment_ok else ''
+    ok(cslug != '', 'comment public_id available before moderation delete checks' + ('' if cslug else ' [blocked: comment prerequisite missing]'))
+    if comment_ok and cslug:
+        r = mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1")
+        ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
+           'comment soft delete without my_post_key is refused')
+        r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+        ok(no_permission(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
+           "member cannot soft-delete another user's comment")
+        mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1&my_post_key={post_key(mod_page)}")
+        ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1, 'moderator soft-deletes a comment through the plugin')
+        page = mod.get(view_url(e1))['body']
+        ok(f"/update/comment/{cslug}?action=restore" in page.replace('&amp;', '&') and 'editpost.php' not in page,
+           'deleted comment shows a plugin restore link to moderators, no editpost.php')
+        r = m1.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(m1.get(view_url(e1))['body'])}")
+        ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='2'") == 1 and 'restored' not in r['body'].lower(),
+           "member cannot restore another user's comment")
+        mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?action=restore&my_post_key={post_key(page)}")
+        ok(count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1, 'moderator restores the comment through the plugin')
+        mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=2&my_post_key={post_key(mod_page)}")
+        ok(count('mybb_myshowcase_comments', f"public_id='{cslug}'") == 0, 'moderator hard-deletes the comment through the plugin')
+    else:
+        for label in (
+            'comment soft delete without my_post_key is refused',
+            "member cannot soft-delete another user's comment",
+            'moderator soft-deletes a comment through the plugin',
+            'deleted comment shows a plugin restore link to moderators, no editpost.php',
+            "member cannot restore another user's comment",
+            'moderator restores the comment through the plugin',
+            'moderator hard-deletes the comment through the plugin',
+        ):
+            ok(False, f'{label} [blocked: comment prerequisite missing]')
     # L5: day-threshold filter compares dateline as a date.
     keep_title = 'Member one photo'
     old = create_gallery(m1, 'Threshold old photo')['entry']
@@ -503,26 +541,44 @@ def attachments():
     return j
 
 
+def _edit_attachment_diag(form, attachment_id, attachment_name):
+    body = form['body']
+    parts = [f"http={form['status']}"]
+    if php_errors(form):
+        parts.append(f"signal={php_errors(form)}")
+    parts.append(f"name_in_body={attachment_name in body}")
+    parts.append(f"remove_ctl={f'name=\"remove_attachments[]\" value=\"{attachment_id}\"' in body}")
+    parts.append(f"uploaded_attachment={('uploaded-attachment' in body)}")
+    return '; '.join(parts)
+
+
 def edit_form(j):
     print('--- 5c. edit form keeps or replaces the image')
     m1 = user('member1')
     old = q(f"select attachment_id, file_name, attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
     form = m1.get(f"{G}/update/{j['public_id']}")
-    ok(old[2] in form['body'] and f'name="remove_attachments[]" value="{old[0]}"' in form['body'], 'edit form lists the attached image with a remove control')
+    remove_ok = old[2] in form['body'] and f'name="remove_attachments[]" value="{old[0]}"' in form['body']
+    ok(remove_ok, 'edit form lists the attached image with a remove control' + ('' if remove_ok else f' [{_edit_attachment_diag(form, old[0], old[2])}]'))
     # the gallery's subject is its title (decision D204): an update without it is refused as a whole
     data = {'subject': 'Jpeg photo', 'title': 'Jpeg photo', 'caption': 'kept', 'category': option_id('gallery', 'Nature'), 'my_post_key': post_key(form['body']), 'submit': 'Post'}
     m1.post(f"{G}/update/{j['public_id']}", data)
     ok(count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1, 'saving without removing keeps the image')
     r = m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': old[0]}))
-    ok('A required field is missing' in r['body'] and count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1,
-       'removing the only image of a required field is refused, the image stays')
+    remove_refused = 'A required field is missing' in r['body'] and count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'") == 1
+    kept = count('mybb_myshowcase_attachments', f"attachment_id='{old[0]}'")
+    ok(remove_refused,
+       'removing the only image of a required field is refused, the image stays'
+       + ('' if remove_refused else f' [post_http={r["status"]}; kept_rows={kept}]'))
     k = post_key(form['body'])
     up = m1.upload(f"{G}/api/view/{j['public_id']}/upload?my_post_key={k}&field_id={field_id('gallery', 'image')}",
                    {'my_post_key': k, 'field_id': field_id('gallery', 'image')}, 'image', os.path.join(MEDIA, 'second.jpg'))
     ok(up['status'] == 200, f'owner uploads a new image to the entry [{up["status"]}]')
     m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': old[0]}))
     left = q(f"select attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")
-    ok(left == [('second.jpg',)] and not os.path.exists(os.path.join(BOARD, 'uploads', 'myshowcase', old[1])), 'replace: the old image row and file are gone, the new one stays')
+    replace_ok = left == [('second.jpg',)] and not os.path.exists(os.path.join(BOARD, 'uploads', 'myshowcase', old[1]))
+    ok(replace_ok,
+       'replace: the old image row and file are gone, the new one stays'
+       + ('' if replace_ok else f" [rows={left}; old_file_exists={os.path.exists(os.path.join(BOARD, 'uploads', 'myshowcase', old[1]))}]"))
     other = one(f"select attachment_id from mybb_myshowcase_attachments where entry_id='{entry('gallery', 'title', 'Member two photo')['entry_id']}'")
     m1.post(f"{G}/update/{j['public_id']}", dict(data, **{'remove_attachments[]': other}))
     ok(count('mybb_myshowcase_attachments', f"attachment_id='{other}'") == 1, "the id of another entry's file in the form removes nothing")
