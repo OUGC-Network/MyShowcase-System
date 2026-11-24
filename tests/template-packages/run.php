@@ -23,7 +23,10 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
+use MyShowcase\Fields\FieldsInterface;
+use MyShowcase\Fields\FileField;
 use MyShowcase\Service\LanguageSelection;
+use MyShowcase\Service\RenderManager;
 use MyShowcase\Service\ShowcaseService;
 use MyShowcase\Service\TemplateSelection;
 use MyShowcase\Service\TemplateSelectionRegistry;
@@ -373,6 +376,62 @@ check(
     $baseController !== false
     && str_contains($baseController, 'LanguageSelection::sectionsForShowcase'),
     'front controller loads reusable and per-showcase language sections through LanguageSelection'
+);
+
+$interfaceAttachmentsBuild = new \ReflectionMethod(FieldsInterface::class, 'attachmentsBuild');
+check($interfaceAttachmentsBuild->getNumberOfParameters() === 2, 'FieldsInterface::attachmentsBuild keeps the two-parameter contract');
+check(
+    (new \ReflectionMethod(FileField::class, 'attachmentsBuild'))->getNumberOfParameters() === 2,
+    'FileField attachmentsBuild remains a two-argument implementation'
+);
+check(
+    is_subclass_of(FileField::class, FieldsInterface::class),
+    'FileField satisfies FieldsInterface without a third attachmentsBuild argument'
+);
+check(
+    method_exists(RenderManager::class, 'prepareAttachmentEntitiesForDisplay'),
+    'RenderManager exposes form-only attachment metadata preparation'
+);
+$renderManagerSource = file_get_contents(\MyShowcase\ROOT . '/src/Service/RenderManager.php');
+check(
+    $renderManagerSource !== false
+    && str_contains($renderManagerSource, 'function prepareAttachmentEntitiesForDisplay')
+    && !preg_match('/bool \$renderTemplates/', $renderManagerSource),
+    'buildAttachments has no renderTemplates toggle; preparation is a separate method'
+);
+check(
+    (new \ReflectionMethod(RenderManager::class, 'prepareAttachmentEntitiesForDisplay'))->isPublic(),
+    'prepareAttachmentEntitiesForDisplay is a public RenderManager entry point'
+);
+check(
+    $baseController !== false
+    && str_contains($baseController, 'prepareAttachmentEntitiesForDisplay')
+    && !preg_match('/attachmentsBuild\s*\([^)]*,\s*[^)]*,/', $baseController),
+    'create/update forms prepare attachments internally without a third attachmentsBuild argument'
+);
+check(
+    preg_match(
+        '/if \(\$is_create_update_page\)[^{]*prepareAttachmentEntitiesForDisplay/s',
+        (string)$baseController
+    ) === 1,
+    'edit-form path calls prepareAttachmentEntitiesForDisplay instead of view Twig rendering'
+);
+check(
+    $baseController !== false
+    && preg_match('/\} else \{[^}]*attachmentsBuild/s', $baseController) === 1,
+    'entry view path still calls attachmentsBuild for rendered attachment HTML'
+);
+$editFieldTemplate = file_get_contents(\MyShowcase\ROOT . '/view/templates/pageEntryCreateUpdateField.twig');
+check(
+    $editFieldTemplate !== false
+    && str_contains($editFieldTemplate, "showcase_template('pageEntryCreateUpdateFieldAttachment.twig')"),
+    'edit attachment partial keeps TP-D1 package-first nested resolution'
+);
+$fieldAttachmentsTwig = file_get_contents(\MyShowcase\ROOT . '/view/templates/pageViewEntryFieldAttachments.twig');
+check(
+    $fieldAttachmentsTwig !== false
+    && str_contains($fieldAttachmentsTwig, 'showcase_template('),
+    'entry view field attachment Twig retains package-first nested includes'
 );
 
 echo PHP_EOL . ($failures === 0 ? "OK {$passes} checks\n" : "FAILED {$failures}, passed {$passes}\n");

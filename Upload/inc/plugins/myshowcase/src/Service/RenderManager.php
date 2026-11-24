@@ -1101,12 +1101,74 @@ class RenderManager
      * @throws LoaderError
      * @throws SyntaxError
      */
+    /**
+     * Populates attachment entity extra_data (URLs, size, icons) for create/update forms without view Twig.
+     */
+    public function prepareAttachmentEntitiesForDisplay(
+        EntryEntity $entry,
+        Collection $attachment_objects,
+        int $post_type = ContentTypes::CustomField,
+    ): void {
+        if ($attachment_objects->count() < 1) {
+            return;
+        }
+
+        foreach ($attachment_objects as $attachment_data) {
+            $this->applyAttachmentDisplayMetadata($entry, $attachment_data, $post_type);
+        }
+    }
+
+    private function applyAttachmentDisplayMetadata(
+        EntryEntity $entry,
+        AttachmentEntity $attachment_data,
+        int $post_type,
+    ): void {
+        $attachment_data
+            ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
+            ->setExtraData(
+                'is_image',
+                str_starts_with($attachment_data->mime_type, 'image/')
+            )
+            ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment_data->attachment_name), (string)$this->context->mybb->settings['bburl'], (string)$this->context->mybb->get_asset_url('')));
+
+        $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
+
+        if ($post_type !== ContentTypes::Entry && $post_type !== ContentTypes::CustomField) {
+            return;
+        }
+
+        $attachment_data->setExtraData(
+            'url',
+            $this->context->routing->url(
+                Routes::AttachmentDownload,
+                [
+                    'attachment_public_id' => $attachment_data->public_id,
+                    'attachment_name' => $attachment_data->attachment_name,
+                ],
+            )
+        );
+
+        if ($attachment_data->has_thumbnail) {
+            $attachment_data->setExtraData(
+                'url_thumbnail',
+                $this->context->routing->url(
+                    Routes::AttachmentThumbnail,
+                    [
+                        'attachment_public_id' => $attachment_data->public_id,
+                        'attachment_name' => $attachment_data->attachment_name,
+                    ]
+                )
+            );
+        } else {
+            $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
+        }
+    }
+
     public function buildAttachments(
         EntryEntity $entry,
         Collection $attachment_objects,
         array &$entry_fields = [],
         int $post_type = ContentTypes::Entry,
-        bool $renderTemplates = true,
     ): string {
         if ($attachment_objects->count() < 1) {
             return '';
@@ -1132,58 +1194,7 @@ class RenderManager
          * @var AttachmentEntity $attachment_data
          */
         foreach ($attachment_objects as $attachmentID => $attachment_data) {
-            $attachment_data
-                ->setExtraData('file_size', get_friendly_size($attachment_data->file_size))
-                ->setExtraData(
-                    'is_image',
-                    str_starts_with($attachment_data->mime_type, 'image/')
-                )
-                ->setExtraData('icon', \MyShowcase\Routing\Routing::iconMarkup((string)get_attachment_icon($attachment_data->attachment_name), (string)$this->context->mybb->settings['bburl'], (string)$this->context->mybb->get_asset_url('')));
-
-            $attachment_data->has_thumbnail = !empty($attachment_data->thumbnail_name) && $this->context->showcase->attachments_display_type === AttachmentsDisplayType::Thumbnails;
-
-            // todo, maybe all attachments should be accessible from the same route, with entry_public_id or post_hash optional
-            if ($post_type === ContentTypes::Entry ||
-                $post_type === ContentTypes::CustomField) {
-                if ($entry->entry_id) {
-                    $attachment_data->setExtraData(
-                        'url',
-                        $this->context->routing->url(
-                            Routes::AttachmentDownload,
-                            [
-                                'attachment_public_id' => $attachment_data->public_id,
-                                'attachment_name' => $attachment_data->attachment_name,
-                            ],
-                        )
-                    );
-                } else {
-                    $attachment_data->setExtraData(
-                        'url',
-                        $this->context->routing->url(
-                            Routes::AttachmentDownload,
-                            [
-                                'attachment_public_id' => $attachment_data->public_id,
-                                'attachment_name' => $attachment_data->attachment_name,
-                            ],
-                        )
-                    );
-                }
-
-                if ($attachment_data->has_thumbnail) {
-                    $attachment_data->setExtraData(
-                        'url_thumbnail',
-                        $this->context->routing->url(
-                            Routes::AttachmentThumbnail,
-                            [
-                                'attachment_public_id' => $attachment_data->public_id,
-                                'attachment_name' => $attachment_data->attachment_name,
-                            ]
-                        )
-                    );
-                } else {
-                    $attachment_data->setExtraData('url_thumbnail', $attachment_data->getExtraData('url'));
-                }
-            }
+            $this->applyAttachmentDisplayMetadata($entry, $attachment_data, $post_type);
 
             // An attachment awaiting approval is shown only to its author and to the moderators of its area (decision P6):
             // the comments area for a comment's attachment (the entry page lists those too), the entries area for the rest.
@@ -1276,10 +1287,6 @@ class RenderManager
                     $unapprovedCount
                 );
             }
-        }
-
-        if (!$renderTemplates) {
-            return '';
         }
 
         if ($templatesContext) {
