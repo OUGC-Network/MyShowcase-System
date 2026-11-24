@@ -1,13 +1,16 @@
 """HTTP checks for template packages (TP): visitor toggle, cookies, package markup, and authorization order."""
+import hashlib
 import json
 import os
 import re
+import zipfile
 from html.parser import HTMLParser
 
-from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH
+from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id
 from front import Front
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+D = '/showcase.php/downloads'
 
 _VOID_HTML_TAGS = frozenset({
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
@@ -34,6 +37,63 @@ def _toggle_main(client, base_path, mode):
         'template_view_mode': mode,
         'template_return_route': 'main',
     })
+
+
+def _scoped_style_rule_count(body, selector):
+    return len(re.findall(re.escape(selector) + r'\s*\{', body))
+
+
+def _ensure_downloads_showcase(acp):
+    if sid('downloads') > 0:
+        return
+    adm = '/admin/index.php?module=myshowcase-json_sync'
+    acp.post(adm, {'action': 'run', 'mode': 'create', 'type': 'collection', 'file': 'collections/downloads.json'})
+    acp.post(adm, {
+        'action': 'run',
+        'mode': 'create',
+        'type': 'showcase',
+        'file': 'showcases/downloads.json',
+        'name': 'Downloads',
+        'route_identifier': 'downloads',
+    })
+    ok(sid('downloads') > 0, 'downloads showcase created from JSON sync for template-package checks')
+
+
+def _downloads_zip_in_media():
+    name = 'tp-template-package.zip'
+    path = os.path.join(MEDIA, name)
+    if not os.path.isfile(path):
+        with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr('readme.txt', 'template package test archive')
+    return name
+
+
+def _downloads_view_url(e):
+    return f"{D}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}"
+
+
+def _create_downloads_entry(client, subject):
+    form = client.get(f'{D}/create')
+    match = re.search(r'name="post_hash" value="([^"]+)"', form['body'])
+    post_hash = match.group(1) if match else 'dlhashTP1'
+    key = post_key(form['body'])
+    zip_name = _downloads_zip_in_media()
+    upload(client, D, 'archive', post_hash, key, zip_name)
+    with open(os.path.join(MEDIA, zip_name), 'rb') as handle:
+        digest = hashlib.sha256(handle.read()).hexdigest()
+    response = client.post(f'{D}/create', {
+        'subject': subject,
+        'category': option_id('downloads', 'Tools'),
+        'version': '1.0.0',
+        'release_date': '2026-11-01',
+        'platform': option_id('downloads', 'Any'),
+        'license': option_id('downloads', 'Freeware'),
+        'sha256': digest,
+        'post_hash': post_hash,
+        'my_post_key': key,
+        'submit': 'Post',
+    })
+    return entry('downloads', 'subject', subject), response
 
 
 def _class_attr(attrs):
@@ -129,11 +189,13 @@ def run(_acp):
     print('--- TP. template packages and visitor preferences')
     _gallery_parser_self_check()
 
+    _ensure_downloads_showcase(_acp)
     fix('template-set', 'gallery', 'gallery')
     fix('template-set', 'blog', 'blog')
+    fix('template-set', 'downloads', 'downloads')
 
     m = user('member1')
-    gsid, bsid = sid('gallery'), sid('blog')
+    gsid, bsid, dsid = sid('gallery'), sid('blog'), sid('downloads')
     prefix_before = q(f"select custom_template_prefix from mybb_myshowcase_config where showcase_id={gsid}")[0][0]
 
     g_configured = m.get(f'{G}/')
@@ -160,6 +222,30 @@ def run(_acp):
         'template_view_mode': 'c',
         'template_return_route': 'main',
     })
+
+    b_configured = m.get(f'{B}/')
+    ok('myshowcase-blog-entry' in b_configured['body'], 'configured blog list uses package row markup')
+    ok(
+        _scoped_style_rule_count(b_configured['body'], '.myshowcase-blog-entry') == 1,
+        'configured blog list loads package list CSS once per page',
+    )
+
+    _toggle_main(m, f'{B}/', 'g')
+    b_global = m.get(f'{B}/')
+    ok(_package_markers_absent(b_global['body'], ['myshowcase-blog-entry', 'myshowcase-blog-detail']),
+       'blog global mode omits blog-only presentation markup')
+    ok(
+        _scoped_style_rule_count(b_global['body'], '.myshowcase-blog-entry') == 0,
+        'blog global mode omits blog package list stylesheet rules',
+    )
+
+    _toggle_main(m, f'{B}/', 'c')
+    b_restored = m.get(f'{B}/')
+    ok(
+        'myshowcase-blog-entry' in b_restored['body']
+        and _scoped_style_rule_count(b_restored['body'], '.myshowcase-blog-entry') == 1,
+        'blog returns to package presentation when switched back to configured',
+    )
 
     cookie_raw = _cookie_value(m, 'myshowcase_tpl_prefs')
     prefs = json.loads(cookie_raw)
@@ -190,16 +276,61 @@ def run(_acp):
         'invalid cookie keys and modes are discarded safely',
     )
 
-    b_list = m.get(f'{B}/')
-    ok('myshowcase-blog-entry' in b_list['body'], 'configured blog list uses package row markup')
-    ok('.myshowcase-blog-entry' in b_list['body'], 'configured blog list loads package list CSS once per page')
+    de, _ = _create_downloads_entry(m, 'TP downloads package A')
+    ok(de is not None, 'seed downloads entry for template-package list checks')
+    _create_downloads_entry(m, 'TP downloads package B')
 
-    _toggle_main(m, f'{B}/', 'g')
-    b_global = m.get(f'{B}/')
-    ok(_package_markers_absent(b_global['body'], ['myshowcase-blog-entry', 'myshowcase-blog-detail']),
-       'blog global mode omits blog-only presentation markup')
-    ok('.myshowcase-blog-entry {' not in b_global['body'],
-       'blog global mode omits blog package list stylesheet rules')
+    d_configured = m.get(f'{D}/')
+    ok('myshowcase-download-entry' in d_configured['body'], 'configured downloads list uses package row markup')
+    ok(
+        _scoped_style_rule_count(d_configured['body'], '.myshowcase-download-entry') == 1,
+        'configured downloads list loads package list CSS once per page',
+    )
+    ok(
+        d_configured['body'].count('myshowcase-download-entry') >= 2,
+        'configured downloads list marks each entry without duplicating list stylesheet rules',
+    )
+
+    _toggle_main(m, f'{D}/', 'g')
+    d_global = m.get(f'{D}/')
+    ok(_package_markers_absent(d_global['body'], ['myshowcase-download-entry', 'myshowcase-downloads-detail']),
+       'downloads global mode omits downloads-only presentation markup')
+    ok(
+        _scoped_style_rule_count(d_global['body'], '.myshowcase-download-entry') == 0,
+        'downloads global mode omits downloads package list stylesheet rules',
+    )
+
+    _toggle_main(m, f'{D}/', 'c')
+    d_restored = m.get(f'{D}/')
+    ok(
+        'myshowcase-download-entry' in d_restored['body']
+        and _scoped_style_rule_count(d_restored['body'], '.myshowcase-download-entry') == 1,
+        'downloads returns to package presentation when switched back to configured',
+    )
+
+    prefs_before_dl = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    _toggle_main(m, f'{D}/', 'g')
+    prefs_after_dl = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    ok(
+        prefs_after_dl.get(str(dsid)) == 'g'
+        and prefs_after_dl.get(str(bsid)) == prefs_before_dl.get(str(bsid))
+        and prefs_after_dl.get(str(gsid)) == prefs_before_dl.get(str(gsid)),
+        'switching downloads does not change blog or gallery visitor preferences',
+    )
+    _toggle_main(m, f'{D}/', 'c')
+
+    if de is not None:
+        detail = m.get(_downloads_view_url(de))
+        ok('myshowcase-downloads-detail' in detail['body'], 'downloads entry detail uses the resource-oriented package view')
+        ok('myshowcase-entry-view--downloads' in detail['body'], 'downloads entry view retains package page classes')
+        ok(
+            'myshowcase-downloads-detail__files' in detail['body'],
+            'downloads entry detail uses authorized attachment rendering for archive files',
+        )
+        ok(
+            'tp-template-package.zip' in detail['body'] or '/attachment/' in detail['body'],
+            'downloads entry detail exposes the archive through the normal attachment URLs',
+        )
 
     _toggle_main(m, f'{B}/', 'c')
     _toggle_main(m, f'{G}/', 'c')
