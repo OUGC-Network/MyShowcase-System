@@ -100,8 +100,9 @@ Which property a field uses:
 * Any other property is a column of `myshowcase_config`, with its type (whole numbers for numbers, text for text).
 * Never allowed: ids, `collection_id`, the `json_*` columns, `custom_theme_id`, `attachments_uploads_path`,
   `attachments_watermark_file` (these differ between boards), `password`.
-* Per-showcase properties are never in a file: `name`, `route_identifier`, `custom_template_prefix` and
-  `showcase_url`. They are entered when the showcase is created from the file and stay editable afterwards.
+* Per-showcase properties are never in a file: `name`, `route_identifier`, `custom_template_prefix`,
+  `custom_language_prefix` and `showcase_url`. They are entered when the showcase is created from the file and stay
+  editable afterwards.
 
 A property a file does not mention is not managed: it keeps its value and its input stays editable.
 

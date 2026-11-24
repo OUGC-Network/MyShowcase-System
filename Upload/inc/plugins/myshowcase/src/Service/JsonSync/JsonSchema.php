@@ -25,7 +25,7 @@ final class JsonSchema
     /** Never in a showcase file: ids, the sync columns, board-specific values and the per-showcase values. */
     public const SHOWCASE_EXCLUDED = [
         'showcase_id', 'collection_id', 'custom_theme_id', 'attachments_uploads_path', 'attachments_watermark_file',
-        'name', 'route_identifier', 'custom_template_prefix', 'showcase_url', 'password',
+        'name', 'route_identifier', 'custom_template_prefix', 'custom_language_prefix', 'showcase_url', 'password',
     ];
 
     public const FIELD_EXCLUDED = ['field_id', 'collection_id', 'field_label'];

@@ -18,6 +18,7 @@ use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\CollectionService;
 use MyShowcase\Service\FieldService;
 use MyShowcase\Service\SchemaManager;
+use MyShowcase\Service\LanguageSelection;
 use MyShowcase\Service\ShowcaseService;
 use MyShowcase\Service\TemplateSelection;
 
@@ -465,10 +466,17 @@ final class JsonApplier
             $templatePrefix = TemplateSelection::presetPackageForShowcaseJsonFile($this->context['file']);
         }
 
+        if (array_key_exists('custom_language_prefix', $options)) {
+            $languagePrefix = LanguageSelection::normalizeLanguagePrefix((string)$options['custom_language_prefix']);
+        } else {
+            $languagePrefix = '';
+        }
+
         $identity = [
             'name' => (string)($options['name'] ?? ''),
             'route_identifier' => (string)($options['route_identifier'] ?? ''),
             'custom_template_prefix' => $templatePrefix,
+            'custom_language_prefix' => $languagePrefix,
         ];
 
         if ($identity['name'] === '' || $identity['route_identifier'] === '') {

@@ -106,6 +106,15 @@ final class ShowcaseService
             ];
         }
 
+        if (!empty($data['custom_language_prefix']) &&
+            !in_array($data['custom_language_prefix'], LanguageSelection::languageSets(), true) &&
+            ($showcases[$showcaseId]['custom_language_prefix'] ?? null) !== $data['custom_language_prefix']) {
+            $errors[] = [
+                'key' => 'myshowcase_admin_error_invalid_language_set',
+                'message' => 'The language file does not exist: choose none or a bundled myshowcase_showcase_*.lang.php file.'
+            ];
+        }
+
         // The links option is one of the four choices (0 to 3, decision D268): any other value is refused, and nothing is saved.
         if (isset($data['url_mode']) && !preg_match('/^[0123]$/', (string)$data['url_mode'])) {
             $errors[] = [

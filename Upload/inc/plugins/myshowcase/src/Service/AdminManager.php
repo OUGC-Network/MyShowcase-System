@@ -576,6 +576,19 @@ EOL;
                         );
                     }
 
+                    if ($is_create_page) {
+                        $rawLanguagePrefix = (string)($this->showcase_input['custom_language_prefix'] ?? LanguageSelection::LANGUAGE_PREFIX_USE_PRESET);
+                        $presetJson = (string)($this->showcase_input['install_preset_json'] ?? '');
+                        $showcase_data['custom_language_prefix'] = LanguageSelection::resolveCreateLanguagePrefix(
+                            $rawLanguagePrefix,
+                            $presetJson
+                        );
+                    } elseif (isset($showcase_data['custom_language_prefix'])) {
+                        $showcase_data['custom_language_prefix'] = LanguageSelection::normalizeLanguagePrefix(
+                            $showcase_data['custom_language_prefix']
+                        );
+                    }
+
                     foreach ((new ShowcaseService($this->cache_manager))->validate($showcase_data, $this->showcase_id) as $error) {
                         $error_messages[] = $this->language->{$error['key']} ?? $error['message'];
                     }

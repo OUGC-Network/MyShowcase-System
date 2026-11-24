@@ -33,6 +33,7 @@ enum FormTypes
     public const SelectAttachmentsDisplayType = 'select_attachments_display_type';
     public const SelectUrlMode = 'select_url_mode';
     public const SelectTemplateSet = 'select_template_set';
+    public const SelectLanguageSet = 'select_language_set';
     public const Text = 'text';
     public const TextArea = 'textarea';
     public const YesNo = 'yes_no';

@@ -581,6 +581,13 @@ const TABLES_DATA = [
             'category' => 'general',
             'input_type' => FormTypes::SelectTemplateSet,
         ],
+        'custom_language_prefix' => [
+            'type' => 'VARCHAR',
+            'size' => 50,
+            'default' => '',
+            'category' => 'general',
+            'input_type' => FormTypes::SelectLanguageSet,
+        ],
         'rules_type' => [
             'type' => 'TINYINT',
             'unsigned' => true,

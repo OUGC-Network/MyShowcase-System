@@ -1,10 +1,10 @@
 <div class="myshowcase-downloads-detail myshowcase-package-entry myshowcase-package-entry--downloads">
     {% if entry_attachments %}
-        <section class="myshowcase-downloads-detail__files" aria-label="{{ lang.myshowcase_package_downloads_detail_files }}">
+        <section class="myshowcase-downloads-detail__files"{% if lang.myshowcase_custom_attachments_heading %} aria-label="{{ lang.myshowcase_custom_attachments_heading }}"{% endif %}>
             {{ entry_attachments|raw }}
         </section>
-    {% else %}
-        <p class="myshowcase-downloads-detail__empty">{{ lang.myshowcase_package_downloads_detail_no_files }}</p>
+    {% elseif lang.myshowcase_custom_attachments_empty %}
+        <p class="myshowcase-downloads-detail__empty">{{ lang.myshowcase_custom_attachments_empty }}</p>
     {% endif %}
     {% include '@ext.myshowcase/pageViewEntry.twig' %}
 </div>

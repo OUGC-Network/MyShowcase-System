@@ -26,7 +26,9 @@ use MyShowcase\Enum\FormTypes;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Service\CacheManager;
 use MyShowcase\Service\ExportsStorage;
+use MyShowcase\Service\LanguageSelection;
 use MyShowcase\Service\SchemaManager;
+use MyShowcase\Service\ShowcaseService;
 use MyShowcase\Service\TemplateSelection;
 use MyShowcase\Showcase;
 use MyShowcase\Util\SelectableLists;
@@ -644,6 +646,7 @@ function buildPermissionsRow(
         case FormTypes::SelectAttachmentsDisplayType:
         case FormTypes::SelectUrlMode:
         case FormTypes::SelectTemplateSet:
+        case FormTypes::SelectLanguageSet:
             if ($display_extra_text) {
                 $input_code .= '<div class="group_settings_bit">';
 
@@ -692,6 +695,16 @@ function buildPermissionsRow(
                     $selectedTemplateSet,
                     $isCreateForm
                 );
+            } elseif ($definition['input_type'] === FormTypes::SelectLanguageSet) {
+                $isCreateForm = empty($showcase_config['showcase_id']);
+                $selectedLanguageSet = (string)($input[$name] ?? $mybb->get_input($name));
+                if ($isCreateForm && $selectedLanguageSet === '' && !array_key_exists($name, $input)) {
+                    $selectedLanguageSet = LanguageSelection::LANGUAGE_PREFIX_USE_PRESET;
+                }
+                $select_array = (new SelectableLists($lang))->languageSetsList(
+                    $selectedLanguageSet,
+                    $isCreateForm
+                );
             } else {
                 $select_array = [
                     0 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_none'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_none',
@@ -704,6 +717,8 @@ function buildPermissionsRow(
             $selectedValue = $input[$name] ?? $mybb->get_input($name);
             if ($definition['input_type'] === FormTypes::SelectTemplateSet) {
                 $selectedValue = $selectedTemplateSet ?? $selectedValue;
+            } elseif ($definition['input_type'] === FormTypes::SelectLanguageSet) {
+                $selectedValue = $selectedLanguageSet ?? $selectedValue;
             }
 
             $input_code .= $form->generate_select_box(

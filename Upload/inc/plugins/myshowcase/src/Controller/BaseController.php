@@ -33,6 +33,7 @@ use MyShowcase\Repository\CommentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Routing\Routing;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\LanguageSelection;
 use MyShowcase\Service\TemplateSelection;
 use MyShowcase\ShowcaseContext;
 use MyShowcase\Util\StringUtil;
@@ -80,7 +81,9 @@ abstract class BaseController
 
         loadLanguage();
 
-        loadLanguage('myshowcase' . $this->context->showcase->showcase_id, false, true);
+        foreach (LanguageSelection::sectionsForShowcase($this->context->showcase) as $languageSection) {
+            loadLanguage($languageSection, false, true);
+        }
 
         $this->form_factory = Forms::createFormFactory();
     }

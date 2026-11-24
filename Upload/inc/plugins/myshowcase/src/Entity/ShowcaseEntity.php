@@ -20,6 +20,7 @@ readonly class ShowcaseEntity
         public int $custom_theme_force = 0,
         public string $custom_theme_id = '',
         public string $custom_template_prefix = '',
+        public string $custom_language_prefix = '',
         public int $rules_type = 0,
         public string $rules_title = '',
         public string $rules_content = '',

@@ -20,6 +20,7 @@ use MyShowcase\Enum\FilterFields;
 use MyShowcase\Enum\SortFields;
 use MyShowcase\Enum\WatermarkLocations;
 use MyShowcase\Service\CacheManager;
+use MyShowcase\Service\LanguageSelection;
 use MyShowcase\Service\ShowcaseService;
 use MyShowcase\Service\TemplateSelection;
 use MysqlPdoDbDriver;
@@ -136,6 +137,34 @@ readonly class SelectableLists
         if ($current !== '' && !isset($list[$current])) {
             $list[$current] = $this->language->sprintf(
                 $this->language->myshowcase_admin_summary_create_update_custom_template_prefix_missing,
+                $current
+            );
+        }
+
+        return $list;
+    }
+
+    /**
+     * Reusable custom language files (myshowcase_showcase_*.lang.php) and none.
+     */
+    public function languageSetsList(string $current = '', bool $forCreate = false): array
+    {
+        $list = [];
+
+        if ($forCreate) {
+            $list[LanguageSelection::LANGUAGE_PREFIX_USE_PRESET] =
+                $this->language->myshowcase_admin_summary_create_update_custom_language_prefix_preset_default;
+        }
+
+        $list[''] = $this->language->myshowcase_admin_summary_create_update_custom_language_prefix_none;
+
+        foreach (LanguageSelection::languageSets() as $set) {
+            $list[$set] = $set;
+        }
+
+        if ($current !== '' && !isset($list[$current])) {
+            $list[$current] = $this->language->sprintf(
+                $this->language->myshowcase_admin_summary_create_update_custom_language_prefix_missing,
                 $current
             );
         }
