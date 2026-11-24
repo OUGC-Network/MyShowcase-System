@@ -1,19 +1,10 @@
-<div class="myshowcase-downloads-detail">
-    <section class="myshowcase-downloads-detail__files" aria-label="{{ lang.myshowcase_package_downloads_detail_files }}">
-        {% if entry_data.getAttachments() is not empty %}
-            <ul class="myshowcase-downloads-detail__list">
-                {% for attachment_id, attachment in entry_data.getAttachments() %}
-                    <li class="myshowcase-downloads-detail__item">
-                        {{ attachment.extra_data.icon|raw }}
-                        <a href="{{ attachment.extra_data.url }}" class="myshowcase-downloads-detail__link">{{ attachment.file_name }}</a>
-                        <span class="myshowcase-downloads-detail__meta">({{ lang.postbit_attachment_size }} {{ attachment.extra_data.file_size }}
-                            / {{ lang.postbit_attachment_downloads }} {{ attachment.downloads|my_number_format }})</span>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p class="myshowcase-downloads-detail__empty">{{ lang.myshowcase_package_downloads_detail_no_files }}</p>
-        {% endif %}
-    </section>
+<div class="myshowcase-downloads-detail myshowcase-package-entry myshowcase-package-entry--downloads">
+    {% if entry_attachments %}
+        <section class="myshowcase-downloads-detail__files" aria-label="{{ lang.myshowcase_package_downloads_detail_files }}">
+            {{ entry_attachments|raw }}
+        </section>
+    {% else %}
+        <p class="myshowcase-downloads-detail__empty">{{ lang.myshowcase_package_downloads_detail_no_files }}</p>
+    {% endif %}
     {% include '@ext.myshowcase/pageViewEntry.twig' %}
 </div>

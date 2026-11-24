@@ -1,0 +1,47 @@
+{% extends '@ext.myshowcase/pageMain.twig' %}
+
+{% block package_head_extra %}
+    {% include '@ext.myshowcase/gallery/partialPackageStyles.twig' %}
+{% endblock %}
+
+{% block main_entry_thread_lists %}
+    {% if not total_entries %}
+        <div class="row row--no-results no-results">
+            {% if url_params.keywords is defined and url_params.keywords %}
+                {{ lang.myshowcase_main_table_empty_search }}
+            {% else %}
+                {{ lang.myshowcase_main_table_empty }}
+            {% endif %}
+        </div>
+    {% else %}
+        {% if stuck_entries is not empty %}
+            <div class="thread-list thread-list--sticky-threads myshowcase-gallery-entries">
+                <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
+                {% for entry in stuck_entries %}
+
+                    {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                        {% include showcase_template('pageMainEntryDeleted.twig') %}
+                    {% else %}
+                        {% include showcase_template('pageMainEntry.twig') %}
+                    {% endif %}
+
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if normal_entries is not empty %}
+            <div class="thread-list thread-list--normal-threads myshowcase-gallery-entries">
+                <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
+                {% for entry in normal_entries %}
+
+                    {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                        {% include showcase_template('pageMainEntryDeleted.twig') %}
+                    {% else %}
+                        {% include showcase_template('pageMainEntry.twig') %}
+                    {% endif %}
+
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
