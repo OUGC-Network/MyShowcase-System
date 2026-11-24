@@ -32,7 +32,7 @@ final class ShowcaseService
     /** The form of a template prefix the database holds: lower case letters and digits only. */
     public static function normalizeTemplatePrefix(string $prefix): string
     {
-        return (string)preg_replace('/[^\da-z]/i', '', my_strtolower($prefix));
+        return (string)preg_replace('/[^\da-z]/i', '', strtolower($prefix));
     }
 
     /**
