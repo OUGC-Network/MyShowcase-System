@@ -13,6 +13,7 @@
  *   delete-user <username>     delete the user and its content, as the ACP does with "delete content"
  *   delete-showcase <route>    delete the showcase as the ACP does
  *   template-set <route> <prefix>  set the template set of the showcase
+ *   language-set <route> <prefix>   set the reusable custom language file basename for the showcase
  *   portal-render <route>      render portal_rand_showcase with an entry URL from the main list's helper (the full link, url())
  */
 
@@ -234,6 +235,11 @@ switch ($command) {
         $db->update_query('myshowcase_config', ['custom_template_prefix' => $db->escape_string($argv[3])], "showcase_id='" . $showcaseId($argv[2]) . "'");
         $rebuild();
         $out(['custom_template_prefix' => $argv[3]]);
+        break;
+    case 'language-set':
+        $db->update_query('myshowcase_config', ['custom_language_prefix' => $db->escape_string($argv[3])], "showcase_id='" . $showcaseId($argv[2]) . "'");
+        $rebuild();
+        $out(['custom_language_prefix' => $argv[3]]);
         break;
     default:
         fwrite(STDERR, "unknown command\n");

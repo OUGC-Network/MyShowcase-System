@@ -193,10 +193,14 @@ def run(_acp):
     fix('template-set', 'gallery', 'gallery')
     fix('template-set', 'blog', 'blog')
     fix('template-set', 'downloads', 'downloads')
+    fix('language-set', 'blog', 'article')
+    fix('language-set', 'gallery', 'previews')
+    fix('language-set', 'downloads', 'resources')
 
     m = user('member1')
     gsid, bsid, dsid = sid('gallery'), sid('blog'), sid('downloads')
     prefix_before = q(f"select custom_template_prefix from mybb_myshowcase_config where showcase_id={gsid}")[0][0]
+    blog_lang_before = q(f"select custom_language_prefix from mybb_myshowcase_config where showcase_id={bsid}")[0][0]
 
     g_configured = m.get(f'{G}/')
     ok(_gallery_card_inside_grid(g_configured['body']), 'configured gallery places entry cards inside the grid container')
@@ -404,3 +408,22 @@ def run(_acp):
     ok(prefix_before == prefix_after == 'gallery', 'visitor toggle does not change the administrator template prefix')
     ok(q(f"select custom_template_prefix from mybb_myshowcase_config where showcase_id={bsid}")[0][0] == 'blog',
        'blog showcase administrator prefix unchanged during gallery toggle checks')
+    ok(q(f"select custom_language_prefix from mybb_myshowcase_config where showcase_id={bsid}")[0][0] == blog_lang_before == 'article',
+       'visitor template toggle does not change the showcase custom language file selection')
+
+    fix('language-set', 'blog', 'article')
+    fix('language-set', 'downloads', 'article')
+    ok(
+        q(f"select custom_language_prefix from mybb_myshowcase_config where showcase_id={bsid}")[0][0] == 'article'
+        and q(f"select custom_language_prefix from mybb_myshowcase_config where showcase_id={dsid}")[0][0] == 'article',
+        'two showcases can share one reusable custom language file',
+    )
+
+    blog_entry = entry('blog', 'subject', 'Full blog post') or entry('blog', 'subject', 'Member one blog')
+    if blog_entry is not None:
+        blog_view = m.get(f"{B}/view/{blog_entry['public_id']}/{blog_entry['entry_slug_custom'] or 'x'}")
+        ok('aria-label="Article"' in blog_view['body'], 'blog package entry detail uses the selected custom language file')
+
+    if de is not None:
+        dl_view = m.get(_downloads_view_url(de))
+        ok('aria-label="Downloads"' in dl_view['body'], 'downloads package entry detail uses the selected custom language file')

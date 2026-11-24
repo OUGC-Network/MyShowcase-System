@@ -23,9 +23,11 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
+use MyShowcase\Service\LanguageSelection;
 use MyShowcase\Service\ShowcaseService;
 use MyShowcase\Service\TemplateSelection;
 use MyShowcase\Service\TemplateSelectionRegistry;
+use MyShowcase\Service\JsonSync\JsonSchema;
 
 $failures = 0;
 $passes = 0;
@@ -234,6 +236,61 @@ check(
     $adminPhp !== false
     && str_contains($adminPhp, 'TEMPLATE_PREFIX_USE_PRESET'),
     'ACP create form defaults template set to presetdefault when unset'
+);
+
+$globalLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase.lang.php');
+$removedPackageKeys = [
+    'myshowcase_package_blog_detail_intro',
+    'myshowcase_package_downloads_detail_files',
+    'myshowcase_package_downloads_detail_no_files',
+    'myshowcase_package_gallery_detail_hero_missing',
+];
+foreach ($removedPackageKeys as $removedKey) {
+    check($globalLang !== false && !str_contains($globalLang, $removedKey), "global language omits package key {$removedKey}");
+}
+
+$neutralKeys = [
+    'myshowcase_custom_entry_detail_label',
+    'myshowcase_custom_attachments_heading',
+    'myshowcase_custom_attachments_empty',
+    'myshowcase_custom_preview_unavailable',
+];
+foreach (['blog', 'downloads', 'gallery'] as $package) {
+    $entryTwig = file_get_contents("{$twigRoot}/{$package}/pageViewEntry.twig");
+    check($entryTwig !== false, "{$package} entry template readable for language audit");
+    foreach ($removedPackageKeys as $removedKey) {
+        check($entryTwig !== false && !str_contains($entryTwig, $removedKey), "{$package} entry template does not reference {$removedKey}");
+    }
+}
+
+check(
+    LanguageSelection::languageSectionForPrefix('article') === 'myshowcase_showcase_article',
+    'language section resolves bundled article file'
+);
+check(
+    LanguageSelection::languageSectionForPrefix('../etc/passwd') === '',
+    'invalid language prefix is rejected'
+);
+check(
+    LanguageSelection::presetLanguageFileForShowcaseJsonFile('showcases/blog.json') === 'article',
+    'blog JSON preset maps to article language file without using template folder'
+);
+check(in_array('article', LanguageSelection::languageSets(), true), 'article language file is discoverable');
+check(
+  in_array('custom_language_prefix', JsonSchema::SHOWCASE_EXCLUDED, true),
+    'showcase JSON files cannot own custom_language_prefix'
+);
+
+$articleLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase_showcase_article.lang.php');
+foreach ($neutralKeys as $neutralKey) {
+    check($articleLang !== false && str_contains($articleLang, $neutralKey), "article language file defines neutral key {$neutralKey}");
+}
+
+$baseController = file_get_contents(\MyShowcase\ROOT . '/src/Controller/BaseController.php');
+check(
+    $baseController !== false
+    && str_contains($baseController, 'LanguageSelection::sectionsForShowcase'),
+    'front controller loads reusable and per-showcase language sections through LanguageSelection'
 );
 
 echo PHP_EOL . ($failures === 0 ? "OK {$passes} checks\n" : "FAILED {$failures}, passed {$passes}\n");
