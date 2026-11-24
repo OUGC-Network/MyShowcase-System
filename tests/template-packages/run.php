@@ -102,6 +102,11 @@ check(
 );
 
 check(
+    TemplateSelection::decodeCookiePreferences('{"not-a-showcase-id":"g","1":"g","2":"x","3":"g"}') === ['1' => 'g', '3' => 'g'],
+    'cookie decoder keeps every valid numeric showcase id and mode'
+);
+
+check(
     TemplateSelectionRegistry::resolveTwigTemplateName('pageMainEntry') === '@ext.myshowcase/pageMainEntry.twig',
     'registry without active selection falls back to global'
 );
@@ -120,11 +125,24 @@ foreach (
         'gallery/pageViewEntry.twig',
         'gallery/pageMain.twig',
         'gallery/pageView.twig',
+        'blog/pageMain.twig',
         'blog/pageView.twig',
+        'downloads/pageMain.twig',
         'downloads/pageView.twig',
     ] as $relative
 ) {
     check(is_file("{$twigRoot}/{$relative}"), "package template exists: {$relative}");
+}
+
+foreach (['blog', 'downloads'] as $package) {
+    $packageMain = file_get_contents("{$twigRoot}/{$package}/pageMain.twig");
+    check(
+        $packageMain !== false
+        && str_contains($packageMain, '{% extends \'@ext.myshowcase/pageMain.twig\' %}')
+        && str_contains($packageMain, 'package_head_extra')
+        && str_contains($packageMain, "{$package}/partialPackageStyles.twig"),
+        "{$package} list page loads scoped package CSS through package_head_extra"
+    );
 }
 
 check(is_file("{$twigRoot}/partialTemplateViewToggle.twig"), 'visitor toggle partial exists');
