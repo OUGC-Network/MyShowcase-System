@@ -9,7 +9,7 @@
         {% else %}
             {{ field_data.getUserValue()|raw }}
         {% endif %}
-        {% if field_data.field_definition.html_type == 'file' %}
+        {% if field_data.field_definition.html_type == 'file' and not (hide_file_field_attachments|default(false)) %}
             {# Attachments #}
             {{ field_data.attachments_rendered|raw }}
         {% endif %}

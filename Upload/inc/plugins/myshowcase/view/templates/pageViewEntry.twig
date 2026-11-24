@@ -186,7 +186,9 @@
         {% endif %}
 
         {# Attachments #}
-        {{ entry_attachments|raw }}
+        {% if not (hide_entry_attachments_block|default(false)) %}
+            {{ entry_attachments|raw }}
+        {% endif %}
 
         {# Signature #}
         {% if user_signature %}

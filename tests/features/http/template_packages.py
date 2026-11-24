@@ -217,6 +217,56 @@ def _download_entry_card_count(body):
     return parser.cards
 
 
+def _attr_map(attrs):
+    return {name: value for name, value in attrs}
+
+
+class _DownloadsFilesSectionParser(HTMLParser):
+    """Locate the real downloads files section element (not CSS rules)."""
+
+    def __init__(self):
+        super().__init__()
+        self.sections = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag != 'section':
+            return
+        mapped = _attr_map(attrs)
+        classes = (mapped.get('class') or '').split()
+        if 'myshowcase-downloads-detail__files' in classes:
+            self.sections.append({
+                'aria_label': mapped.get('aria-label', ''),
+                'class': mapped.get('class', ''),
+            })
+
+
+def _downloads_files_section(body):
+    parser = _DownloadsFilesSectionParser()
+    parser.feed(body)
+    return parser.sections[0] if parser.sections else None
+
+
+def _downloads_detail_language_diag(response, showcase_id, expected_label):
+    body = response.get('body') or ''
+    parts = [f"http={response.get('status', '?')}"]
+    prefix = one(f"select custom_language_prefix from mybb_myshowcase_config where showcase_id='{showcase_id}'")
+    lang_file = f"myshowcase_showcase_{prefix}.lang.php" if prefix else 'global/neutral only'
+    parts.append(f"language_prefix={prefix or 'empty'}")
+    parts.append(f"language_file={lang_file}")
+    section = _downloads_files_section(body)
+    if section:
+        parts.append(f"section_aria_label={section['aria_label']!r}")
+        parts.append('section_element=yes')
+    else:
+        parts.append('section_element=missing')
+    empty_state = 'myshowcase-downloads-detail__empty' in body
+    parts.append(f"empty_state_p={'yes' if empty_state else 'no'}")
+    archive_in_section = bool(section and 'tp-template-package.zip' in body)
+    parts.append(f"authorized_archive_in_page={'yes' if archive_in_section or '/attachment/' in body else 'no'}")
+    parts.append(f"expected_label={expected_label!r}")
+    return '; '.join(parts)
+
+
 class _GalleryGridAncestry(HTMLParser):
     """True when a thread row card is a descendant of a gallery grid container."""
 
@@ -412,10 +462,19 @@ def run(_acp):
     downloads_seeded = de is not None and de2 is not None
 
     if de is not None:
+        dsid_before = sid('downloads')
         dl_global_lang = m.get(_downloads_view_url(de))
+        global_section = _downloads_files_section(dl_global_lang['body'])
+        global_ok = (
+            dl_global_lang['status'] == 200
+            and global_section is not None
+            and global_section.get('aria_label') == 'Attachments'
+            and 'tp-template-package.zip' in dl_global_lang['body']
+        )
         ok(
-            'aria-label="Attachments"' in dl_global_lang['body'],
-            'downloads package without a custom language file uses global attachment heading',
+            global_ok,
+            'downloads package without a custom language file uses global attachment heading'
+            + ('' if global_ok else f" [{_downloads_detail_language_diag(dl_global_lang, dsid_before, 'Attachments')}]"),
         )
 
     fix('language-set', 'downloads', 'resources')
@@ -474,17 +533,35 @@ def run(_acp):
         detail = m.get(_downloads_view_url(de))
         ok('myshowcase-downloads-detail' in detail['body'], 'downloads entry detail uses the resource-oriented package view')
         ok('myshowcase-entry-view--downloads' in detail['body'], 'downloads entry view retains package page classes')
-        ok(
-            'myshowcase-downloads-detail__files' in detail['body'],
-            'downloads entry detail uses authorized attachment rendering for archive files',
+        files_section = _downloads_files_section(detail['body'])
+        files_ok = (
+            detail['status'] == 200
+            and files_section is not None
+            and (
+                'tp-template-package.zip' in detail['body']
+                or '/attachment/' in detail['body']
+            )
         )
         ok(
-            'tp-template-package.zip' in detail['body'] or '/attachment/' in detail['body'],
-            'downloads entry detail exposes the archive through the normal attachment URLs',
+            files_ok,
+            'downloads entry detail uses authorized attachment rendering for archive files'
+            + ('' if files_ok else f" [http={detail['status']}; section={'present' if files_section else 'missing'}]"),
+        )
+        archive_links = len(re.findall(r'href="[^"]*/(?:attachment|thumbnail)/[^"]*tp-template-package\.zip[^"]*"', detail['body']))
+        archive_once = archive_links == 1
+        ok(
+            archive_once,
+            'downloads entry detail exposes one authorized archive link without duplication'
+            + ('' if archive_once else f" [attachment_href_count={archive_links}]"),
+        )
+        resources_ok = (
+            files_section is not None
+            and files_section.get('aria_label') == 'Downloads'
         )
         ok(
-            'aria-label="Downloads"' in detail['body'],
-            'downloads package uses selected custom language overrides for attachment heading',
+            resources_ok,
+            'downloads package uses selected custom language overrides for attachment heading'
+            + ('' if resources_ok else f" [{_downloads_detail_language_diag(detail, dsid, 'Downloads')}]"),
         )
 
     _toggle_main(m, f'{B}/', 'c')
