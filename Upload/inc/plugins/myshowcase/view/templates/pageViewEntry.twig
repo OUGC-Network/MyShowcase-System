@@ -81,7 +81,7 @@
 {% endif %}
 
 {# Post bit #}
-<div class="post {{ unapproved_class }}{% if template_effective_prefix %} myshowcase-package-entry myshowcase-package-entry--{{ template_effective_prefix }}{% endif %}" style="{{ style_visibility }}" id="entryBody{{ entry_data.public_id }}">
+<div class="post {{ unapproved_class }}" style="{{ style_visibility }}" id="entryBody{{ entry_data.public_id }}">
     <div class="post__meta">
         {# Author avatar #}
         {% if config.entries_display_avatars and mybb.user.showavatars is defined and mybb.user.showavatars is not empty and user_avatar %}

@@ -15,9 +15,7 @@
     {% endif %}
     <link rel="manifest" href="{{ url.manifest }}">
 
-    {% if template_effective_prefix and showcase_template_exists('partialPackageStyles') %}
-        {% include showcase_template('partialPackageStyles.twig') %}
-    {% endif %}
+    {% block package_head_extra %}{% endblock %}
 
     <style>
         .pagination-container {
@@ -251,46 +249,48 @@
             </div>
         {% endif %}
 
-        {# Threads – errors #}
-        {% if not total_entries %}
-            <div class="row row--no-results no-results">
-                {% if url_params.keywords is defined and url_params.keywords %}
-                    {{ lang.myshowcase_main_table_empty_search }}
-                {% else %}
-                    {{ lang.myshowcase_main_table_empty }}
+        {% block main_entry_thread_lists %}
+            {# Threads – errors #}
+            {% if not total_entries %}
+                <div class="row row--no-results no-results">
+                    {% if url_params.keywords is defined and url_params.keywords %}
+                        {{ lang.myshowcase_main_table_empty_search }}
+                    {% else %}
+                        {{ lang.myshowcase_main_table_empty }}
+                    {% endif %}
+                </div>
+            {% else %}
+                {% if stuck_entries is not empty %}
+                    <div class="thread-list thread-list--sticky-threads">
+                        <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
+                        {% for entry in stuck_entries %}
+
+                            {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                                {% include showcase_template('pageMainEntryDeleted.twig') %}
+                            {% else %}
+                                {% include showcase_template('pageMainEntry.twig') %}
+                            {% endif %}
+
+                        {% endfor %}
+                    </div>
                 {% endif %}
-            </div>
-        {% else %}
-            {% if stuck_entries is not empty %}
-                <div class="thread-list thread-list--sticky-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
-                    <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_sticky }}</h2>
-                    {% for entry in stuck_entries %}
 
-                        {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                            {% include showcase_template('pageMainEntryDeleted.twig') %}
-                        {% else %}
-                            {% include showcase_template('pageMainEntry.twig') %}
-                        {% endif %}
+                {% if normal_entries is not empty %}
+                    <div class="thread-list thread-list--normal-threads">
+                        <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
+                        {% for entry in normal_entries %}
 
-                    {% endfor %}
-                </div>
+                            {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
+                                {% include showcase_template('pageMainEntryDeleted.twig') %}
+                            {% else %}
+                                {% include showcase_template('pageMainEntry.twig') %}
+                            {% endif %}
+
+                        {% endfor %}
+                    </div>
+                {% endif %}
             {% endif %}
-
-            {% if normal_entries is not empty %}
-                <div class="thread-list thread-list--normal-threads{% if template_effective_prefix == 'gallery' %} myshowcase-gallery-entries{% endif %}">
-                    <h2 class="visually-hidden">{{ lang.myshowcase_main_table_separator_normal }}</h2>
-                    {% for entry in normal_entries %}
-
-                        {% if entry.status == 2 and not (entry_moderator or permissions.entries_can_view_deleted) %}
-                            {% include showcase_template('pageMainEntryDeleted.twig') %}
-                        {% else %}
-                            {% include showcase_template('pageMainEntry.twig') %}
-                        {% endif %}
-
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endif %}
+        {% endblock %}
 
         {# Threadlist footer #}
         <details class="block__footer block-actions block-actions--collapsible"

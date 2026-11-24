@@ -21,9 +21,7 @@
     {% endif %}
     <link rel="manifest" href="{{ url.manifest }}">
 
-    {% if template_effective_prefix and showcase_template_exists('partialPackageStyles') %}
-        {% include showcase_template('partialPackageStyles.twig') %}
-    {% endif %}
+    {% block package_head_extra %}{% endblock %}
 {% endblock head %}
 
 {% block jscripts %}
@@ -108,7 +106,7 @@
 
         {{ false ? asset('jscripts/thread.js', static=true) }}
 
-        <section class="post-list{% if template_effective_prefix %} myshowcase-entry-view myshowcase-entry-view--{{ template_effective_prefix }}{% endif %}" id="posts">
+        <section class="post-list{% block entry_posts_section_class %}{% endblock %}" id="posts">
             {{ entry_data.rendered_entry|raw }}
         </section>
 
