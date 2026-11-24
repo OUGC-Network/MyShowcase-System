@@ -78,6 +78,34 @@ $applyGrants = static function (int $moderatedGroup) use ($db): void {
         }
         $db->insert_query('myshowcase_permissions', $row);
     }
+
+    // JSON-synced showcases are created after setup with is_enabled defaulting to 0; enable every showcase for this scratch board.
+    $db->update_query('myshowcase_config', ['is_enabled' => 1]);
+
+    $showcaseIds = [];
+    $query = $db->simple_select('myshowcase_config', 'showcase_id');
+    while ($showcase = $db->fetch_array($query)) {
+        $showcaseIds[] = (int)$showcase['showcase_id'];
+    }
+    $showcaseIdList = implode(',', $showcaseIds);
+    if ($showcaseIdList !== '') {
+        $db->update_query(
+            'attachtypes',
+            ['myshowcase_ids' => $showcaseIdList, 'maxsize' => 10240],
+            "extension IN ('jpg','jpeg','jpe','png','gif','webp')"
+        );
+        $downloadsId = (int)$db->fetch_field(
+            $db->simple_select('myshowcase_config', 'showcase_id', "route_identifier='downloads'"),
+            'showcase_id'
+        );
+        if ($downloadsId > 0) {
+            $db->update_query(
+                'attachtypes',
+                ['maxsize' => 51200, 'myshowcase_ids' => (string)$downloadsId, 'enabled' => 1, 'groups' => '-1'],
+                "extension='zip'"
+            );
+        }
+    }
 };
 
 $moderatedGroupId = static fn(): int => (int)$db->fetch_field($db->simple_select('usergroups', 'gid', "title='Moderated members'"), 'gid');

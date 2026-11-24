@@ -16,8 +16,10 @@ declare(strict_types=1);
 use MyShowcase\Container;
 use MyShowcase\Enum\UserPermissions;
 use MyShowcase\Showcase;
+use MyShowcase\Twig\ShowcaseTwigExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
+use function MyBB\registerTwigExtension;
 use function MyShowcase\Plugin\Functions\hooksRun;
 
 use const MyShowcase\DEBUG;
@@ -137,11 +139,15 @@ if (str_contains($routed_path, '/attachment/') ||
 
     $view->setMainNamespace('frontend');
 
+    registerTwigExtension(ShowcaseTwigExtension::class);
+
     $closed_bypass = ['refresh_captcha', 'validate_captcha'];
 } else {
     $minimalLoad = false;
 
     require_once $change_dir . '/global.php';
+
+    registerTwigExtension(ShowcaseTwigExtension::class);
 }
 
 if (!function_exists('MyShowcase\Plugin\Functions\hooksRun')) {

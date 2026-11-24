@@ -34,8 +34,6 @@ use MyShowcase\Repository\AttachmentsRepository;
 use MyShowcase\Repository\EntriesRepository;
 use MyShowcase\Enum\Routes;
 use MyShowcase\ShowcaseContext;
-use MyShowcase\Service\TemplateSelectionRegistry;
-use MyShowcase\Twig\ShowcaseTwigExtension;
 use MyShowcase\Util\SelectableLists;
 use Twig\Environment;
 use Twig\Error\LoaderError;
@@ -43,7 +41,6 @@ use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function MyBB\app;
-use function MyBB\registerTwigExtension;
 use function MyBB\View\template;
 use function MyShowcase\Plugin\Functions\hooksRun;
 use function MyShowcase\Plugin\Functions\postParser;
@@ -67,18 +64,11 @@ class RenderManager
 
     private readonly TemplateSelection $templateSelection;
 
-    private static bool $twigExtensionRegistered = false;
-
     public function __construct(
         public readonly ShowcaseContext $context,
     ) {
         $this->templateSelection = new TemplateSelection($this->context);
         TemplateSelectionRegistry::set($this->templateSelection);
-
-        if (!self::$twigExtensionRegistered) {
-            registerTwigExtension(ShowcaseTwigExtension::class);
-            self::$twigExtensionRegistered = true;
-        }
         $this->url_params['page'] = 1;
 
         if ($this->context->mybb->get_input('page', MyBB::INPUT_INT) > 0) {
