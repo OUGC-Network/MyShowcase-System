@@ -131,9 +131,50 @@ def moderate(client, action, entries, key=True, route=G):
 def comment(client, e, message, key=True):
     page = client.get(view_url(e))
     data = {'message': message, 'post_hash': '', 'submit': 'Post'}
+    post_key_found = post_key(page['body']) if key else ''
     if key:
-        data['my_post_key'] = post_key(page['body'])
-    return client.post(f"{G}/view/{e['public_id']}/create/comment", data)
+        data['my_post_key'] = post_key_found
+    r = client.post(f"{G}/view/{e['public_id']}/create/comment", data)
+    r['_comment_view_status'] = page['status']
+    r['_comment_view_post_key'] = bool(post_key_found)
+    return r
+
+
+def comment_public_id(entry_id, status=None):
+    where = f"entry_id='{entry_id}'"
+    if status is not None:
+        where += f" and status='{status}'"
+    rows = q(f"select public_id from mybb_myshowcase_comments where {where} order by comment_id")
+    return rows[0][0] if rows else ''
+
+
+def describe_comment_failure(entry, r):
+    """Actionable summary when an expected comment row is missing (no secrets)."""
+    total = count('mybb_myshowcase_comments', f"entry_id='{entry['entry_id']}'")
+    approved = count('mybb_myshowcase_comments', f"entry_id='{entry['entry_id']}' and status='1'")
+    pending = count('mybb_myshowcase_comments', f"entry_id='{entry['entry_id']}' and status='0'")
+    parts = [
+        f"post_http={r['status']}",
+        f"view_http={r.get('_comment_view_status', '?')}",
+        f"entry_id={entry['entry_id']} entry_public_id={entry['public_id']}",
+        f"comment_rows total={total} approved={approved} pending={pending}",
+        f"view_my_post_key={'present' if r.get('_comment_view_post_key') else 'MISSING'}",
+    ]
+    if r.get('url'):
+        parts.append('final_url=' + r['url'].split('?')[0][-80:])
+    err = php_errors(r)
+    if err:
+        parts.append(f"response_signal={err}")
+    if no_permission(r):
+        parts.append('post_body=permission_denied')
+    elif bad_post_key(r):
+        parts.append('post_body=authorization_code_mismatch')
+    elif re.search(r'inline_errors?|error_message|validation', r['body'], re.I):
+        plain = re.sub(r'\s+', ' ', r['body'])
+        m = re.search(r'(?:inline_error[^<]{0,80}|error_message[^<]{0,80})', plain, re.I)
+        if m:
+            parts.append('hint=' + m.group(0)[:80])
+    return '; '.join(parts)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -284,8 +325,10 @@ def security():
 
     # Comments.
     r = comment(m2, e1, 'A visible comment by member two')
-    ok(count('mybb_myshowcase_comments', f"entry_id='{e1['entry_id']}' and status='1'") == 1, 'member comments on an entry')
-    c = q(f"select public_id from mybb_myshowcase_comments where entry_id='{e1['entry_id']}'")[0][0]
+    comment_ok = count('mybb_myshowcase_comments', f"entry_id='{e1['entry_id']}' and status='1'") == 1
+    ok(comment_ok, 'member comments on an entry' + ('' if comment_ok else f' [{describe_comment_failure(e1, r)}]'))
+    c = comment_public_id(e1['entry_id'])
+    ok(c != '', 'member comment row has a public_id for follow-up checks' + ('' if c else f' [{describe_comment_failure(e1, r)}]'))
     page = m1.get(view_url(e1))
     r = m1.post(f"{G}/view/{e1['public_id']}/update/comment/{c}", {'message': 'Edited by someone else', 'my_post_key': post_key(page['body']), 'submit': 'Post'})
     ok(no_permission(r) and count('mybb_myshowcase_comments', "message='Edited by someone else'") == 0, "member: another user's comment cannot be edited")
@@ -328,7 +371,8 @@ def security():
     ok(entry('gallery', 'entry_id', e1['entry_id'])['is_closed'] == '0', 'moderator opens it again')
     ok('value="copy"' not in mod.get(f'{G}/')['body'] and 'value="copy"' not in mod_page, 'main list and entry page hide the unimplemented copy action')
     # L1: comment soft delete through the plugin endpoint with the post key and D1 checks.
-    cslug = q(f"select public_id from mybb_myshowcase_comments where entry_id='{e1['entry_id']}' and status='1'")[0][0]
+    cslug = comment_public_id(e1['entry_id'], '1')
+    ok(cslug != '', 'comment public_id available before moderation delete checks')
     r = mod.get(f"{G}/view/{e1['public_id']}/update/comment/{cslug}?delete=1")
     ok(bad_post_key(r) and count('mybb_myshowcase_comments', f"public_id='{cslug}' and status='1'") == 1,
        'comment soft delete without my_post_key is refused')
