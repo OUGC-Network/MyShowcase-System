@@ -297,6 +297,19 @@ the same helper as the main list; the template prefixes `config.showcase_url`), 
 
 ## Shipped template packages (blog, downloads, gallery)
 
+### Global neutrality (TP-D7)
+
+Root-level templates under `view/templates/` are **package-neutral**: they must not compare
+`template_effective_prefix` to a package name, load package CSS, or add package-specific layout classes.
+Presentation for blog, downloads, gallery, or any third-party folder lives only under that folder
+(for example `gallery/pageMain.twig`, `blog/pageView.twig`, `blog/pageMainEntry.twig`).
+
+Neutral extension points on global pages include `package_head_extra`, `main_entry_thread_lists`
+(`pageMain.twig`), and `entry_posts_section_class` (`pageView.twig`). Package pages extend the global
+template with `@ext.myshowcase/...` and override only the blocks they need.
+
+### Resolution and folders
+
 Folders under `view/templates/{blog,downloads,gallery}/` override the global templates for a showcase whose
 `custom_template_prefix` matches that folder. Nested includes use `showcase_template()` so partials resolve in the
 active package first, then the global tree (`RenderManager::templateGet()` and `ShowcaseTwigExtension`).
@@ -309,9 +322,9 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
   On ACP Summary **create**, the template set defaults to **Use preset template package** (`presetdefault`).
   With that choice, the optional **Shipped showcase preset** control applies the matching folder.
   Choosing **Global templates (none)** or a named package is always stored as typed.
-* **Optional package CSS:** `partialPackageStyles.twig` is optional. Parent pages call
-  `showcase_template_exists('partialPackageStyles')` before including styles; a custom set with unrelated
-  overrides only still renders.
+* **Optional package CSS:** `partialPackageStyles.twig` is optional and is included from **package page**
+  overrides only (`{% block package_head_extra %}`), not from global templates. A custom set with unrelated
+  overrides only (for example a single `pageMainEntry.twig`) still renders without a CSS partial.
 * **Visitor toggle:** `partialTemplateViewToggle.twig` on the main list, entry view, and create/edit form posts
   `myshowcase_action=template_view` with `template_view_mode` `c` (configured package) or `g` (global templates).
   Preferences are stored in the session cookie `myshowcase_tpl_prefs` keyed by `showcase_id` (JSON object keys may
@@ -319,8 +332,9 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
   Toggle POST and return URLs are built through `Routing::url()`; `template_return_route` plus optional entry ids
   select the return destination. Template context: `template_effective_prefix`, `template_visitor_mode`,
   `template_show_view_toggle`, `url_template_view_post`, `template_return_route`.
-* **Gallery list:** when the effective package is `gallery`, the sticky and normal entry loops render **inside**
-  the `myshowcase-gallery-entries` grid containers; sorting and moderation controls stay outside the grid.
+* **Gallery list:** `gallery/pageMain.twig` overrides `main_entry_thread_lists` so sticky and normal entry loops
+  render inside `myshowcase-gallery-entries` grid containers; sorting and moderation controls stay in the global
+  page shell outside that block.
 * **Entry view:** each shipped package provides `pageViewEntry.twig` (article, resource, or image-forward layout).
   `pageView` / `pageViewEntry` add `myshowcase-entry-view--{package}` and `myshowcase-package-entry--{package}`
   classes; package CSS is included at most once per page when the partial exists.
