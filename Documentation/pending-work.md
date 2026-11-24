@@ -443,10 +443,11 @@ access matrix covers each level. **Depends on.** T5 for folders. **Risks.** Priv
 
 **Current state: Implemented on agent/template-packages-b1; owner runtime verification pending (SQLite/MySQL/PostgreSQL).**
 Shorthand packages for blog, downloads and gallery live under `view/templates/{blog,downloads,gallery}/` with global template
-neutrality (TP-D7), visitor toggle (TP-D5), and neutral showcase phrases in reusable language files (TP-D8), not in the global
-`myshowcase.lang.php`. Select template set and custom language file independently on the showcase General tab
-(`custom_template_prefix`, `custom_language_prefix`). Static and HTTP regression hooks exist under D348; suites were written,
-not run by the agent.
+neutrality (TP-D7), visitor toggle (TP-D5), and TP-D8 language layering: neutral `myshowcase_custom_*` defaults in the global
+`myshowcase.lang.php`, optional reusable `myshowcase_showcase_*.lang.php` overrides selected per showcase, and optional
+`myshowcase{id}.lang.php` overrides. Language files are discovered dynamically in the ACP; JSON sync does not choose them.
+Select template set and custom language file independently on the General tab. Static and HTTP regression hooks exist under
+D348; suites were written, not run by the agent.
 
 **What remains for the owner.** Run `php tests/template-packages/run.php`, the features HTTP suite, JSON sync and URL guard on a
 board with the cumulative branch; confirm ACP create/edit for language files on boards that predate `custom_language_prefix`

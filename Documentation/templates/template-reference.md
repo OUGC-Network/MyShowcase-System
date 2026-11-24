@@ -345,27 +345,35 @@ active package first, then the global tree (`RenderManager::templateGet()` and `
 
 ### Custom showcase language (TP-D8)
 
-**Global vs custom.** Core plugin strings stay in `inc/languages/<lang>/myshowcase.lang.php`. Collection field labels use
-`myshowcase_fs{collection_id}.lang.php` (managed from the Fields ACP). Showcase presentation phrases use **reusable**
-files `inc/languages/<lang>/myshowcase_showcase_<basename>.lang.php` and optional per-showcase overrides
+**Global vs custom.** Core plugin strings stay in `inc/languages/<lang>/myshowcase.lang.php`, including neutral defaults
+for shipped package templates (`myshowcase_custom_*`). Collection field labels use `myshowcase_fs{collection_id}.lang.php`
+(managed from the Fields ACP). Optional reusable showcase files use
+`inc/languages/<lang>/myshowcase_showcase_<basename>.lang.php`; optional per-showcase overrides use
 `myshowcase{showcase_id}.lang.php`.
 
-**Selection.** `myshowcase_config.custom_language_prefix` (General tab) chooses a bundled basename (`article`,
-`resources`, `previews`, …). It is independent of `custom_template_prefix`, the route, and JSON showcase files (JSON
-sync must not set it). Several showcases may share one file; two showcases from the same JSON preset may pick different
-files. ACP create defaults to **Use preset language file** when a shipped preset is chosen; explicit **None** keeps only
-the global plugin language plus optional `myshowcase{id}.lang.php`.
+**Precedence (phrase-level).** For each key, later loads override earlier ones only where defined:
 
-**Loading.** `BaseController` loads the global plugin language, then `LanguageSelection::sectionsForShowcase()`:
-first the selected `myshowcase_showcase_*` file, then `myshowcase{showcase_id}` when present (MyBB `MyLanguage::load()`,
-`suppress_error` for missing files). MyBB falls back to the board’s English pack when a phrase is absent in the visitor
-language. Visitor template-mode cookies affect only Twig package resolution, not language-file selection.
+1. Global `myshowcase.lang.php` (neutral defaults always present).
+2. Selected `myshowcase_showcase_<basename>.lang.php` when `custom_language_prefix` is set and the file exists.
+3. `myshowcase{showcase_id}.lang.php` when present.
 
-**Neutral keys in package templates.** Package entry templates use semantic keys such as
-`myshowcase_custom_entry_detail_label`, `myshowcase_custom_attachments_heading`, `myshowcase_custom_attachments_empty`,
-and `myshowcase_custom_preview_unavailable`. Values live in the selected custom language file; templates omit optional
-text when the phrase is empty (MyBB returns `''` for undefined keys). Do not add package-specific keys to the global
-plugin dictionary.
+Undefined keys in a custom file keep values from earlier layers. MyBB 1.9 `MyLanguage::load()` merges with
+`array_merge` into the phrase map (`inc/class_language.php`).
 
-**Translators.** Add another language by copying the shipped `myshowcase_showcase_*.lang.php` files into
-`inc/languages/<yourlang>/` with the same basenames and keys.
+**Selection.** `myshowcase_config.custom_language_prefix` (General tab) stores the basename only (for example `article`).
+The ACP list is built dynamically from installed `myshowcase_showcase_*.lang.php` files under every
+`inc/languages/<language>/` directory (no hard-coded registry). New showcases default to **None** (empty prefix). The
+choice is independent of `custom_template_prefix`, JSON showcase files, and the visitor template-mode cookie. JSON sync
+must not own `custom_language_prefix` (excluded in `JsonSchema::SHOWCASE_EXCLUDED`). Several showcases may share one
+file.
+
+**Neutral keys.** Package entry templates reference `myshowcase_custom_entry_detail_label`,
+`myshowcase_custom_attachments_heading`, `myshowcase_custom_attachments_empty`, and
+`myshowcase_custom_preview_unavailable`. Global English defaults are `Entry`, `Attachments`, `No attachments are
+available for this entry.`, and `No preview image is available.`. Custom files may override some or all of these keys.
+
+**Administrators.** Add `inc/languages/<lang>/myshowcase_showcase_<basename>.lang.php` through the normal deployment
+workflow; the basename appears on the next ACP form load. Basenames must match `^[a-z0-9][a-z0-9_]{0,49}$`.
+
+**Translators.** Copy example `myshowcase_showcase_*.lang.php` files into other language folders with the same basename
+and keys.
