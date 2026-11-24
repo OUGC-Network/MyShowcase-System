@@ -1,5 +1,5 @@
 <div class="myshowcase-blog-detail myshowcase-package-entry myshowcase-package-entry--blog">
-    <header class="myshowcase-blog-detail__header"{% if lang.myshowcase_custom_entry_detail_label %} aria-label="{{ lang.myshowcase_custom_entry_detail_label }}"{% endif %}>
+    <header class="myshowcase-blog-detail__header" aria-label="{{ lang.myshowcase_custom_entry_detail_label }}">
         <p class="myshowcase-blog-detail__meta">
             {% if user_data.uid > 0 %}
                 <a href="{{ url(get_profile_link(user_data.uid)) }}">{{ user_data.uid|format_name }}</a>

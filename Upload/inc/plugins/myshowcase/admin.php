@@ -698,13 +698,7 @@ function buildPermissionsRow(
             } elseif ($definition['input_type'] === FormTypes::SelectLanguageSet) {
                 $isCreateForm = empty($showcase_config['showcase_id']);
                 $selectedLanguageSet = (string)($input[$name] ?? $mybb->get_input($name));
-                if ($isCreateForm && $selectedLanguageSet === '' && !array_key_exists($name, $input)) {
-                    $selectedLanguageSet = LanguageSelection::LANGUAGE_PREFIX_USE_PRESET;
-                }
-                $select_array = (new SelectableLists($lang))->languageSetsList(
-                    $selectedLanguageSet,
-                    $isCreateForm
-                );
+                $select_array = (new SelectableLists($lang))->languageSetsList($selectedLanguageSet);
             } else {
                 $select_array = [
                     0 => $lang->{$language_prefix . ($section ? '_' . $section : '') . '_rule_type_none'} ?? $language_prefix . ($section ? '_' . $section : '') . '_rule_type_none',

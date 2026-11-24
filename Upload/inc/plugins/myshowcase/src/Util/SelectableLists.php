@@ -147,14 +147,9 @@ readonly class SelectableLists
     /**
      * Reusable custom language files (myshowcase_showcase_*.lang.php) and none.
      */
-    public function languageSetsList(string $current = '', bool $forCreate = false): array
+    public function languageSetsList(string $current = ''): array
     {
         $list = [];
-
-        if ($forCreate) {
-            $list[LanguageSelection::LANGUAGE_PREFIX_USE_PRESET] =
-                $this->language->myshowcase_admin_summary_create_update_custom_language_prefix_preset_default;
-        }
 
         $list[''] = $this->language->myshowcase_admin_summary_create_update_custom_language_prefix_none;
 

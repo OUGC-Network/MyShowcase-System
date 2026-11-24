@@ -666,6 +666,11 @@ $l = array_merge($l, [
     'myshowcase_validation_errors_comment_status_invalid' => 'The comment status is invalid.',
     'myshowcase_attachment_upload_success' => 'File uploaded successfully',
 
+    'myshowcase_custom_entry_detail_label' => 'Entry',
+    'myshowcase_custom_attachments_heading' => 'Attachments',
+    'myshowcase_custom_attachments_empty' => 'No attachments are available for this entry.',
+    'myshowcase_custom_preview_unavailable' => 'No preview image is available.',
+
     'myshowcase_template_view_heading' => 'Template appearance',
     'myshowcase_template_view_mode_package' => 'Showcase style',
     'myshowcase_template_view_mode_global' => 'Global templates',

@@ -8,7 +8,7 @@
             {% if entry_data.extra_data.main_image.name %}
                 <figcaption class="myshowcase-gallery-detail__caption">{{ entry_data.extra_data.main_image.name }}</figcaption>
             {% endif %}
-        {% elseif lang.myshowcase_custom_preview_unavailable %}
+        {% else %}
             <p class="myshowcase-gallery-detail__hero-missing">{{ lang.myshowcase_custom_preview_unavailable }}</p>
         {% endif %}
     </figure>

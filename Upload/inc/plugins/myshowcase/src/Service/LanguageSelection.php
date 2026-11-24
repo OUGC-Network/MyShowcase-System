@@ -13,87 +13,80 @@ final class LanguageSelection
 {
     public const LANGUAGE_FILE_PREFIX = 'myshowcase_showcase_';
 
-    /** Create-form sentinel: apply the shipped preset language file when a preset is chosen (TP-D8). */
-    public const LANGUAGE_PREFIX_USE_PRESET = 'presetdefault';
+    public const BASENAME_MAX_LENGTH = 50;
 
-    /** Shipped showcase JSON files and their default reusable language file basename (not coupled to template folders). */
-    private const PRESET_SHOWCASE_LANGUAGE_FILES = [
-        'showcases/blog.json' => 'article',
-        'showcases/downloads.json' => 'resources',
-        'showcases/gallery.json' => 'previews',
-    ];
+    /** Safe basename: lower-case letters, digits, underscores; first character alphanumeric. */
+    public const BASENAME_PATTERN = '/^[a-z0-9][a-z0-9_]*$/';
 
-    public static function normalizeLanguagePrefix(string $prefix): string
+    public static function isValidBasename(string $basename): bool
     {
-        return (string)preg_replace('/[^\da-z]/i', '', my_strtolower($prefix));
+        $basename = my_strtolower($basename);
+
+        return $basename !== ''
+            && strlen($basename) <= self::BASENAME_MAX_LENGTH
+            && preg_match(self::BASENAME_PATTERN, $basename) === 1;
     }
 
     /**
-     * Reusable language file basenames bundled or installed under inc/languages/<lang>/myshowcase_showcase_*.lang.php.
+     * Normalizes administrator input for storage: trim and lower-case when the basename is valid, otherwise unchanged.
+     */
+    public static function normalizeSubmittedBasename(string $raw): string
+    {
+        $raw = my_strtolower(trim($raw));
+
+        if ($raw === '') {
+            return '';
+        }
+
+        if (!self::isValidBasename($raw)) {
+            return $raw;
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Reusable language file basenames installed under inc/languages/&lt;lang&gt;/myshowcase_showcase_*.lang.php.
      *
      * @return string[]
      */
     public static function languageSets(): array
     {
-        $languageRoot = dirname(\MyShowcase\ROOT, 3) . '/languages/english';
+        $languagesRoot = dirname(\MyShowcase\ROOT, 3) . '/languages';
         $sets = [];
-        $pattern = self::LANGUAGE_FILE_PREFIX . '*.lang.php';
+        $patternSuffix = '/' . self::LANGUAGE_FILE_PREFIX . '*.lang.php';
 
-        foreach ((array)glob($languageRoot . '/' . $pattern) ?: [] as $file) {
-            if (!is_file($file)) {
+        foreach ((array)glob($languagesRoot . '/*', GLOB_ONLYDIR) ?: [] as $languageDir) {
+            if (!is_dir($languageDir)) {
                 continue;
             }
 
-            $basename = basename($file, '.lang.php');
-            $name = substr($basename, strlen(self::LANGUAGE_FILE_PREFIX));
+            foreach ((array)glob($languageDir . $patternSuffix) ?: [] as $file) {
+                if (!is_file($file)) {
+                    continue;
+                }
 
-            if ($name !== '' && $name === self::normalizeLanguagePrefix($name)) {
-                $sets[] = $name;
+                $basename = basename($file, '.lang.php');
+                $name = substr($basename, strlen(self::LANGUAGE_FILE_PREFIX));
+
+                if ($name !== '' && self::isValidBasename($name)) {
+                    $sets[$name] = $name;
+                }
             }
         }
 
-        sort($sets, SORT_STRING);
+        $discovered = array_values($sets);
+        sort($discovered, SORT_STRING);
 
-        return $sets;
+        return $discovered;
     }
 
-    public static function presetLanguageFileForShowcaseJsonFile(string $jsonFile): string
-    {
-        $jsonFile = ltrim(str_replace('\\', '/', $jsonFile), '/');
-
-        $prefix = self::PRESET_SHOWCASE_LANGUAGE_FILES[$jsonFile] ?? '';
-
-        if ($prefix === '' || !in_array($prefix, self::languageSets(), true)) {
-            return '';
-        }
-
-        return $prefix;
-    }
-
-    /**
-     * Resolves the stored language prefix on ACP Summary create from the raw select value and optional preset file.
-     */
-    public static function resolveCreateLanguagePrefix(string $rawPrefix, string $presetJsonFile): string
-    {
-        if ($rawPrefix === self::LANGUAGE_PREFIX_USE_PRESET) {
-            $presetJsonFile = trim($presetJsonFile);
-
-            if ($presetJsonFile === '') {
-                return '';
-            }
-
-            return self::presetLanguageFileForShowcaseJsonFile($presetJsonFile);
-        }
-
-        return self::normalizeLanguagePrefix($rawPrefix);
-    }
-
-    /** MyBB language section name (filename without .lang.php) for a stored prefix, or empty when unset/invalid. */
+    /** MyBB language section name (filename without .lang.php) for a stored basename, or empty when unset/invalid/missing. */
     public static function languageSectionForPrefix(string $prefix): string
     {
-        $prefix = self::normalizeLanguagePrefix($prefix);
+        $prefix = my_strtolower(trim($prefix));
 
-        if ($prefix === '' || !in_array($prefix, self::languageSets(), true)) {
+        if ($prefix === '' || !self::isValidBasename($prefix) || !in_array($prefix, self::languageSets(), true)) {
             return '';
         }
 

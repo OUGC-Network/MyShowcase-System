@@ -466,11 +466,9 @@ final class JsonApplier
             $templatePrefix = TemplateSelection::presetPackageForShowcaseJsonFile($this->context['file']);
         }
 
-        if (array_key_exists('custom_language_prefix', $options)) {
-            $languagePrefix = LanguageSelection::normalizeLanguagePrefix((string)$options['custom_language_prefix']);
-        } else {
-            $languagePrefix = '';
-        }
+        $languagePrefix = array_key_exists('custom_language_prefix', $options)
+            ? LanguageSelection::normalizeSubmittedBasename((string)$options['custom_language_prefix'])
+            : '';
 
         $identity = [
             'name' => (string)($options['name'] ?? ''),
