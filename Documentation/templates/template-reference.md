@@ -373,7 +373,9 @@ file.
 available for this entry.`, and `No preview image is available.`. Custom files may override some or all of these keys.
 
 **Administrators.** Add `inc/languages/<lang>/myshowcase_showcase_<basename>.lang.php` through the normal deployment
-workflow; the basename appears on the next ACP form load. Basenames must match `^[a-z0-9][a-z0-9_]{0,49}$`.
+workflow; the basename appears on the next ACP form load. The on-disk basename must already be lowercase ASCII and match
+`^[a-z0-9][a-z0-9_]{0,49}$`; mixed-case filenames are not discovered. ACP may normalise a typed mixed-case choice to
+lowercase when saving a valid basename. Discovery reads `inc/languages/` (two levels above `inc/plugins/myshowcase`).
 
 **Translators.** Copy example `myshowcase_showcase_*.lang.php` files into other language folders with the same basename
 and keys.

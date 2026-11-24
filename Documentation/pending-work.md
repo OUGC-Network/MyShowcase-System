@@ -454,6 +454,8 @@ board with the cumulative branch; confirm ACP create/edit for language files on 
 (may need a schema sync from `Plugin/Core.php`).
 
 **Risks.** Template and language folders drifting from global templates; boards missing the new config column until upgraded.
+Custom language discovery uses `inc/languages/` (via `LanguageSelection::languagesRootPath()`); installed basenames must be
+lowercase on disk.
 
 ### FR2. Final regression 2
 
