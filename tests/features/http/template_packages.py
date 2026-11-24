@@ -7,7 +7,7 @@ import zipfile
 from html.parser import HTMLParser
 from urllib.parse import unquote
 
-from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id
+from features import ok, G, B, user, entry, sid, fix, view_url, post_key, q, no_permission, bad_post_key, CTX, SCRATCH, MEDIA, upload, option_id, mybb_error_summary
 from front import Front
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +74,8 @@ def _ensure_downloads_showcase(acp):
         'route_identifier': 'downloads',
     })
     ok(sid('downloads') > 0, 'downloads showcase created from JSON sync for template-package checks')
+    # Re-apply explicit global grants after the new showcase exists (fixture setup runs before downloads sync).
+    fix('grants')
 
 
 def _downloads_zip_in_media():
@@ -89,13 +91,38 @@ def _downloads_view_url(e):
     return f"{D}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}"
 
 
+def _downloads_seed_diag(form, upload_resp, post_resp, expected_showcase_id, subject):
+    parts = [
+        f"create_form_http={form['status']}",
+        f"showcase_id={expected_showcase_id}",
+        f"archive_upload_http={upload_resp['status']}",
+        f"entry_post_http={post_resp['status']}",
+        f"entry_row={1 if entry('downloads', 'subject', subject) else 0}",
+    ]
+    summary = mybb_error_summary(post_resp.get('body') or form.get('body') or '')
+    if summary:
+        parts.append(f"error={summary[:120]}")
+    if no_permission(form):
+        parts.append('permission=create_form_denied')
+    elif no_permission(post_resp):
+        parts.append('permission=entry_post_denied')
+    elif bad_post_key(post_resp):
+        parts.append('post_key=entry_post_rejected')
+    return '; '.join(parts)
+
+
 def _create_downloads_entry(client, subject):
+    expected_sid = sid('downloads')
     form = client.get(f'{D}/create')
+    if form['status'] != 200 or 'id="contentForm"' not in form['body']:
+        return None, {'status': form['status'], 'body': form['body'], '_diag': _downloads_seed_diag(form, {'status': 0}, {'status': 0}, expected_sid, subject)}
     match = re.search(r'name="post_hash" value="([^"]+)"', form['body'])
-    post_hash = match.group(1) if match else 'dlhashTP1'
+    post_hash = match.group(1) if match else ''
     key = post_key(form['body'])
+    if not key:
+        return None, {'status': form['status'], 'body': form['body'], '_diag': 'create_form_http=' + str(form['status']) + '; post_key=missing'}
     zip_name = _downloads_zip_in_media()
-    upload(client, D, 'archive', post_hash, key, zip_name)
+    upload_resp = upload(client, D, 'archive', post_hash, key, zip_name)
     with open(os.path.join(MEDIA, zip_name), 'rb') as handle:
         digest = hashlib.sha256(handle.read()).hexdigest()
     response = client.post(f'{D}/create', {
@@ -110,6 +137,7 @@ def _create_downloads_entry(client, subject):
         'my_post_key': key,
         'submit': 'Post',
     })
+    response['_diag'] = _downloads_seed_diag(form, upload_resp, response, expected_sid, subject)
     return entry('downloads', 'subject', subject), response
 
 
@@ -118,6 +146,27 @@ def _class_attr(attrs):
         if key == 'class':
             return value or ''
     return ''
+
+
+class _DownloadEntryCards(HTMLParser):
+    """Count structural download list cards (class myshowcase-download-entry), not CSS selectors."""
+
+    def __init__(self):
+        super().__init__()
+        self.cards = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag != 'div':
+            return
+        classes = _class_attr(attrs).split()
+        if 'myshowcase-download-entry' in classes:
+            self.cards += 1
+
+
+def _download_entry_card_count(body):
+    parser = _DownloadEntryCards()
+    parser.feed(body)
+    return parser.cards
 
 
 class _GalleryGridAncestry(HTMLParser):
@@ -304,9 +353,11 @@ def run(_acp):
         'urlencoded MyBB Set-Cookie JSON decodes to visitor preferences',
     )
 
-    de, _ = _create_downloads_entry(m, 'TP downloads package A')
-    ok(de is not None, 'seed downloads entry for template-package list checks')
+    de, de_resp = _create_downloads_entry(m, 'TP downloads package A')
+    ok(de is not None, 'seed downloads entry for template-package list checks'
+       + ('' if de is not None else f" [{de_resp.get('_diag', '')}]"))
     _create_downloads_entry(m, 'TP downloads package B')
+    downloads_seeded = de is not None and entry('downloads', 'subject', 'TP downloads package B') is not None
 
     if de is not None:
         dl_global_lang = m.get(_downloads_view_url(de))
@@ -317,44 +368,55 @@ def run(_acp):
 
     fix('language-set', 'downloads', 'resources')
 
-    d_configured = m.get(f'{D}/')
-    ok('myshowcase-download-entry' in d_configured['body'], 'configured downloads list uses package row markup')
-    ok(
-        _scoped_style_rule_count(d_configured['body'], '.myshowcase-download-entry') == 1,
-        'configured downloads list loads package list CSS once per page',
-    )
-    ok(
-        d_configured['body'].count('myshowcase-download-entry') >= 2,
-        'configured downloads list marks each entry without duplicating list stylesheet rules',
-    )
+    if not downloads_seeded:
+        ok(False, 'configured downloads list uses package row markup [blocked: downloads fixture missing entries]')
+        ok(False, 'configured downloads list loads package list CSS once per page [blocked: downloads fixture missing entries]')
+        ok(False, 'configured downloads list marks each entry without duplicating list stylesheet rules [blocked: downloads fixture missing entries]')
+    else:
+        d_configured = m.get(f'{D}/')
+        ok('myshowcase-download-entry' in d_configured['body'], 'configured downloads list uses package row markup')
+        ok(
+            _scoped_style_rule_count(d_configured['body'], '.myshowcase-download-entry') == 1,
+            'configured downloads list loads package list CSS once per page',
+        )
+        ok(
+            _download_entry_card_count(d_configured['body']) >= 2,
+            'configured downloads list renders two distinct entry cards',
+        )
 
-    _toggle_main(m, f'{D}/', 'g')
-    d_global = m.get(f'{D}/')
-    ok(_package_markers_absent(d_global['body'], ['myshowcase-download-entry', 'myshowcase-downloads-detail']),
-       'downloads global mode omits downloads-only presentation markup')
-    ok(
-        _scoped_style_rule_count(d_global['body'], '.myshowcase-download-entry') == 0,
-        'downloads global mode omits downloads package list stylesheet rules',
-    )
+    if not downloads_seeded:
+        ok(False, 'downloads global mode omits downloads-only presentation markup [blocked: downloads fixture missing entries]')
+        ok(False, 'downloads global mode omits downloads package list stylesheet rules [blocked: downloads fixture missing entries]')
+        ok(False, 'downloads returns to package presentation when switched back to configured [blocked: downloads fixture missing entries]')
+        ok(False, 'switching downloads does not change blog or gallery visitor preferences [blocked: downloads fixture missing entries]')
+    else:
+        _toggle_main(m, f'{D}/', 'g')
+        d_global = m.get(f'{D}/')
+        ok(_package_markers_absent(d_global['body'], ['myshowcase-download-entry', 'myshowcase-downloads-detail']),
+           'downloads global mode omits downloads-only presentation markup')
+        ok(
+            _scoped_style_rule_count(d_global['body'], '.myshowcase-download-entry') == 0,
+            'downloads global mode omits downloads package list stylesheet rules',
+        )
 
-    _toggle_main(m, f'{D}/', 'c')
-    d_restored = m.get(f'{D}/')
-    ok(
-        'myshowcase-download-entry' in d_restored['body']
-        and _scoped_style_rule_count(d_restored['body'], '.myshowcase-download-entry') == 1,
-        'downloads returns to package presentation when switched back to configured',
-    )
+        _toggle_main(m, f'{D}/', 'c')
+        d_restored = m.get(f'{D}/')
+        ok(
+            'myshowcase-download-entry' in d_restored['body']
+            and _scoped_style_rule_count(d_restored['body'], '.myshowcase-download-entry') == 1,
+            'downloads returns to package presentation when switched back to configured',
+        )
 
-    prefs_before_dl = _template_prefs(m)
-    _toggle_main(m, f'{D}/', 'g')
-    prefs_after_dl = _template_prefs(m)
-    ok(
-        prefs_after_dl.get(str(dsid)) == 'g'
-        and prefs_after_dl.get(str(bsid)) == prefs_before_dl.get(str(bsid))
-        and prefs_after_dl.get(str(gsid)) == prefs_before_dl.get(str(gsid)),
-        'switching downloads does not change blog or gallery visitor preferences',
-    )
-    _toggle_main(m, f'{D}/', 'c')
+        prefs_before_dl = _template_prefs(m)
+        _toggle_main(m, f'{D}/', 'g')
+        prefs_after_dl = _template_prefs(m)
+        ok(
+            prefs_after_dl.get(str(dsid)) == 'g'
+            and prefs_after_dl.get(str(bsid)) == prefs_before_dl.get(str(bsid))
+            and prefs_after_dl.get(str(gsid)) == prefs_before_dl.get(str(gsid)),
+            'switching downloads does not change blog or gallery visitor preferences',
+        )
+        _toggle_main(m, f'{D}/', 'c')
 
     if de is not None:
         detail = m.get(_downloads_view_url(de))
@@ -409,6 +471,10 @@ def run(_acp):
             'gallery entry detail shows hero image or an explicit missing-image fallback',
         )
 
+        prefs_before = _template_prefs(m)
+        mode_before = prefs_before.get(str(gsid), 'c')
+        view_before = m.get(view_url(e))['body']
+        had_package_detail = 'myshowcase-gallery-detail' in view_before
         bad = m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
             'my_post_key': '0' * 32,
             'myshowcase_action': 'template_view',
@@ -417,8 +483,22 @@ def run(_acp):
             'template_return_entry_public_id': e['public_id'],
             'template_return_entry_slug_custom': e['entry_slug_custom'] or '',
         })
-        ok('Invalid Post Key' in bad['body'] or 'invalid post key' in bad['body'].lower(),
-           'invalid post key refuses template toggle submission')
+        prefs_after = _template_prefs(m)
+        toggle_refused = (
+            bad_post_key(bad)
+            or no_permission(bad)
+            or 'Authorization code mismatch' in bad['body']
+            or bad['status'] in (403, 400)
+        )
+        preference_unchanged = prefs_after.get(str(gsid), mode_before) == mode_before
+        view_after = m.get(view_url(e))['body']
+        mode_unchanged = ('myshowcase-gallery-detail' in view_after) == had_package_detail
+        ok(
+            toggle_refused and preference_unchanged and mode_unchanged,
+            'invalid post key refuses template toggle without changing visitor preference'
+            + ('' if toggle_refused and preference_unchanged and mode_unchanged
+               else f" [http={bad['status']}; prefs={mode_before}->{prefs_after.get(str(gsid), mode_before)}; err={mybb_error_summary(bad['body'])[:80]}]"),
+        )
 
     guest = user('guest')
     create_page = guest.get(f'{B}/create')

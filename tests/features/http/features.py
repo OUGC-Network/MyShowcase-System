@@ -149,21 +149,26 @@ def comment_public_id(entry_id, status=None):
 
 
 def mybb_error_summary(body):
+    """Extract the human-readable MyBB 1.9 error body (alert__description), not the board title."""
     plain = re.sub(r'\s+', ' ', body)
     for pattern in (
+        r'class="alert__description"[^>]*>([^<]{1,400})',
+        r'class="[^"]*alert__description[^"]*"[^>]*>([^<]{1,400})',
         r'<div[^>]*class="[^"]*error[^"]*"[^>]*>([^<]{1,240})',
         r'<blockquote[^>]*>([^<]{1,240})',
         r'class="[^"]*error[^"]*">([^<]{1,240})',
+        r'MyBB has experienced an internal (?:Soft )?Error[^<]{0,120}',
+        r'Authorization code mismatch[^<]{0,80}',
     ):
         match = re.search(pattern, plain, re.I)
         if match:
-            text = re.sub(r'\s+', ' ', match.group(1)).strip()
-            if text and text.lower() not in ('board message', 'error'):
-                return text[:160]
+            text = re.sub(r'\s+', ' ', match.group(1) if match.lastindex else match.group(0)).strip()
+            if text and text.lower() not in ('board message', 'error', 'unknown error'):
+                return text[:200]
     match = re.search(r'<title>([^<]+)</title>', plain, re.I)
     if match:
         title = match.group(1).strip()
-        if title.lower() not in ('board message', 'error', 'mybb'):
+        if title.lower() not in ('board message', 'error', 'mybb', 'test'):
             return f'title={title[:120]}'
     return ''
 
@@ -557,6 +562,16 @@ def edit_form(j):
     m1 = user('member1')
     old = q(f"select attachment_id, file_name, attachment_name from mybb_myshowcase_attachments where entry_id='{j['entry_id']}'")[0]
     form = m1.get(f"{G}/update/{j['public_id']}")
+    form_ok = form['status'] == 200 and 'id="contentForm"' in form['body'] and post_key(form['body'])
+    ok(form_ok, 'edit form loads with contentForm and post key' + ('' if form_ok else f' [{_edit_attachment_diag(form, old[0], old[2])}]'))
+    if not form_ok:
+        ok(False, 'edit form lists the attached image with a remove control [blocked: edit form GET failed]')
+        ok(False, 'saving without removing keeps the image [blocked: edit form GET failed]')
+        ok(False, 'removing the only image of a required field is refused, the image stays [blocked: edit form GET failed]')
+        ok(False, 'owner uploads a new image to the entry [blocked: edit form GET failed]')
+        ok(False, 'replace: the old image row and file are gone, the new one stays [blocked: edit form GET failed]')
+        ok(False, "the id of another entry's file in the form removes nothing [blocked: edit form GET failed]")
+        return
     remove_ok = old[2] in form['body'] and f'name="remove_attachments[]" value="{old[0]}"' in form['body']
     ok(remove_ok, 'edit form lists the attached image with a remove control' + ('' if remove_ok else f' [{_edit_attachment_diag(form, old[0], old[2])}]'))
     # the gallery's subject is its title (decision D204): an update without it is refused as a whole
