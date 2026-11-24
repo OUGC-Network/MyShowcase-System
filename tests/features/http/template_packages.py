@@ -246,6 +246,95 @@ def _downloads_files_section(body):
     return parser.sections[0] if parser.sections else None
 
 
+def _downloads_archive_attachment_row(entry_id):
+    fid = field_id('downloads', 'archive')
+    if not fid:
+        return None
+    rows = q(
+        f"select public_id, attachment_name, file_name from mybb_myshowcase_attachments "
+        f"where entry_id='{entry_id}' and field_id='{fid}' order by attachment_id limit 1"
+    )
+    return rows[0] if rows else None
+
+
+def _authorized_attachment_href(href, public_id, attachment_name=''):
+    if not href or not public_id:
+        return False
+    if f'/attachment/{public_id}/' in href or f'attachment/{public_id}/' in href:
+        return True
+    if 'route=' in href and public_id in href and 'attachment' in href:
+        return True
+    return bool(attachment_name and public_id in href and attachment_name in href)
+
+
+class _DownloadsFilesSectionLinkParser(HTMLParser):
+    """Collect attachment anchors inside vs outside the files section."""
+
+    def __init__(self):
+        super().__init__()
+        self._section_depth = 0
+        self.section_hrefs = []
+        self.outside_hrefs = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'section':
+            mapped = _attr_map(attrs)
+            if 'myshowcase-downloads-detail__files' in (mapped.get('class') or '').split():
+                self._section_depth += 1
+        if tag != 'a':
+            return
+        href = _attr_map(attrs).get('href', '')
+        if 'attachment' not in href and 'thumbnail' not in href:
+            return
+        if self._section_depth > 0:
+            self.section_hrefs.append(href)
+        else:
+            self.outside_hrefs.append(href)
+
+    def handle_endtag(self, tag):
+        if tag == 'section' and self._section_depth > 0:
+            self._section_depth -= 1
+
+
+def _downloads_attachment_link_report(body, entry_id):
+    row = _downloads_archive_attachment_row(entry_id)
+    public_id = row[0] if row else ''
+    attachment_name = row[1] if row else ''
+    parser = _DownloadsFilesSectionLinkParser()
+    parser.feed(body)
+    section_matches = [h for h in parser.section_hrefs if _authorized_attachment_href(h, public_id, attachment_name)]
+    outside_matches = [h for h in parser.outside_hrefs if _authorized_attachment_href(h, public_id, attachment_name)]
+    return {
+        'public_id': public_id,
+        'attachment_name': attachment_name,
+        'section_anchor_count': len(parser.section_hrefs),
+        'section_match_count': len(section_matches),
+        'outside_match_count': len(outside_matches),
+        'section_matches': section_matches,
+        'outside_matches': outside_matches,
+        'zip_in_link_text': 'tp-template-package.zip' in body,
+    }
+
+
+def _downloads_attachment_link_diag(entry_id, report):
+    parts = [
+        f"archive_public_id={report['public_id'] or 'missing'}",
+        f"attachment_name={report['attachment_name'] or 'missing'}",
+        f"section_anchors={report['section_anchor_count']}",
+        f"section_authorized={report['section_match_count']}",
+        f"outside_authorized={report['outside_match_count']}",
+        f"zip_link_text={'yes' if report['zip_in_link_text'] else 'no'}",
+    ]
+    if report['section_matches']:
+        shape = report['section_matches'][0].split('?')[0][-80:]
+        parts.append(f"href_shape=...{shape}")
+    elif report['section_anchor_count']:
+        parts.append('href_shape=no_authorized_match_in_section')
+    else:
+        parts.append('href_shape=no_section_anchors')
+    return '; '.join(parts)
+
+
 def _downloads_detail_language_diag(response, showcase_id, expected_label):
     body = response.get('body') or ''
     parts = [f"http={response.get('status', '?')}"]
@@ -534,25 +623,25 @@ def run(_acp):
         ok('myshowcase-downloads-detail' in detail['body'], 'downloads entry detail uses the resource-oriented package view')
         ok('myshowcase-entry-view--downloads' in detail['body'], 'downloads entry view retains package page classes')
         files_section = _downloads_files_section(detail['body'])
+        link_report = _downloads_attachment_link_report(detail['body'], de['entry_id'])
         files_ok = (
             detail['status'] == 200
             and files_section is not None
-            and (
-                'tp-template-package.zip' in detail['body']
-                or '/attachment/' in detail['body']
-            )
+            and link_report['section_match_count'] >= 1
         )
         ok(
             files_ok,
             'downloads entry detail uses authorized attachment rendering for archive files'
-            + ('' if files_ok else f" [http={detail['status']}; section={'present' if files_section else 'missing'}]"),
+            + ('' if files_ok else f" [{_downloads_attachment_link_diag(de['entry_id'], link_report)}]"),
         )
-        archive_links = len(re.findall(r'href="[^"]*/(?:attachment|thumbnail)/[^"]*tp-template-package\.zip[^"]*"', detail['body']))
-        archive_once = archive_links == 1
+        archive_once = (
+            link_report['section_match_count'] == 1
+            and link_report['outside_match_count'] == 0
+        )
         ok(
             archive_once,
             'downloads entry detail exposes one authorized archive link without duplication'
-            + ('' if archive_once else f" [attachment_href_count={archive_links}]"),
+            + ('' if archive_once else f" [{_downloads_attachment_link_diag(de['entry_id'], link_report)}]"),
         )
         resources_ok = (
             files_section is not None

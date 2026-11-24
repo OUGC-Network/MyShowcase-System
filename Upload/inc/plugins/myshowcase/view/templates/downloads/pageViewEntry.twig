@@ -1,13 +1,17 @@
 <div class="myshowcase-downloads-detail myshowcase-package-entry myshowcase-package-entry--downloads">
     <section class="myshowcase-downloads-detail__files" aria-label="{{ lang.myshowcase_custom_attachments_heading }}">
+        {% set has_field_attachment_output = false %}
         {% if entry_attachments %}
             {{ entry_attachments|raw }}
-        {% else %}
-            {% for field_data in entry_data.getFields() %}
-                {% if field_data.field_definition.html_type == 'file' and field_data.attachments_rendered is not empty %}
-                    {{ field_data.attachments_rendered|raw }}
-                {% endif %}
-            {% endfor %}
+        {% endif %}
+        {% for field_data in entry_data.getFields() %}
+            {% if field_data.field_definition.html_type == 'file' and field_data.attachments_rendered is not empty %}
+                {% set has_field_attachment_output = true %}
+                {{ field_data.attachments_rendered|raw }}
+            {% endif %}
+        {% endfor %}
+        {% if entry_attachments is empty and not has_field_attachment_output %}
+            <p class="myshowcase-downloads-detail__empty">{{ lang.myshowcase_custom_attachments_empty }}</p>
         {% endif %}
     </section>
     {% include '@ext.myshowcase/pageViewEntry.twig' with {hide_file_field_attachments: true, hide_entry_attachments_block: true} %}
