@@ -51,6 +51,14 @@ try:
     print(f'\n{features.PASSES} passed, {len(features.FAILS)} failed ({a.engine}, PluginLibrary: {a.pluginlibrary})')
     for f in features.FAILS:
         print('  FAILED:', f)
+    if features.FAILS and ctx is not None:
+        board_log = os.path.join(ctx.board, 'error.log')
+        php_log = os.path.join(scratch, f'php_{a.engine}.log')
+        print(f'\nScratch diagnostics: scratch_dir={scratch}')
+        print(f'  board MyBB error log: {board_log}')
+        print(f'  PHP built-in server log: {php_log}')
+        if not a.keep and made_scratch:
+            print('  (scratch dir removed unless you pass --keep)')
 finally:
     if ctx is not None and not a.keep:
         ctx.close()

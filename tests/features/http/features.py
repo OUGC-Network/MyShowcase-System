@@ -112,11 +112,19 @@ def create_gallery(client, title, file='photo.jpg', extra=None, key=None, catego
 
 def create_blog(client, subject):
     form = client.get(f'{B}/create')
-    m = re.search(r'name="post_hash" value="([^"]+)"', form['body'])
+    form_ok = form['status'] == 200 and 'id="contentForm"' in form['body']
+    m = re.search(r'name="post_hash" value="([^"]+)"', form['body']) if form_ok else None
+    key = post_key(form['body']) if form_ok else ''
+    if not form_ok:
+        return None, {'status': form['status'], 'body': form['body'], '_diag': describe_http_failure('GET', f'{B}/create', form)}
     r = client.post(f'{B}/create', {'subject': subject, 'message': f'Message of {subject}', 'category': option_id('blog', 'News') or
                                     one("select d.field_data_id from mybb_myshowcase_field_data d, mybb_myshowcase_config c where c.route_identifier='blog' and d.collection_id=c.collection_id"),
-                                    'post_hash': m.group(1) if m else '', 'my_post_key': post_key(form['body']), 'submit': 'Post'})
-    return entry('blog', 'subject', subject), r
+                                    'post_hash': m.group(1) if m else '', 'my_post_key': key, 'submit': 'Post'})
+    row = entry('blog', 'subject', subject)
+    if row is None:
+        r['_diag'] = describe_http_failure('POST', f'{B}/create', r, expect_row=False,
+                                           extra=f'category={option_id("blog", "News")}')
+    return row, r
 
 
 def moderate(client, action, entries, key=True, route=G):
@@ -148,10 +156,79 @@ def comment_public_id(entry_id, status=None):
     return rows[0][0] if rows else ''
 
 
+def _sanitize_log_excerpt(text):
+    text = re.sub(r'my_post_key[=:]\s*[a-f0-9]{32}', 'my_post_key=[redacted]', text, flags=re.I)
+    text = re.sub(r'post_hash[=:]\s*[A-Za-z0-9_-]{8,}', 'post_hash=[redacted]', text, flags=re.I)
+    return text.strip()
+
+
+def tail_myshowcase_error_log(max_lines=4):
+    """Recent MyShowcase lines from the scratch board error.log (plain or XML), redacted."""
+    if not BOARD:
+        return []
+    err = os.path.join(BOARD, 'error.log')
+    if not os.path.isfile(err):
+        return []
+    try:
+        text = open(err, errors='replace').read()
+    except OSError:
+        return []
+    plain = [l.strip() for l in text.splitlines() if 'MyShowcase:' in l]
+    if plain:
+        return [_sanitize_log_excerpt(l)[:220] for l in plain[-max_lines:]]
+    xml = []
+    for block in re.findall(r'<error>(.*?)</error>', text, re.S):
+        one_line = re.sub(r'\s+', ' ', block).strip()
+        if 'MyShowcase' in one_line or 'myshowcase' in one_line.lower():
+            xml.append(_sanitize_log_excerpt(one_line)[:220])
+    return xml[-max_lines:]
+
+
+def scratch_log_locations():
+    parts = []
+    if SCRATCH and CTX:
+        parts.append(f'scratch={SCRATCH}')
+        parts.append(f'php_server_log={os.path.join(SCRATCH, f"php_{CTX.engine}.log")}')
+    if BOARD:
+        parts.append(f'board_error_log={os.path.join(BOARD, "error.log")}')
+    parts.append('retain_logs=--keep on tests/features/http/run.py')
+    return '; '.join(parts)
+
+
+def describe_http_failure(method, route, response, *, expect_row=None, extra=''):
+    """Sanitized HTTP failure context for unexpected 500s and failed form posts."""
+    parts = [f'{method} {route}', f'http={response.get("status", "?")}']
+    body = response.get('body') or ''
+    if 'The request could not be completed' in body and 'error log' in body.lower():
+        parts.append('signal=myshowcase_unexpected_logged')
+    err = php_errors(response)
+    if err:
+        parts.append(f'body_signal={err}')
+    summary = mybb_error_summary(body)
+    if summary:
+        parts.append(f'page={summary}')
+    if no_permission(response):
+        parts.append('permission=denied')
+    elif bad_post_key(response):
+        parts.append('post_key=rejected')
+    elif re.search(r'inline_error|validation|required field', body, re.I):
+        parts.append('validation=likely')
+    if expect_row is not None and expect_row is False:
+        parts.append('db_row=0')
+    log_tail = tail_myshowcase_error_log()
+    if log_tail:
+        parts.append('log=' + ' || '.join(log_tail))
+    parts.append(scratch_log_locations())
+    if extra:
+        parts.append(extra)
+    return '; '.join(parts)
+
+
 def mybb_error_summary(body):
     """Extract the human-readable MyBB 1.9 error body (alert__description), not the board title."""
     plain = re.sub(r'\s+', ' ', body)
     for pattern in (
+        r'The request could not be completed[^<]{0,120}',
         r'class="alert__description"[^>]*>([^<]{1,400})',
         r'class="[^"]*alert__description[^"]*"[^>]*>([^<]{1,400})',
         r'<div[^>]*class="[^"]*error[^"]*"[^>]*>([^<]{1,240})',
@@ -193,6 +270,9 @@ def describe_comment_failure(entry, r):
     summary = mybb_error_summary(r['body'])
     if summary:
         parts.append(f'error_summary={summary}')
+    log_tail = tail_myshowcase_error_log(2)
+    if log_tail:
+        parts.append('log=' + ' || '.join(log_tail))
     if no_permission(r):
         parts.append('post_body=permission_denied')
     elif bad_post_key(r):
@@ -548,12 +628,20 @@ def attachments():
 
 def _edit_attachment_diag(form, attachment_id, attachment_name):
     body = form['body']
+    if form['status'] >= 500 or 'The request could not be completed' in body:
+        return describe_http_failure('GET', f'{G}/update/<entry>', form)
     parts = [f"http={form['status']}"]
     if php_errors(form):
         parts.append(f"signal={php_errors(form)}")
     parts.append(f"name_in_body={attachment_name in body}")
     parts.append(f"remove_ctl={f'name=\"remove_attachments[]\" value=\"{attachment_id}\"' in body}")
     parts.append(f"uploaded_attachment={('uploaded-attachment' in body)}")
+    summary = mybb_error_summary(body)
+    if summary:
+        parts.append(f'page={summary}')
+    log_tail = tail_myshowcase_error_log(2)
+    if log_tail:
+        parts.append('log=' + ' || '.join(log_tail))
     return '; '.join(parts)
 
 
@@ -612,12 +700,17 @@ def main_list():
        'row: thumbnail of the first image, linked to the entry')
     ok(re.search(r'---\d{9,}---', r['body']) is None, 'no leftover debug output')
     be, br = create_blog(user('member1'), 'A blog post')
+    blog_ok = be is not None
+    ok(blog_ok, 'blog main list prerequisite: entry created through form'
+       + ('' if blog_ok else f' [{br.get("_diag", describe_http_failure("POST", f"{B}/create", br))}]'))
     r = m2.get(f'{B}/')
-    ok(be is not None and r['status'] == 200 and not php_errors(r) and 'A blog post' in r['body'] and 'thread__image' not in r['body'],
-       'blog main list: rows without an image block, no errors')
+    list_ok = blog_ok and r['status'] == 200 and not php_errors(r) and 'A blog post' in r['body'] and 'thread__image' not in r['body']
+    ok(list_ok, 'blog main list: rows without an image block, no errors'
+       + ('' if list_ok else f' [http={r["status"]}; blog_entry={"ok" if blog_ok else "missing"}]'))
     r = m2.get(f'{B}/?keywords=blog')
-    ok(r['status'] == 200 and not php_errors(r) and f"/view/{be['public_id']}/" in r['body'] and 'highlight' in r['body'],
-       'blog: keyword search on the entry subject, highlighted')
+    search_ok = blog_ok and r['status'] == 200 and not php_errors(r) and f"/view/{be['public_id']}/" in r['body'] and 'highlight' in r['body']
+    ok(search_ok, 'blog: keyword search on the entry subject, highlighted'
+       + ('' if search_ok else f' [http={r["status"]}; blocked={"yes" if not blog_ok else "no"}]'))
     return be
 
 
@@ -743,14 +836,31 @@ def logs():
     ok(not mine, f'MyBB error log: no MyShowcase errors or warnings ({len(errors)} environment entries)' + (f' ({mine[0]})' if mine else ''))
 
 
+def _blog_b0_blocked(reason):
+    ok(False, f'blog post with every field created through the form [blocked: {reason}]')
+    ok(False, 'every blog field stored as entered [blocked: blog prerequisite missing]')
+    ok(False, 'entry page shows the page description, the series and the original source [blocked: blog prerequisite missing]')
+    ok(False, 'list shows the summary and not the page description [blocked: blog prerequisite missing]')
+    ok(False, 'blog: cover image not http(s) is refused, nothing stored [blocked: blog prerequisite missing]')
+    ok(False, 'the refusal names the field with a readable message [blocked: blog prerequisite missing]')
+    ok(False, 'a script in the summary is rendered escaped [blocked: blog prerequisite missing]')
+
+
 def blog_fields():
     """The nine blog fields through the real form: stored, refused when out of range, shown according to their
     visibility, and a script value rendered escaped."""
     print('--- B0. blog fields through the real form')
     m1 = user('member1')
     form = m1.get(f'{B}/create')
-    post_hash = re.search(r'name="post_hash" value="([^"]+)"', form['body']).group(1)
-    key = post_key(form['body'])
+    form_ok = form['status'] == 200 and 'id="contentForm"' in form['body']
+    match = re.search(r'name="post_hash" value="([^"]+)"', form['body']) if form_ok else None
+    key = post_key(form['body']) if form_ok else ''
+    if not form_ok or not match or not key:
+        diag = describe_http_failure('GET', f'{B}/create', form, extra=f'post_key={"present" if key else "missing"}')
+        ok(False, 'blog create form loads with contentForm and post key' + f' [{diag}]')
+        _blog_b0_blocked('create form failed')
+        return
+    post_hash = match.group(1)
     cat = option_id('blog', 'Tutorials')
 
     attempts = iter(range(1, 1000))
@@ -764,9 +874,14 @@ def blog_fields():
         data.update(changes)
         return data
 
-    m1.post(f'{B}/create', values('Full blog post'))
+    create_response = m1.post(f'{B}/create', values('Full blog post'))
     e = entry('blog', 'subject', 'Full blog post')
-    ok(e is not None, 'blog post with every field created through the form')
+    created = e is not None
+    ok(created, 'blog post with every field created through the form'
+       + ('' if created else f' [{describe_http_failure("POST", f"{B}/create", create_response, expect_row=False, extra=f"category={cat}")}]'))
+    if not created:
+        _blog_b0_blocked('initial blog create POST failed')
+        return
     if e is not None:
         row = q(f"select summary, tags, cover_image, reading_time, series, series_part, meta_description, source_url, category "
                 f"from mybb_myshowcase_data{sid('blog')} where entry_id={e['entry_id']}")
@@ -793,9 +908,13 @@ def blog_fields():
     for label, changes in refused.items():
         subject = 'Refused: ' + label
         r = m1.post(f'{B}/create', values(subject, **changes))
-        ok(entry('blog', 'subject', subject) is None and not no_permission(r), f'blog: {label} is refused, nothing stored')
+        refused_ok = entry('blog', 'subject', subject) is None and not no_permission(r)
+        ok(refused_ok, f'blog: {label} is refused, nothing stored'
+           + ('' if refused_ok else f' [{describe_http_failure("POST", f"{B}/create", r)}]'))
         if label == 'cover image not http(s)':
-            ok('Cover image' in r['body'], 'the refusal names the field with a readable message')
+            label_ok = refused_ok and ('Cover image' in r['body'] or 'cover image' in r['body'].lower())
+            ok(label_ok, 'the refusal names the field with a readable message'
+               + ('' if label_ok else f' [http={r["status"]}; field_label_missing]'))
 
     m1.post(f'{B}/create', values('Escaped post', summary='<script>alert(1)</script>'))
     e2 = entry('blog', 'subject', 'Escaped post')
@@ -822,7 +941,10 @@ def run(acp):
     edit_form(j)
     main_list()
     template_set()
-    import template_packages
-    template_packages.run(acp)
+    try:
+        import template_packages
+        template_packages.run(acp)
+    except Exception as exc:
+        ok(False, f'TP template-package HTTP checks aborted: {type(exc).__name__}: {exc}')
     deletion(e2)
     logs()
