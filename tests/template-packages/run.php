@@ -403,23 +403,34 @@ check(
     (new \ReflectionMethod(RenderManager::class, 'prepareAttachmentEntitiesForDisplay'))->isPublic(),
     'prepareAttachmentEntitiesForDisplay is a public RenderManager entry point'
 );
+$loadEntryFieldsSource = '';
+if ($baseController !== false) {
+    if (preg_match(
+        '/protected function loadEntryFields\b[\s\S]*?(?=\n    (?:private|protected|public) function )/',
+        $baseController,
+        $loadEntryFieldsMatch
+    )) {
+        $loadEntryFieldsSource = $loadEntryFieldsMatch[0];
+    }
+}
 check(
-    $baseController !== false
-    && str_contains($baseController, 'prepareAttachmentEntitiesForDisplay')
-    && !preg_match('/attachmentsBuild\s*\([^)]*,\s*[^)]*,/', $baseController),
-    'create/update forms prepare attachments internally without a third attachmentsBuild argument'
+    $loadEntryFieldsSource !== ''
+    && !preg_match('/attachmentsBuild\s*\([^)]*,\s*[^)]*,/', $loadEntryFieldsSource),
+    'loadEntryFields does not pass a third argument through attachmentsBuild'
 );
 check(
     preg_match(
-        '/if \(\$is_create_update_page\)[^{]*prepareAttachmentEntitiesForDisplay/s',
-        (string)$baseController
+        '/if\s*\(\$is_create_update_page\)\s*\{[\s\S]*?prepareAttachmentEntitiesForDisplay\s*\(/s',
+        $loadEntryFieldsSource
     ) === 1,
-    'edit-form path calls prepareAttachmentEntitiesForDisplay instead of view Twig rendering'
+    'create/update branch in loadEntryFields calls prepareAttachmentEntitiesForDisplay'
 );
 check(
-    $baseController !== false
-    && preg_match('/\} else \{[^}]*attachmentsBuild/s', $baseController) === 1,
-    'entry view path still calls attachmentsBuild for rendered attachment HTML'
+    preg_match(
+        '/\}\s*else\s*\{[\s\S]*?\$field->attachmentsBuild\s*\(/s',
+        $loadEntryFieldsSource
+    ) === 1,
+    'entry view else branch in loadEntryFields still calls attachmentsBuild'
 );
 $editFieldTemplate = file_get_contents(\MyShowcase\ROOT . '/view/templates/pageEntryCreateUpdateField.twig');
 check(
