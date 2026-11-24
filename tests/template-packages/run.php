@@ -83,6 +83,27 @@ foreach (['blog', 'downloads', 'gallery'] as $package) {
     check(in_array($package, ShowcaseService::templateSets(), true), "shipped folder {$package} is discoverable");
 }
 
+$showcaseServiceSource = file_get_contents(\MyShowcase\ROOT . '/src/Service/ShowcaseService.php');
+check(
+    $showcaseServiceSource !== false
+    && !str_contains($showcaseServiceSource, 'my_strtolower(')
+    && str_contains($showcaseServiceSource, 'strtolower($prefix)'),
+    'template prefix normalization avoids undefined MyBB helpers'
+);
+check(ShowcaseService::normalizeTemplatePrefix('Blog') === 'blog', 'normalizeTemplatePrefix lowercases letters');
+check(ShowcaseService::normalizeTemplatePrefix('blog-2_extra') === 'blog2extra', 'normalizeTemplatePrefix strips non-alphanumeric');
+check(ShowcaseService::normalizeTemplatePrefix('../etc/passwd') === 'etcpasswd', 'normalizeTemplatePrefix strips traversal punctuation');
+check(ShowcaseService::normalizeTemplatePrefix('..') === '', 'normalizeTemplatePrefix rejects punctuation-only input');
+check(
+    ShowcaseService::normalizeTemplatePrefix('mixedCase99') === 'mixedcase99',
+    'normalizeTemplatePrefix is case-insensitive on ASCII letters'
+);
+check(
+    in_array('blog', ShowcaseService::templateSets(), true)
+    && !in_array('Blog', ShowcaseService::templateSets(), true),
+    'templateSets keeps lowercase directory names only'
+);
+
 $jsonIntKeys = json_encode(['1' => TemplateSelection::MODE_GLOBAL, '42' => TemplateSelection::MODE_CONFIGURED], JSON_THROW_ON_ERROR);
 $prefs = TemplateSelection::decodeCookiePreferences($jsonIntKeys);
 check(
