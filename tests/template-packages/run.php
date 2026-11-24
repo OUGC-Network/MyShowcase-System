@@ -118,40 +118,72 @@ foreach (
         'blog/pageViewEntry.twig',
         'downloads/pageViewEntry.twig',
         'gallery/pageViewEntry.twig',
+        'gallery/pageMain.twig',
+        'gallery/pageView.twig',
+        'blog/pageView.twig',
+        'downloads/pageView.twig',
     ] as $relative
 ) {
     check(is_file("{$twigRoot}/{$relative}"), "package template exists: {$relative}");
 }
 
-check(!is_file("{$twigRoot}/gallery/pageMain.twig"), 'gallery does not duplicate the full pageMain template');
-
 check(is_file("{$twigRoot}/partialTemplateViewToggle.twig"), 'visitor toggle partial exists');
+
+$globalNeutralityPatterns = [
+    "template_effective_prefix == '",
+    'myshowcase-gallery-entries',
+    'myshowcase-entry-view--',
+    'myshowcase-package-entry--',
+    'partialPackageStyles',
+    'showcase_template_exists',
+];
+
+foreach (glob("{$twigRoot}/*.twig") ?: [] as $globalTemplate) {
+    $basename = basename($globalTemplate);
+    if ($basename === 'partialTemplateViewToggle.twig') {
+        continue;
+    }
+
+    $contents = file_get_contents($globalTemplate);
+    if ($contents === false) {
+        check(false, "global template readable: {$basename}");
+        continue;
+    }
+
+    foreach ($globalNeutralityPatterns as $pattern) {
+        check(
+            !str_contains($contents, $pattern),
+            "global {$basename} stays package-neutral (no {$pattern})"
+        );
+    }
+}
+
+$galleryMain = file_get_contents("{$twigRoot}/gallery/pageMain.twig");
+check(
+    $galleryMain !== false
+    && preg_match(
+        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in normal_entries %}/',
+        $galleryMain
+    ) === 1,
+    'gallery package grid wraps normal entry cards'
+);
+
+check(
+    $galleryMain !== false
+    && preg_match(
+        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in stuck_entries %}/',
+        $galleryMain
+    ) === 1,
+    'gallery package grid wraps sticky entry cards'
+);
 
 $globalMain = file_get_contents("{$twigRoot}/pageMain.twig");
 check(
     $globalMain !== false
     && str_contains($globalMain, 'showcase_template(')
-    && str_contains($globalMain, 'showcase_template_exists')
-    && str_contains($globalMain, 'myshowcase-gallery-entries'),
-    'global pageMain uses optional package styles and gallery grid markers'
-);
-
-check(
-    $globalMain !== false
-    && preg_match(
-        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in normal_entries %}/',
-        $globalMain
-    ) === 1,
-    'gallery grid container wraps normal entry cards'
-);
-
-check(
-    $globalMain !== false
-    && preg_match(
-        '/myshowcase-gallery-entries[^>]*>[\s\S]*?{% for entry in stuck_entries %}/',
-        $globalMain
-    ) === 1,
-    'gallery grid container wraps sticky entry cards'
+    && str_contains($globalMain, '{% block package_head_extra %}')
+    && str_contains($globalMain, '{% block main_entry_thread_lists %}'),
+    'global pageMain exposes neutral package override blocks'
 );
 
 foreach (['blog', 'downloads', 'gallery'] as $package) {
@@ -177,6 +209,13 @@ check(
     $twigExtension !== false
     && str_contains($twigExtension, 'showcase_template_exists'),
     'ShowcaseTwigExtension registers optional template existence helper'
+);
+
+$adminPhp = file_get_contents(\MyShowcase\ROOT . '/admin.php');
+check(
+    $adminPhp !== false
+    && str_contains($adminPhp, 'TEMPLATE_PREFIX_USE_PRESET'),
+    'ACP create form defaults template set to presetdefault when unset'
 );
 
 echo PHP_EOL . ($failures === 0 ? "OK {$passes} checks\n" : "FAILED {$failures}, passed {$passes}\n");
