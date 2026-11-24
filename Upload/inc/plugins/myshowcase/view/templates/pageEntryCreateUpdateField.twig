@@ -816,7 +816,7 @@
         </h2>
 
         {% for attachment_id,attachment_data in field_data.getAttachments() %}
-            {% include showcase_template('pageEntryCreateUpdateFieldAttachment.twig') %}
+            {% include '@ext.myshowcase/pageEntryCreateUpdateFieldAttachment.twig' %}
         {% endfor %}
     </div>
 {% endif %}

@@ -302,7 +302,7 @@ class CommentsController extends BaseController
             'user_id' => $this->context->current_user->uid,
             'post_hash' => $this->requestPostHash(),
             'ipaddress' => $mybb->session->packedip,
-            'dateline' => TIME_NOW,
+            'dateline' => new \DateTime('@' . TIME_NOW),
         ]);
     }
 
