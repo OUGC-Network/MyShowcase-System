@@ -18,10 +18,14 @@ final class LanguageSelection
     /** Safe basename: lower-case letters, digits, underscores; first character alphanumeric. */
     public const BASENAME_PATTERN = '/^[a-z0-9][a-z0-9_]*$/';
 
+    /** Absolute path to inc/languages (Upload/inc/languages when ROOT is inc/plugins/myshowcase). */
+    public static function languagesRootPath(): string
+    {
+        return dirname(\MyShowcase\ROOT, 2) . '/languages';
+    }
+
     public static function isValidBasename(string $basename): bool
     {
-        $basename = my_strtolower($basename);
-
         return $basename !== ''
             && strlen($basename) <= self::BASENAME_MAX_LENGTH
             && preg_match(self::BASENAME_PATTERN, $basename) === 1;
@@ -32,27 +36,30 @@ final class LanguageSelection
      */
     public static function normalizeSubmittedBasename(string $raw): string
     {
-        $raw = my_strtolower(trim($raw));
+        $raw = trim($raw);
 
         if ($raw === '') {
             return '';
         }
 
-        if (!self::isValidBasename($raw)) {
+        $lower = strtolower($raw);
+
+        if (!self::isValidBasename($lower)) {
             return $raw;
         }
 
-        return $raw;
+        return $lower;
     }
 
     /**
      * Reusable language file basenames installed under inc/languages/&lt;lang&gt;/myshowcase_showcase_*.lang.php.
+     * Only lowercase basenames that match the on-disk filename are discovered.
      *
      * @return string[]
      */
     public static function languageSets(): array
     {
-        $languagesRoot = dirname(\MyShowcase\ROOT, 3) . '/languages';
+        $languagesRoot = self::languagesRootPath();
         $sets = [];
         $patternSuffix = '/' . self::LANGUAGE_FILE_PREFIX . '*.lang.php';
 
@@ -84,7 +91,7 @@ final class LanguageSelection
     /** MyBB language section name (filename without .lang.php) for a stored basename, or empty when unset/invalid/missing. */
     public static function languageSectionForPrefix(string $prefix): string
     {
-        $prefix = my_strtolower(trim($prefix));
+        $prefix = strtolower(trim($prefix));
 
         if ($prefix === '' || !self::isValidBasename($prefix) || !in_array($prefix, self::languageSets(), true)) {
             return '';
