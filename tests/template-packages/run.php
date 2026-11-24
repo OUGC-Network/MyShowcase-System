@@ -238,7 +238,17 @@ check(
     'ACP create form defaults template set to presetdefault when unset'
 );
 
-$globalLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase.lang.php');
+$languagesRoot = LanguageSelection::languagesRootPath();
+check(
+    is_file($languagesRoot . '/english/myshowcase.lang.php'),
+    'language root resolves to Upload/inc/languages'
+);
+check(
+    !is_file(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase.lang.php'),
+    'language root is not Upload/languages'
+);
+
+$globalLang = file_get_contents($languagesRoot . '/english/myshowcase.lang.php');
 $removedPackageKeys = [
     'myshowcase_package_blog_detail_intro',
     'myshowcase_package_downloads_detail_files',
@@ -304,14 +314,32 @@ check(
 );
 check(!LanguageSelection::isValidBasename('../etc/passwd'), 'traversal basename is invalid');
 check(!LanguageSelection::isValidBasename('bad/name'), 'slash basename is invalid');
-check(in_array('article', LanguageSelection::languageSets(), true), 'article language file is discoverable dynamically');
-check(in_array('resources', LanguageSelection::languageSets(), true), 'resources language file is discoverable dynamically');
+check(!LanguageSelection::isValidBasename('Report'), 'mixed-case basenames are invalid and excluded from discovery');
+check(
+    LanguageSelection::normalizeSubmittedBasename('Article') === 'article',
+    'ACP input normalises valid mixed-case basenames to lowercase'
+);
+check(
+    $languageSelectionSource !== false
+    && !str_contains($languageSelectionSource, 'my_strtolower(')
+    && str_contains($languageSelectionSource, "dirname(\\MyShowcase\\ROOT, 2) . '/languages'"),
+    'language discovery uses inc/languages and avoids undefined MyBB helpers'
+);
+$discoveredSets = LanguageSelection::languageSets();
+foreach ($discoveredSets as $setName) {
+    check($setName === strtolower($setName) && LanguageSelection::isValidBasename($setName), "discovered language basename {$setName} is lowercase and valid");
+}
+check(in_array('article', $discoveredSets, true), 'article language file is discoverable dynamically');
+check(in_array('resources', $discoveredSets, true), 'resources language file is discoverable dynamically');
+check(in_array('previews', $discoveredSets, true), 'previews language file is discoverable dynamically');
 check(
     in_array('custom_language_prefix', JsonSchema::SHOWCASE_EXCLUDED, true),
     'showcase JSON files cannot own custom_language_prefix'
 );
 
-$resourcesLang = file_get_contents(dirname(\MyShowcase\ROOT, 3) . '/languages/english/myshowcase_showcase_resources.lang.php');
+$resourcesLang = file_get_contents($languagesRoot . '/english/myshowcase_showcase_resources.lang.php');
+$articleLang = file_get_contents($languagesRoot . '/english/myshowcase_showcase_article.lang.php');
+check($articleLang !== false && is_file($languagesRoot . '/english/myshowcase_showcase_article.lang.php'), 'article custom language file is readable from language root');
 check(
     $resourcesLang !== false
     && str_contains($resourcesLang, 'myshowcase_custom_attachments_heading')
