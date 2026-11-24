@@ -9,6 +9,11 @@ from front import Front
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+_VOID_HTML_TAGS = frozenset({
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+    'link', 'meta', 'param', 'source', 'track', 'wbr',
+})
+
 
 def _cookie_names(client):
     return [c.name for c in client.jar]
@@ -31,38 +36,66 @@ def _toggle_main(client, base_path, mode):
     })
 
 
+def _class_attr(attrs):
+    for key, value in attrs:
+        if key == 'class':
+            return value or ''
+    return ''
+
+
 class _GalleryGridAncestry(HTMLParser):
-    """True when a gallery grid element is an ancestor of a thread row card."""
+    """True when a thread row card is a descendant of a gallery grid container."""
 
     def __init__(self):
         super().__init__()
         self._stack = []
-        self._grid_active = False
         self.thread_inside_grid = False
 
+    def _inside_grid(self):
+        return any(frame['grid'] for frame in self._stack)
+
     def handle_starttag(self, tag, attrs):
-        classes = ''
-        for key, value in attrs:
-            if key == 'class':
-                classes = value
-                break
-        self._stack.append(classes)
-        if 'myshowcase-gallery-entries' in classes.split():
-            self._grid_active = True
-        if self._grid_active and tag == 'div' and 'thread' in classes.split():
+        classes = _class_attr(attrs)
+        is_grid = 'myshowcase-gallery-entries' in classes.split()
+        if tag not in _VOID_HTML_TAGS:
+            self._stack.append({'tag': tag, 'grid': is_grid})
+        if self._inside_grid() and tag == 'div' and 'thread' in classes.split():
             self.thread_inside_grid = True
 
     def handle_endtag(self, tag):
-        if self._stack:
-            classes = self._stack.pop()
-            if 'myshowcase-gallery-entries' in classes.split():
-                self._grid_active = False
+        if tag in _VOID_HTML_TAGS:
+            return
+        while self._stack:
+            frame = self._stack.pop()
+            if frame['tag'] == tag:
+                break
 
 
 def _gallery_card_inside_grid(body):
     parser = _GalleryGridAncestry()
     parser.feed(body)
     return parser.thread_inside_grid
+
+
+def _gallery_parser_self_check():
+    ok(
+        _gallery_card_inside_grid(
+            '<div class="myshowcase-gallery-entries"><div class="thread"></div></div>'
+        ),
+        'parser self-check: thread card inside gallery grid',
+    )
+    ok(
+        not _gallery_card_inside_grid(
+            '<div class="myshowcase-gallery-entries"></div><div class="thread"></div>'
+        ),
+        'parser self-check: thread card after closed grid is not contained',
+    )
+    ok(
+        not _gallery_card_inside_grid(
+            '<div class="myshowcase-gallery-entries"><img class="thread"></div>'
+        ),
+        'parser self-check: void img with thread class is not a grid card',
+    )
 
 
 def _package_markers_absent(body, markers):
@@ -94,6 +127,8 @@ def _decode_cookie_preferences(raw):
 
 def run(_acp):
     print('--- TP. template packages and visitor preferences')
+    _gallery_parser_self_check()
+
     fix('template-set', 'gallery', 'gallery')
     fix('template-set', 'blog', 'blog')
 
@@ -136,6 +171,11 @@ def run(_acp):
     ok(prefs.get(str(gsid)) == 'g' and prefs.get(str(bsid)) == 'c',
        'switching gallery does not change blog visitor preference')
 
+    _toggle_main(m, f'{B}/', 'g')
+    prefs_blog_global = json.loads(_cookie_value(m, 'myshowcase_tpl_prefs'))
+    ok(prefs_blog_global.get(str(bsid)) == 'g' and prefs_blog_global.get(str(gsid)) == 'g',
+       'switching blog does not change gallery visitor preference')
+
     users_file = os.path.join(SCRATCH, 'users.json')
     with open(users_file, encoding='utf-8') as users_handle:
         member_password = json.load(users_handle)['member1']['password']
@@ -145,26 +185,27 @@ def run(_acp):
     ok('myshowcase_tpl_prefs' not in _cookie_names(fresh) and 'myshowcase-gallery-entries' in fresh_g['body'],
        'new browser session uses configured package defaults without a preference cookie')
 
-    ok(_decode_cookie_preferences('{"not-a-showcase-id":"g","1":"g","2":"x","3":"g"}') == {'3': 'g'},
-       'invalid cookie keys and modes are discarded safely')
+    ok(
+        _decode_cookie_preferences('{"not-a-showcase-id":"g","1":"g","2":"x","3":"g"}') == {'1': 'g', '3': 'g'},
+        'invalid cookie keys and modes are discarded safely',
+    )
 
     b_list = m.get(f'{B}/')
     ok('myshowcase-blog-entry' in b_list['body'], 'configured blog list uses package row markup')
+    ok('.myshowcase-blog-entry' in b_list['body'], 'configured blog list loads package list CSS once per page')
 
     _toggle_main(m, f'{B}/', 'g')
     b_global = m.get(f'{B}/')
     ok(_package_markers_absent(b_global['body'], ['myshowcase-blog-entry', 'myshowcase-blog-detail']),
        'blog global mode omits blog-only presentation markup')
+    ok('.myshowcase-blog-entry {' not in b_global['body'],
+       'blog global mode omits blog package list stylesheet rules')
+
     _toggle_main(m, f'{B}/', 'c')
+    _toggle_main(m, f'{G}/', 'c')
 
     e = entry('gallery', 'title', 'Member one photo')
     if e is not None:
-        view = m.get(view_url(e))
-        ok('myshowcase-gallery-detail' in view['body'], 'gallery entry view uses image-forward package markup')
-        ok('myshowcase-entry-view--gallery' in view['body'], 'gallery entry view retains package page classes')
-        ok('myshowcase-gallery-detail__hero-image' in view['body'] or 'myshowcase-gallery-detail__hero-missing' in view['body'],
-           'gallery entry detail shows hero image or an explicit missing-image fallback')
-
         view_page = m.get(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}")
         m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
             'my_post_key': post_key(view_page['body']),
@@ -177,6 +218,24 @@ def run(_acp):
         view_global = m.get(view_url(e))
         ok('myshowcase-gallery-detail' not in view_global['body'],
            'gallery entry global mode omits package-only detail markup')
+
+        view_page = m.get(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}")
+        m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
+            'my_post_key': post_key(view_page['body']),
+            'myshowcase_action': 'template_view',
+            'template_view_mode': 'c',
+            'template_return_route': 'entry_view',
+            'template_return_entry_public_id': e['public_id'],
+            'template_return_entry_slug_custom': e['entry_slug_custom'] or '',
+        })
+        view = m.get(view_url(e))
+        ok('myshowcase-gallery-detail' in view['body'], 'gallery entry configured mode uses image-forward package markup')
+        ok('myshowcase-entry-view--gallery' in view['body'], 'gallery entry view retains package page classes')
+        ok(
+            'myshowcase-gallery-detail__hero-image' in view['body']
+            or 'myshowcase-gallery-detail__hero-missing' in view['body'],
+            'gallery entry detail shows hero image or an explicit missing-image fallback',
+        )
 
         bad = m.post(f"{G}/view/{e['public_id']}/{e['entry_slug_custom'] or 'x'}", {
             'my_post_key': '0' * 32,
