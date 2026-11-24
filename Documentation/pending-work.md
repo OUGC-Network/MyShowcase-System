@@ -40,7 +40,7 @@ markers in 18 files, and three more mentions of "todo" in documentation prose. A
 | B7 | One moderator model | Access | Partial | M | P1 |
 | B8 | Naming, language files, HTTP status | Quality | Partial | M | P2 |
 | B9 | Cleanup and integrity | Quality | Partial | L | B6, B7, B8 |
-| FR1 | Final regression 1 | Tests | Not started | M | P-URL-1, B4 to B9 |
+| FR1 | Final regression 1 | Tests | Done (IA-CLOSE, 2026-11-24) | M | P-URL-1, B4 to B9 |
 | G2c | Remaining gallery integration | Gallery | Partial | M | none |
 | T0c | Import-time board configuration, PHP update steps | Gallery, import | Partial | L | none |
 | PW1 | Showcase password gate hardening | Gallery | Partial | M | none |
@@ -322,7 +322,11 @@ third-party template set calls.
 
 **What it is.** One serial run of every suite after P-URL-1 and B4 to B9.
 
-**Current state: Not started.** The command list is not frozen. These runners exist now: `tests/exports-storage/run.php`,
+**Current state: Done (IA-CLOSE, 2026-11-24).** Frozen list in `tests/FINAL-REGRESSION.md`; driver `tests/run_final_regression.py`.
+Code HEAD `256bac668d32818a7f14fba5f52d651a519a19be` (before the CLOSE documentation commit). PHP 8.2.36 (Herd `php82`).
+SQLite (MyBB CLI), MySQL 8.4.7 (127.0.0.1:3307), PostgreSQL 18.1 (127.0.0.1:5433, user `omarpg`). Final pass: 91 runs, all
+exit 0 (`ALL GREEN`); field matrix 823 pass cells per engine; `url-mode/run.php` 2206 checks; `access_matrix` 112 cells per engine.
+Fixes in the FR1 tail: `fb053f8` (new5_board item 10d post_hash length); `256bac6` (fresh_fixture moderator-cache keys). These runners exist now: `tests/exports-storage/run.php`,
 `tests/fields/unit/run.php`, `tests/fields/http/run.py` and `acp_bounds_test.py`, `tests/features/http/run.py` (with
 `url_mode.py`, `url_absolute.py`, `quote_dates.py`, `fresh_install.py`), `tests/fixtures/seeds/coverage_test.py`,
 `tests/harness/cleanup_test.py` and `interrupt_test.py`, `tests/import/run.php`, `fetcher/run.php`, `http/run.py`,
@@ -792,10 +796,42 @@ No test was executed in this run (D348). Every check added in this run is writte
 | BOARD | c413dc6, 7357949, 87a72bd, 1f1b7a6, 0df335a | Done; written, not run |
 | DOCS6 | ded083f, 1153f34 | Done |
 | DOCS | 8678a33, fed0ff0, d5943dd, a49bf3b, 1f7946b, e6973af, 9bd6187, 4aaccca, e33cb4e (G5 to G13) | Done; G14 done with NEW-5 |
-| FR1 | 989c9ef (tests/FINAL-REGRESSION.md), 9147712 (tests/run_final_regression.py) | Prepared (tests/FINAL-REGRESSION.md, tests/run_final_regression.py); result pending the owner's run (D352) |
+| FR1 | 989c9ef, 9147712, FR1-FIX commits through 256bac6 | Done (IA-CLOSE): 91/91 green on sqlite, mysql, pgsql (see "IA-CLOSE" below) |
 
-Tests written after D348 and not run: `tests/features/http/new5_board.py` (items 1, 2, 10, 11, 18, 20, 22); `tests/run_final_regression.py`
-(compiled only). The list of runners is in `tests/FINAL-REGRESSION.md`.
+The integrity-audit task (**IA-F / agent/integrity-audit-6**) is **Done** as of IA-CLOSE (2026-11-24).
 
-Open work, not part of IA-F: gallery tracks; media embeds; template packages; Q1 to Q7; NEW-1 to NEW-4; NEW-6 (limit permissions
-not enforced); NEW-7 (attachment upload box). The owner's decisions PD-IA6B-1 and PD-IA6B-3 are still open.
+Open work after IA-CLOSE (not part of the integrity-audit close-out): **NEW-1** to **NEW-4**, **NEW-6**, **NEW-7**; gallery
+tracks (G2c, T0c, PW1, PW2, T1/T3, T2b, T5, T6, M1, M2); media embeds (M1, M2); **template packages** (TP, Partial on main); **Q1**
+to **Q7**. The owner's decisions PD-IA6B-1 and PD-IA6B-3 remain open for NEW-7 and NEW-6.
+
+## IA-CLOSE (integrity-audit-6, FR1 green, 2026-11-24)
+
+Branch `agent/integrity-audit-6`, final code HEAD `256bac668d32818a7f14fba5f52d651a519a19be`. PHP 8.2.36. Engines: SQLite, MySQL
+8.4.7, PostgreSQL 18.1. Driver: `python3 tests/run_final_regression.py` with `PLUGINLIBRARY`, `MYSQL_BIN`, `PSQL_BIN`, ports 3307
+and 5433.
+
+| Pass | HEAD | Result |
+|---|---|---|
+| Targeted new5_board (mysql, pgsql), before `256bac6` | `fb053f8` | new5_board mysql 41/3 fail (item 22 cache), pgsql 41/3 fail |
+| Targeted new5_board (mysql, pgsql), after `256bac6` | `256bac6` | new5_board 44/0 each, `ALL GREEN` |
+| Full (`sqlite,mysql,pgsql`, 91 runs) | `256bac6` | `ALL GREEN: 91 of 91` |
+
+Final pass table (selected runners; every run 0 failed):
+
+| runner | sqlite | mysql | pgsql |
+|---|---|---|---|
+| fields/http/run | 823 | 823 | 823 |
+| url-mode/run | 2206 | 2206 | 2206 |
+| url_mode | 615 | 615 | 615 |
+| url_absolute | 540 | 540 | 540 |
+| features/http/run | 147 | 147 | 147 |
+| new5_board | 44 | 44 | 44 |
+| access_matrix | 112 | 112 | 112 |
+| import/http/run | 205 | 206 | 205 |
+| json-sync/http/run | 157 | 157 | 157 |
+| pwa | 369 | 369 | 369 |
+
+**DIFF (D376):** Cherry-picking the seven `git cherry main HEAD` commits onto current `main` yields tree
+`e6ad2ddcbc5a0e1f1354bc7ae4b0ddac5dbca63b`; branch HEAD tree is `b4650766bf018d46cdb8bdd9dd7f543348ef33b1`. They differ because
+`main` includes template-packages (TP) work the integrity-audit branch never contained; classification **(a)** owner/main only —
+keep TP on main, no branch action. The seven cherry-picked commits carry the FR1 fixes and driver changes the owner still needs.
